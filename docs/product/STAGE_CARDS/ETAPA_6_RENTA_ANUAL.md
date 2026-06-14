@@ -30,6 +30,13 @@ automatica. Cualquier ejecucion de EDIG solo puede ocurrir en la VM/sandbox
 descrita en `docs/operations/EDIG_AT2026_SANDBOX_RUNBOOK.md`, con datos
 ficticios, red controlada y sin credenciales reales.
 
+El inventario estatico read-only de `scripts/analyze-edig-at2026.ps1` clasifica
+senales funcionales por administracion, F22, F29/PPM, regimenes 14A/14D3/14D8/
+14G, RLI, CPT, RAI, SAC, DDJJ, balance, bienes raices/arriendos,
+reportes/respaldo, upload/export y conectividad auxiliar. Las raices de datos
+de usuario/licencia/salida quedan excluidas o redactadas; la salida se mantiene
+en `local-evidence/` y no se versiona.
+
 ## Gate
 
 - Cierres mensuales completos.

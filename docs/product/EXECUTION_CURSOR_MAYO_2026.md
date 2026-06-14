@@ -23,16 +23,16 @@ nueva.
 | Campo | Valor |
 | --- | --- |
 | Frente activo | Sin paquete tactico abierto. |
-| Fuente exacta | `main` despues de PR #813 y PR #814: mapeo EDIG AT2026 integrado, Etapa 6 alineada con motor anual tributario versionado y Etapa 5 con auditoria de contabilizacion de eventos reforzada. |
+| Fuente exacta | `main` despues del mapeo EDIG AT2026 y del paquete PR #814: Etapa 6 alineada con motor anual tributario versionado e inventario estatico con matriz de senales funcionales; Etapa 5 con auditoria de contabilizacion de eventos reforzada. |
 | Brecha activa | Pendiente elegir el siguiente frente seguro desde plan trazable, stage cards, gates y estado real del repositorio. |
-| Motivo de prioridad | Evitar que compactaciones o contexto auxiliar reabran paquetes ya cerrados, vuelvan a redactar goals/prompts o pierdan el orden trazable desde el repo. |
+| Motivo de prioridad | Evitar que compactaciones o contexto auxiliar reabran paquetes ya cerrados, repitan goals/prompts o pierdan el orden trazable desde el repo. |
 | Worktree | N/A. |
 | Rama | `main`. |
-| Estado | PR #813 cerrado: EDIG protegido por Git, matriz EDIG->LeaseManager creada, runbook sandbox creado, script de inventario read-only creado y arquitectura de Renta Anual actualizada. PR #814 cerrado: creacion y reintento de `EventoContable` auditan `state_changed` cuando cambia `estado_contable`. |
+| Estado | Mapeo EDIG cerrado: EDIG protegido por Git, matriz EDIG->LeaseManager creada, runbook sandbox creado, script de inventario read-only con matriz de senales funcionales y arquitectura de Renta Anual actualizada. PR #814 cerrado: creacion y reintento de `EventoContable` auditan `state_changed` cuando cambia `estado_contable`. |
 | Gate esperado | Antes del proximo paquete, confirmar `git status --short --branch`, `git worktree list` y seleccionar una brecha real que no dependa de secretos, EDIG ejecutado, SII real, banco real ni datos productivos. |
-| Estado al cerrar paquete | Etapa 6 quedo alineada con normalizador anual RLI/CPT/RAI/SAC/DDJJ/F22 por ano tributario. Etapa 5 registra `contabilidad.evento_contable.state_changed` con transicion y `asiento_id`; si falla auditoria, se revierte evento/asiento/estado. |
+| Estado al cerrar paquete | Etapa 6 quedo alineada con normalizador anual RLI/CPT/RAI/SAC/DDJJ/F22 por ano tributario, con EDIG como referencia funcional no normativa y sin apertura del gate SII. Etapa 5 registra `contabilidad.evento_contable.state_changed` con transicion y `asiento_id`; si falla auditoria, se revierte evento/asiento/estado. |
 | Bloqueos relacionados | Presentacion F22/DDJJ final sigue bloqueada sin formato/certificacion SII vigente, responsable, autorizacion explicita y evidencia no sensible. Ejecucion EDIG solo en VM/sandbox con datos ficticios. |
-| Politica de reanudacion | No reabrir conversaciones de goal, no repetir el mapeo EDIG ni reabrir la auditoria de contabilizacion ya cerrada. Si no hay worktree sucio, continuar por el siguiente frente util y seguro del repo; si un gate externo bloquea cierre, registrar una vez y seguir con preparacion local valida. |
+| Politica de reanudacion | No reabrir conversaciones de goal, no repetir el mapeo EDIG ya documentado ni reabrir la auditoria de contabilizacion ya cerrada. Si no hay worktree sucio, continuar por el siguiente frente util y seguro del repo; si un gate externo bloquea cierre, registrar una vez y seguir con preparacion local valida. |
 | Siguiente accion | Diagnosticar estado real y avanzar el siguiente paquete tecnico trazable permitido por la arquitectura. |
 
 ## Actualizacion

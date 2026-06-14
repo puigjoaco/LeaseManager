@@ -23,6 +23,14 @@ contabilidad y renta mediante una capa intermedia anual RLI/CPT/RAI/SAC/DDJJ,
 no por traspaso directo de asientos a F22 ni por IA autonoma. EDIG queda
 ignorado por Git y no abre gate SII.
 
+Nota 2026-06-13: El inventario EDIG AT2026 agrega matriz de senales
+funcionales sin versionar evidencia bruta: administracion, F22, F29/PPM,
+regimenes 14A/14D3/14D8/14G, RLI, CPT, RAI, SAC, DDJJ,
+balance/contabilidad, bienes raices/arriendos, reportes/respaldo,
+upload/export y conectividad auxiliar. `CONTRIB/`, `LICENCIAS/`, `RESPUESTA/`
+y `UPLOAD/` se excluyen o redactan para evitar datos de usuario, licencia o
+salidas de presentacion.
+
 Nota 2026-06-13: Etapa 6/7 convierten el boundary asistido en enforcement
 local para artefactos anuales. `ProcesoRentaAnual`, DDJJ y F22 en estados
 aprobados, observados, rectificados o presentados requieren
