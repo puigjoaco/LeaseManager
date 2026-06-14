@@ -995,6 +995,57 @@ class Stage5ContabilidadReadinessTests(TestCase):
         self.assertEqual(result['sections']['monthly_close']['reopened_closes'], 1)
         self.assertEqual(result['sections']['monthly_close']['reopened_closes_without_effect'], 1)
 
+    def test_reopened_close_without_state_changed_audit_is_blocking(self):
+        empresa = self._create_valid_local_matrix()
+        close = CierreMensualContable.objects.get(empresa=empresa, anio=2026, mes=1)
+        close.estado = EstadoCierreMensual.REOPENED
+        close.save(update_fields=['estado', 'updated_at'])
+        event = EventoContable.objects.create(
+            empresa=empresa,
+            evento_tipo='ReaperturaCierreMensualReverso',
+            entidad_origen_tipo='cierre_mensual_contable',
+            entidad_origen_id=str(close.pk),
+            fecha_operativa=date(2026, 2, 1),
+            moneda='CLP',
+            monto_base=Decimal('100000.00'),
+            payload_resumen={'origen': 'reapertura-controlada'},
+            idempotency_key='stage5-reopen-effect-posted',
+            estado_contable=EstadoEventoContable.POSTED,
+        )
+        EfectoReaperturaCierreMensual.objects.create(
+            cierre=close,
+            politica_reverso=PoliticaReversoContable.objects.get(empresa=empresa),
+            evento_contable=event,
+            tipo_efecto='reverso',
+            monto_efecto=Decimal('100000.00'),
+            motivo='reapertura-controlada',
+            efecto_esperado='reverso-posterior-controlado',
+            evidencia_ref='stage5-reopen-evidence-state-audit',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertIn('stage5.reopened_close_state_audit_missing', issue_codes)
+        self.assertEqual(result['sections']['monthly_close']['reopened_closes_without_state_changed_event'], 1)
+
+        AuditEvent.objects.create(
+            event_type='contabilidad.cierre_mensual.state_changed',
+            entity_type='cierre_mensual_contable',
+            entity_id=str(close.pk),
+            summary='Cambio de estado de cierre mensual',
+            metadata={
+                'campo_estado': 'estado',
+                'estado_anterior': 'aprobado',
+                'estado_nuevo': 'reabierto',
+            },
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+        self.assertNotIn('stage5.reopened_close_state_audit_missing', issue_codes)
+        self.assertEqual(result['sections']['monthly_close']['reopened_closes_without_state_changed_event'], 0)
+
     def test_reopen_effect_without_posted_event_is_blocking(self):
         empresa = self._create_valid_local_matrix()
         close = CierreMensualContable.objects.get(empresa=empresa, anio=2026, mes=1)

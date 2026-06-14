@@ -745,15 +745,38 @@ class CierreMensualReopenView(APIView):
             ),
             pk=pk,
         )
+        previous_state = close.estado
         try:
             with transaction.atomic():
                 close, effect = reopen_monthly_close(close, **serializer.validated_data)
+                reopen_context = {
+                    'efecto_reapertura_id': effect.pk,
+                    'evento_contable_id': effect.evento_contable_id,
+                    'tipo_efecto': effect.tipo_efecto,
+                    'monto_efecto': str(effect.monto_efecto),
+                    'evidencia_ref': effect.evidencia_ref,
+                }
+                transition_metadata = {
+                    'campo_estado': 'estado',
+                    'estado_anterior': previous_state,
+                    'estado_nuevo': close.estado,
+                    'reapertura': redact_sensitive_payload(reopen_context),
+                }
                 create_audit_event(
                     event_type='contabilidad.cierre_mensual.reopened',
                     entity_type='cierre_mensual_contable',
                     entity_id=str(close.pk),
                     summary='Cierre mensual reabierto',
-                    metadata={'efecto_reapertura_id': effect.pk, 'evento_contable_id': effect.evento_contable_id},
+                    metadata=transition_metadata,
+                    actor_user=request.user,
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                )
+                create_audit_event(
+                    event_type='contabilidad.cierre_mensual.state_changed',
+                    entity_type='cierre_mensual_contable',
+                    entity_id=str(close.pk),
+                    summary='Cambio de estado de cierre mensual',
+                    metadata=transition_metadata,
                     actor_user=request.user,
                     ip_address=request.META.get('REMOTE_ADDR'),
                 )

@@ -70,10 +70,13 @@ contable o tributaria requiere criterio.
   `reverso` o `asiento_complementario`, segun la politica activa. El efecto
   exige motivo, efecto esperado, monto, evidencia no sensible y genera un
   `EventoContable` contabilizado en el periodo posterior; la reapertura no se
-  guarda si falta regla/matriz activa para ese efecto.
+  guarda si falta regla/matriz activa para ese efecto. La API de reapertura
+  registra `reopened` y `state_changed` en la misma transaccion con transicion
+  `aprobado` -> `reabierto` y contexto redactable del efecto.
 - `audit_stage5_contabilidad_readiness` detecta cierres reabiertos sin efecto
-  de reapertura, efectos sin evento contable contabilizado o referencias
-  sensibles en motivo/evidencia del efecto.
+  de reapertura, sin auditoria `state_changed` trazable, efectos sin evento
+  contable contabilizado o referencias sensibles en motivo/evidencia del
+  efecto.
 - Movimientos de asiento obligatorios, con sumas debe/haber iguales a los
   totales del asiento y cuentas contables de la misma empresa del evento.
   `MovimientoAsiento.clean()` bloquea nuevas escrituras con cuentas de otra

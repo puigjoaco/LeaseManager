@@ -2540,6 +2540,50 @@ class ContabilidadAPITests(APITestCase):
             'aprobado',
         )
 
+    def test_reopen_monthly_close_rolls_back_when_state_changed_audit_fails(self):
+        empresa, _, close = self._prepare_monthly_close_for_audit_tests('000666', with_reopen_rule=True)
+        self._create_company_liquidation_for_close(empresa, close)
+        approve = self.client.post(reverse('contabilidad-cierre-approve', args=[close.id]), format='json')
+        self.assertEqual(approve.status_code, status.HTTP_200_OK)
+        self._allow_monthly_close_reopen(empresa)
+
+        def fail_state_changed_audit(**kwargs):
+            if kwargs['event_type'] == 'contabilidad.cierre_mensual.state_changed':
+                raise RuntimeError('reopen state audit unavailable')
+            return None
+
+        with patch('contabilidad.views.create_audit_event', side_effect=fail_state_changed_audit):
+            with self.assertRaisesRegex(RuntimeError, 'reopen state audit unavailable'):
+                self.client.post(
+                    reverse('contabilidad-cierre-reopen', args=[close.id]),
+                    self._reopen_effect_payload('state-audit-fail'),
+                    format='json',
+                )
+
+        close.refresh_from_db()
+        self.assertEqual(close.estado, 'aprobado')
+        self.assertFalse(EfectoReaperturaCierreMensual.objects.filter(cierre=close).exists())
+        self.assertFalse(
+            EventoContable.objects.filter(
+                evento_tipo=MONTHLY_CLOSE_REOPEN_REVERSAL_EVENT_TYPE,
+                entidad_origen_tipo='cierre_mensual_contable',
+                entidad_origen_id=str(close.pk),
+            ).exists()
+        )
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type='contabilidad.cierre_mensual.reopened',
+                entity_type='cierre_mensual_contable',
+                entity_id=str(close.pk),
+            ).exists()
+        )
+        self.assertEqual(LibroDiario.objects.get(empresa=empresa, periodo='2026-01').estado_snapshot, 'aprobado')
+        self.assertEqual(LibroMayor.objects.get(empresa=empresa, periodo='2026-01').estado_snapshot, 'aprobado')
+        self.assertEqual(
+            BalanceComprobacion.objects.get(empresa=empresa, periodo='2026-01').estado_snapshot,
+            'aprobado',
+        )
+
     def test_prepare_and_approve_and_reopen_monthly_close(self):
         empresa = self._create_active_empresa(nombre='ApproveCo', rut='56565656-5')
         accounts = self._setup_contabilidad(empresa)
@@ -2597,6 +2641,26 @@ class ContabilidadAPITests(APITestCase):
         self.assertEqual(reopen.data['estado'], 'reabierto')
         self.assertEqual(reopen.data['resumen_obligaciones']['reapertura']['tipo_efecto'], 'reverso')
         self.assertEqual(EfectoReaperturaCierreMensual.objects.count(), 1)
+        reopened_event = AuditEvent.objects.get(
+            event_type='contabilidad.cierre_mensual.reopened',
+            entity_type='cierre_mensual_contable',
+            entity_id=str(prepare.data['id']),
+        )
+        self.assertEqual(reopened_event.metadata['campo_estado'], 'estado')
+        self.assertEqual(reopened_event.metadata['estado_anterior'], 'aprobado')
+        self.assertEqual(reopened_event.metadata['estado_nuevo'], 'reabierto')
+        self.assertEqual(reopened_event.metadata['reapertura']['tipo_efecto'], 'reverso')
+        self.assertEqual(reopened_event.metadata['reapertura']['evidencia_ref'], 'stage5-reopen-evidence-approve')
+        state_events = AuditEvent.objects.filter(
+            event_type='contabilidad.cierre_mensual.state_changed',
+            entity_type='cierre_mensual_contable',
+            entity_id=str(prepare.data['id']),
+        ).order_by('id')
+        self.assertEqual(state_events.count(), 2)
+        reopen_state_event = state_events.last()
+        self.assertEqual(reopen_state_event.metadata['estado_anterior'], 'aprobado')
+        self.assertEqual(reopen_state_event.metadata['estado_nuevo'], 'reabierto')
+        self.assertEqual(reopen_state_event.metadata['reapertura']['tipo_efecto'], 'reverso')
 
     def test_reopen_monthly_close_requires_posted_reopen_effect(self):
         empresa = self._create_active_empresa(nombre='ReopenEffectCo', rut='58585858-3')
