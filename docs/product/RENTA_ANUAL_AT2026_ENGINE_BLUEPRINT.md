@@ -17,6 +17,9 @@ ignoradas bajo `local-evidence/`:
   plantillas, reportes, tokens estructurales y senales funcionales.
 - `extract-edig-mdb-schema.ps1`: metadata de tablas/columnas desde copias
   temporales de MDB nucleo, sin leer filas.
+- `build-edig-at2026-leasemanager-coverage.ps1`: matriz local ignorada que
+  cruza senales EDIG sanitizadas contra componentes propios observables en
+  LeaseManager, sin leer EDIG ni versionar salidas.
 
 La corrida local de esquema extrajo 7/7 MDB nucleo, con 205 tablas y 5.494
 columnas. La distribucion funcional observada fue:
@@ -167,6 +170,34 @@ contratos:
    readiness bloquea si falta export, si el resumen esta desalineado, si hay
    revision pendiente o si intenta declarar formato oficial/presentacion/calculo
    final.
+10. `stage6-edig-coverage-matrix`: matriz de cobertura segura, sin dependencia
+    runtime de EDIG. Implementado como
+    `build-edig-at2026-leasemanager-coverage.ps1`: toma los inventarios
+    sanitizados de `local-evidence/`, resume cobertura por area y separa
+    claramente componentes ya implementados de brechas externas/oficiales.
+
+## Cobertura actual contra EDIG AT2026
+
+La matriz local generada el 2026-06-14 sobre la instalacion EDIG AT2026
+ignorando artefactos propietarios muestra que las nueve capas funcionales
+necesarias ya tienen equivalente propio en LeaseManager:
+
+| Capa | Estado actual |
+| --- | --- |
+| Contribuyente, regimen y capacidades | implementado como fundacion local |
+| F29/PPM mensual | implementado como preparacion; cierre final bloqueado |
+| Parametria AT/regimen | shell implementado; reglas finales bloqueadas |
+| RLI/CPT | skeleton implementado; mapping fiscal pendiente |
+| RAI/SAC/retiros/dividendos | preparacion implementada; saldos historicos pendientes |
+| Bienes raices/arriendos/contribuciones | seccion implementada; fuente contribuciones pendiente |
+| Matriz DDJJ/F22 | matriz revisable implementada |
+| Dossier/respaldo | paquete revisable implementado |
+| Export/upload | export local implementado; presentacion externa bloqueada |
+
+La conclusion operativa es que EDIG ya no debe ser usado como fuente para
+seguir agregando estructura interna. El siguiente avance real depende de fuente
+SII/experta para reglas AT2026, DJ/F22, contribuciones, formatos y validaciones
+oficiales.
 
 ## Validaciones necesarias
 

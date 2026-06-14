@@ -122,6 +122,34 @@ las capas observadas en componentes propios (`AnnualTaxSourceBundle`,
 `TaxYearRuleSet`, `AnnualTaxNormalizer`, RLI/CPT/RAI/SAC, DDJJ, F22, dossier y
 export gate) y fija el orden recomendado de paquetes tecnicos.
 
+## Cobertura EDIG -> LeaseManager
+
+`scripts/build-edig-at2026-leasemanager-coverage.ps1` consolida los dos
+inventarios sanitizados (`edig-at2026-static-inventory.json` y
+`edig-at2026-mdb-schema.json`) en una matriz local ignorada bajo
+`local-evidence/edig-at2026-coverage/`. El script no abre EDIG, no lee filas
+MDB, no copia formulas ni versiona salidas; solo cruza conteos funcionales con
+componentes propios ya observables en el repo.
+
+La corrida local read-only del 2026-06-14 confirma esta cobertura:
+
+| Area | Senales EDIG | Tablas MDB | Estado LeaseManager |
+| --- | ---: | ---: | --- |
+| Contribuyente, regimen y capacidades | 32 | 15 | fundacion local implementada |
+| F29, IVA y PPM mensual como insumo anual | 56 | 19 | preparacion implementada; cierre final bloqueado |
+| Parametria AT/regimen | 47 | 5 | shell implementado; reglas finales bloqueadas |
+| RLI y CPT | 33 | 58 | skeleton implementado; mapping fiscal pendiente |
+| RAI, SAC, retiros y dividendos | 11 | 43 | preparacion implementada; saldos historicos pendientes |
+| Bienes raices, arriendos y contribuciones | 3 | 3 | seccion implementada; fuente contribuciones pendiente |
+| Matriz DDJJ/F22 | 58 | 56 | matriz revisable implementada |
+| Dossier y respaldos | 95 | 0 | paquete revisable implementado |
+| Export/upload/presentacion | 70 | 3 | export local implementado; presentacion externa bloqueada |
+
+Lectura: LeaseManager ya tiene la columna vertebral propia que EDIG evidencia
+como necesaria para renta AT2026. Lo que falta no es copiar mas EDIG, sino
+cerrar fuentes oficiales/experta para reglas AT, mapping plan de cuentas ->
+RLI/CPT/DJ/F22, contribuciones y formato/certificacion SII vigente.
+
 ## Linea de diseno propia
 
 LeaseManager debe implementar un motor anual por ano tributario con estas
@@ -160,15 +188,16 @@ documento oficial vigente.
 
 ## Proximos paquetes tecnicos
 
-1. `stage6-tax-mapping-foundation`: modelos o fixtures de regla versionada por
-   ano tributario, sin formulas fiscales finales.
-2. `stage6-annual-normalizer-readiness`: normalizador anual que arma estructura
-   RLI/CPT/RAI/SAC vacia/trazada desde cierres y ledger controlados.
-3. `stage6-real-estate-f22-mapping`: mapping oficial de arriendos, bienes
-   raices y contribuciones a codigos F22 cuando exista fuente oficial/experta.
-4. `stage6-ddjj-media-matrix`: matriz DDJJ aplicable a LeaseManager con medio
-   SII permitido, datos requeridos y gate.
-5. `stage6-export-gate`: export/preview controlado, sin presentacion final.
+1. `stage6-edig-coverage-matrix`: mantener el cruce automatizado EDIG ->
+   LeaseManager para no volver a mapear manualmente lo ya observado.
+2. `stage6-dj1847-balance-cpt-mapping`: mapping plan de cuentas/balance ->
+   RLI/CPT/DJ/F22 solo con instrucciones SII AT2026 o experto responsable.
+3. `stage6-real-estate-official-source`: cargar contribuciones, codigos y
+   fuentes de bienes raices/arriendos desde respaldo oficial/experto.
+4. `stage6-ddjj-official-media-matrix`: completar medios/formato DDJJ 2026
+   aplicables a LeaseManager desde fuente SII vigente.
+5. `stage6-f22-official-export-format`: convertir `AnnualTaxExport` en formato
+   certificable solo si existe formato/certificacion SII vigente y autorizada.
 
 ## Reglas de seguridad
 

@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Cerrar `stage6-export-gate`. |
-| Fuente exacta | Rama tactica `codex/stage6-export-gate` basada en `main` posterior a `stage6-dossier-review`; verificar SHA real con `git log -1 --oneline`. |
-| Brecha activa | `stage6-export-gate`: export/preview local controlado que conecta `AnnualTaxDossier`, source bundle, rule set, matriz DDJJ/F22 y documentos DDJJ/F22 locales sin declarar formato oficial ni presentacion SII. |
-| Motivo de prioridad | EDIG muestra que la renta termina en una salida/export revisable antes del upload; LeaseManager necesita una salida propia hasheada y bloqueada por gate, no un salto desde dossier a presentacion. |
-| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-export-gate` durante el paquete; tras merge debe quedar solo el root principal esperado, salvo worktrees no relacionados ya existentes. |
-| Rama | `codex/stage6-export-gate` durante el paquete; `main` tras merge. |
-| Estado | Validado para cierre: `AnnualTaxExport` agrega preview/export local controlado con payload hasheado, refs no sensibles, responsable, conteos DDJJ/F22 y flags obligatorios `official_format=false`, `sii_submission=false`, `final_tax_calculation=false`. API/snapshot/admin redactan refs/payloads; readiness bloquea procesos sin export, con resumen desalineado, invalidos, refs faltantes, revision pendiente o intento de presentacion/formato oficial/calculo final. Pendiente solo PR, CI, merge y limpieza del paquete. |
+| Frente activo | Sin paquete tactico activo tras cerrar `stage6-edig-inventory`. |
+| Fuente exacta | Rama tactica `codex/stage6-edig-inventory` basada en `main` `9f0a36bb` posterior a PR #828. |
+| Brecha activa | `stage6-edig-inventory`: consolidar inventarios EDIG AT2026 ya sanitizados en una matriz EDIG -> LeaseManager que pruebe cobertura funcional y separe brechas externas/oficiales. |
+| Motivo de prioridad | El objetivo activo es absorber informacion de EDIG para decidir mejor la renta 2026. Ya existe motor anual propio hasta export local; falta dejar un cruce reproducible que evite volver a mapear EDIG manualmente y que muestre que lo pendiente es fuente oficial/experta, no mas estructura EDIG. |
+| Worktree | El worktree `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-edig-inventory` queda solo para cerrar PR/CI/merge y limpieza; tras merge debe eliminarse. |
+| Rama | `codex/stage6-edig-inventory` hasta el merge; `main` tras merge. |
+| Estado | Validado para cierre: `build-edig-at2026-leasemanager-coverage.ps1` genera una matriz local ignorada desde `edig-at2026-static-inventory.json` y `edig-at2026-mdb-schema.json`. La corrida local confirma 291 archivos estaticos, 17 senales funcionales, 7/7 MDB nucleo, 205 tablas y 5.494 columnas observadas, y cobertura propia para configuracion, F29/PPM, parametria AT, RLI/CPT, RAI/SAC, bienes raices, matriz DDJJ/F22, dossier y export local. |
 | Gate esperado | Mantener `classification=parcial`; no cerrar presentacion anual sin fuente autorizada, formato/certificacion SII vigente, validacion fiscal/oficial, responsable y evidencia no sensible. |
-| Estado al cerrar paquete | `stage6-export-gate` cerrado. Aun faltan formato/certificacion SII vigente, decision tributaria supervisada y autorizacion explicita para cualquier presentacion final. |
-| Bloqueos relacionados | Presentacion F22/DDJJ final sigue bloqueada sin formato/certificacion SII vigente, responsable, autorizacion explicita y evidencia no sensible. Ejecucion EDIG solo en VM/sandbox con datos ficticios. |
+| Estado al cerrar paquete | `stage6-edig-inventory` cerrado. Queda documentado que EDIG ya fue absorbido como referencia funcional suficiente; el siguiente avance real requiere fuente SII/experta para mapping fiscal, contribuciones, formatos/certificacion o saldos historicos, o bien preparar un frente local no sensible que no intente cerrar presentacion anual. |
+| Bloqueos relacionados | Presentacion F22/DDJJ final sigue bloqueada sin formato/certificacion SII vigente, responsable, autorizacion explicita y evidencia no sensible. Ejecucion EDIG solo en VM/sandbox con datos ficticios. EDIG no es fuente normativa ni runtime de LeaseManager. |
 | Politica de reanudacion | No reabrir metatareas administrativas ya cerradas, no repetir el mapeo EDIG ya documentado, no volver a inventariar EDIG salvo solicitud nueva concreta y no reabrir la auditoria de contabilizacion ya cerrada. Si no hay worktree sucio, continuar por el siguiente frente util y seguro del repo; si un gate externo bloquea cierre, registrar una vez y seguir con preparacion local valida. |
-| Siguiente accion | Cerrar PR/CI/merge de `stage6-export-gate`; luego diagnosticar el siguiente frente seguro de Etapa 6/7 sin abrir presentacion SII, EDIG, datos reales ni secretos. |
+| Siguiente accion | Tras merge y limpieza, diagnosticar el siguiente frente util desde `main` limpio. No reabrir EDIG ni goal prompts; continuar solo con trabajo trazable que avance Stage 6/7 sin presentacion SII, datos reales, secretos ni automatizacion tributaria final. |
 
 ## Actualizacion
 
