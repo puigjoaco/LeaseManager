@@ -2431,7 +2431,15 @@ class AnnualTaxDossier(OperationalSIITextNormalizationMixin, TimestampedModel):
                     'resumen_dossier debe coincidir con empresa, proceso, fuente, regla, matriz, anio y totales.'
                 )
             if self.resumen_dossier.get('review_state') and self.resumen_dossier.get('review_state') != self.review_state:
-                errors['resumen_dossier'] = 'resumen_dossier debe coincidir con review_state.'
+                _add_error(errors, 'resumen_dossier', 'resumen_dossier debe coincidir con review_state.')
+            if self.resumen_dossier.get('official_format') not in (False, None):
+                _add_error(errors, 'resumen_dossier', 'AnnualTaxDossier v1 no declara formato oficial SII.')
+            if self.resumen_dossier.get('sii_submission') not in (False, None):
+                _add_error(errors, 'resumen_dossier', 'AnnualTaxDossier v1 no registra presentacion SII.')
+            if self.resumen_dossier.get('sii_submission_attempted'):
+                _add_error(errors, 'resumen_dossier', 'AnnualTaxDossier v1 no registra intentos de presentacion SII.')
+            if self.resumen_dossier.get('final_tax_calculation') not in (False, None):
+                _add_error(errors, 'resumen_dossier', 'AnnualTaxDossier v1 no declara calculo fiscal final.')
             expected_hash = _payload_hash(self.resumen_dossier)
             if self.hash_dossier and self.hash_dossier != expected_hash:
                 errors['hash_dossier'] = 'hash_dossier debe corresponder al resumen_dossier.'

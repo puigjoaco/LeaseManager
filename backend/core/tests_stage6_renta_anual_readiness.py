@@ -1052,6 +1052,52 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertNotIn('api_key', serialized_result)
         self.assertNotIn('tax-dossier-secret', serialized_result)
 
+    def test_tax_dossier_boundary_flags_are_blocking(self):
+        self._create_valid_local_matrix()
+        dossier = AnnualTaxDossier.objects.get()
+        process = dossier.proceso_renta_anual
+        dossier_summary = dict(dossier.resumen_dossier)
+        dossier_summary.update(
+            {
+                'official_format': True,
+                'sii_submission': True,
+                'sii_submission_attempted': True,
+                'final_tax_calculation': True,
+            }
+        )
+        hash_dossier = hashlib.sha256(
+            json.dumps(
+                dossier_summary,
+                sort_keys=True,
+                separators=(',', ':'),
+                ensure_ascii=True,
+                default=str,
+            ).encode('utf-8')
+        ).hexdigest()
+        AnnualTaxDossier.objects.filter(pk=dossier.pk).update(
+            resumen_dossier=dossier_summary,
+            hash_dossier=hash_dossier,
+        )
+        process_summary = dict(process.resumen_anual)
+        dossier_process_summary = dict(process_summary['annual_tax_dossiers'])
+        by_id = dict(dossier_process_summary['by_id'])
+        item_summary = dict(by_id[str(dossier.id)])
+        item_summary['hash_dossier'] = hash_dossier
+        by_id[str(dossier.id)] = item_summary
+        dossier_process_summary['by_id'] = by_id
+        process_summary['annual_tax_dossiers'] = dossier_process_summary
+        process.resumen_anual = process_summary
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.tax_dossier_invalid', issue_codes)
+        self.assertIn('stage6.tax_dossier_official_format_boundary', issue_codes)
+        self.assertIn('stage6.tax_dossier_sii_submission_boundary', issue_codes)
+        self.assertIn('stage6.tax_dossier_final_calculation_boundary', issue_codes)
+
     def test_annual_process_without_tax_export_is_blocking(self):
         self._create_valid_local_matrix()
         AnnualTaxExport.objects.all().delete()
