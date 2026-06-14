@@ -19,6 +19,8 @@ from .models import (
     AnnualTaxOfficialSource,
     AnnualTaxReviewChecklist,
     AnnualTaxSourceBundle,
+    AnnualTaxTrialBalance,
+    AnnualTaxTrialBalanceLine,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
     CapacidadTributariaSII,
@@ -317,6 +319,69 @@ class MonthlyTaxFactSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelS
         except DjangoValidationError as error:
             raise_drf_validation_error(error)
         return attrs
+
+
+class AnnualTaxTrialBalanceSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('source_ref', 'responsible_ref')
+    redacted_payload_fields = ('resumen_balance',)
+
+    class Meta:
+        model = AnnualTaxTrialBalance
+        fields = (
+            'id',
+            'empresa',
+            'proceso_renta_anual',
+            'source_bundle',
+            'rule_set',
+            'official_source',
+            'source_balance',
+            'anio_tributario',
+            'anio_comercial',
+            'periodo_cierre',
+            'source_ref',
+            'responsible_ref',
+            'lines_total',
+            'warnings_total',
+            'resumen_balance',
+            'hash_balance',
+            'estado',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = fields
+
+
+class AnnualTaxTrialBalanceLineSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('formula_ref', 'evidencia_ref')
+    redacted_payload_fields = ('warnings', 'source_payload')
+
+    class Meta:
+        model = AnnualTaxTrialBalanceLine
+        fields = (
+            'id',
+            'trial_balance',
+            'cuenta_contable',
+            'codigo_cuenta',
+            'nombre_cuenta',
+            'clasificador_dj1847',
+            'sumas_debe_clp',
+            'sumas_haber_clp',
+            'saldo_deudor_clp',
+            'saldo_acreedor_clp',
+            'inventario_activo_clp',
+            'inventario_pasivo_clp',
+            'resultado_perdida_clp',
+            'resultado_ganancia_clp',
+            'formula_ref',
+            'evidencia_ref',
+            'warnings',
+            'source_payload',
+            'hash_linea',
+            'estado',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = fields
 
 
 class AnnualTaxWorkbookSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):

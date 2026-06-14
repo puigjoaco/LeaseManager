@@ -1,6 +1,7 @@
 import hashlib
 import json
 from datetime import date, timedelta
+from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.admin.sites import AdminSite
@@ -17,7 +18,15 @@ from rest_framework.test import APITestCase
 from audit.models import AuditEvent
 from cobranza.models import PagoMensual
 from cobranza.services import sync_payment_distribution
-from contabilidad.models import CierreMensualContable, ConfiguracionFiscalEmpresa, ObligacionTributariaMensual, RegimenTributarioEmpresa
+from contabilidad.models import (
+    BalanceComprobacion,
+    CierreMensualContable,
+    ConfiguracionFiscalEmpresa,
+    CuentaContable,
+    NaturalezaCuenta,
+    ObligacionTributariaMensual,
+    RegimenTributarioEmpresa,
+)
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
@@ -35,6 +44,8 @@ from .admin import (
     AnnualTaxOfficialSourceAdmin,
     AnnualTaxReviewChecklistAdmin,
     AnnualTaxSourceBundleAdmin,
+    AnnualTaxTrialBalanceAdmin,
+    AnnualTaxTrialBalanceLineAdmin,
     AnnualTaxWorkbookAdmin,
     AnnualTaxWorkbookLineAdmin,
     CapacidadTributariaSIIAdmin,
@@ -59,6 +70,8 @@ from .models import (
     AnnualTaxOfficialSource,
     AnnualTaxReviewChecklist,
     AnnualTaxSourceBundle,
+    AnnualTaxTrialBalance,
+    AnnualTaxTrialBalanceLine,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
     CapacidadTributariaSII,
@@ -948,6 +961,59 @@ class SiiAPITests(APITestCase):
                 monto_calculado='10011.10',
                 estado_preparacion='preparado',
             )
+
+    def _create_annual_trial_balance_source(self, empresa, fiscal_year=2026):
+        revenue_account, _ = CuentaContable.objects.get_or_create(
+            empresa=empresa,
+            plan_cuentas_version='stage6-controlled',
+            codigo='4100',
+            defaults={
+                'nombre': 'Ingresos por arriendo',
+                'naturaleza': NaturalezaCuenta.CREDIT,
+                'nivel': 1,
+                'estado': 'activa',
+            },
+        )
+        asset_account, _ = CuentaContable.objects.get_or_create(
+            empresa=empresa,
+            plan_cuentas_version='stage6-controlled',
+            codigo='1100',
+            defaults={
+                'nombre': 'Banco recaudador',
+                'naturaleza': NaturalezaCuenta.DEBIT,
+                'nivel': 1,
+                'estado': 'activa',
+            },
+        )
+        return BalanceComprobacion.objects.create(
+            empresa=empresa,
+            periodo=f'{fiscal_year}-12',
+            estado_snapshot='aprobado',
+            storage_ref=f'balance-comprobacion-stage6-{empresa.id}-{fiscal_year}',
+            resumen={
+                'source': 'stage6-controlled',
+                'lineas_balance_8_columnas': [
+                    {
+                        'codigo_cuenta': revenue_account.codigo,
+                        'clasificador_dj1847': 'RLI-LEASE-REVENUE',
+                        'sumas_haber_clp': '1200000.00',
+                        'saldo_acreedor_clp': '1200000.00',
+                        'resultado_ganancia_clp': '1200000.00',
+                        'formula_ref': 'dj1847-rli-revenue-controlled',
+                        'evidencia_ref': 'balance-eight-columns-revenue-controlled',
+                    },
+                    {
+                        'codigo_cuenta': asset_account.codigo,
+                        'clasificador_dj1847': 'CPT-CASH-ASSET',
+                        'sumas_debe_clp': '1200000.00',
+                        'saldo_deudor_clp': '1200000.00',
+                        'inventario_activo_clp': '1200000.00',
+                        'formula_ref': 'dj1847-cpt-cash-controlled',
+                        'evidencia_ref': 'balance-eight-columns-cash-controlled',
+                    },
+                ],
+            },
+        )
 
     def _activate_annual_capabilities(self, empresa):
         for capability_key in ('DDJJPreparacion', 'F22Preparacion'):
@@ -3055,6 +3121,22 @@ class SiiAPITests(APITestCase):
         self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887', '1879'])
         self._activate_annual_capabilities(empresa)
         self._create_twelve_approved_closes(empresa, fiscal_year=2026)
+        self._create_annual_trial_balance_source(empresa, fiscal_year=2026)
+        rule_set = TaxYearRuleSet.objects.get(anio_tributario=2027, estado=EstadoReglaTributariaAnual.APPROVED)
+        TaxCodeMapping.objects.filter(rule_set=rule_set, destino=DestinoMapeoTributarioAnual.RLI).update(
+            metadata={
+                'source': 'sii-test-controlled',
+                'source_metric': 'annual_trial_balance.resultado_ganancia_clp',
+                'trial_balance_classifier': 'RLI-LEASE-REVENUE',
+            }
+        )
+        TaxCodeMapping.objects.filter(rule_set=rule_set, destino=DestinoMapeoTributarioAnual.CPT).update(
+            metadata={
+                'source': 'sii-test-controlled',
+                'source_metric': 'annual_trial_balance.inventario_activo_clp',
+                'trial_balance_classifier': 'CPT-CASH-ASSET',
+            }
+        )
 
         response = self.client.post(
             reverse('sii-anual-generate'),
@@ -3086,6 +3168,15 @@ class SiiAPITests(APITestCase):
         self.assertEqual(process.resumen_anual['annual_tax_monthly_facts']['months'], list(range(1, 13)))
         self.assertEqual(process.resumen_anual['annual_tax_monthly_facts']['obligations_total'], 12)
         self.assertEqual(process.resumen_anual['annual_tax_monthly_facts']['rent_distributions_total'], 1)
+        trial_balances = AnnualTaxTrialBalance.objects.filter(proceso_renta_anual=process)
+        trial_balance_lines = AnnualTaxTrialBalanceLine.objects.filter(trial_balance__proceso_renta_anual=process)
+        self.assertEqual(trial_balances.count(), 1)
+        self.assertEqual(trial_balance_lines.count(), 2)
+        self.assertEqual(process.resumen_anual['annual_tax_trial_balances']['total'], 1)
+        trial_balance_summary = next(iter(process.resumen_anual['annual_tax_trial_balances']['by_id'].values()))
+        self.assertEqual(trial_balance_summary['lines_total'], 2)
+        self.assertEqual(trial_balance_summary['warnings_total'], 0)
+        self.assertEqual(trial_balance_summary['periodo_cierre'], '2026-12')
         workbooks = AnnualTaxWorkbook.objects.filter(proceso_renta_anual=process).order_by('tipo')
         workbook_lines = AnnualTaxWorkbookLine.objects.filter(workbook__proceso_renta_anual=process)
         self.assertEqual(workbooks.count(), 2)
@@ -3094,6 +3185,12 @@ class SiiAPITests(APITestCase):
         self.assertEqual(process.resumen_anual['annual_tax_workbooks']['types'], ['CPT', 'RLI'])
         self.assertEqual(process.resumen_anual['annual_tax_workbooks']['by_type']['RLI']['warnings_total'], 0)
         self.assertEqual(process.resumen_anual['annual_tax_workbooks']['by_type']['CPT']['warnings_total'], 0)
+        rli_line = workbook_lines.get(codigo_destino='RLI-CONTROL')
+        cpt_line = workbook_lines.get(codigo_destino='CPT-CONTROL')
+        self.assertEqual(rli_line.source_payload['source'], 'annual_tax_trial_balance')
+        self.assertEqual(rli_line.monto_clp, Decimal('1200000.00'))
+        self.assertEqual(cpt_line.source_payload['source'], 'annual_tax_trial_balance')
+        self.assertEqual(cpt_line.monto_clp, Decimal('1200000.00'))
         enterprise_registers = AnnualEnterpriseRegisterSet.objects.filter(proceso_renta_anual=process).order_by('tipo_registro')
         enterprise_movements = AnnualEnterpriseRegisterMovement.objects.filter(register_set__proceso_renta_anual=process)
         self.assertEqual(enterprise_registers.count(), 4)
@@ -3187,6 +3284,8 @@ class SiiAPITests(APITestCase):
         monthly_facts_response = self.client.get(reverse('sii-monthly-tax-fact-list'))
         self.assertEqual(monthly_facts_response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(monthly_facts_response.data), 12)
+        trial_balance_response = self.client.get(reverse('sii-annual-tax-trial-balance-list'))
+        trial_balance_line_response = self.client.get(reverse('sii-annual-tax-trial-balance-line-list'))
         workbook_response = self.client.get(reverse('sii-annual-tax-workbook-list'))
         workbook_line_response = self.client.get(reverse('sii-annual-tax-workbook-line-list'))
         enterprise_register_response = self.client.get(reverse('sii-annual-enterprise-register-list'))
@@ -3198,6 +3297,8 @@ class SiiAPITests(APITestCase):
         dossier_response = self.client.get(reverse('sii-annual-tax-dossier-list'))
         export_response = self.client.get(reverse('sii-annual-tax-export-list'))
         checklist_response = self.client.get(reverse('sii-annual-tax-review-checklist-list'))
+        self.assertEqual(trial_balance_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(trial_balance_line_response.status_code, status.HTTP_200_OK)
         self.assertEqual(workbook_response.status_code, status.HTTP_200_OK)
         self.assertEqual(workbook_line_response.status_code, status.HTTP_200_OK)
         self.assertEqual(enterprise_register_response.status_code, status.HTTP_200_OK)
@@ -3209,6 +3310,8 @@ class SiiAPITests(APITestCase):
         self.assertEqual(dossier_response.status_code, status.HTTP_200_OK)
         self.assertEqual(export_response.status_code, status.HTTP_200_OK)
         self.assertEqual(checklist_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(trial_balance_response.data), 1)
+        self.assertEqual(len(trial_balance_line_response.data), 2)
         self.assertEqual(len(workbook_response.data), 2)
         self.assertEqual(len(workbook_line_response.data), 2)
         self.assertEqual(len(enterprise_register_response.data), 4)
@@ -3223,6 +3326,8 @@ class SiiAPITests(APITestCase):
         snapshot = self.client.get(reverse('sii-snapshot'))
         self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
         self.assertEqual(len(snapshot.data['monthly_tax_facts']), 12)
+        self.assertEqual(len(snapshot.data['annual_tax_trial_balances']), 1)
+        self.assertEqual(len(snapshot.data['annual_tax_trial_balance_lines']), 2)
         self.assertEqual(len(snapshot.data['annual_tax_workbooks']), 2)
         self.assertEqual(len(snapshot.data['annual_tax_workbook_lines']), 2)
         self.assertEqual(len(snapshot.data['annual_enterprise_registers']), 4)
@@ -3311,6 +3416,79 @@ class SiiAPITests(APITestCase):
         self.assertNotIn('token=secret', serialized_payload)
         self.assertNotIn('monthly-secret', serialized_payload)
         self.assertNotIn('secret-monthly-value', serialized_payload)
+
+    def test_annual_tax_trial_balance_admin_and_api_redact_sensitive_payloads(self):
+        empresa, _ = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887', '1879'])
+        self._activate_annual_capabilities(empresa)
+        self._create_twelve_approved_closes(empresa, fiscal_year=2026)
+        self._create_annual_trial_balance_source(empresa, fiscal_year=2026)
+        generated = self.client.post(
+            reverse('sii-anual-generate'),
+            {'empresa_id': empresa.id, 'anio_tributario': 2027},
+            format='json',
+        )
+        self.assertEqual(generated.status_code, status.HTTP_201_CREATED)
+        trial_balance = AnnualTaxTrialBalance.objects.get(empresa=empresa, anio_tributario=2027)
+        line = trial_balance.lines.get(clasificador_dj1847='RLI-LEASE-REVENUE')
+        AnnualTaxTrialBalance.objects.filter(pk=trial_balance.pk).update(
+            source_ref='https://sii.example.test/balance?token=secret',
+            responsible_ref='Bearer trial-balance-secret',
+            resumen_balance={'api_key': 'secret-trial-balance-value'},
+        )
+        AnnualTaxTrialBalanceLine.objects.filter(pk=line.pk).update(
+            formula_ref='https://sii.example.test/formula?token=secret',
+            evidencia_ref='Bearer trial-line-secret',
+            warnings=['https://sii.example.test/warning?token=secret'],
+            source_payload={'api_key': 'secret-trial-line-value'},
+        )
+        trial_balance.refresh_from_db()
+        line.refresh_from_db()
+        trial_balance_admin = AnnualTaxTrialBalanceAdmin(AnnualTaxTrialBalance, AdminSite())
+        line_admin = AnnualTaxTrialBalanceLineAdmin(AnnualTaxTrialBalanceLine, AdminSite())
+
+        self.assertEqual(trial_balance_admin.source_ref_redacted(trial_balance), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(trial_balance_admin.responsible_ref_redacted(trial_balance), REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('secret-trial-balance-value', json.dumps(trial_balance_admin.resumen_balance_redacted(trial_balance)))
+        self.assertEqual(line_admin.formula_ref_redacted(line), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(line_admin.evidencia_ref_redacted(line), REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('secret-trial-line-value', json.dumps(line_admin.source_payload_redacted(line)))
+
+        trial_balance_response = self.client.get(reverse('sii-annual-tax-trial-balance-list'))
+        line_response = self.client.get(reverse('sii-annual-tax-trial-balance-line-list'))
+        snapshot = self.client.get(reverse('sii-snapshot'))
+        serialized_payload = json.dumps(
+            {
+                'trial_balances': trial_balance_response.data,
+                'lines': line_response.data,
+                'snapshot': snapshot.data,
+            },
+            default=str,
+        )
+        self.assertEqual(trial_balance_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(line_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
+        trial_balance_data = next(item for item in trial_balance_response.data if item['id'] == trial_balance.id)
+        line_data = next(item for item in line_response.data if item['id'] == line.id)
+        snapshot_trial_balance_data = next(
+            item for item in snapshot.data['annual_tax_trial_balances'] if item['id'] == trial_balance.id
+        )
+        snapshot_line_data = next(
+            item for item in snapshot.data['annual_tax_trial_balance_lines'] if item['id'] == line.id
+        )
+        self.assertEqual(trial_balance_data['source_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(trial_balance_data['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_trial_balance_data['source_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_trial_balance_data['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(line_data['formula_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(line_data['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_line_data['formula_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_line_data['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('token=secret', serialized_payload)
+        self.assertNotIn('trial-balance-secret', serialized_payload)
+        self.assertNotIn('trial-line-secret', serialized_payload)
+        self.assertNotIn('secret-trial-balance-value', serialized_payload)
+        self.assertNotIn('secret-trial-line-value', serialized_payload)
 
     def test_annual_tax_workbook_admin_and_api_redact_sensitive_payloads(self):
         empresa, _ = self._setup_paid_payment()

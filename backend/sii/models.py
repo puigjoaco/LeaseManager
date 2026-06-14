@@ -9,7 +9,9 @@ from django.utils import timezone
 
 from cobranza.models import DistribucionCobroMensual, PagoMensual
 from contabilidad.models import (
+    BalanceComprobacion,
     CierreMensualContable,
+    CuentaContable,
     EstadoCierreMensual,
     EstadoLiquidacionMensual,
     EstadoPreparacionTributaria,
@@ -483,6 +485,12 @@ class EstadoMonthlyTaxFact(models.TextChoices):
     RETIRED = 'retirado', 'Retirado'
 
 
+class EstadoAnnualTaxTrialBalance(models.TextChoices):
+    DRAFT = 'borrador', 'Borrador'
+    PREPARED = 'preparado', 'Preparado'
+    RETIRED = 'retirado', 'Retirado'
+
+
 class TipoAnnualTaxWorkbook(models.TextChoices):
     RLI = 'RLI', 'RLI'
     CPT = 'CPT', 'CPT'
@@ -653,6 +661,28 @@ def _line_integrity_payload(line):
         'origen': line.origen,
         'signo': line.signo,
         'monto_clp': str(line.monto_clp),
+        'formula_ref': line.formula_ref,
+        'evidencia_ref': line.evidencia_ref,
+        'warnings': line.warnings,
+        'source_payload': line.source_payload,
+    }
+
+
+def _trial_balance_line_integrity_payload(line):
+    return {
+        'trial_balance_id': line.trial_balance_id,
+        'cuenta_contable_id': line.cuenta_contable_id,
+        'codigo_cuenta': line.codigo_cuenta,
+        'nombre_cuenta': line.nombre_cuenta,
+        'clasificador_dj1847': line.clasificador_dj1847,
+        'sumas_debe_clp': str(line.sumas_debe_clp),
+        'sumas_haber_clp': str(line.sumas_haber_clp),
+        'saldo_deudor_clp': str(line.saldo_deudor_clp),
+        'saldo_acreedor_clp': str(line.saldo_acreedor_clp),
+        'inventario_activo_clp': str(line.inventario_activo_clp),
+        'inventario_pasivo_clp': str(line.inventario_pasivo_clp),
+        'resultado_perdida_clp': str(line.resultado_perdida_clp),
+        'resultado_ganancia_clp': str(line.resultado_ganancia_clp),
         'formula_ref': line.formula_ref,
         'evidencia_ref': line.evidencia_ref,
         'warnings': line.warnings,
@@ -1201,6 +1231,321 @@ class MonthlyTaxFact(OperationalSIITextNormalizationMixin, TimestampedModel):
                 errors['hash_hecho'] = 'MonthlyTaxFact normalizado requiere hash_hecho.'
         if has_text(self.hash_hecho) and not _is_sha256(self.hash_hecho):
             errors['hash_hecho'] = 'hash_hecho debe ser SHA-256 hexadecimal de 64 caracteres.'
+        if errors:
+            raise ValidationError(errors)
+
+
+class AnnualTaxTrialBalance(OperationalSIITextNormalizationMixin, TimestampedModel):
+    operational_text_fields = (
+        'source_ref',
+        'responsible_ref',
+        'hash_balance',
+    )
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.PROTECT,
+        related_name='annual_tax_trial_balances',
+    )
+    proceso_renta_anual = models.ForeignKey(
+        'sii.ProcesoRentaAnual',
+        on_delete=models.PROTECT,
+        related_name='trial_balances',
+    )
+    source_bundle = models.ForeignKey(
+        AnnualTaxSourceBundle,
+        on_delete=models.PROTECT,
+        related_name='trial_balances',
+    )
+    rule_set = models.ForeignKey(
+        TaxYearRuleSet,
+        on_delete=models.PROTECT,
+        related_name='trial_balances',
+    )
+    official_source = models.ForeignKey(
+        AnnualTaxOfficialSource,
+        on_delete=models.PROTECT,
+        related_name='trial_balances',
+    )
+    source_balance = models.ForeignKey(
+        BalanceComprobacion,
+        on_delete=models.PROTECT,
+        related_name='annual_tax_trial_balances',
+    )
+    anio_tributario = models.PositiveSmallIntegerField()
+    anio_comercial = models.PositiveSmallIntegerField()
+    periodo_cierre = models.CharField(max_length=7)
+    source_ref = models.CharField(max_length=255, blank=True)
+    responsible_ref = models.CharField(max_length=255, blank=True)
+    lines_total = models.PositiveIntegerField(default=0)
+    warnings_total = models.PositiveIntegerField(default=0)
+    resumen_balance = models.JSONField(default=dict, blank=True)
+    hash_balance = models.CharField(max_length=64, blank=True)
+    estado = models.CharField(
+        max_length=16,
+        choices=EstadoAnnualTaxTrialBalance.choices,
+        default=EstadoAnnualTaxTrialBalance.DRAFT,
+    )
+
+    class Meta:
+        ordering = ['empresa_id', '-anio_tributario', 'periodo_cierre']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['proceso_renta_anual'],
+                name='uniq_annual_tax_trial_balance_process',
+            ),
+        ]
+
+    def __str__(self):
+        return f'Balance tributario {self.empresa_id} AT{self.anio_tributario}'
+
+    def clean(self):
+        super().clean()
+        self.hash_balance = _normalize_hash(self.hash_balance)
+        errors = {}
+        expected_commercial_year = self.anio_tributario - 1
+        expected_period = f'{self.anio_comercial}-12'
+        if self.anio_comercial != expected_commercial_year:
+            errors['anio_comercial'] = (
+                f'anio_comercial debe ser {expected_commercial_year} para AT{self.anio_tributario}.'
+            )
+        if self.periodo_cierre != expected_period:
+            errors['periodo_cierre'] = f'periodo_cierre debe ser {expected_period}.'
+        _add_non_sensitive_reference_error(errors, self, 'source_ref')
+        _add_non_sensitive_reference_error(errors, self, 'responsible_ref')
+        _add_non_sensitive_payload_error(errors, 'resumen_balance', self.resumen_balance)
+        if has_text(self.hash_balance) and not _is_sha256(self.hash_balance):
+            errors['hash_balance'] = 'hash_balance debe ser SHA-256 hexadecimal de 64 caracteres.'
+
+        try:
+            process = self.proceso_renta_anual
+        except ObjectDoesNotExist:
+            process = None
+        if process is not None:
+            if process.empresa_id != self.empresa_id:
+                errors['proceso_renta_anual'] = 'El proceso anual debe pertenecer a la misma empresa del balance tributario.'
+            elif process.anio_tributario != self.anio_tributario:
+                errors['proceso_renta_anual'] = 'El proceso anual debe corresponder al mismo anio_tributario.'
+            if process.source_bundle_id and process.source_bundle_id != self.source_bundle_id:
+                errors['source_bundle'] = 'El balance tributario debe usar el mismo AnnualTaxSourceBundle del proceso anual.'
+
+        try:
+            source_bundle = self.source_bundle
+        except ObjectDoesNotExist:
+            source_bundle = None
+        if source_bundle is not None:
+            if source_bundle.empresa_id != self.empresa_id:
+                errors['source_bundle'] = 'AnnualTaxSourceBundle debe pertenecer a la misma empresa del balance tributario.'
+            elif source_bundle.anio_tributario != self.anio_tributario:
+                errors['source_bundle'] = 'AnnualTaxSourceBundle debe corresponder al mismo anio_tributario.'
+            elif source_bundle.estado != EstadoAnnualTaxSourceBundle.FROZEN:
+                errors['source_bundle'] = 'AnnualTaxTrialBalance requiere AnnualTaxSourceBundle congelado.'
+
+        try:
+            rule_set = self.rule_set
+        except ObjectDoesNotExist:
+            rule_set = None
+        if rule_set is not None:
+            if rule_set.anio_tributario != self.anio_tributario:
+                errors['rule_set'] = 'TaxYearRuleSet debe corresponder al mismo anio_tributario del balance tributario.'
+            elif rule_set.estado != EstadoReglaTributariaAnual.APPROVED:
+                errors['rule_set'] = 'AnnualTaxTrialBalance requiere TaxYearRuleSet aprobado.'
+
+        _add_official_source_link_errors(
+            errors,
+            self,
+            'official_source',
+            anio_tributario=self.anio_tributario,
+        )
+        if self.official_source_id:
+            allowed_source_types = {
+                TipoAnnualTaxOfficialSource.SII_DJ1847_INSTRUCTIONS,
+                TipoAnnualTaxOfficialSource.EXPERT_REVIEW,
+            }
+            if self.official_source.source_type not in allowed_source_types:
+                errors['official_source'] = 'El balance tributario anual requiere fuente DJ1847 SII o revision experta.'
+
+        try:
+            source_balance = self.source_balance
+        except ObjectDoesNotExist:
+            source_balance = None
+        if source_balance is not None:
+            if source_balance.empresa_id != self.empresa_id:
+                errors['source_balance'] = 'BalanceComprobacion debe pertenecer a la misma empresa.'
+            elif source_balance.periodo != self.periodo_cierre:
+                errors['source_balance'] = 'BalanceComprobacion debe corresponder al periodo de cierre anual.'
+            elif source_balance.estado_snapshot != EstadoCierreMensual.APPROVED:
+                errors['source_balance'] = 'BalanceComprobacion anual requiere snapshot aprobado.'
+
+        if isinstance(self.resumen_balance, dict):
+            identity_errors = []
+            for key, expected in (
+                ('empresa_id', self.empresa_id),
+                ('proceso_renta_anual_id', self.proceso_renta_anual_id),
+                ('source_bundle_id', self.source_bundle_id),
+                ('rule_set_id', self.rule_set_id),
+                ('official_source_id', self.official_source_id),
+                ('source_balance_id', self.source_balance_id),
+                ('anio_tributario', self.anio_tributario),
+                ('anio_comercial', self.anio_comercial),
+                ('periodo_cierre', self.periodo_cierre),
+            ):
+                value = self.resumen_balance.get(key)
+                if value is None:
+                    continue
+                if key == 'periodo_cierre':
+                    matches = str(value) == str(expected)
+                else:
+                    try:
+                        matches = int(value) == int(expected)
+                    except (TypeError, ValueError):
+                        matches = False
+                if not matches:
+                    identity_errors.append(key)
+            if identity_errors:
+                errors['resumen_balance'] = 'resumen_balance debe coincidir con empresa, proceso, fuente, regla y periodo.'
+            expected_hash = _payload_hash(self.resumen_balance)
+            if self.hash_balance and self.hash_balance != expected_hash:
+                errors['hash_balance'] = 'hash_balance debe corresponder al resumen_balance.'
+        elif self.resumen_balance:
+            errors['resumen_balance'] = 'resumen_balance debe ser un objeto JSON.'
+
+        if self.estado == EstadoAnnualTaxTrialBalance.PREPARED:
+            _add_active_fiscal_config_error(errors, self, 'AnnualTaxTrialBalance')
+            if not has_text(self.source_ref):
+                errors['source_ref'] = 'AnnualTaxTrialBalance preparado requiere source_ref no sensible.'
+            if not has_text(self.responsible_ref):
+                errors['responsible_ref'] = 'AnnualTaxTrialBalance preparado requiere responsible_ref no sensible.'
+            if not self.lines_total:
+                errors['lines_total'] = 'AnnualTaxTrialBalance preparado requiere lineas de balance.'
+            if not self.resumen_balance:
+                errors['resumen_balance'] = 'AnnualTaxTrialBalance preparado requiere resumen_balance.'
+            if not has_text(self.hash_balance):
+                errors['hash_balance'] = 'AnnualTaxTrialBalance preparado requiere hash_balance.'
+        if errors:
+            raise ValidationError(errors)
+
+
+class AnnualTaxTrialBalanceLine(OperationalSIITextNormalizationMixin, TimestampedModel):
+    operational_text_fields = (
+        'codigo_cuenta',
+        'nombre_cuenta',
+        'clasificador_dj1847',
+        'formula_ref',
+        'evidencia_ref',
+        'hash_linea',
+    )
+
+    trial_balance = models.ForeignKey(
+        AnnualTaxTrialBalance,
+        on_delete=models.CASCADE,
+        related_name='lines',
+    )
+    cuenta_contable = models.ForeignKey(
+        CuentaContable,
+        on_delete=models.PROTECT,
+        related_name='annual_tax_trial_balance_lines',
+    )
+    codigo_cuenta = models.CharField(max_length=64)
+    nombre_cuenta = models.CharField(max_length=255)
+    clasificador_dj1847 = models.CharField(max_length=64)
+    sumas_debe_clp = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    sumas_haber_clp = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    saldo_deudor_clp = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    saldo_acreedor_clp = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    inventario_activo_clp = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    inventario_pasivo_clp = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    resultado_perdida_clp = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    resultado_ganancia_clp = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    formula_ref = models.CharField(max_length=255, blank=True)
+    evidencia_ref = models.CharField(max_length=255, blank=True)
+    warnings = models.JSONField(default=list, blank=True)
+    source_payload = models.JSONField(default=dict, blank=True)
+    hash_linea = models.CharField(max_length=64, blank=True)
+    estado = models.CharField(max_length=16, choices=EstadoRegistro.choices, default=EstadoRegistro.ACTIVE)
+
+    class Meta:
+        ordering = ['trial_balance_id', 'codigo_cuenta']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['trial_balance', 'codigo_cuenta'],
+                name='uniq_annual_tax_trial_balance_line_account',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.trial_balance_id} {self.codigo_cuenta}'
+
+    def clean(self):
+        super().clean()
+        self.hash_linea = _normalize_hash(self.hash_linea)
+        errors = {}
+        _add_non_sensitive_reference_error(errors, self, 'formula_ref')
+        _add_non_sensitive_reference_error(errors, self, 'evidencia_ref')
+        _add_non_sensitive_payload_error(errors, 'warnings', self.warnings)
+        _add_non_sensitive_payload_error(errors, 'source_payload', self.source_payload)
+        if self.warnings and not isinstance(self.warnings, list):
+            errors['warnings'] = 'warnings debe ser una lista JSON.'
+        if self.source_payload and not isinstance(self.source_payload, dict):
+            errors['source_payload'] = 'source_payload debe ser un objeto JSON.'
+        if has_text(self.hash_linea) and not _is_sha256(self.hash_linea):
+            errors['hash_linea'] = 'hash_linea debe ser SHA-256 hexadecimal de 64 caracteres.'
+
+        try:
+            trial_balance = self.trial_balance
+        except ObjectDoesNotExist:
+            trial_balance = None
+        try:
+            cuenta = self.cuenta_contable
+        except ObjectDoesNotExist:
+            cuenta = None
+        if trial_balance is not None and cuenta is not None:
+            if cuenta.empresa_id != trial_balance.empresa_id:
+                errors['cuenta_contable'] = 'La cuenta contable debe pertenecer a la misma empresa del balance tributario.'
+            if self.codigo_cuenta != cuenta.codigo:
+                errors['codigo_cuenta'] = 'codigo_cuenta debe coincidir con CuentaContable.codigo.'
+            if self.nombre_cuenta != cuenta.nombre:
+                errors['nombre_cuenta'] = 'nombre_cuenta debe coincidir con CuentaContable.nombre.'
+
+        non_negative_fields = (
+            'sumas_debe_clp',
+            'sumas_haber_clp',
+            'saldo_deudor_clp',
+            'saldo_acreedor_clp',
+            'inventario_activo_clp',
+            'inventario_pasivo_clp',
+            'resultado_perdida_clp',
+            'resultado_ganancia_clp',
+        )
+        for field_name in non_negative_fields:
+            if getattr(self, field_name) < 0:
+                errors[field_name] = f'{field_name} no puede ser negativo.'
+        if self.saldo_deudor_clp and self.saldo_acreedor_clp:
+            errors['saldo_deudor_clp'] = 'Una linea no puede tener saldo deudor y acreedor simultaneamente.'
+        if self.inventario_activo_clp and self.inventario_pasivo_clp:
+            errors['inventario_activo_clp'] = 'Una linea no puede clasificar inventario activo y pasivo simultaneamente.'
+        if self.resultado_perdida_clp and self.resultado_ganancia_clp:
+            errors['resultado_perdida_clp'] = 'Una linea no puede clasificar perdida y ganancia simultaneamente.'
+
+        expected_hash = _payload_hash(_trial_balance_line_integrity_payload(self))
+        if self.hash_linea and self.hash_linea != expected_hash:
+            errors['hash_linea'] = 'hash_linea debe corresponder a la linea de balance tributario.'
+
+        if self.estado == EstadoRegistro.ACTIVE:
+            if not has_text(self.codigo_cuenta):
+                errors['codigo_cuenta'] = 'Linea activa requiere codigo_cuenta.'
+            if not has_text(self.nombre_cuenta):
+                errors['nombre_cuenta'] = 'Linea activa requiere nombre_cuenta.'
+            if not has_text(self.clasificador_dj1847):
+                errors['clasificador_dj1847'] = 'Linea activa requiere clasificador_dj1847 trazable.'
+            if not has_text(self.formula_ref):
+                errors['formula_ref'] = 'Linea activa requiere formula_ref no sensible.'
+            if not has_text(self.evidencia_ref):
+                errors['evidencia_ref'] = 'Linea activa requiere evidencia_ref no sensible.'
+            if not self.source_payload:
+                errors['source_payload'] = 'Linea activa requiere source_payload trazable.'
+            if not has_text(self.hash_linea):
+                errors['hash_linea'] = 'Linea activa requiere hash_linea.'
         if errors:
             raise ValidationError(errors)
 

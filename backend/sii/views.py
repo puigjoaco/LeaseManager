@@ -22,6 +22,8 @@ from .models import (
     AnnualTaxOfficialSource,
     AnnualTaxReviewChecklist,
     AnnualTaxSourceBundle,
+    AnnualTaxTrialBalance,
+    AnnualTaxTrialBalanceLine,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
     CapacidadTributariaSII,
@@ -46,6 +48,8 @@ from .serializers import (
     AnnualTaxReviewChecklistSerializer,
     AnnualStatusSerializer,
     AnnualTaxSourceBundleSerializer,
+    AnnualTaxTrialBalanceLineSerializer,
+    AnnualTaxTrialBalanceSerializer,
     AnnualTaxWorkbookLineSerializer,
     AnnualTaxWorkbookSerializer,
     CapacidadTributariaSIISerializer,
@@ -198,6 +202,27 @@ class SiiSnapshotView(APIView):
             ).order_by('-anio', 'empresa_id', 'mes'),
             access,
             company_paths=('empresa_id',),
+        )
+        annual_tax_trial_balances = scope_queryset_for_access(
+            AnnualTaxTrialBalance.objects.select_related(
+                'empresa',
+                'proceso_renta_anual',
+                'source_bundle',
+                'rule_set',
+                'official_source',
+                'source_balance',
+            ).order_by('-anio_tributario', 'empresa_id', 'periodo_cierre', 'id'),
+            access,
+            company_paths=('empresa_id',),
+        )
+        annual_tax_trial_balance_lines = scope_queryset_for_access(
+            AnnualTaxTrialBalanceLine.objects.select_related(
+                'trial_balance',
+                'trial_balance__empresa',
+                'cuenta_contable',
+            ).order_by('trial_balance_id', 'codigo_cuenta', 'id'),
+            access,
+            company_paths=('trial_balance__empresa_id',),
         )
         annual_tax_workbooks = scope_queryset_for_access(
             AnnualTaxWorkbook.objects.select_related(
@@ -451,6 +476,53 @@ class SiiSnapshotView(APIView):
                         'estado': item.estado,
                     }
                     for item in monthly_tax_facts
+                ],
+                'annual_tax_trial_balances': [
+                    {
+                        'id': item.id,
+                        'empresa': item.empresa_id,
+                        'proceso_renta_anual': item.proceso_renta_anual_id,
+                        'source_bundle': item.source_bundle_id,
+                        'rule_set': item.rule_set_id,
+                        'official_source': item.official_source_id,
+                        'source_balance': item.source_balance_id,
+                        'anio_tributario': item.anio_tributario,
+                        'anio_comercial': item.anio_comercial,
+                        'periodo_cierre': item.periodo_cierre,
+                        'source_ref': redact_sensitive_reference(item.source_ref),
+                        'responsible_ref': redact_sensitive_reference(item.responsible_ref),
+                        'lines_total': item.lines_total,
+                        'warnings_total': item.warnings_total,
+                        'resumen_balance': redact_sensitive_payload(item.resumen_balance),
+                        'hash_balance': item.hash_balance,
+                        'estado': item.estado,
+                    }
+                    for item in annual_tax_trial_balances
+                ],
+                'annual_tax_trial_balance_lines': [
+                    {
+                        'id': item.id,
+                        'trial_balance': item.trial_balance_id,
+                        'cuenta_contable': item.cuenta_contable_id,
+                        'codigo_cuenta': item.codigo_cuenta,
+                        'nombre_cuenta': item.nombre_cuenta,
+                        'clasificador_dj1847': item.clasificador_dj1847,
+                        'sumas_debe_clp': item.sumas_debe_clp,
+                        'sumas_haber_clp': item.sumas_haber_clp,
+                        'saldo_deudor_clp': item.saldo_deudor_clp,
+                        'saldo_acreedor_clp': item.saldo_acreedor_clp,
+                        'inventario_activo_clp': item.inventario_activo_clp,
+                        'inventario_pasivo_clp': item.inventario_pasivo_clp,
+                        'resultado_perdida_clp': item.resultado_perdida_clp,
+                        'resultado_ganancia_clp': item.resultado_ganancia_clp,
+                        'formula_ref': redact_sensitive_reference(item.formula_ref),
+                        'evidencia_ref': redact_sensitive_reference(item.evidencia_ref),
+                        'warnings': redact_sensitive_payload(item.warnings),
+                        'source_payload': redact_sensitive_payload(item.source_payload),
+                        'hash_linea': item.hash_linea,
+                        'estado': item.estado,
+                    }
+                    for item in annual_tax_trial_balance_lines
                 ],
                 'annual_tax_workbooks': [
                     {
@@ -865,6 +937,56 @@ class MonthlyTaxFactDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
         'liquidacion_mensual',
     ).all()
     company_scope_paths = ('empresa_id',)
+
+
+class AnnualTaxTrialBalanceListView(ScopedQuerysetMixin, generics.ListAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualTaxTrialBalanceSerializer
+    queryset = AnnualTaxTrialBalance.objects.select_related(
+        'empresa',
+        'proceso_renta_anual',
+        'source_bundle',
+        'rule_set',
+        'official_source',
+        'source_balance',
+    ).all()
+    company_scope_paths = ('empresa_id',)
+
+
+class AnnualTaxTrialBalanceDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualTaxTrialBalanceSerializer
+    queryset = AnnualTaxTrialBalance.objects.select_related(
+        'empresa',
+        'proceso_renta_anual',
+        'source_bundle',
+        'rule_set',
+        'official_source',
+        'source_balance',
+    ).all()
+    company_scope_paths = ('empresa_id',)
+
+
+class AnnualTaxTrialBalanceLineListView(ScopedQuerysetMixin, generics.ListAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualTaxTrialBalanceLineSerializer
+    queryset = AnnualTaxTrialBalanceLine.objects.select_related(
+        'trial_balance',
+        'trial_balance__empresa',
+        'cuenta_contable',
+    ).all()
+    company_scope_paths = ('trial_balance__empresa_id',)
+
+
+class AnnualTaxTrialBalanceLineDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualTaxTrialBalanceLineSerializer
+    queryset = AnnualTaxTrialBalanceLine.objects.select_related(
+        'trial_balance',
+        'trial_balance__empresa',
+        'cuenta_contable',
+    ).all()
+    company_scope_paths = ('trial_balance__empresa_id',)
 
 
 class AnnualTaxWorkbookListView(ScopedQuerysetMixin, generics.ListAPIView):

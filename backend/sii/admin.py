@@ -14,6 +14,8 @@ from .models import (
     AnnualTaxOfficialSource,
     AnnualTaxReviewChecklist,
     AnnualTaxSourceBundle,
+    AnnualTaxTrialBalance,
+    AnnualTaxTrialBalanceLine,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
     CapacidadTributariaSII,
@@ -361,6 +363,127 @@ class MonthlyTaxFactAdmin(admin.ModelAdmin):
     @admin.display(description='resumen_hecho')
     def resumen_hecho_redacted(self, obj):
         return _redacted_payload_attr(obj, 'resumen_hecho')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(AnnualTaxTrialBalance)
+class AnnualTaxTrialBalanceAdmin(admin.ModelAdmin):
+    fields = (
+        'empresa',
+        'proceso_renta_anual',
+        'source_bundle',
+        'rule_set',
+        'official_source',
+        'source_balance',
+        'anio_tributario',
+        'anio_comercial',
+        'periodo_cierre',
+        'source_ref_redacted',
+        'responsible_ref_redacted',
+        'lines_total',
+        'warnings_total',
+        'resumen_balance_redacted',
+        'hash_balance',
+        'estado',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = fields
+    list_display = (
+        'empresa',
+        'anio_tributario',
+        'periodo_cierre',
+        'estado',
+        'lines_total',
+        'warnings_total',
+        'source_ref_redacted',
+    )
+    list_filter = ('anio_tributario', 'periodo_cierre', 'estado')
+    search_fields = ('empresa__razon_social',)
+
+    @admin.display(description='source_ref')
+    def source_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'source_ref')
+
+    @admin.display(description='responsible_ref')
+    def responsible_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'responsible_ref')
+
+    @admin.display(description='resumen_balance')
+    def resumen_balance_redacted(self, obj):
+        return _redacted_payload_attr(obj, 'resumen_balance')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(AnnualTaxTrialBalanceLine)
+class AnnualTaxTrialBalanceLineAdmin(admin.ModelAdmin):
+    fields = (
+        'trial_balance',
+        'cuenta_contable',
+        'codigo_cuenta',
+        'nombre_cuenta',
+        'clasificador_dj1847',
+        'sumas_debe_clp',
+        'sumas_haber_clp',
+        'saldo_deudor_clp',
+        'saldo_acreedor_clp',
+        'inventario_activo_clp',
+        'inventario_pasivo_clp',
+        'resultado_perdida_clp',
+        'resultado_ganancia_clp',
+        'formula_ref_redacted',
+        'evidencia_ref_redacted',
+        'warnings_redacted',
+        'source_payload_redacted',
+        'hash_linea',
+        'estado',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = fields
+    list_display = (
+        'trial_balance',
+        'codigo_cuenta',
+        'clasificador_dj1847',
+        'saldo_deudor_clp',
+        'saldo_acreedor_clp',
+        'estado',
+        'formula_ref_redacted',
+    )
+    list_filter = ('trial_balance__anio_tributario', 'clasificador_dj1847', 'estado')
+    search_fields = ('codigo_cuenta', 'nombre_cuenta', 'trial_balance__empresa__razon_social')
+
+    @admin.display(description='formula_ref')
+    def formula_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'formula_ref')
+
+    @admin.display(description='evidencia_ref')
+    def evidencia_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'evidencia_ref')
+
+    @admin.display(description='warnings')
+    def warnings_redacted(self, obj):
+        return _redacted_payload_attr(obj, 'warnings')
+
+    @admin.display(description='source_payload')
+    def source_payload_redacted(self, obj):
+        return _redacted_payload_attr(obj, 'source_payload')
 
     def has_add_permission(self, request):
         return False

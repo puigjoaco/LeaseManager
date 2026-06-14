@@ -15,10 +15,13 @@ from django.utils import timezone
 
 from audit.models import AuditEvent
 from contabilidad.models import (
+    BalanceComprobacion,
     CierreMensualContable,
     ConfiguracionFiscalEmpresa,
+    CuentaContable,
     EstadoCierreMensual,
     EstadoPreparacionTributaria,
+    NaturalezaCuenta,
     ObligacionTributariaMensual,
 )
 from contabilidad.services import ensure_default_regime
@@ -47,6 +50,8 @@ from sii.models import (
     AnnualTaxReviewChecklist,
     AmbienteSII,
     AnnualTaxSourceBundle,
+    AnnualTaxTrialBalance,
+    AnnualTaxTrialBalanceLine,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
     CapacidadSII,
@@ -74,6 +79,7 @@ from sii.services import (
     summarize_annual_tax_dossiers,
     summarize_annual_tax_exports,
     summarize_annual_tax_review_checklists,
+    summarize_annual_tax_trial_balances,
     summarize_annual_tax_workbooks,
     sync_annual_enterprise_registers,
     sync_annual_real_estate_section,
@@ -81,6 +87,7 @@ from sii.services import (
     sync_annual_tax_dossier,
     sync_annual_tax_export,
     sync_annual_tax_review_checklist,
+    sync_annual_tax_trial_balance,
     sync_annual_tax_workbooks,
     sync_monthly_tax_facts,
 )
@@ -339,6 +346,59 @@ class Stage6RentaAnualReadinessTests(TestCase):
             estado=EstadoAnnualTaxSourceBundle.FROZEN,
         )
 
+    def _create_annual_trial_balance_source(self, empresa, fiscal_year=2025):
+        revenue_account, _ = CuentaContable.objects.get_or_create(
+            empresa=empresa,
+            plan_cuentas_version='stage6-controlled',
+            codigo='4100',
+            defaults={
+                'nombre': 'Ingresos por arriendo',
+                'naturaleza': NaturalezaCuenta.CREDIT,
+                'nivel': 1,
+                'estado': 'activa',
+            },
+        )
+        asset_account, _ = CuentaContable.objects.get_or_create(
+            empresa=empresa,
+            plan_cuentas_version='stage6-controlled',
+            codigo='1100',
+            defaults={
+                'nombre': 'Banco recaudador',
+                'naturaleza': NaturalezaCuenta.DEBIT,
+                'nivel': 1,
+                'estado': 'activa',
+            },
+        )
+        return BalanceComprobacion.objects.create(
+            empresa=empresa,
+            periodo=f'{fiscal_year}-12',
+            estado_snapshot=EstadoCierreMensual.APPROVED,
+            storage_ref=f'balance-comprobacion-stage6-{empresa.id}-{fiscal_year}',
+            resumen={
+                'source': 'stage6-controlled',
+                'lineas_balance_8_columnas': [
+                    {
+                        'codigo_cuenta': revenue_account.codigo,
+                        'clasificador_dj1847': 'RLI-LEASE-REVENUE',
+                        'sumas_haber_clp': '1200000.00',
+                        'saldo_acreedor_clp': '1200000.00',
+                        'resultado_ganancia_clp': '1200000.00',
+                        'formula_ref': 'dj1847-rli-revenue-controlled',
+                        'evidencia_ref': 'balance-eight-columns-revenue-controlled',
+                    },
+                    {
+                        'codigo_cuenta': asset_account.codigo,
+                        'clasificador_dj1847': 'CPT-CASH-ASSET',
+                        'sumas_debe_clp': '1200000.00',
+                        'saldo_deudor_clp': '1200000.00',
+                        'inventario_activo_clp': '1200000.00',
+                        'formula_ref': 'dj1847-cpt-cash-controlled',
+                        'evidencia_ref': 'balance-eight-columns-cash-controlled',
+                    },
+                ],
+            },
+        )
+
     def _create_valid_local_matrix(self):
         empresa = self._create_active_empresa()
         config = self._activate_fiscal_config(empresa)
@@ -358,6 +418,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
         )
         source_bundle = self._create_annual_source_bundle(empresa)
         monthly_facts = sync_monthly_tax_facts(empresa, 2025)
+        self._create_annual_trial_balance_source(empresa, 2025)
         summary = self._annual_summary()
         summary['annual_tax_source_bundle'] = {
             'id': source_bundle.id,
@@ -396,9 +457,11 @@ class Stage6RentaAnualReadinessTests(TestCase):
             borrador_f22_ref='f22-draft-stage6-controlled',
             responsable_revision_ref='stage6-review-owner-controlled',
         )
+        sync_annual_tax_trial_balance(process, rule_set, source_bundle)
         sync_annual_tax_workbooks(process, rule_set, source_bundle)
         sync_annual_enterprise_registers(process, rule_set, source_bundle)
         sync_annual_real_estate_section(process, rule_set, source_bundle)
+        summary['annual_tax_trial_balances'] = summarize_annual_tax_trial_balances(process)
         summary['annual_tax_workbooks'] = summarize_annual_tax_workbooks(process)
         summary['annual_enterprise_registers'] = summarize_annual_enterprise_registers(process)
         summary['annual_real_estate_sections'] = summarize_annual_real_estate_sections(process)
@@ -538,6 +601,80 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertTrue(result['sections']['source_trace']['source_label'])
         self.assertTrue(result['sections']['source_trace']['authorization_ref'])
         self.assertEqual(result['issues'], [])
+
+    def test_annual_process_without_trial_balance_is_blocking(self):
+        self._create_valid_local_matrix()
+        AnnualTaxTrialBalanceLine.objects.all().delete()
+        AnnualTaxTrialBalance.objects.all().delete()
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.process_trial_balance_missing', issue_codes)
+        self.assertEqual(result['sections']['annual_tax_trial_balances']['balances_total'], 0)
+
+    def test_annual_trial_balance_summary_hash_mismatch_is_blocking(self):
+        self._create_valid_local_matrix()
+        process = ProcesoRentaAnual.objects.get()
+        summary = dict(process.resumen_anual)
+        trial_balance_summary = dict(summary['annual_tax_trial_balances'])
+        by_id = dict(trial_balance_summary['by_id'])
+        first_key = next(iter(by_id))
+        first_summary = dict(by_id[first_key])
+        first_summary['hash_balance'] = 'f' * 64
+        by_id[first_key] = first_summary
+        trial_balance_summary['by_id'] = by_id
+        summary['annual_tax_trial_balances'] = trial_balance_summary
+        process.resumen_anual = summary
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.process_trial_balance_summary_mismatch', issue_codes)
+
+    def test_annual_trial_balance_line_warning_is_blocking(self):
+        self._create_valid_local_matrix()
+        line = AnnualTaxTrialBalanceLine.objects.select_related('trial_balance', 'cuenta_contable').get(
+            clasificador_dj1847='RLI-LEASE-REVENUE'
+        )
+        line.warnings = ['dj1847_classifier_requires_review']
+        line.hash_linea = hashlib.sha256(
+            json.dumps(
+                {
+                    'trial_balance_id': line.trial_balance_id,
+                    'cuenta_contable_id': line.cuenta_contable_id,
+                    'codigo_cuenta': line.codigo_cuenta,
+                    'nombre_cuenta': line.nombre_cuenta,
+                    'clasificador_dj1847': line.clasificador_dj1847,
+                    'sumas_debe_clp': str(line.sumas_debe_clp),
+                    'sumas_haber_clp': str(line.sumas_haber_clp),
+                    'saldo_deudor_clp': str(line.saldo_deudor_clp),
+                    'saldo_acreedor_clp': str(line.saldo_acreedor_clp),
+                    'inventario_activo_clp': str(line.inventario_activo_clp),
+                    'inventario_pasivo_clp': str(line.inventario_pasivo_clp),
+                    'resultado_perdida_clp': str(line.resultado_perdida_clp),
+                    'resultado_ganancia_clp': str(line.resultado_ganancia_clp),
+                    'formula_ref': line.formula_ref,
+                    'evidencia_ref': line.evidencia_ref,
+                    'warnings': line.warnings,
+                    'source_payload': line.source_payload,
+                },
+                sort_keys=True,
+                separators=(',', ':'),
+                ensure_ascii=True,
+                default=str,
+            ).encode('utf-8')
+        ).hexdigest()
+        line.save(update_fields=['warnings', 'hash_linea', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.trial_balance_warning_review_required', issue_codes)
 
     def test_annual_process_without_tax_workbooks_is_blocking(self):
         self._create_valid_local_matrix()

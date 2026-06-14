@@ -32,6 +32,8 @@ from sii.models import (
     AnnualTaxOfficialSource,
     AnnualTaxReviewChecklist,
     AnnualTaxSourceBundle,
+    AnnualTaxTrialBalance,
+    AnnualTaxTrialBalanceLine,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
     CapacidadSII,
@@ -46,6 +48,7 @@ from sii.models import (
     EstadoAnnualTaxOfficialSource,
     EstadoAnnualTaxReviewChecklist,
     EstadoAnnualTaxSourceBundle,
+    EstadoAnnualTaxTrialBalance,
     EstadoAnnualTaxWorkbook,
     EstadoReglaTributariaAnual,
     EstadoGateSII,
@@ -295,6 +298,84 @@ def _collect_monthly_tax_fact_issues(monthly_tax_facts, processes, active_fiscal
             summary_total = -1
         if normalized_summary_months != months or summary_total != len(months):
             counts['process_monthly_tax_fact_summary_mismatch'] += 1
+
+    return dict(sorted(counts.items()))
+
+
+def _collect_annual_tax_trial_balance_issues(trial_balances, lines, processes, active_fiscal_company_ids: set[int]) -> dict[str, int]:
+    counts = Counter()
+    invalid_trial_balances = _count_invalid(trial_balances)
+    if invalid_trial_balances:
+        counts['trial_balance_invalid'] = invalid_trial_balances
+    invalid_lines = _count_invalid(lines)
+    if invalid_lines:
+        counts['trial_balance_line_invalid'] = invalid_lines
+    without_fiscal_config = _count_without_active_fiscal_config(trial_balances, active_fiscal_company_ids)
+    if without_fiscal_config:
+        counts['trial_balance_fiscal_config_missing'] = without_fiscal_config
+
+    prepared_balances = trial_balances.filter(estado=EstadoAnnualTaxTrialBalance.PREPARED)
+    balances_by_process = {}
+    for trial_balance in prepared_balances:
+        balances_by_process.setdefault(trial_balance.proceso_renta_anual_id, []).append(trial_balance)
+
+    active_line_counts = Counter()
+    warning_counts = Counter()
+    for line in lines.filter(estado=EstadoRegistro.ACTIVE).select_related('trial_balance'):
+        active_line_counts[line.trial_balance_id] += 1
+        warnings = line.warnings if isinstance(line.warnings, list) else []
+        if warnings:
+            warning_counts[line.trial_balance_id] += len(warnings)
+    for trial_balance in prepared_balances:
+        warning_counts[trial_balance.id] = max(
+            warning_counts[trial_balance.id],
+            int(trial_balance.warnings_total or 0),
+        )
+
+    for process in processes:
+        if process.estado not in ANNUAL_TRACEABLE_STATES:
+            continue
+        process_balances = balances_by_process.get(process.id, [])
+        if not process_balances:
+            counts['process_trial_balance_missing'] += 1
+
+        summary = process.resumen_anual if isinstance(process.resumen_anual, dict) else {}
+        balance_summary = summary.get('annual_tax_trial_balances')
+        if not isinstance(balance_summary, dict):
+            counts['process_trial_balance_summary_missing'] += 1
+        else:
+            by_id = balance_summary.get('by_id') if isinstance(balance_summary.get('by_id'), dict) else {}
+            try:
+                summary_total = int(balance_summary.get('total') or 0)
+            except (TypeError, ValueError):
+                summary_total = -1
+            summary_ids = set(str(value) for value in (balance_summary.get('ids') or []))
+            balance_ids = set(str(balance.id) for balance in process_balances)
+            if summary_total != len(process_balances) or summary_ids != balance_ids:
+                counts['process_trial_balance_summary_mismatch'] += 1
+            else:
+                for trial_balance in process_balances:
+                    item_summary = by_id.get(str(trial_balance.id))
+                    if not isinstance(item_summary, dict):
+                        counts['process_trial_balance_summary_mismatch'] += 1
+                        break
+                    if (
+                        item_summary.get('id') != trial_balance.id
+                        or item_summary.get('hash_balance') != trial_balance.hash_balance
+                        or item_summary.get('source_balance_id') != trial_balance.source_balance_id
+                        or item_summary.get('official_source_id') != trial_balance.official_source_id
+                        or item_summary.get('periodo_cierre') != trial_balance.periodo_cierre
+                        or int(item_summary.get('lines_total') or 0) != active_line_counts[trial_balance.id]
+                        or int(item_summary.get('warnings_total') or 0) != warning_counts[trial_balance.id]
+                    ):
+                        counts['process_trial_balance_summary_mismatch'] += 1
+                        break
+
+        for trial_balance in process_balances:
+            if active_line_counts[trial_balance.id] == 0:
+                counts['trial_balance_line_missing'] += 1
+            if warning_counts[trial_balance.id]:
+                counts['trial_balance_warning_review_required'] += warning_counts[trial_balance.id]
 
     return dict(sorted(counts.items()))
 
@@ -1047,6 +1128,25 @@ def collect_stage6_renta_anual_readiness(
         annual_processes,
         active_fiscal_company_ids,
     )
+    annual_tax_trial_balances = AnnualTaxTrialBalance.objects.select_related(
+        'empresa',
+        'proceso_renta_anual',
+        'source_bundle',
+        'rule_set',
+        'official_source',
+        'source_balance',
+    )
+    annual_tax_trial_balance_lines = AnnualTaxTrialBalanceLine.objects.select_related(
+        'trial_balance',
+        'trial_balance__empresa',
+        'cuenta_contable',
+    )
+    annual_tax_trial_balance_issues = _collect_annual_tax_trial_balance_issues(
+        annual_tax_trial_balances,
+        annual_tax_trial_balance_lines,
+        annual_processes,
+        active_fiscal_company_ids,
+    )
     annual_tax_workbooks = AnnualTaxWorkbook.objects.select_related(
         'empresa',
         'proceso_renta_anual',
@@ -1404,6 +1504,50 @@ def collect_stage6_renta_anual_readiness(
     ]:
         if monthly_tax_fact_issues.get(key):
             issues.append(_issue(code, message, count=monthly_tax_fact_issues[key]))
+    for key, code, message in [
+        (
+            'trial_balance_invalid',
+            'stage6.trial_balance_invalid',
+            'Existen balances anuales DJ1847/RLI/CPT que no pasan validacion de dominio.',
+        ),
+        (
+            'trial_balance_line_invalid',
+            'stage6.trial_balance_line_invalid',
+            'Existen lineas de balance anual de 8 columnas que no pasan validacion de dominio o referencias.',
+        ),
+        (
+            'trial_balance_fiscal_config_missing',
+            'stage6.trial_balance_fiscal_config_missing',
+            'Existen balances anuales para empresas sin ConfiguracionFiscalEmpresa activa propia.',
+        ),
+        (
+            'process_trial_balance_missing',
+            'stage6.process_trial_balance_missing',
+            'ProcesoRentaAnual trazable requiere balance anual de 8 columnas preparado antes de RLI/CPT.',
+        ),
+        (
+            'process_trial_balance_summary_missing',
+            'stage6.process_trial_balance_summary_missing',
+            'ProcesoRentaAnual debe conservar resumen del balance anual en resumen_anual.',
+        ),
+        (
+            'process_trial_balance_summary_mismatch',
+            'stage6.process_trial_balance_summary_mismatch',
+            'ProcesoRentaAnual conserva resumen de balance anual desalineado con el balance vigente.',
+        ),
+        (
+            'trial_balance_line_missing',
+            'stage6.trial_balance_line_missing',
+            'AnnualTaxTrialBalance preparado requiere lineas activas de balance de 8 columnas.',
+        ),
+        (
+            'trial_balance_warning_review_required',
+            'stage6.trial_balance_warning_review_required',
+            'Existen warnings de balance anual DJ1847 que requieren revision antes de cierre.',
+        ),
+    ]:
+        if annual_tax_trial_balance_issues.get(key):
+            issues.append(_issue(code, message, count=annual_tax_trial_balance_issues[key]))
     for key, code, message in [
         (
             'tax_workbook_invalid',
@@ -2248,6 +2392,15 @@ def collect_stage6_renta_anual_readiness(
                 'facts_by_state': _count_by(monthly_tax_facts, 'estado'),
                 'facts_by_year': _count_by(monthly_tax_facts, 'anio'),
                 **monthly_tax_fact_issues,
+            },
+            'annual_tax_trial_balances': {
+                'balances_total': annual_tax_trial_balances.count(),
+                'prepared_balances': annual_tax_trial_balances.filter(estado=EstadoAnnualTaxTrialBalance.PREPARED).count(),
+                'balances_by_state': _count_by(annual_tax_trial_balances, 'estado'),
+                'balances_by_year': _count_by(annual_tax_trial_balances, 'anio_tributario'),
+                'lines_total': annual_tax_trial_balance_lines.count(),
+                'active_lines': annual_tax_trial_balance_lines.filter(estado=EstadoRegistro.ACTIVE).count(),
+                **annual_tax_trial_balance_issues,
             },
             'annual_tax_workbooks': {
                 'workbooks_total': annual_tax_workbooks.count(),

@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto. |
-| Fuente exacta | `main` en `e85f0235`, posterior al merge de PR #838 (`stage6-annual-review-checklist`). |
-| Brecha activa | Ninguna en cursor. `stage6-annual-review-checklist` quedo integrado: `AnnualTaxReviewChecklist` separa preparacion mecanica de decision tributaria supervisada. |
-| Motivo de prioridad | Evitar que reanudaciones reabran el paquete cerrado o vuelvan a discutir goal prompts; el siguiente avance debe nacer del estado real del repo y la trazabilidad vigente. |
-| Worktree | Solo root principal activo; el worktree tactico `D:/Proyectos/LeaseManager-stage6-annual-review-checklist` fue eliminado. |
-| Rama | `main` tras merge; rama tactica local/remota eliminada. |
-| Estado | Paquete #838 cerrado, CI remoto verde, mergeado y limpieza hecha. |
-| Gate esperado | Mantener `classification=parcial`; no cerrar presentacion anual sin fuente autorizada, formato/certificacion SII vigente, validacion fiscal/oficial, responsable y evidencia no sensible. |
-| Estado al cerrar paquete | `stage6-annual-review-checklist` cerrado. El paquete anual preparado queda conectado a checklist de revision responsable no sensible, con readiness bloqueante si falta, esta incompleto o intenta aprobar sin responsable/evidencia. |
-| Bloqueos relacionados | Presentacion F22/DDJJ final sigue bloqueada sin formato/certificacion SII vigente, responsable, autorizacion explicita y evidencia no sensible. Reglas tributarias finales, contribuciones y mapping RLI/CPT/DJ/F22 requieren fuente oficial/experta. |
-| Politica de reanudacion | No reabrir EDIG ni goal prompts. Si no hay worktree sucio, continuar por el siguiente frente util que no requiera datos reales, secretos, presentacion SII ni decision tributaria final autonoma. |
-| Siguiente accion | Desde `main` limpio, elegir el siguiente frente util y seguro segun arquitectura, trazabilidad y stage cards, sin usar secretos, datos reales, SII real ni decision tributaria final autonoma. |
+| Frente activo | Ninguno abierto. Ultimo paquete: `stage6-annual-trial-balance`. |
+| Fuente exacta | `main` en `37f279d7`, posterior al merge de PR #839. |
+| Brecha cerrada localmente | Etapa 6 incorpora una capa anual de balance de 8 columnas trazable entre `BalanceComprobacion` y RLI/CPT/DJ1847, sin declarar calculo tributario final. |
+| Motivo de prioridad | La matriz oficial AT2026 indicaba unir contabilidad y renta mediante DJ1847/balance/RLI/CPT con fuente oficial/experta, no por inferencia directa desde metricas mensuales ni IA autonoma. |
+| Worktree | Cerrable tras merge: `D:/Proyectos/LeaseManager-stage6-annual-trial-balance`. |
+| Rama | Cerrable tras merge: `codex/stage6-annual-trial-balance`. |
+| Estado | Paquete validado localmente y listo para commit, PR, CI, merge y limpieza. |
+| Gate esperado | `scripts/run-stage6-readiness-gate.ps1` queda en `classification=parcial`; no cierra Etapa 6 sin snapshot/control autorizado, fuente oficial/experta final, responsable y evidencia no sensible. |
+| Estado al cerrar paquete | Despues del merge, main debe quedar limpio y sin worktree tactico; reanudar desde repo real y elegir siguiente brecha segura por trazabilidad. |
+| Bloqueos relacionados | Presentacion F22/DDJJ final sigue bloqueada sin formato/certificacion SII vigente, responsable, autorizacion explicita y evidencia no sensible. Reglas tributarias finales, contribuciones y mapping fiscal definitivo requieren fuente oficial/experta. |
+| Politica de reanudacion | No reabrir este frente si ya esta mergeado; tomar el siguiente frente seguro desde trazabilidad, sin goal prompts ni EDIG salvo nueva razon concreta. |
+| Siguiente accion | Commit, PR, CI, merge y limpieza de `stage6-annual-trial-balance`; luego continuar por el siguiente paquete seguro sin usar secretos, datos reales ni SII real. |
 
 ## Actualizacion
 

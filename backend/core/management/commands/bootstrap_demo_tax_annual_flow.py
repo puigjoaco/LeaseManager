@@ -7,11 +7,14 @@ from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from contabilidad.models import (
+    BalanceComprobacion,
     CierreMensualContable,
     ConfiguracionFiscalEmpresa,
+    CuentaContable,
     EstadoCierreMensual,
     EstadoLiquidacionMensual,
     LiquidacionMensual,
+    NaturalezaCuenta,
     ObligacionTributariaMensual,
     TipoOwnerLiquidacion,
 )
@@ -86,6 +89,7 @@ class Command(BaseCommand):
                 approved_months += 1
             self._ensure_prepared_ppm_obligation(empresa=empresa, anio=fiscal_year, mes=month, ppm_rate=ppm_rate)
 
+        self._ensure_annual_trial_balance_source(empresa=empresa, fiscal_year=fiscal_year)
         process, ddjj, f22 = generate_annual_preparation(empresa, anio_tributario)
 
         self._write_summary(
@@ -199,10 +203,16 @@ class Command(BaseCommand):
             DestinoMapeoTributarioAnual.DDJJ,
         )
         for destino in required_destinations:
-            source_metric = {
-                DestinoMapeoTributarioAnual.RLI: "monthly_tax_facts.rent_distributions_total_devengado",
-                DestinoMapeoTributarioAnual.CPT: "monthly_tax_facts.obligations_total_amount",
-            }.get(destino, "")
+            source_metadata = {
+                DestinoMapeoTributarioAnual.RLI: {
+                    "source_metric": "annual_trial_balance.resultado_ganancia_clp",
+                    "trial_balance_classifier": "RLI-LEASE-REVENUE",
+                },
+                DestinoMapeoTributarioAnual.CPT: {
+                    "source_metric": "annual_trial_balance.inventario_activo_clp",
+                    "trial_balance_classifier": "CPT-CASH-ASSET",
+                },
+            }.get(destino, {})
             mapping_source = self._ensure_official_source(
                 config=config,
                 anio_tributario=anio_tributario,
@@ -220,15 +230,26 @@ class Command(BaseCommand):
                     "official_source": mapping_source,
                     "metadata": {
                         "source": "bootstrap_demo_tax_annual_flow",
-                        **({"source_metric": source_metric} if source_metric else {}),
+                        **source_metadata,
                         "ddjj_codes": list(ddjj_codes) if destino == DestinoMapeoTributarioAnual.DDJJ else [],
                     },
                 },
             )
+            expected_metadata = {
+                "source": "bootstrap_demo_tax_annual_flow",
+                **source_metadata,
+                "ddjj_codes": list(ddjj_codes) if destino == DestinoMapeoTributarioAnual.DDJJ else [],
+            }
+            dirty_fields = []
+            if mapping.metadata != expected_metadata:
+                mapping.metadata = expected_metadata
+                dirty_fields.append("metadata")
             if not mapping.official_source_id:
                 mapping.official_source = mapping_source
+                dirty_fields.append("official_source")
+            if dirty_fields:
                 mapping.full_clean()
-                mapping.save(update_fields=["official_source", "updated_at"])
+                mapping.save(update_fields=[*dirty_fields, "updated_at"])
         rule_set.full_clean()
         return rule_set
 
@@ -331,6 +352,64 @@ class Command(BaseCommand):
         if obligation.estado_preparacion != "preparado":
             obligation.estado_preparacion = "preparado"
             obligation.save(update_fields=["estado_preparacion", "updated_at"])
+
+    def _ensure_annual_trial_balance_source(self, *, empresa: Empresa, fiscal_year: int) -> BalanceComprobacion:
+        revenue_account, _ = CuentaContable.objects.get_or_create(
+            empresa=empresa,
+            plan_cuentas_version="demo-stage6-controlled",
+            codigo="4100",
+            defaults={
+                "nombre": "Ingresos por arriendo",
+                "naturaleza": NaturalezaCuenta.CREDIT,
+                "nivel": 1,
+                "estado": "activa",
+            },
+        )
+        asset_account, _ = CuentaContable.objects.get_or_create(
+            empresa=empresa,
+            plan_cuentas_version="demo-stage6-controlled",
+            codigo="1100",
+            defaults={
+                "nombre": "Banco recaudador",
+                "naturaleza": NaturalezaCuenta.DEBIT,
+                "nivel": 1,
+                "estado": "activa",
+            },
+        )
+        balance_summary = {
+            "source": "bootstrap_demo_tax_annual_flow",
+            "lineas_balance_8_columnas": [
+                {
+                    "codigo_cuenta": revenue_account.codigo,
+                    "clasificador_dj1847": "RLI-LEASE-REVENUE",
+                    "sumas_haber_clp": "1200000.00",
+                    "saldo_acreedor_clp": "1200000.00",
+                    "resultado_ganancia_clp": "1200000.00",
+                    "formula_ref": f"demo-dj1847-rli-revenue-at{fiscal_year + 1}",
+                    "evidencia_ref": f"demo-balance-revenue-at{fiscal_year + 1}",
+                },
+                {
+                    "codigo_cuenta": asset_account.codigo,
+                    "clasificador_dj1847": "CPT-CASH-ASSET",
+                    "sumas_debe_clp": "1200000.00",
+                    "saldo_deudor_clp": "1200000.00",
+                    "inventario_activo_clp": "1200000.00",
+                    "formula_ref": f"demo-dj1847-cpt-cash-at{fiscal_year + 1}",
+                    "evidencia_ref": f"demo-balance-cash-at{fiscal_year + 1}",
+                },
+            ],
+        }
+        balance, _ = BalanceComprobacion.objects.update_or_create(
+            empresa=empresa,
+            periodo=f"{fiscal_year}-12",
+            defaults={
+                "estado_snapshot": EstadoCierreMensual.APPROVED,
+                "storage_ref": f"demo-balance-comprobacion-{empresa.pk}-{fiscal_year}",
+                "resumen": balance_summary,
+            },
+        )
+        balance.full_clean()
+        return balance
 
     def _write_summary(
         self,

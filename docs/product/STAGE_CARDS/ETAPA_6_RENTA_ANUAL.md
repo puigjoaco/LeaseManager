@@ -71,12 +71,19 @@ F29 si existe, distribuciones de arriendo y liquidacion de empresa, con
 `hash_hecho` del resumen mensual, refs no sensibles y exposicion redactada en
 API/snapshot/admin. Esto mantiene la union contabilidad -> renta como
 transformacion trazable, no como salto directo desde asientos a F22.
+`AnnualTaxTrialBalance` y `AnnualTaxTrialBalanceLine` materializan la capa
+anual de balance de ocho columnas entre contabilidad y RLI/CPT/DJ1847: toman
+un `BalanceComprobacion` aprobado de diciembre, una fuente oficial/experta
+revisada y el rule set anual para generar lineas por cuenta, clasificador,
+sumas, saldos, inventario y resultado. Esta capa es evidencia preparatoria
+para revision tributaria; no calcula ni presenta renta final.
 `AnnualTaxWorkbook` y `AnnualTaxWorkbookLine` materializan el primer esqueleto
 RLI/CPT: para cada `ProcesoRentaAnual` se preparan workbooks RLI y CPT desde
-`TaxCodeMapping` aprobado y `MonthlyTaxFact`, con hashes por linea/workbook,
-warnings revisables y exposicion redactada. Esta capa no declara calculo
-tributario final; deja importes, origenes y advertencias listos para revision
-antes de avanzar a RAI/SAC/DDJJ/F22.
+`TaxCodeMapping` aprobado, `MonthlyTaxFact` y, cuando el mapping lo exige,
+`AnnualTaxTrialBalance`, con hashes por linea/workbook, warnings revisables y
+exposicion redactada. Esta capa no declara calculo tributario final; deja
+importes, origenes y advertencias listos para revision antes de avanzar a
+RAI/SAC/DDJJ/F22.
 `AnnualEnterpriseRegisterSet` y `AnnualEnterpriseRegisterMovement` materializan
 la siguiente capa: registros RAI, SAC, retiros y dividendos por proceso anual,
 con saldos iniciales/finales, movimientos trazados a RLI/CPT o participaciones
@@ -151,6 +158,16 @@ sin exponer valores.
   anual como trazable. Deben existir doce meses normalizados para el ano
   comercial y `ProcesoRentaAnual.resumen_anual.annual_tax_monthly_facts` debe
   coincidir con esos hechos.
+- `AnnualTaxTrialBalance` preparado requiere proceso anual, source bundle,
+  rule set, fuente oficial/experta y `BalanceComprobacion` aprobado del cierre
+  de diciembre de la misma empresa. Debe conservar lineas activas,
+  `resumen_balance`, `hash_balance`, refs no sensibles y resumen alineado en
+  `ProcesoRentaAnual.resumen_anual.annual_tax_trial_balances`.
+- `AnnualTaxTrialBalanceLine` activa requiere cuenta contable de la misma
+  empresa, clasificador DJ1847/RLI/CPT, montos no negativos de ocho columnas,
+  formula/evidencia no sensibles, `source_payload` y `hash_linea` coherente.
+  Cualquier warning de linea o del balance agregado bloquea readiness hasta
+  revision tributaria.
 - `AnnualTaxWorkbook` preparado para RLI y CPT antes de tratar un proceso anual
   como trazable. Ambos workbooks deben pertenecer al mismo proceso, rule set,
   bundle y empresa, conservar `hash_workbook` coherente y aparecer en
@@ -351,10 +368,15 @@ sin exponer valores.
   aprobados antes de construir el resumen anual. La readiness bloquea hechos
   mensuales invalidos, faltantes, sin configuracion fiscal activa o procesos
   cuyo resumen mensual quede desalineado.
+- `generate_annual_preparation()` sincroniza `AnnualTaxTrialBalance` desde el
+  balance aprobado de diciembre antes de construir workbooks RLI/CPT. Si no
+  existe balance/fuente revisada, la generacion puede seguir como preparacion
+  local, pero readiness bloquea el proceso trazable hasta completar esa capa.
 - `generate_annual_preparation()` sincroniza workbooks RLI/CPT despues de crear
-  el proceso anual y antes de emitir DDJJ/F22 locales. La readiness bloquea
-  procesos trazables sin ambos workbooks, sin lineas activas, con warnings,
-  invalidos o con resumen RLI/CPT desalineado.
+  el proceso anual y el balance anual cuando corresponda, antes de emitir
+  DDJJ/F22 locales. La readiness bloquea procesos trazables sin ambos
+  workbooks, sin lineas activas, con warnings, invalidos o con resumen RLI/CPT
+  desalineado.
 - `generate_annual_preparation()` sincroniza registros empresariales despues de
   RLI/CPT y antes de emitir DDJJ/F22 locales. La readiness bloquea procesos
   trazables sin RAI/SAC/retiros/dividendos, sin movimientos activos, con
@@ -369,6 +391,10 @@ sin exponer valores.
 - La API/snapshot/admin de SII exponen `MonthlyTaxFact` con `source_ref`,
   `responsible_ref` y `resumen_hecho` redactados; el admin es solo lectura para
   evitar ediciones manuales de hechos derivados.
+- La API/snapshot/admin de SII exponen `AnnualTaxTrialBalance` y
+  `AnnualTaxTrialBalanceLine` con refs, warnings y payloads redactados; el
+  admin es solo lectura para preservar que el balance anual proviene de
+  `BalanceComprobacion` y fuentes revisadas, no de edicion manual opaca.
 - La API/snapshot/admin de SII exponen `AnnualTaxWorkbook` y
   `AnnualTaxWorkbookLine` con refs, warnings y payloads redactados; el admin es
   solo lectura para preservar que RLI/CPT provienen del normalizador anual y no
