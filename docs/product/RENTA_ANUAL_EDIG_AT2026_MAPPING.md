@@ -116,6 +116,12 @@ modelo 1:1 ni se copian nombres/relaciones propietarios al dominio; solo se usa
 para validar que las piezas funcionales que LeaseManager necesita existen como
 capas separadas en un software AT2026 real.
 
+La traduccion implementable de esta lectura queda en
+`docs/product/RENTA_ANUAL_AT2026_ENGINE_BLUEPRINT.md`. Ese blueprint convierte
+las capas observadas en componentes propios (`AnnualTaxSourceBundle`,
+`TaxYearRuleSet`, `AnnualTaxNormalizer`, RLI/CPT/RAI/SAC, DDJJ, F22, dossier y
+export gate) y fija el orden recomendado de paquetes tecnicos.
+
 ## Linea de diseno propia
 
 LeaseManager debe implementar un motor anual por ano tributario con estas

@@ -50,8 +50,10 @@ estado correcto es preparacion o revision, aunque los datos locales cuadren.
 
 Para Renta Anual, el camino correcto no es mapear asientos directamente a F22.
 La etapa debe construir una capa tributaria anual intermedia y versionada por
-AT, documentada en `docs/product/RENTA_ANUAL_EDIG_AT2026_MAPPING.md`, antes de
-generar preview/export F22/DDJJ. La presentacion final sigue condicionada por
+AT, documentada en `docs/product/RENTA_ANUAL_EDIG_AT2026_MAPPING.md` y
+traducida a arquitectura propia en
+`docs/product/RENTA_ANUAL_AT2026_ENGINE_BLUEPRINT.md`, antes de generar
+preview/export F22/DDJJ. La presentacion final sigue condicionada por
 gate SII, certificacion/formato vigente, responsable y autorizacion explicita.
 
 Se permite preparar trabajo de etapas posteriores o de integracion cuando no
