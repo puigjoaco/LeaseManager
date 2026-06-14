@@ -522,6 +522,83 @@ class ContabilidadAPITests(APITestCase):
             AsientoContable.objects.filter(evento_contable__idempotency_key='post-attempt-audit-fail').exists()
         )
 
+    def test_event_create_audits_state_change_when_posted(self):
+        empresa = self._create_active_empresa(nombre='EventStateCreateCo', rut='78242424-2')
+        accounts = self._setup_contabilidad(empresa)
+        self._create_rule_matrix(empresa, 'PagoConciliadoArriendo', accounts['bancos'], accounts['cxc'])
+
+        response = self.client.post(
+            reverse('contabilidad-evento-list'),
+            {
+                'empresa': empresa.id,
+                'evento_tipo': 'PagoConciliadoArriendo',
+                'entidad_origen_tipo': 'manual',
+                'entidad_origen_id': 'create-state-audit',
+                'fecha_operativa': '2026-01-10',
+                'moneda': 'CLP',
+                'monto_base': '100000.00',
+                'payload_resumen': {},
+                'idempotency_key': 'create-state-audit',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        event = EventoContable.objects.get(pk=response.data['id'])
+        asiento = AsientoContable.objects.get(evento_contable=event)
+        state_event = AuditEvent.objects.get(
+            event_type='contabilidad.evento_contable.state_changed',
+            entity_type='evento_contable',
+            entity_id=str(event.pk),
+        )
+        self.assertEqual(event.estado_contable, EstadoEventoContable.POSTED)
+        self.assertEqual(
+            state_event.metadata,
+            {
+                'campo_estado': 'estado_contable',
+                'estado_anterior': EstadoEventoContable.PENDING,
+                'estado_nuevo': EstadoEventoContable.POSTED,
+                'asiento_id': asiento.pk,
+            },
+        )
+
+    def test_event_create_rolls_back_when_state_changed_audit_fails(self):
+        from audit.services import create_audit_event as real_create_audit_event
+
+        empresa = self._create_active_empresa(nombre='EventStateCreateFailCo', rut='78252525-2')
+        accounts = self._setup_contabilidad(empresa)
+        self._create_rule_matrix(empresa, 'PagoConciliadoArriendo', accounts['bancos'], accounts['cxc'])
+        audit_count = AuditEvent.objects.count()
+
+        def fail_state_changed_audit(**kwargs):
+            if kwargs['event_type'] == 'contabilidad.evento_contable.state_changed':
+                raise RuntimeError('event state audit unavailable')
+            return real_create_audit_event(**kwargs)
+
+        with patch('contabilidad.views.create_audit_event', side_effect=fail_state_changed_audit):
+            with self.assertRaisesRegex(RuntimeError, 'event state audit unavailable'):
+                self.client.post(
+                    reverse('contabilidad-evento-list'),
+                    {
+                        'empresa': empresa.id,
+                        'evento_tipo': 'PagoConciliadoArriendo',
+                        'entidad_origen_tipo': 'manual',
+                        'entidad_origen_id': 'create-state-audit-fail',
+                        'fecha_operativa': '2026-01-10',
+                        'moneda': 'CLP',
+                        'monto_base': '100000.00',
+                        'payload_resumen': {},
+                        'idempotency_key': 'create-state-audit-fail',
+                    },
+                    format='json',
+                )
+
+        self.assertFalse(EventoContable.objects.filter(idempotency_key='create-state-audit-fail').exists())
+        self.assertFalse(
+            AsientoContable.objects.filter(evento_contable__idempotency_key='create-state-audit-fail').exists()
+        )
+        self.assertEqual(AuditEvent.objects.count(), audit_count)
+
     def test_event_post_retry_rolls_back_when_view_audit_fails(self):
         empresa = self._create_active_empresa(nombre='EventRetryAuditFailCo', rut='78233333-3')
         accounts = self._setup_contabilidad(empresa)
@@ -551,6 +628,78 @@ class ContabilidadAPITests(APITestCase):
         event.refresh_from_db()
         self.assertEqual(event.estado_contable, EstadoEventoContable.REVIEW)
         self.assertFalse(AsientoContable.objects.filter(evento_contable=event).exists())
+
+    def test_event_post_retry_audits_state_change_when_posted(self):
+        empresa = self._create_active_empresa(nombre='EventRetryStateCo', rut='78262626-2')
+        accounts = self._setup_contabilidad(empresa)
+        self._create_rule_matrix(empresa, 'PagoConciliadoArriendo', accounts['bancos'], accounts['cxc'])
+        event = EventoContable.objects.create(
+            empresa=empresa,
+            evento_tipo='PagoConciliadoArriendo',
+            entidad_origen_tipo='manual',
+            entidad_origen_id='post-retry-state-audit',
+            fecha_operativa='2026-01-10',
+            moneda='CLP',
+            monto_base='100000.00',
+            payload_resumen={},
+            idempotency_key='post-retry-state-audit',
+            estado_contable=EstadoEventoContable.REVIEW,
+        )
+
+        response = self.client.post(reverse('contabilidad-evento-post', args=[event.id]), format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        event.refresh_from_db()
+        asiento = AsientoContable.objects.get(evento_contable=event)
+        state_event = AuditEvent.objects.get(
+            event_type='contabilidad.evento_contable.state_changed',
+            entity_type='evento_contable',
+            entity_id=str(event.pk),
+        )
+        self.assertEqual(event.estado_contable, EstadoEventoContable.POSTED)
+        self.assertEqual(
+            state_event.metadata,
+            {
+                'campo_estado': 'estado_contable',
+                'estado_anterior': EstadoEventoContable.REVIEW,
+                'estado_nuevo': EstadoEventoContable.POSTED,
+                'asiento_id': asiento.pk,
+            },
+        )
+
+    def test_event_post_retry_rolls_back_when_state_changed_audit_fails(self):
+        from audit.services import create_audit_event as real_create_audit_event
+
+        empresa = self._create_active_empresa(nombre='EventRetryStateFailCo', rut='78272727-2')
+        accounts = self._setup_contabilidad(empresa)
+        self._create_rule_matrix(empresa, 'PagoConciliadoArriendo', accounts['bancos'], accounts['cxc'])
+        event = EventoContable.objects.create(
+            empresa=empresa,
+            evento_tipo='PagoConciliadoArriendo',
+            entidad_origen_tipo='manual',
+            entidad_origen_id='post-retry-state-audit-fail',
+            fecha_operativa='2026-01-10',
+            moneda='CLP',
+            monto_base='100000.00',
+            payload_resumen={},
+            idempotency_key='post-retry-state-audit-fail',
+            estado_contable=EstadoEventoContable.REVIEW,
+        )
+        audit_count = AuditEvent.objects.count()
+
+        def fail_state_changed_audit(**kwargs):
+            if kwargs['event_type'] == 'contabilidad.evento_contable.state_changed':
+                raise RuntimeError('event state audit unavailable')
+            return real_create_audit_event(**kwargs)
+
+        with patch('contabilidad.views.create_audit_event', side_effect=fail_state_changed_audit):
+            with self.assertRaisesRegex(RuntimeError, 'event state audit unavailable'):
+                self.client.post(reverse('contabilidad-evento-post', args=[event.id]), format='json')
+
+        event.refresh_from_db()
+        self.assertEqual(event.estado_contable, EstadoEventoContable.REVIEW)
+        self.assertFalse(AsientoContable.objects.filter(evento_contable=event).exists())
+        self.assertEqual(AuditEvent.objects.count(), audit_count)
 
     def test_manual_event_rejects_non_positive_monto_base(self):
         empresa = self._create_active_empresa()

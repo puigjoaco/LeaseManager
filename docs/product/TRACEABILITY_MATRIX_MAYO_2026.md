@@ -65,6 +65,14 @@ si falla la auditoria, se revierte la reapertura, snapshots y evento de efecto.
 `audit_stage5_contabilidad_readiness` bloquea cierres reabiertos heredados sin
 ese `state_changed`, evitando paquetes mensuales reabiertos sin trazabilidad.
 
+Nota 2026-06-13: Etapa 5 traza la contabilizacion de eventos como cambio de
+estado. La creacion y el reintento de `EventoContable` registran
+`contabilidad.evento_contable.state_changed` cuando `post_accounting_event()`
+cambia `estado_contable`, con `campo_estado`, `estado_anterior`,
+`estado_nuevo` y `asiento_id` cuando existe asiento; si falla la auditoria, se
+revierte evento/asiento/estado y auditoria previa. Esto mantiene el ledger como
+paquete revisable, no como decision contable opaca.
+
 Nota 2026-06-13: Reporting/Etapa 7 cubre en API los bloqueos de
 `ProcesoRentaAnual.borrador_f22_ref` faltante o sensible para procesos anuales
 finales. `_assert_annual_tax_traceability()` devuelve
