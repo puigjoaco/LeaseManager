@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Cerrar `stage6-dossier-boundary-flags`. |
-| Fuente exacta | Rama tactica `codex/stage6-dossier-boundary-flags` basada en `main` `f1c7a9cc` posterior a PR #835. |
-| Brecha activa | `stage6-dossier-boundary-flags`: `AnnualTaxDossier.resumen_dossier` ya declara que no hay calculo final ni presentacion SII, pero el dominio/readiness no clasifican explicitamente snapshots heredados que intenten marcar `official_format`, `sii_submission`, `sii_submission_attempted` o `final_tax_calculation`. |
-| Motivo de prioridad | Refuerza la decision de arquitectura: LeaseManager prepara expediente anual revisable; no automatiza ni decide renta final desde el core. |
-| Worktree | `D:/Proyectos/LeaseManager-stage6-dossier-boundary-flags` durante el paquete; tras merge debe eliminarse. |
-| Rama | `codex/stage6-dossier-boundary-flags` durante el paquete; `main` tras merge. |
-| Estado | Validacion local completa: focal, suite impactada, `manage.py check`, migraciones dry-run, gate Stage 6, frontend y acceptance pasaron; falta PR, CI, merge y limpieza. |
+| Frente activo | Sin paquete tactico activo; escoger siguiente frente seguro desde `main`. |
+| Fuente exacta | `main` posterior a PR #836 (`stage6-dossier-boundary-flags`) y a esta actualizacion de cursor. |
+| Brecha activa | Ninguna brecha abierta por cursor. El paquete `stage6-dossier-boundary-flags` quedo cerrado: `AnnualTaxDossier.resumen_dossier` no puede declarar formato oficial SII, presentacion SII, intento de presentacion ni calculo fiscal final autonomo. |
+| Motivo de prioridad | Evitar que una reanudacion o compactacion reabra el PR #836 ya cerrado como si todavia faltaran PR, CI o merge. |
+| Worktree | Solo debe quedar el worktree principal de `main`; eliminar worktrees tacticos cerrados. |
+| Rama | `main` tras merge. |
+| Estado | PR #836 mergeado en `main`; validacion local y CI remoto pasaron. No repetir este paquete. |
 | Gate esperado | Mantener `classification=parcial`; no cerrar presentacion anual sin fuente autorizada, formato/certificacion SII vigente, validacion fiscal/oficial, responsable y evidencia no sensible. |
 | Estado al cerrar paquete | `stage6-dossier-boundary-flags` cerrado. El dossier anual preparado no acepta ni deja pasar flags/payloads que declaren formato oficial, presentacion SII o calculo fiscal final autonomo. |
 | Bloqueos relacionados | Presentacion F22/DDJJ final sigue bloqueada sin formato/certificacion SII vigente, responsable, autorizacion explicita y evidencia no sensible. Reglas tributarias finales, contribuciones y mapping RLI/CPT/DJ/F22 requieren fuente oficial/experta. |
 | Politica de reanudacion | No reabrir EDIG ni goal prompts. Si no hay worktree sucio, continuar por el siguiente frente util que no requiera datos reales, secretos, presentacion SII ni decision tributaria final autonoma. |
-| Siguiente accion | Abrir PR, esperar CI, mergear y limpiar. |
+| Siguiente accion | Confirmar `main` limpio y escoger el siguiente frente Stage 6/7 no sensible segun trazabilidad vigente. |
 
 ## Actualizacion
 
