@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `company-accounting-progress`. |
-| Fuente exacta | `main` en `0a08304f`, posterior al merge de PR #846. |
-| Brecha activa | Falta un auditor objetivo por empresa y ano comercial que responda cuanto avance real existe en contabilidad/renta antes de elegir o cerrar una empresa piloto. |
-| Motivo de prioridad | Evitar que el avance siga pareciendo abstracto: el sistema debe poder decir, para una empresa concreta, si tiene configuracion fiscal, 12 cierres, balances, F29, proceso anual, balance anual, RLI/CPT, dossier y export local. |
-| Worktree | `D:/Proyectos/LeaseManager-company-accounting-progress`. |
-| Rama | `codex/company-accounting-progress`. |
-| Estado | Implementacion local validada; pendiente commit, PR, CI, merge y limpieza. |
-| Gate esperado | Diagnostico local JSON; no cierra Etapa 5 ni Etapa 6, no lee `.env`, no usa datos reales ni abre SII/EDIG. |
-| Estado al cerrar paquete | Commit, PR, CI, merge y limpieza; `main` debe quedar sincronizado. |
-| Bloqueos relacionados | La contabilidad real de una primera empresa requiere elegir empresa/ano y autorizar fuentes o snapshot controlado; este auditor solo mide el estado de la DB configurada. |
-| Politica de reanudacion | Continuar este worktree hasta cerrar, pausar explicitamente o limpiar. No reabrir goal prompts, EDIG ni paquetes ya mergeados. |
-| Siguiente accion | Validar `audit_company_accounting_progress` con tests y registrar evidencia. |
+| Frente activo | `pilot-company-accounting-selection`. |
+| Fuente exacta | `main` en `14e7292c`, posterior al merge de PR #847. |
+| Brecha activa | Falta elegir una empresa piloto, ano comercial y fuente controlada/autorizada para medir su avance contable/renta con `audit_company_accounting_progress`. |
+| Motivo de prioridad | La infraestructura ya puede responder avance por empresa; el siguiente paso no es seguir abstracto, sino aplicar el auditor a una empresa/ano concretos cuando exista fuente permitida. |
+| Worktree | Ninguno activo para producto; `main` queda como base limpia. |
+| Rama | `main`; abrir `codex/...` solo cuando el siguiente paquete concreto lo requiera. |
+| Estado | PR #847 integrado; auditor empresa/ano disponible. Pendiente seleccion de empresa piloto y fuente de ejecucion. |
+| Gate esperado | Ejecutar `audit_company_accounting_progress --empresa-id <id> --fiscal-year <ano>` contra DB local/controlada o fuente autorizada. El JSON puede guardarse solo bajo `local-evidence/`. |
+| Estado al cerrar paquete | Cerrado en PR #847, CI remoto verde y mergeado; no reabrir ese paquete salvo bug nuevo. |
+| Bloqueos relacionados | Sin empresa/ano/fuente no se puede afirmar avance real de una empresa. Registrar esa falta una vez y seguir solo con trabajo seguro que no dependa de datos reales. |
+| Politica de reanudacion | No reabrir goal prompts, EDIG ni paquetes ya mergeados. Si el usuario no entrega empresa/fuente, continuar con el siguiente paquete seguro o construir UI/reporte para ejecutar el auditor cuando haya fuente. |
+| Siguiente accion | Responder al usuario que la primera empresa aun no esta medida/cerrada; pedir una unica seleccion concreta de empresa, ano y fuente, o continuar con preparacion local segura. |
 
 ## Actualizacion
 
