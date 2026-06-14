@@ -61,6 +61,15 @@ del resumen mensual y refs no sensibles. La readiness bloquea procesos anuales
 trazables sin doce hechos mensuales normalizados o con resumen mensual
 desalineado, manteniendo el camino anual en capas antes de RLI/CPT/F22.
 
+Nota 2026-06-14: Etapas 5/6 agregan `audit_company_accounting_progress` como
+auditor operativo por empresa y ano comercial. Consolida configuracion fiscal,
+doce cierres, balances mensuales aprobados/cuadrados, F29, proceso anual,
+balance tributario, workbooks RLI/CPT, dossier y export local en un JSON con
+porcentaje, siguiente fase bloqueante y `ready_for_company_accounting_review`.
+La senal es lista para revision responsable, no cierre contable/tributario
+legal, y no lee `.env`, fuentes externas, SII, EDIG ni datos reales por
+defecto.
+
 Nota 2026-06-14: Etapa 6 agrega `AnnualTaxTrialBalance` como capa anual de
 balance de ocho columnas entre `BalanceComprobacion` y RLI/CPT/DJ1847.
 `generate_annual_preparation()` lo sincroniza desde el balance aprobado de
