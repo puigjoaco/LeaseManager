@@ -26,6 +26,8 @@ from .admin import (
     AnnualEnterpriseRegisterSetAdmin,
     AnnualRealEstateItemAdmin,
     AnnualRealEstateSectionAdmin,
+    AnnualTaxArtifactMatrixAdmin,
+    AnnualTaxArtifactMatrixItemAdmin,
     AnnualTaxSourceBundleAdmin,
     AnnualTaxWorkbookAdmin,
     AnnualTaxWorkbookLineAdmin,
@@ -44,6 +46,8 @@ from .models import (
     AnnualEnterpriseRegisterSet,
     AnnualRealEstateItem,
     AnnualRealEstateSection,
+    AnnualTaxArtifactMatrix,
+    AnnualTaxArtifactMatrixItem,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -2891,6 +2895,16 @@ class SiiAPITests(APITestCase):
         self.assertEqual(section_summary['propiedades_total'], 1)
         self.assertEqual(section_summary['items_total'], 1)
         self.assertEqual(section_summary['warnings_total'], 0)
+        artifact_matrices = AnnualTaxArtifactMatrix.objects.filter(proceso_renta_anual=process)
+        artifact_items = AnnualTaxArtifactMatrixItem.objects.filter(matrix__proceso_renta_anual=process)
+        self.assertEqual(artifact_matrices.count(), 1)
+        self.assertGreaterEqual(artifact_items.count(), 10)
+        self.assertEqual(process.resumen_anual['annual_tax_artifact_matrices']['total'], 1)
+        matrix_summary = next(iter(process.resumen_anual['annual_tax_artifact_matrices']['by_id'].values()))
+        self.assertEqual(matrix_summary['items_total'], artifact_items.count())
+        self.assertGreater(matrix_summary['ddjj_items_total'], 0)
+        self.assertGreater(matrix_summary['f22_items_total'], 0)
+        self.assertEqual(matrix_summary['warnings_total'], 0)
 
         monthly_facts_response = self.client.get(reverse('sii-monthly-tax-fact-list'))
         self.assertEqual(monthly_facts_response.status_code, status.HTTP_200_OK)
@@ -2901,18 +2915,24 @@ class SiiAPITests(APITestCase):
         enterprise_movement_response = self.client.get(reverse('sii-annual-enterprise-register-movement-list'))
         real_estate_section_response = self.client.get(reverse('sii-annual-real-estate-section-list'))
         real_estate_item_response = self.client.get(reverse('sii-annual-real-estate-item-list'))
+        artifact_matrix_response = self.client.get(reverse('sii-annual-tax-artifact-matrix-list'))
+        artifact_matrix_item_response = self.client.get(reverse('sii-annual-tax-artifact-matrix-item-list'))
         self.assertEqual(workbook_response.status_code, status.HTTP_200_OK)
         self.assertEqual(workbook_line_response.status_code, status.HTTP_200_OK)
         self.assertEqual(enterprise_register_response.status_code, status.HTTP_200_OK)
         self.assertEqual(enterprise_movement_response.status_code, status.HTTP_200_OK)
         self.assertEqual(real_estate_section_response.status_code, status.HTTP_200_OK)
         self.assertEqual(real_estate_item_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(artifact_matrix_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(artifact_matrix_item_response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(workbook_response.data), 2)
         self.assertEqual(len(workbook_line_response.data), 2)
         self.assertEqual(len(enterprise_register_response.data), 4)
         self.assertGreaterEqual(len(enterprise_movement_response.data), 6)
         self.assertEqual(len(real_estate_section_response.data), 1)
         self.assertEqual(len(real_estate_item_response.data), 1)
+        self.assertEqual(len(artifact_matrix_response.data), 1)
+        self.assertEqual(len(artifact_matrix_item_response.data), artifact_items.count())
         snapshot = self.client.get(reverse('sii-snapshot'))
         self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
         self.assertEqual(len(snapshot.data['monthly_tax_facts']), 12)
@@ -2922,6 +2942,8 @@ class SiiAPITests(APITestCase):
         self.assertGreaterEqual(len(snapshot.data['annual_enterprise_register_movements']), 6)
         self.assertEqual(len(snapshot.data['annual_real_estate_sections']), 1)
         self.assertEqual(len(snapshot.data['annual_real_estate_items']), 1)
+        self.assertEqual(len(snapshot.data['annual_tax_artifact_matrices']), 1)
+        self.assertEqual(len(snapshot.data['annual_tax_artifact_matrix_items']), artifact_items.count())
 
     def test_real_estate_item_preserves_frozen_snapshot_after_property_master_changes(self):
         empresa, _ = self._setup_paid_payment()
@@ -3219,6 +3241,83 @@ class SiiAPITests(APITestCase):
         self.assertNotIn('real-estate-item-secret', serialized_payload)
         self.assertNotIn('secret-real-estate-value', serialized_payload)
         self.assertNotIn('secret-real-estate-item-value', serialized_payload)
+
+    def test_artifact_matrix_admin_and_api_redact_sensitive_payloads(self):
+        empresa, _ = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887', '1879'])
+        self._activate_annual_capabilities(empresa)
+        self._create_twelve_approved_closes(empresa, fiscal_year=2026)
+        generated = self.client.post(
+            reverse('sii-anual-generate'),
+            {'empresa_id': empresa.id, 'anio_tributario': 2027},
+            format='json',
+        )
+        self.assertEqual(generated.status_code, status.HTTP_201_CREATED)
+        matrix = AnnualTaxArtifactMatrix.objects.get(empresa=empresa, anio_tributario=2027)
+        item = AnnualTaxArtifactMatrixItem.objects.filter(matrix=matrix).first()
+        self.assertIsNotNone(item)
+        AnnualTaxArtifactMatrix.objects.filter(pk=matrix.pk).update(
+            source_ref='https://sii.example.test/artifact-matrix?token=secret',
+            responsible_ref='Bearer artifact-matrix-secret',
+            resumen_matriz={'api_key': 'secret-artifact-matrix-value'},
+        )
+        AnnualTaxArtifactMatrixItem.objects.filter(pk=item.pk).update(
+            formula_ref='https://sii.example.test/artifact-formula?token=secret',
+            evidencia_ref='Bearer artifact-item-secret',
+            responsible_ref='https://sii.example.test/artifact-responsible?token=secret',
+            warnings=['https://sii.example.test/artifact-warning?token=secret'],
+            source_payload={'api_key': 'secret-artifact-item-value'},
+        )
+        matrix.refresh_from_db()
+        item.refresh_from_db()
+        matrix_admin = AnnualTaxArtifactMatrixAdmin(AnnualTaxArtifactMatrix, AdminSite())
+        item_admin = AnnualTaxArtifactMatrixItemAdmin(AnnualTaxArtifactMatrixItem, AdminSite())
+
+        self.assertEqual(matrix_admin.source_ref_redacted(matrix), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(matrix_admin.responsible_ref_redacted(matrix), REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('secret-artifact-matrix-value', json.dumps(matrix_admin.resumen_matriz_redacted(matrix)))
+        self.assertEqual(item_admin.formula_ref_redacted(item), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(item_admin.evidencia_ref_redacted(item), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(item_admin.responsible_ref_redacted(item), REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('secret-artifact-item-value', json.dumps(item_admin.source_payload_redacted(item)))
+
+        matrix_response = self.client.get(reverse('sii-annual-tax-artifact-matrix-list'))
+        item_response = self.client.get(reverse('sii-annual-tax-artifact-matrix-item-list'))
+        snapshot = self.client.get(reverse('sii-snapshot'))
+        serialized_payload = json.dumps(
+            {
+                'matrices': matrix_response.data,
+                'items': item_response.data,
+                'snapshot': snapshot.data,
+            },
+            default=str,
+        )
+        self.assertEqual(matrix_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(item_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
+        matrix_data = next(entry for entry in matrix_response.data if entry['id'] == matrix.id)
+        item_data = next(entry for entry in item_response.data if entry['id'] == item.id)
+        snapshot_matrix_data = next(
+            entry for entry in snapshot.data['annual_tax_artifact_matrices'] if entry['id'] == matrix.id
+        )
+        snapshot_item_data = next(
+            entry for entry in snapshot.data['annual_tax_artifact_matrix_items'] if entry['id'] == item.id
+        )
+        self.assertEqual(matrix_data['source_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(matrix_data['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_matrix_data['source_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_matrix_data['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(item_data['formula_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(item_data['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(item_data['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_item_data['formula_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_item_data['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_item_data['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('token=secret', serialized_payload)
+        self.assertNotIn('artifact-matrix-secret', serialized_payload)
+        self.assertNotIn('artifact-item-secret', serialized_payload)
+        self.assertNotIn('secret-artifact-matrix-value', serialized_payload)
+        self.assertNotIn('secret-artifact-item-value', serialized_payload)
 
     def test_generate_annual_preparation_rejects_source_changes_after_bundle_freeze(self):
         empresa, _ = self._setup_paid_payment()

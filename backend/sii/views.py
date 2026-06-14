@@ -15,6 +15,8 @@ from .models import (
     AnnualEnterpriseRegisterSet,
     AnnualRealEstateItem,
     AnnualRealEstateSection,
+    AnnualTaxArtifactMatrix,
+    AnnualTaxArtifactMatrixItem,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -30,6 +32,8 @@ from .serializers import (
     AnnualEnterpriseRegisterSetSerializer,
     AnnualRealEstateItemSerializer,
     AnnualRealEstateSectionSerializer,
+    AnnualTaxArtifactMatrixItemSerializer,
+    AnnualTaxArtifactMatrixSerializer,
     AnnualGenerateSerializer,
     AnnualStatusSerializer,
     AnnualTaxSourceBundleSerializer,
@@ -241,6 +245,24 @@ class SiiSnapshotView(APIView):
             ).order_by('section_id', 'codigo_propiedad_snapshot', 'id'),
             access,
             company_paths=('section__empresa_id',),
+        )
+        annual_tax_artifact_matrices = scope_queryset_for_access(
+            AnnualTaxArtifactMatrix.objects.select_related(
+                'empresa',
+                'proceso_renta_anual',
+                'source_bundle',
+                'rule_set',
+            ).order_by('-anio_tributario', 'empresa_id', 'id'),
+            access,
+            company_paths=('empresa_id',),
+        )
+        annual_tax_artifact_matrix_items = scope_queryset_for_access(
+            AnnualTaxArtifactMatrixItem.objects.select_related(
+                'matrix',
+                'matrix__empresa',
+            ).order_by('matrix_id', 'target_kind', 'target_code', 'source_kind', 'source_model', 'source_object_id'),
+            access,
+            company_paths=('matrix__empresa_id',),
         )
         tax_year_rule_sets = TaxYearRuleSet.objects.select_related('regimen_tributario').order_by(
             '-anio_tributario',
@@ -481,6 +503,48 @@ class SiiSnapshotView(APIView):
                         'estado': item.estado,
                     }
                     for item in annual_real_estate_items
+                ],
+                'annual_tax_artifact_matrices': [
+                    {
+                        'id': item.id,
+                        'empresa': item.empresa_id,
+                        'proceso_renta_anual': item.proceso_renta_anual_id,
+                        'source_bundle': item.source_bundle_id,
+                        'rule_set': item.rule_set_id,
+                        'anio_tributario': item.anio_tributario,
+                        'anio_comercial': item.anio_comercial,
+                        'source_ref': redact_sensitive_reference(item.source_ref),
+                        'responsible_ref': redact_sensitive_reference(item.responsible_ref),
+                        'items_total': item.items_total,
+                        'ddjj_items_total': item.ddjj_items_total,
+                        'f22_items_total': item.f22_items_total,
+                        'resumen_matriz': redact_sensitive_payload(item.resumen_matriz),
+                        'hash_matriz': item.hash_matriz,
+                        'estado': item.estado,
+                    }
+                    for item in annual_tax_artifact_matrices
+                ],
+                'annual_tax_artifact_matrix_items': [
+                    {
+                        'id': item.id,
+                        'matrix': item.matrix_id,
+                        'target_kind': item.target_kind,
+                        'target_code': item.target_code,
+                        'medio_sii': item.medio_sii,
+                        'source_kind': item.source_kind,
+                        'source_model': item.source_model,
+                        'source_object_id': item.source_object_id,
+                        'source_hash': item.source_hash,
+                        'review_state': item.review_state,
+                        'formula_ref': redact_sensitive_reference(item.formula_ref),
+                        'evidencia_ref': redact_sensitive_reference(item.evidencia_ref),
+                        'responsible_ref': redact_sensitive_reference(item.responsible_ref),
+                        'warnings': redact_sensitive_payload(item.warnings),
+                        'source_payload': redact_sensitive_payload(item.source_payload),
+                        'hash_item': item.hash_item,
+                        'estado': item.estado,
+                    }
+                    for item in annual_tax_artifact_matrix_items
                 ],
                 'ddjjs': [
                     {
@@ -767,6 +831,50 @@ class AnnualRealEstateItemDetailView(ScopedQuerysetMixin, generics.RetrieveAPIVi
         'propiedad',
     ).all()
     company_scope_paths = ('section__empresa_id',)
+
+
+class AnnualTaxArtifactMatrixListView(ScopedQuerysetMixin, generics.ListAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualTaxArtifactMatrixSerializer
+    queryset = AnnualTaxArtifactMatrix.objects.select_related(
+        'empresa',
+        'proceso_renta_anual',
+        'source_bundle',
+        'rule_set',
+    ).all()
+    company_scope_paths = ('empresa_id',)
+
+
+class AnnualTaxArtifactMatrixDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualTaxArtifactMatrixSerializer
+    queryset = AnnualTaxArtifactMatrix.objects.select_related(
+        'empresa',
+        'proceso_renta_anual',
+        'source_bundle',
+        'rule_set',
+    ).all()
+    company_scope_paths = ('empresa_id',)
+
+
+class AnnualTaxArtifactMatrixItemListView(ScopedQuerysetMixin, generics.ListAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualTaxArtifactMatrixItemSerializer
+    queryset = AnnualTaxArtifactMatrixItem.objects.select_related(
+        'matrix',
+        'matrix__empresa',
+    ).all()
+    company_scope_paths = ('matrix__empresa_id',)
+
+
+class AnnualTaxArtifactMatrixItemDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualTaxArtifactMatrixItemSerializer
+    queryset = AnnualTaxArtifactMatrixItem.objects.select_related(
+        'matrix',
+        'matrix__empresa',
+    ).all()
+    company_scope_paths = ('matrix__empresa_id',)
 
 
 class DTEEmitidoListView(ScopedQuerysetMixin, generics.ListAPIView):

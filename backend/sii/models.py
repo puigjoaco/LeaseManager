@@ -486,6 +486,33 @@ class EstadoAnnualRealEstateSection(models.TextChoices):
     RETIRED = 'retirado', 'Retirado'
 
 
+class EstadoAnnualTaxArtifactMatrix(models.TextChoices):
+    DRAFT = 'borrador', 'Borrador'
+    PREPARED = 'preparado', 'Preparado'
+    RETIRED = 'retirado', 'Retirado'
+
+
+class TipoAnnualTaxArtifactTarget(models.TextChoices):
+    DDJJ = 'DDJJ', 'DDJJ'
+    F22 = 'F22', 'F22'
+
+
+class SourceKindAnnualTaxArtifact(models.TextChoices):
+    SOURCE_BUNDLE = 'source_bundle', 'Source bundle'
+    TAX_MAPPING = 'tax_mapping', 'Tax code mapping'
+    ANNUAL_SUMMARY = 'annual_summary', 'Annual summary'
+    ANNUAL_WORKBOOK = 'annual_workbook', 'Annual workbook'
+    ENTERPRISE_REGISTER = 'enterprise_register', 'Enterprise register'
+    REAL_ESTATE = 'real_estate', 'Real estate'
+    FISCAL_CONFIG = 'fiscal_config', 'Fiscal config'
+
+
+class EstadoAnnualTaxArtifactReview(models.TextChoices):
+    READY_FOR_REVIEW = 'listo_revision', 'Listo para revision'
+    REQUIRES_REVIEW = 'requiere_revision', 'Requiere revision'
+    BLOCKED = 'bloqueado', 'Bloqueado'
+
+
 class SignoAnnualTaxLine(models.TextChoices):
     ADD = 'suma', 'Suma'
     SUBTRACT = 'resta', 'Resta'
@@ -558,6 +585,25 @@ def _real_estate_item_integrity_payload(item):
         'contribuciones_clp': str(item.contribuciones_clp),
         'formula_ref': item.formula_ref,
         'evidencia_ref': item.evidencia_ref,
+        'warnings': item.warnings,
+        'source_payload': item.source_payload,
+    }
+
+
+def _annual_tax_artifact_matrix_item_integrity_payload(item):
+    return {
+        'matrix_id': item.matrix_id,
+        'target_kind': item.target_kind,
+        'target_code': item.target_code,
+        'medio_sii': item.medio_sii,
+        'source_kind': item.source_kind,
+        'source_model': item.source_model,
+        'source_object_id': item.source_object_id,
+        'source_hash': item.source_hash,
+        'review_state': item.review_state,
+        'formula_ref': item.formula_ref,
+        'evidencia_ref': item.evidencia_ref,
+        'responsible_ref': item.responsible_ref,
         'warnings': item.warnings,
         'source_payload': item.source_payload,
     }
@@ -1729,6 +1775,276 @@ class AnnualRealEstateItem(OperationalSIITextNormalizationMixin, TimestampedMode
                 errors['source_payload'] = 'Item inmobiliario activo requiere source_payload trazable.'
             if not has_text(self.hash_item):
                 errors['hash_item'] = 'Item inmobiliario activo requiere hash_item.'
+        if errors:
+            raise ValidationError(errors)
+
+
+class AnnualTaxArtifactMatrix(OperationalSIITextNormalizationMixin, TimestampedModel):
+    operational_text_fields = (
+        'source_ref',
+        'responsible_ref',
+        'hash_matriz',
+    )
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.PROTECT,
+        related_name='annual_tax_artifact_matrices',
+    )
+    proceso_renta_anual = models.ForeignKey(
+        'sii.ProcesoRentaAnual',
+        on_delete=models.PROTECT,
+        related_name='artifact_matrices',
+    )
+    source_bundle = models.ForeignKey(
+        AnnualTaxSourceBundle,
+        on_delete=models.PROTECT,
+        related_name='artifact_matrices',
+    )
+    rule_set = models.ForeignKey(
+        TaxYearRuleSet,
+        on_delete=models.PROTECT,
+        related_name='artifact_matrices',
+    )
+    anio_tributario = models.PositiveSmallIntegerField()
+    anio_comercial = models.PositiveSmallIntegerField()
+    source_ref = models.CharField(max_length=255, blank=True)
+    responsible_ref = models.CharField(max_length=255, blank=True)
+    items_total = models.PositiveIntegerField(default=0)
+    ddjj_items_total = models.PositiveIntegerField(default=0)
+    f22_items_total = models.PositiveIntegerField(default=0)
+    resumen_matriz = models.JSONField(default=dict, blank=True)
+    hash_matriz = models.CharField(max_length=64, blank=True)
+    estado = models.CharField(
+        max_length=16,
+        choices=EstadoAnnualTaxArtifactMatrix.choices,
+        default=EstadoAnnualTaxArtifactMatrix.DRAFT,
+    )
+
+    class Meta:
+        ordering = ['empresa_id', '-anio_tributario', 'id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['proceso_renta_anual'],
+                name='uniq_annual_tax_artifact_matrix_process',
+            ),
+        ]
+
+    def __str__(self):
+        return f'Matriz DDJJ/F22 {self.empresa_id} AT{self.anio_tributario}'
+
+    def clean(self):
+        super().clean()
+        self.hash_matriz = _normalize_hash(self.hash_matriz)
+        errors = {}
+        expected_commercial_year = self.anio_tributario - 1
+        if self.anio_comercial != expected_commercial_year:
+            errors['anio_comercial'] = (
+                f'anio_comercial debe ser {expected_commercial_year} para AT{self.anio_tributario}.'
+            )
+        _add_non_sensitive_reference_error(errors, self, 'source_ref')
+        _add_non_sensitive_reference_error(errors, self, 'responsible_ref')
+        _add_non_sensitive_payload_error(errors, 'resumen_matriz', self.resumen_matriz)
+        if has_text(self.hash_matriz) and not _is_sha256(self.hash_matriz):
+            errors['hash_matriz'] = 'hash_matriz debe ser SHA-256 hexadecimal de 64 caracteres.'
+        if self.ddjj_items_total + self.f22_items_total != self.items_total:
+            errors['items_total'] = 'items_total debe coincidir con la suma de DDJJ y F22.'
+
+        try:
+            process = self.proceso_renta_anual
+        except ObjectDoesNotExist:
+            process = None
+        if process is not None:
+            if process.empresa_id != self.empresa_id:
+                errors['proceso_renta_anual'] = 'El proceso anual debe pertenecer a la misma empresa de la matriz.'
+            elif process.anio_tributario != self.anio_tributario:
+                errors['proceso_renta_anual'] = 'El proceso anual debe corresponder al mismo anio_tributario.'
+            if process.source_bundle_id and process.source_bundle_id != self.source_bundle_id:
+                errors['source_bundle'] = 'La matriz debe usar el mismo AnnualTaxSourceBundle del proceso anual.'
+
+        try:
+            source_bundle = self.source_bundle
+        except ObjectDoesNotExist:
+            source_bundle = None
+        if source_bundle is not None:
+            if source_bundle.empresa_id != self.empresa_id:
+                errors['source_bundle'] = 'AnnualTaxSourceBundle debe pertenecer a la misma empresa de la matriz.'
+            elif source_bundle.anio_tributario != self.anio_tributario:
+                errors['source_bundle'] = 'AnnualTaxSourceBundle debe corresponder al mismo anio_tributario.'
+            elif source_bundle.estado != EstadoAnnualTaxSourceBundle.FROZEN:
+                errors['source_bundle'] = 'AnnualTaxArtifactMatrix requiere AnnualTaxSourceBundle congelado.'
+
+        try:
+            rule_set = self.rule_set
+        except ObjectDoesNotExist:
+            rule_set = None
+        if rule_set is not None:
+            if rule_set.anio_tributario != self.anio_tributario:
+                errors['rule_set'] = 'TaxYearRuleSet debe corresponder al mismo anio_tributario de la matriz.'
+            elif rule_set.estado != EstadoReglaTributariaAnual.APPROVED:
+                errors['rule_set'] = 'AnnualTaxArtifactMatrix requiere TaxYearRuleSet aprobado.'
+
+        if isinstance(self.resumen_matriz, dict):
+            identity_errors = []
+            for key, expected in (
+                ('empresa_id', self.empresa_id),
+                ('proceso_renta_anual_id', self.proceso_renta_anual_id),
+                ('source_bundle_id', self.source_bundle_id),
+                ('rule_set_id', self.rule_set_id),
+                ('anio_tributario', self.anio_tributario),
+                ('anio_comercial', self.anio_comercial),
+                ('items_total', self.items_total),
+                ('ddjj_items_total', self.ddjj_items_total),
+                ('f22_items_total', self.f22_items_total),
+            ):
+                value = self.resumen_matriz.get(key)
+                if value is None:
+                    continue
+                try:
+                    matches = int(value) == int(expected)
+                except (TypeError, ValueError):
+                    matches = False
+                if not matches:
+                    identity_errors.append(key)
+            if identity_errors:
+                errors['resumen_matriz'] = (
+                    'resumen_matriz debe coincidir con empresa, proceso, fuente, regla, anio y totales.'
+                )
+            expected_hash = _payload_hash(self.resumen_matriz)
+            if self.hash_matriz and self.hash_matriz != expected_hash:
+                errors['hash_matriz'] = 'hash_matriz debe corresponder al resumen_matriz.'
+        elif self.resumen_matriz:
+            errors['resumen_matriz'] = 'resumen_matriz debe ser un objeto JSON.'
+
+        if self.estado == EstadoAnnualTaxArtifactMatrix.PREPARED:
+            _add_active_fiscal_config_error(errors, self, 'AnnualTaxArtifactMatrix')
+            if not has_text(self.source_ref):
+                errors['source_ref'] = 'AnnualTaxArtifactMatrix preparada requiere source_ref no sensible.'
+            if not has_text(self.responsible_ref):
+                errors['responsible_ref'] = 'AnnualTaxArtifactMatrix preparada requiere responsible_ref no sensible.'
+            if not self.resumen_matriz:
+                errors['resumen_matriz'] = 'AnnualTaxArtifactMatrix preparada requiere resumen_matriz.'
+            if not has_text(self.hash_matriz):
+                errors['hash_matriz'] = 'AnnualTaxArtifactMatrix preparada requiere hash_matriz.'
+        if errors:
+            raise ValidationError(errors)
+
+
+class AnnualTaxArtifactMatrixItem(OperationalSIITextNormalizationMixin, TimestampedModel):
+    operational_text_fields = (
+        'target_code',
+        'medio_sii',
+        'source_model',
+        'source_hash',
+        'formula_ref',
+        'evidencia_ref',
+        'responsible_ref',
+        'hash_item',
+    )
+
+    matrix = models.ForeignKey(
+        AnnualTaxArtifactMatrix,
+        on_delete=models.CASCADE,
+        related_name='items',
+    )
+    target_kind = models.CharField(max_length=8, choices=TipoAnnualTaxArtifactTarget.choices)
+    target_code = models.CharField(max_length=64)
+    medio_sii = models.CharField(max_length=64)
+    source_kind = models.CharField(max_length=32, choices=SourceKindAnnualTaxArtifact.choices)
+    source_model = models.CharField(max_length=64)
+    source_object_id = models.PositiveIntegerField()
+    source_hash = models.CharField(max_length=64, blank=True)
+    review_state = models.CharField(
+        max_length=24,
+        choices=EstadoAnnualTaxArtifactReview.choices,
+        default=EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW,
+    )
+    formula_ref = models.CharField(max_length=255, blank=True)
+    evidencia_ref = models.CharField(max_length=255, blank=True)
+    responsible_ref = models.CharField(max_length=255, blank=True)
+    warnings = models.JSONField(default=list, blank=True)
+    source_payload = models.JSONField(default=dict, blank=True)
+    hash_item = models.CharField(max_length=64, blank=True)
+    estado = models.CharField(max_length=16, choices=EstadoRegistro.choices, default=EstadoRegistro.ACTIVE)
+
+    class Meta:
+        ordering = ['matrix_id', 'target_kind', 'target_code', 'source_kind', 'source_model', 'source_object_id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['matrix', 'target_kind', 'target_code', 'source_kind', 'source_model', 'source_object_id'],
+                name='uniq_annual_tax_artifact_matrix_item_source',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.matrix_id} {self.target_kind}:{self.target_code}'
+
+    def clean(self):
+        super().clean()
+        self.source_hash = _normalize_hash(self.source_hash)
+        self.hash_item = _normalize_hash(self.hash_item)
+        errors = {}
+        _add_non_sensitive_reference_error(errors, self, 'formula_ref')
+        _add_non_sensitive_reference_error(errors, self, 'evidencia_ref')
+        _add_non_sensitive_reference_error(errors, self, 'responsible_ref')
+        _add_non_sensitive_payload_error(errors, 'warnings', self.warnings)
+        _add_non_sensitive_payload_error(errors, 'source_payload', self.source_payload)
+        if self.warnings and not isinstance(self.warnings, list):
+            errors['warnings'] = 'warnings debe ser una lista JSON.'
+        if self.source_payload and not isinstance(self.source_payload, dict):
+            errors['source_payload'] = 'source_payload debe ser un objeto JSON.'
+        if has_text(self.source_hash) and not _is_sha256(self.source_hash):
+            errors['source_hash'] = 'source_hash debe ser SHA-256 hexadecimal de 64 caracteres.'
+        if has_text(self.hash_item) and not _is_sha256(self.hash_item):
+            errors['hash_item'] = 'hash_item debe ser SHA-256 hexadecimal de 64 caracteres.'
+
+        try:
+            matrix = self.matrix
+        except ObjectDoesNotExist:
+            matrix = None
+        if matrix is not None and isinstance(self.source_payload, dict):
+            for key, expected in (
+                ('empresa_id', matrix.empresa_id),
+                ('proceso_renta_anual_id', matrix.proceso_renta_anual_id),
+                ('anio_tributario', matrix.anio_tributario),
+                ('anio_comercial', matrix.anio_comercial),
+            ):
+                value = self.source_payload.get(key)
+                if value is None:
+                    continue
+                try:
+                    matches = int(value) == int(expected)
+                except (TypeError, ValueError):
+                    matches = False
+                if not matches:
+                    errors['source_payload'] = 'source_payload debe coincidir con la matriz DDJJ/F22.'
+                    break
+
+        expected_hash = _payload_hash(_annual_tax_artifact_matrix_item_integrity_payload(self))
+        if self.hash_item and self.hash_item != expected_hash:
+            errors['hash_item'] = 'hash_item debe corresponder al item de matriz DDJJ/F22.'
+
+        if self.estado == EstadoRegistro.ACTIVE:
+            if not has_text(self.target_code):
+                errors['target_code'] = 'Item activo requiere target_code.'
+            if not has_text(self.medio_sii):
+                errors['medio_sii'] = 'Item activo requiere medio_sii.'
+            if not has_text(self.source_model):
+                errors['source_model'] = 'Item activo requiere source_model.'
+            if not self.source_object_id:
+                errors['source_object_id'] = 'Item activo requiere source_object_id.'
+            if not has_text(self.formula_ref):
+                errors['formula_ref'] = 'Item activo requiere formula_ref no sensible.'
+            if not has_text(self.evidencia_ref):
+                errors['evidencia_ref'] = 'Item activo requiere evidencia_ref no sensible.'
+            if not has_text(self.responsible_ref):
+                errors['responsible_ref'] = 'Item activo requiere responsible_ref no sensible.'
+            if not self.source_payload:
+                errors['source_payload'] = 'Item activo requiere source_payload trazable.'
+            if not has_text(self.hash_item):
+                errors['hash_item'] = 'Item activo requiere hash_item.'
+            if self.review_state == EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW and self.warnings:
+                errors['review_state'] = 'Items con warnings no pueden quedar listo_revision.'
         if errors:
             raise ValidationError(errors)
 

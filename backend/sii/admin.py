@@ -7,6 +7,8 @@ from .models import (
     AnnualEnterpriseRegisterSet,
     AnnualRealEstateItem,
     AnnualRealEstateSection,
+    AnnualTaxArtifactMatrix,
+    AnnualTaxArtifactMatrixItem,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -616,6 +618,126 @@ class AnnualRealEstateItemAdmin(admin.ModelAdmin):
     @admin.display(description='evidencia_ref')
     def evidencia_ref_redacted(self, obj):
         return _redacted_attr(obj, 'evidencia_ref')
+
+    @admin.display(description='warnings')
+    def warnings_redacted(self, obj):
+        return _redacted_payload_attr(obj, 'warnings')
+
+    @admin.display(description='source_payload')
+    def source_payload_redacted(self, obj):
+        return _redacted_payload_attr(obj, 'source_payload')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(AnnualTaxArtifactMatrix)
+class AnnualTaxArtifactMatrixAdmin(admin.ModelAdmin):
+    fields = (
+        'empresa',
+        'proceso_renta_anual',
+        'source_bundle',
+        'rule_set',
+        'anio_tributario',
+        'anio_comercial',
+        'source_ref_redacted',
+        'responsible_ref_redacted',
+        'items_total',
+        'ddjj_items_total',
+        'f22_items_total',
+        'resumen_matriz_redacted',
+        'hash_matriz',
+        'estado',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = fields
+    list_display = (
+        'empresa',
+        'anio_tributario',
+        'estado',
+        'items_total',
+        'ddjj_items_total',
+        'f22_items_total',
+        'source_ref_redacted',
+    )
+    list_filter = ('anio_tributario', 'estado')
+    search_fields = ('empresa__razon_social',)
+
+    @admin.display(description='source_ref')
+    def source_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'source_ref')
+
+    @admin.display(description='responsible_ref')
+    def responsible_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'responsible_ref')
+
+    @admin.display(description='resumen_matriz')
+    def resumen_matriz_redacted(self, obj):
+        return _redacted_payload_attr(obj, 'resumen_matriz')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(AnnualTaxArtifactMatrixItem)
+class AnnualTaxArtifactMatrixItemAdmin(admin.ModelAdmin):
+    fields = (
+        'matrix',
+        'target_kind',
+        'target_code',
+        'medio_sii',
+        'source_kind',
+        'source_model',
+        'source_object_id',
+        'source_hash',
+        'review_state',
+        'formula_ref_redacted',
+        'evidencia_ref_redacted',
+        'responsible_ref_redacted',
+        'warnings_redacted',
+        'source_payload_redacted',
+        'hash_item',
+        'estado',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = fields
+    list_display = (
+        'matrix',
+        'target_kind',
+        'target_code',
+        'source_kind',
+        'review_state',
+        'estado',
+        'formula_ref_redacted',
+    )
+    list_filter = ('target_kind', 'source_kind', 'review_state', 'estado', 'matrix__anio_tributario')
+    search_fields = ('target_code', 'source_model', 'matrix__empresa__razon_social')
+
+    @admin.display(description='formula_ref')
+    def formula_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'formula_ref')
+
+    @admin.display(description='evidencia_ref')
+    def evidencia_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'evidencia_ref')
+
+    @admin.display(description='responsible_ref')
+    def responsible_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'responsible_ref')
 
     @admin.display(description='warnings')
     def warnings_redacted(self, obj):
