@@ -91,6 +91,11 @@ el showcase local como preparacion controlada e idempotente, sin presentar SII,
 sin usar fuentes reales y sin dejar parametria demo que la readiness de Etapa 6
 clasifique como huerfana de fuente.
 
+Nota 2026-06-14: `AnnualTaxOfficialSource.retrieved_on` queda acotado al
+pasado o presente para fuentes revisadas/aprobadas. El bootstrap demo anual usa
+la fecha local de corrida como recuperacion controlada en vez de derivarla del
+ano tributario, evitando evidencia AT futura en escenarios demo.
+
 Nota 2026-06-14: Etapa 6 materializa el skeleton RLI/CPT mediante
 `AnnualTaxWorkbook` y `AnnualTaxWorkbookLine`. La preparacion anual genera
 workbooks RLI y CPT desde `TaxCodeMapping` + `MonthlyTaxFact`, con hashes por

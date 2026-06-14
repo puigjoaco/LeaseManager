@@ -22,15 +22,15 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Cerrar `stage6-demo-official-sources`. |
-| Fuente exacta | Rama tactica `codex/stage6-demo-official-sources` basada en `main` `84db9c1b` posterior a PR #832. |
-| Brecha activa | `stage6-demo-official-sources`: alinear `bootstrap_demo_tax_annual_flow` con el gate vigente para que reglas y mappings demo de Renta Anual se creen con `AnnualTaxOfficialSource` aprobada y compatible. |
-| Motivo de prioridad | PR #832 endurecio correctamente reglas/mappings aprobados. El bootstrap demo aun podia generar parametria anual sin fuente oficial/experta, dejando datos locales contradictorios con readiness y con el boundary de preparacion supervisada. |
-| Worktree | `D:/Proyectos/LeaseManager-stage6-demo-official-sources` durante el paquete; tras merge debe eliminarse. |
-| Rama | `codex/stage6-demo-official-sources` durante el paquete; `main` tras merge. |
-| Estado | Validacion local completa: comando demo, prueba focal, suite impactada, gate Stage 6, frontend y acceptance pasaron; falta PR, CI, merge y limpieza. |
+| Frente activo | Cerrar `stage6-official-source-retrieved-date`. |
+| Fuente exacta | Rama tactica `codex/stage6-official-source-retrieved-date` basada en `main` `5c3c9d44` posterior a PR #833. |
+| Brecha activa | `stage6-official-source-retrieved-date`: bloquear `AnnualTaxOfficialSource.retrieved_on` futuro y hacer que el bootstrap demo anual use fecha de recuperacion local real, no una fecha derivada del ano tributario. |
+| Motivo de prioridad | Las fuentes oficiales/experta revisadas son evidencia temporal. Una fecha futura debilita la trazabilidad y puede hacer que fuentes demo AT futuras parezcan recuperadas antes de existir. |
+| Worktree | `D:/Proyectos/LeaseManager-stage6-official-source-retrieved-date` durante el paquete; tras merge debe eliminarse. |
+| Rama | `codex/stage6-official-source-retrieved-date` durante el paquete; `main` tras merge. |
+| Estado | Validacion local completa: prueba focal, suite impactada, `manage.py check`, migraciones dry-run, gate Stage 6, frontend y acceptance pasaron; falta PR, CI, merge y limpieza. |
 | Gate esperado | Mantener `classification=parcial`; no cerrar presentacion anual sin fuente autorizada, formato/certificacion SII vigente, validacion fiscal/oficial, responsable y evidencia no sensible. |
-| Estado al cerrar paquete | `stage6-demo-official-sources` cerrado. El flujo demo anual queda idempotente y compatible con `AnnualTaxOfficialSource`, sin habilitar presentacion SII ni calculo final autonomo. |
+| Estado al cerrar paquete | `stage6-official-source-retrieved-date` cerrado. Las fuentes AT revisadas/aprobadas no aceptan fecha de recuperacion futura y el demo anual queda temporalmente consistente sin usar fuente real. |
 | Bloqueos relacionados | Presentacion F22/DDJJ final sigue bloqueada sin formato/certificacion SII vigente, responsable, autorizacion explicita y evidencia no sensible. Reglas tributarias finales, contribuciones y mapping RLI/CPT/DJ/F22 requieren fuente oficial/experta. |
 | Politica de reanudacion | No reabrir EDIG ni goal prompts. Si no hay worktree sucio, continuar por el siguiente frente util que no requiera datos reales, secretos, presentacion SII ni decision tributaria final autonoma. |
 | Siguiente accion | Abrir PR, esperar CI, mergear y limpiar. Luego escoger el siguiente frente Stage 6/7 no sensible segun trazabilidad vigente. |

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from datetime import date
 from decimal import Decimal, InvalidOperation
 import hashlib
 
 from django.core.management.base import BaseCommand, CommandError
+from django.utils import timezone
 
 from contabilidad.models import (
     CierreMensualContable,
@@ -249,7 +249,7 @@ class Command(BaseCommand):
             "title": f"Revision experta demo {key} AT{anio_tributario}",
             "source_ref": f"demo-official-source-{key}-at{anio_tributario}",
             "source_hash": source_hash,
-            "retrieved_on": date(anio_tributario, 1, 1),
+            "retrieved_on": timezone.localdate(),
             "responsible_ref": f"demo-tax-source-reviewer-at{anio_tributario}",
             "estado": EstadoAnnualTaxOfficialSource.APPROVED,
             "applies_to": applies_to,

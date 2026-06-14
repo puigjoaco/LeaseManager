@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 
 from cobranza.models import DistribucionCobroMensual, PagoMensual
 from contabilidad.models import (
@@ -940,6 +941,8 @@ class AnnualTaxOfficialSource(OperationalSIITextNormalizationMixin, TimestampedM
                 errors['source_hash'] = 'Fuente revisada requiere source_hash SHA-256.'
             if self.retrieved_on is None:
                 errors['retrieved_on'] = 'Fuente revisada requiere retrieved_on.'
+            elif self.retrieved_on > timezone.localdate():
+                errors['retrieved_on'] = 'Fuente revisada no puede tener retrieved_on futuro.'
             if not has_text(self.responsible_ref):
                 errors['responsible_ref'] = 'Fuente revisada requiere responsible_ref no sensible.'
         if has_text(self.source_hash) and not _is_sha256(self.source_hash):

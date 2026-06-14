@@ -1,6 +1,6 @@
 import hashlib
 import json
-from datetime import date
+from datetime import date, timedelta
 from unittest.mock import patch
 
 from django.contrib.admin.sites import AdminSite
@@ -10,6 +10,7 @@ from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 from django.test import TransactionTestCase
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -683,6 +684,27 @@ class SiiAPITests(APITestCase):
         source.full_clean()
         source.save()
         self.assertEqual(source.source_hash, 'a' * 64)
+
+    def test_annual_tax_official_source_rejects_future_retrieved_on(self):
+        source = AnnualTaxOfficialSource(
+            anio_tributario=2027,
+            source_key='expert-future-retrieved-at2027',
+            source_type=TipoAnnualTaxOfficialSource.EXPERT_REVIEW,
+            title='Revision experta futura AT2027',
+            source_ref='expert-future-retrieved-at2027-ref',
+            source_hash='b' * 64,
+            retrieved_on=timezone.localdate() + timedelta(days=1),
+            responsible_ref='tax-source-reviewer-at2027',
+            estado=EstadoAnnualTaxOfficialSource.APPROVED,
+            applies_to=DestinoMapeoTributarioAnual.F22,
+            form_code='F22',
+            regime_code='EmpresaContabilidadCompletaV1',
+        )
+
+        with self.assertRaises(ValidationError) as error:
+            source.full_clean()
+
+        self.assertIn('retrieved_on', error.exception.message_dict)
 
     def test_annual_tax_official_source_admin_redacts_sensitive_refs(self):
         source = AnnualTaxOfficialSource.objects.create(
