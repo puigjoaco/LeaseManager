@@ -5,6 +5,7 @@ import { Badge, TableBlock } from '../shared'
 type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 
 type EmpresaItem = { id: number; razon_social: string }
+type SocioItem = { id: number; nombre: string }
 type RegimenTributarioItem = { id: number; codigo_regimen: string; descripcion: string; estado: string }
 type ConfiguracionFiscalItem = { id: number; empresa: number; regimen_tributario: number; moneda_funcional: string; aplica_ppm: boolean; tasa_ppm_vigente: string | null; afecta_iva_arriendo: boolean; tasa_iva: string; ddjj_habilitadas: string[]; inicio_ejercicio: string; estado: string }
 type CuentaContableItem = { id: number; empresa: number; codigo: string; nombre: string; naturaleza: string; estado: string }
@@ -14,6 +15,8 @@ type EventoContableItem = { id: number; empresa: number | null; evento_tipo: str
 type AsientoContableItem = { id: number; evento_contable: number; periodo_contable: string; debe_total: string; haber_total: string; estado: string }
 type ObligacionMensualItem = { id: number; empresa: number; anio: number; mes: number; obligacion_tipo: string; monto_calculado: string; estado_preparacion: string }
 type CierreMensualItem = { id: number; empresa: number; anio: number; mes: number; estado: string }
+type LiquidacionMensualItem = { id: number; owner_tipo: string; empresa: number | null; comunidad: number | null; socio: number | null; cierre_contable: number | null; anio: number; mes: number; estado: string; comision_administracion_aplica: boolean; saldo_final_clp: string; saldo_final_explicacion: string; saldo_final_evidencia_ref: string; evidencia_base_ref: string; responsable_ref: string }
+type LineaLiquidacionItem = { id: number; liquidacion: number; tipo_linea: string; descripcion: string; monto_clp: string; evidencia_ref: string; beneficiario_socio: number | null; evento_contable: number | null }
 
 type ConfigFiscalDraft = {
   empresa: string
@@ -77,6 +80,39 @@ type CierreDraft = {
   mes: string
 }
 
+type LiquidacionDraft = {
+  empresa: string
+  cierre_contable: string
+  anio: string
+  mes: string
+  estado: string
+  comision_administracion_aplica: boolean
+  saldo_final_clp: string
+  saldo_final_explicacion: string
+  saldo_final_evidencia_ref: string
+  evidencia_base_ref: string
+  responsable_ref: string
+}
+
+type LineaLiquidacionDraft = {
+  liquidacion: string
+  tipo_linea: string
+  descripcion: string
+  monto_clp: string
+  evidencia_ref: string
+  beneficiario_socio: string
+  evento_contable: string
+}
+
+type ReopenCierreDraft = {
+  cierre_id: string
+  tipo_efecto: string
+  monto_efecto: string
+  motivo: string
+  efecto_esperado: string
+  evidencia_ref: string
+}
+
 export function ContabilidadWorkspace({
   canEditContabilidad,
   editingConfigFiscalId,
@@ -99,6 +135,15 @@ export function ContabilidadWorkspace({
   cierreDraft,
   setCierreDraft,
   handlePrepareCierre,
+  liquidacionDraft,
+  setLiquidacionDraft,
+  handleCreateLiquidacionMensual,
+  lineaLiquidacionDraft,
+  setLineaLiquidacionDraft,
+  handleCreateLineaLiquidacion,
+  reopenCierreDraft,
+  setReopenCierreDraft,
+  handleReopenCierre,
   filteredRegimenes,
   filteredConfigsFiscales,
   filteredCuentasContables,
@@ -108,7 +153,10 @@ export function ContabilidadWorkspace({
   filteredAsientosContables,
   filteredObligaciones,
   filteredCierres,
+  filteredLiquidaciones,
+  filteredLineasLiquidacion,
   empresas,
+  socios,
   regimenesTributarios,
   cuentasContables,
   reglasContables,
@@ -119,6 +167,7 @@ export function ContabilidadWorkspace({
   toneFor,
   isSubmitting,
   handleAccountingAction,
+  startReopenCierre,
   startEditConfigFiscal,
   onViewImpact,
   isCatalogLoading,
@@ -145,6 +194,15 @@ export function ContabilidadWorkspace({
   cierreDraft: CierreDraft
   setCierreDraft: Dispatch<SetStateAction<CierreDraft>>
   handlePrepareCierre: (event: FormEvent<HTMLFormElement>) => Promise<void>
+  liquidacionDraft: LiquidacionDraft
+  setLiquidacionDraft: Dispatch<SetStateAction<LiquidacionDraft>>
+  handleCreateLiquidacionMensual: (event: FormEvent<HTMLFormElement>) => Promise<void>
+  lineaLiquidacionDraft: LineaLiquidacionDraft
+  setLineaLiquidacionDraft: Dispatch<SetStateAction<LineaLiquidacionDraft>>
+  handleCreateLineaLiquidacion: (event: FormEvent<HTMLFormElement>) => Promise<void>
+  reopenCierreDraft: ReopenCierreDraft
+  setReopenCierreDraft: Dispatch<SetStateAction<ReopenCierreDraft>>
+  handleReopenCierre: (event: FormEvent<HTMLFormElement>) => Promise<void>
   filteredRegimenes: RegimenTributarioItem[]
   filteredConfigsFiscales: ConfiguracionFiscalItem[]
   filteredCuentasContables: CuentaContableItem[]
@@ -154,7 +212,10 @@ export function ContabilidadWorkspace({
   filteredAsientosContables: AsientoContableItem[]
   filteredObligaciones: ObligacionMensualItem[]
   filteredCierres: CierreMensualItem[]
+  filteredLiquidaciones: LiquidacionMensualItem[]
+  filteredLineasLiquidacion: LineaLiquidacionItem[]
   empresas: EmpresaItem[]
+  socios: SocioItem[]
   regimenesTributarios: RegimenTributarioItem[]
   cuentasContables: CuentaContableItem[]
   reglasContables: ReglaContableItem[]
@@ -165,11 +226,40 @@ export function ContabilidadWorkspace({
   toneFor: (value: string) => Tone
   isSubmitting: boolean
   handleAccountingAction: (path: string, successMessage: string) => Promise<void>
+  startReopenCierre: (row: CierreMensualItem) => void
   startEditConfigFiscal: (row: ConfiguracionFiscalItem) => void
   onViewImpact: (companyId: number) => void
   isCatalogLoading: boolean
   isActivityLoading: boolean
 }) {
+  const liquidacionById = new Map(filteredLiquidaciones.map((item) => [item.id, item]))
+  const eventoById = new Map(filteredEventosContables.map((item) => [item.id, item]))
+  const socioById = new Map(socios.map((item) => [item.id, item]))
+
+  function closeLiquidation(row: CierreMensualItem) {
+    return filteredLiquidaciones.find((item) => (
+      item.owner_tipo === 'empresa'
+      && item.empresa === row.empresa
+      && item.cierre_contable === row.id
+      && item.anio === row.anio
+      && item.mes === row.mes
+      && ['preparada', 'aprobada'].includes(item.estado)
+      && item.evidencia_base_ref.trim().length > 0
+      && item.responsable_ref.trim().length > 0
+    ))
+  }
+
+  function selectCierreForLiquidacion(cierreId: string) {
+    const close = filteredCierres.find((item) => String(item.id) === cierreId)
+    setLiquidacionDraft((current) => ({
+      ...current,
+      cierre_contable: cierreId,
+      empresa: close ? String(close.empresa) : current.empresa,
+      anio: close ? String(close.anio) : current.anio,
+      mes: close ? String(close.mes) : current.mes,
+    }))
+  }
+
   return (
     <>
       {!canEditContabilidad ? <div className="readonly-banner">Tu rol actual tiene acceso de solo lectura en Contabilidad.</div> : null}
@@ -295,6 +385,91 @@ export function ContabilidadWorkspace({
             <button type="submit" className="button-secondary" disabled={isSubmitting || !cierreDraft.empresa_id}>Preparar cierre</button>
           </form>
         </section>
+
+        <section className="panel">
+          <div className="section-heading"><div><h2>Liquidación mensual</h2><p>Responsable y evidencia para aprobación de cierre.</p></div></div>
+          <form className="entity-form" onSubmit={handleCreateLiquidacionMensual}>
+            <select value={liquidacionDraft.cierre_contable} onChange={(event) => selectCierreForLiquidacion(event.target.value)}>
+              <option value="">Selecciona cierre preparado</option>
+              {filteredCierres.map((item) => (
+                <option key={item.id} value={item.id}>{empresaById.get(item.empresa)?.razon_social || item.empresa} · {item.mes}/{item.anio} · {item.estado}</option>
+              ))}
+            </select>
+            <select value={liquidacionDraft.empresa} onChange={(event) => setLiquidacionDraft((current) => ({ ...current, empresa: event.target.value }))}>
+              <option value="">Selecciona empresa</option>
+              {empresas.map((item) => <option key={item.id} value={item.id}>{item.razon_social}</option>)}
+            </select>
+            <input placeholder="Año" value={liquidacionDraft.anio} onChange={(event) => setLiquidacionDraft((current) => ({ ...current, anio: event.target.value }))} />
+            <input placeholder="Mes" value={liquidacionDraft.mes} onChange={(event) => setLiquidacionDraft((current) => ({ ...current, mes: event.target.value }))} />
+            <select value={liquidacionDraft.estado} onChange={(event) => setLiquidacionDraft((current) => ({ ...current, estado: event.target.value }))}>
+              <option value="preparada">Preparada</option>
+              <option value="borrador">Borrador</option>
+              <option value="aprobada">Aprobada</option>
+              <option value="observada">Observada</option>
+            </select>
+            <input placeholder="Evidencia base ref" value={liquidacionDraft.evidencia_base_ref} onChange={(event) => setLiquidacionDraft((current) => ({ ...current, evidencia_base_ref: event.target.value }))} />
+            <input placeholder="Responsable ref" value={liquidacionDraft.responsable_ref} onChange={(event) => setLiquidacionDraft((current) => ({ ...current, responsable_ref: event.target.value }))} />
+            <input placeholder="Saldo final CLP" value={liquidacionDraft.saldo_final_clp} onChange={(event) => setLiquidacionDraft((current) => ({ ...current, saldo_final_clp: event.target.value }))} />
+            <input placeholder="Explicación saldo final" value={liquidacionDraft.saldo_final_explicacion} onChange={(event) => setLiquidacionDraft((current) => ({ ...current, saldo_final_explicacion: event.target.value }))} />
+            <input placeholder="Evidencia saldo final ref" value={liquidacionDraft.saldo_final_evidencia_ref} onChange={(event) => setLiquidacionDraft((current) => ({ ...current, saldo_final_evidencia_ref: event.target.value }))} />
+            <label className="checkbox-row"><input type="checkbox" checked={liquidacionDraft.comision_administracion_aplica} onChange={(event) => setLiquidacionDraft((current) => ({ ...current, comision_administracion_aplica: event.target.checked }))} />Comisión administración aplica</label>
+            <button type="submit" className="button-primary" disabled={isSubmitting || !liquidacionDraft.empresa || !liquidacionDraft.cierre_contable || !liquidacionDraft.evidencia_base_ref || !liquidacionDraft.responsable_ref}>Guardar liquidación</button>
+          </form>
+        </section>
+
+        <section className="panel">
+          <div className="section-heading"><div><h2>Línea de liquidación</h2><p>Detalle económico trazado a evento contable.</p></div></div>
+          <form className="entity-form" onSubmit={handleCreateLineaLiquidacion}>
+            <select value={lineaLiquidacionDraft.liquidacion} onChange={(event) => setLineaLiquidacionDraft((current) => ({ ...current, liquidacion: event.target.value }))}>
+              <option value="">Selecciona liquidación</option>
+              {filteredLiquidaciones.map((item) => (
+                <option key={item.id} value={item.id}>{empresaById.get(item.empresa || 0)?.razon_social || item.empresa || item.owner_tipo} · {item.mes}/{item.anio} · {item.estado}</option>
+              ))}
+            </select>
+            <select value={lineaLiquidacionDraft.tipo_linea} onChange={(event) => setLineaLiquidacionDraft((current) => ({ ...current, tipo_linea: event.target.value }))}>
+              <option value="ingreso_arriendo">Ingreso arriendo</option>
+              <option value="egreso_operativo">Egreso operativo</option>
+              <option value="comision_administracion">Comisión administración</option>
+              <option value="distribucion_socio">Distribución socio</option>
+              <option value="provision_impuesto">Provisión impuesto</option>
+              <option value="ajuste">Ajuste</option>
+              <option value="saldo_final_explicado">Saldo final explicado</option>
+            </select>
+            <input placeholder="Descripción" value={lineaLiquidacionDraft.descripcion} onChange={(event) => setLineaLiquidacionDraft((current) => ({ ...current, descripcion: event.target.value }))} />
+            <input placeholder="Monto CLP" value={lineaLiquidacionDraft.monto_clp} onChange={(event) => setLineaLiquidacionDraft((current) => ({ ...current, monto_clp: event.target.value }))} />
+            <input placeholder="Evidencia ref" value={lineaLiquidacionDraft.evidencia_ref} onChange={(event) => setLineaLiquidacionDraft((current) => ({ ...current, evidencia_ref: event.target.value }))} />
+            <select value={lineaLiquidacionDraft.evento_contable} onChange={(event) => setLineaLiquidacionDraft((current) => ({ ...current, evento_contable: event.target.value }))}>
+              <option value="">Sin evento contable</option>
+              {filteredEventosContables.map((item) => <option key={item.id} value={item.id}>{item.evento_tipo} · {item.entidad_origen_tipo}:{item.entidad_origen_id}</option>)}
+            </select>
+            <select value={lineaLiquidacionDraft.beneficiario_socio} onChange={(event) => setLineaLiquidacionDraft((current) => ({ ...current, beneficiario_socio: event.target.value }))}>
+              <option value="">Sin socio beneficiario</option>
+              {socios.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}
+            </select>
+            <button type="submit" className="button-secondary" disabled={isSubmitting || !lineaLiquidacionDraft.liquidacion || !lineaLiquidacionDraft.tipo_linea || !lineaLiquidacionDraft.descripcion || !lineaLiquidacionDraft.monto_clp}>Guardar línea</button>
+          </form>
+        </section>
+
+        <section className="panel">
+          <div className="section-heading"><div><h2>Reapertura controlada</h2><p>Motivo, efecto esperado y evidencia no sensible.</p></div></div>
+          <form className="entity-form" onSubmit={handleReopenCierre}>
+            <select value={reopenCierreDraft.cierre_id} onChange={(event) => setReopenCierreDraft((current) => ({ ...current, cierre_id: event.target.value }))}>
+              <option value="">Selecciona cierre aprobado</option>
+              {filteredCierres.filter((item) => item.estado === 'aprobado').map((item) => (
+                <option key={item.id} value={item.id}>{empresaById.get(item.empresa)?.razon_social || item.empresa} · {item.mes}/{item.anio}</option>
+              ))}
+            </select>
+            <select value={reopenCierreDraft.tipo_efecto} onChange={(event) => setReopenCierreDraft((current) => ({ ...current, tipo_efecto: event.target.value }))}>
+              <option value="reverso">Reverso</option>
+              <option value="asiento_complementario">Asiento complementario</option>
+            </select>
+            <input placeholder="Monto efecto" value={reopenCierreDraft.monto_efecto} onChange={(event) => setReopenCierreDraft((current) => ({ ...current, monto_efecto: event.target.value }))} />
+            <input placeholder="Motivo" value={reopenCierreDraft.motivo} onChange={(event) => setReopenCierreDraft((current) => ({ ...current, motivo: event.target.value }))} />
+            <input placeholder="Efecto esperado" value={reopenCierreDraft.efecto_esperado} onChange={(event) => setReopenCierreDraft((current) => ({ ...current, efecto_esperado: event.target.value }))} />
+            <input placeholder="Evidencia ref" value={reopenCierreDraft.evidencia_ref} onChange={(event) => setReopenCierreDraft((current) => ({ ...current, evidencia_ref: event.target.value }))} />
+            <button type="submit" className="button-primary" disabled={isSubmitting || !reopenCierreDraft.cierre_id || !reopenCierreDraft.monto_efecto || !reopenCierreDraft.motivo || !reopenCierreDraft.efecto_esperado || !reopenCierreDraft.evidencia_ref}>Reabrir cierre</button>
+          </form>
+        </section>
       </section> : null}
 
       <TableBlock title="Regímenes tributarios" subtitle="Regímenes disponibles para configuración fiscal." rows={filteredRegimenes} empty="No hay regímenes para este filtro." columns={[
@@ -364,11 +539,44 @@ export function ContabilidadWorkspace({
         { label: 'Monto', render: (row) => row.monto_calculado },
         { label: 'Estado', render: (row) => <Badge label={row.estado_preparacion} tone={toneFor(row.estado_preparacion)} /> },
       ]} />
+      <TableBlock title="Liquidaciones mensuales" subtitle="Paquetes responsables para aprobación contable supervisada." rows={filteredLiquidaciones} empty="No hay liquidaciones mensuales para este filtro." isLoading={isActivityLoading} loadingLabel="Cargando liquidaciones..." preserveRowsDuringLoading columns={[
+        { label: 'Owner', render: (row) => row.empresa ? empresaById.get(row.empresa)?.razon_social || row.empresa : row.owner_tipo },
+        { label: 'Período', render: (row) => `${row.mes}/${row.anio}` },
+        { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
+        { label: 'Responsable', render: (row) => row.responsable_ref || 'Sin responsable' },
+        { label: 'Evidencia', render: (row) => row.evidencia_base_ref || 'Sin evidencia' },
+        { label: 'Saldo final', render: (row) => row.saldo_final_clp },
+      ]} />
+      <TableBlock title="Líneas de liquidación" subtitle="Detalle económico con evidencia y traza a evento cuando aplica." rows={filteredLineasLiquidacion} empty="No hay líneas de liquidación para este filtro." isLoading={isActivityLoading} loadingLabel="Cargando líneas..." preserveRowsDuringLoading columns={[
+        { label: 'Liquidación', render: (row) => {
+          const liquidacion = liquidacionById.get(row.liquidacion)
+          return liquidacion ? `${liquidacion.mes}/${liquidacion.anio}` : row.liquidacion
+        } },
+        { label: 'Tipo', render: (row) => row.tipo_linea },
+        { label: 'Monto', render: (row) => row.monto_clp },
+        { label: 'Evento', render: (row) => row.evento_contable ? eventoById.get(row.evento_contable)?.evento_tipo || row.evento_contable : 'Sin evento' },
+        { label: 'Socio', render: (row) => row.beneficiario_socio ? socioById.get(row.beneficiario_socio)?.nombre || row.beneficiario_socio : 'No aplica' },
+        { label: 'Evidencia', render: (row) => row.evidencia_ref || 'Sin evidencia' },
+      ]} />
       <TableBlock title="Cierres mensuales" subtitle="Preparación, aprobación y reapertura del período." rows={filteredCierres} empty="No hay cierres mensuales para este filtro." isLoading={isActivityLoading} loadingLabel="Cargando cierres mensuales..." preserveRowsDuringLoading columns={[
         { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
         { label: 'Período', render: (row) => `${row.mes}/${row.anio}` },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
-        { label: 'Acción', render: (row) => !canEditContabilidad ? 'Solo lectura' : <div className="inline-actions"><button type="button" className="button-ghost inline-action" onClick={() => void handleAccountingAction(`/api/v1/contabilidad/cierres-mensuales/${row.id}/aprobar/`, 'Cierre aprobado correctamente.')} disabled={isSubmitting}>Aprobar</button><button type="button" className="button-ghost inline-action" onClick={() => void handleAccountingAction(`/api/v1/contabilidad/cierres-mensuales/${row.id}/reabrir/`, 'Cierre reabierto correctamente.')} disabled={isSubmitting}>Reabrir</button></div> },
+        { label: 'Liquidación', render: (row) => {
+          const liquidacion = closeLiquidation(row)
+          return liquidacion ? <Badge label={`Liq ${liquidacion.id}`} tone="positive" /> : <Badge label="pendiente" tone="warning" />
+        } },
+        { label: 'Acción', render: (row) => {
+          const liquidacion = closeLiquidation(row)
+          const canApprove = Boolean(liquidacion) && row.estado === 'preparado'
+          const canReopen = row.estado === 'aprobado'
+          return !canEditContabilidad ? 'Solo lectura' : (
+            <div className="inline-actions">
+              <button type="button" className="button-ghost inline-action" onClick={() => void handleAccountingAction(`/api/v1/contabilidad/cierres-mensuales/${row.id}/aprobar/`, 'Cierre aprobado correctamente.')} disabled={isSubmitting || !canApprove} title={canApprove ? 'Aprobar cierre con liquidación responsable visible' : 'Requiere cierre preparado y liquidación con responsable/evidencia'}>Aprobar</button>
+              <button type="button" className="button-ghost inline-action" onClick={() => startReopenCierre(row)} disabled={isSubmitting || !canReopen} title={canReopen ? 'Cargar cierre en formulario de reapertura' : 'Solo cierres aprobados se pueden reabrir'}>Cargar reapertura</button>
+            </div>
+          )
+        } },
       ]} />
     </>
   )

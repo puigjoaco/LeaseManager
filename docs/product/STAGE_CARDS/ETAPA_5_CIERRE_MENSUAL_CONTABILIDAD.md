@@ -92,6 +92,13 @@ contable o tributaria requiere criterio.
   auditoria.
 - APIs de contabilidad y reporting de libros redactan payloads y referencias
   sensibles heredadas antes de exponerlas al backoffice.
+- El backoffice de Contabilidad debe exponer `LiquidacionMensual` y
+  `LineaLiquidacionMensual` del snapshot de control, permitir registrar
+  liquidacion de empresa con responsable/evidencia no sensible, mostrar esas
+  referencias antes de aprobar un cierre y cargar la reapertura solo mediante
+  formulario con motivo, efecto esperado, monto y evidencia. No debe ofrecer
+  acciones ciegas de aprobacion/reapertura que oculten la base responsable del
+  cierre.
 - Las mutaciones API de Contabilidad deben persistir cambios operativos y
   auditoria de vista en una unica transaccion. Esto cubre altas/ediciones de
   catalogos contables, creacion y reintento de contabilizacion de eventos,

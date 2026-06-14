@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico activo; PR #807 cerrado. |
-| Fuente exacta | `main` limpio y sincronizado despues de PR #807 y de este cursor post-merge. Rescue queda pausado fuera de alcance. |
-| Brecha activa | Pendiente de seleccionar desde trazabilidad y estado real del repo. No reabrir el paquete Etapa 6/7 de responsable anual en backoffice. |
-| Motivo de prioridad | Evitar que reanudaciones o compactaciones repitan el paquete cerrado; el siguiente avance debe salir del repo actual, no del chat viejo ni de un PR ya mergeado. |
-| Worktree | Ninguno activo para producto; solo root principal. |
-| Rama | `main`. |
-| Estado | Main limpio y sincronizado tras PR #807 y cursor post-merge. |
-| Gate esperado | Antes del proximo cambio no trivial: leer este cursor, confirmar `git status --short --branch` y `git worktree list`, elegir brecha segura desde trazabilidad, abrir worktree `codex/...`, validar proporcionalmente y cerrar con PR/CI/merge/limpieza. |
-| Estado al cerrar paquete | PR #807 mergeado, CI remoto OK, rama local/remota y worktree tactico eliminados. |
-| Bloqueos relacionados | Etapas 6 y 7 siguen sin cierre real sin fuente `snapshot_controlado` o `real_autorizado`, evidencia Stage 5/4, regla fiscal, certificados, SII/ledger autorizados y responsable final. Los bloqueos son condiciones de cierre, no freno para seguir preparando frentes locales seguros. |
-| Politica de reanudacion | No reabrir PR #806 ni PR #807, no reescribir goal, no repetir prompts de goal. Si no hay worktree tactico sucio, diagnosticar el siguiente frente seguro desde trazabilidad/documentos vigentes. |
-| Siguiente accion | Diagnosticar el siguiente frente seguro y verificable desde `main` limpio; abrir worktree tactico solo si el cambio no es trivial. |
+| Frente activo | Sin paquete tactico abierto despues del merge de Etapa 5 backoffice liquidaciones. |
+| Fuente exacta | Paquete Etapa 5 `codex/stage5-liquidation-backoffice` validado localmente desde `main` limpio en `bea8047e`; al quedar mergeado, retomar desde `main` sincronizado. |
+| Brecha activa | Ninguna en este cursor. El siguiente frente debe diagnosticarse desde PRD, trazabilidad, stage cards y estado real del repo. |
+| Motivo de prioridad | Evitar que reanudaciones reabran metatareas o paquetes ya cerrados; el siguiente avance nace del repo limpio y no de contexto auxiliar. |
+| Worktree | N/A; eliminar `D:/Proyectos/10_ACTIVOS/LeaseManager-stage5-liquidation-backoffice` tras merge. |
+| Rama | `main` tras merge. |
+| Estado | El paquete deja el backoffice mostrando liquidaciones y lineas de liquidacion, condicionando aprobacion con liquidacion responsable visible y usando formulario trazable para reapertura. |
+| Gate esperado | Para el siguiente paquete: diagnosticar frente seguro y proporcional desde repo limpio; no repetir esta brecha. |
+| Estado al cerrar paquete | PR de Etapa 5 mergeado, CI verde, main limpio/sincronizado y worktree tactico eliminado. |
+| Bloqueos relacionados | Etapa 5 no cierra sin Conciliacion cerrada, fuente `snapshot_controlado` o `real_autorizado`, ledger/reportes controlados y responsables finales. Es condicion de cierre, no freno para este paquete local. |
+| Politica de reanudacion | Si el worktree tactico existe y esta sucio, terminar su PR o limpiar con instruccion segura. No reabrir PR #806/#807 ni este paquete, no reescribir goal, no pedir .env ni datos reales. |
+| Siguiente accion | Tras merge/limpieza, elegir el siguiente frente util por trazabilidad y estado real del repo. |
 
 ## Actualizacion
 
