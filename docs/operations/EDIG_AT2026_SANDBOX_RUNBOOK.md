@@ -6,6 +6,12 @@ Este runbook permite observar EDIG AT2026 sin contaminar LeaseManager, sin
 ejecutar binarios en el root activo y sin usar datos reales. El objetivo es
 aprender el flujo funcional para disenar el motor propio de Renta Anual.
 
+Nota: la extraccion estatica de metadata MDB con
+`scripts/extract-edig-mdb-schema.ps1` no ejecuta EDIG ni lee filas, y puede
+correr en el entorno local sobre copias temporales de MDB nucleo. La ejecucion
+interactiva de binarios EDIG, generacion de archivos o navegacion por pantallas
+queda limitada a la VM/sandbox de este runbook.
+
 ## Precondiciones
 
 - VM Windows aislada o sandbox equivalente, con snapshot previo.

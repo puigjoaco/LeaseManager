@@ -31,6 +31,16 @@ upload/export y conectividad auxiliar. `CONTRIB/`, `LICENCIAS/`, `RESPUESTA/`
 y `UPLOAD/` se excluyen o redactan para evitar datos de usuario, licencia o
 salidas de presentacion.
 
+Nota 2026-06-13: El mapeo EDIG AT2026 profundiza a esquema MDB nucleo mediante
+`scripts/extract-edig-mdb-schema.ps1`: copia temporalmente solo
+`CENTRAL/comun.MDB`, `CENTRAL/prtRegAT21.MDB`, `CENTRAL/R14PARA26.MDB`,
+`DATOS/CANova.mdb`, `DATOS/F29LGH.MDB`, `DATOS/PRO26.MDB` y
+`DATOS/Reg14.MDB`, extrae metadata de tablas/columnas con Jet 4.0/PowerShell
+32-bit y borra las copias. La corrida local obtuvo 205 tablas y 5.494 columnas
+sin leer filas, reforzando la separacion entre maestros, F29/PPM, parametria
+por regimen, PRO/F22 y registros RLI/CPT/RAI/SAC. Sigue siendo referencia
+funcional no normativa.
+
 Nota 2026-06-13: Etapa 6/7 convierten el boundary asistido en enforcement
 local para artefactos anuales. `ProcesoRentaAnual`, DDJJ y F22 en estados
 aprobados, observados, rectificados o presentados requieren
