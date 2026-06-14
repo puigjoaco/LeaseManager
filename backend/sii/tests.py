@@ -755,6 +755,61 @@ class SiiAPITests(APITestCase):
         self.assertIn('formula_ref', mapping_error.exception.message_dict)
         self.assertIn('evidencia_ref', mapping_error.exception.message_dict)
 
+    def test_tax_code_mapping_trial_balance_metric_requires_classifier_and_rli_cpt(self):
+        empresa = self._create_active_empresa(nombre='TaxRuleTrialBalanceCo', rut='56666666-5')
+        config = self._activate_fiscal_config(empresa, with_tax_year_ruleset=False)
+        rule_source = self._ensure_official_source(
+            anio_tributario=2026,
+            key='ruleset-trial-balance',
+            regime_code=config.regimen_tributario.codigo_regimen,
+        )
+        rli_source = self._ensure_official_source(
+            anio_tributario=2026,
+            key='mapping-rli-trial-balance',
+            applies_to=DestinoMapeoTributarioAnual.RLI,
+            regime_code=config.regimen_tributario.codigo_regimen,
+        )
+        f22_source = self._ensure_official_source(
+            anio_tributario=2026,
+            key='mapping-f22-trial-balance',
+            applies_to=DestinoMapeoTributarioAnual.F22,
+            regime_code=config.regimen_tributario.codigo_regimen,
+        )
+        rule_set = TaxYearRuleSet.objects.create(
+            anio_tributario=2026,
+            regimen_tributario=config.regimen_tributario,
+            version='AT2026-trial-balance-v1',
+            estado=EstadoReglaTributariaAnual.APPROVED,
+            fuente_ref='tax-rule-source-trial-balance-controlled',
+            hash_normativo='d' * 64,
+            responsable_aprobacion_ref='tax-rule-trial-balance-reviewer-controlled',
+            official_source=rule_source,
+        )
+        mapping = TaxCodeMapping(
+            rule_set=rule_set,
+            destino=DestinoMapeoTributarioAnual.RLI,
+            codigo_interno='lease.revenue.net',
+            codigo_destino='RLI-ING-001',
+            formula_ref='formula-ref-rli-trial-balance-controlled',
+            evidencia_ref='evidence-ref-rli-trial-balance-controlled',
+            official_source=rli_source,
+            metadata={'source_metric': 'annual_trial_balance.resultado_ganancia_clp'},
+        )
+
+        with self.assertRaises(ValidationError) as missing_classifier_error:
+            mapping.full_clean()
+        self.assertIn('metadata', missing_classifier_error.exception.message_dict)
+
+        mapping.metadata['trial_balance_classifier'] = 'RLI-LEASE-REVENUE'
+        mapping.full_clean()
+
+        mapping.destino = DestinoMapeoTributarioAnual.F22
+        mapping.codigo_destino = 'F22-001'
+        mapping.official_source = f22_source
+        with self.assertRaises(ValidationError) as destination_error:
+            mapping.full_clean()
+        self.assertIn('metadata', destination_error.exception.message_dict)
+
     def test_tax_year_ruleset_admin_redacts_sensitive_refs(self):
         empresa = self._create_active_empresa(nombre='TaxRuleAdminCo', rut='57575757-5')
         config = self._activate_fiscal_config(empresa)

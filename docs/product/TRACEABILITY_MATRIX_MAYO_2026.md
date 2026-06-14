@@ -90,6 +90,14 @@ F22 en su payload/resumen. Readiness bloquea procesos trazables sin layout F22
 preparado, con warnings, invalidos, resumen desalineado o export sin fuente de
 formato/certificacion F22.
 
+Nota 2026-06-14: Etapa 6 endurece la union contabilidad -> renta en
+DJ1847/RLI/CPT. `TaxCodeMapping` activo bajo `TaxYearRuleSet` aprobado que
+declara `source_metric=annual_trial_balance.*` solo puede alimentar RLI/CPT y
+debe conservar `trial_balance_classifier` DJ1847. Readiness clasifica snapshots
+heredados con mappings sin clasificador o apuntando directo a destinos
+posteriores, evitando saltos desde balance anual hacia F22/DDJJ sin la capa
+RLI/CPT trazable.
+
 Nota 2026-06-14: Etapa 6 agrega `AnnualTaxReviewChecklist` como frontera
 auditable entre preparacion mecanica y decision tributaria supervisada. El
 checklist resume dossier, export local, fuentes, reglas, matriz DDJJ/F22 e

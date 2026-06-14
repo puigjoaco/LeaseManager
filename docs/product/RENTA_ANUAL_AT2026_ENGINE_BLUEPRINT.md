@@ -113,6 +113,7 @@ contratos:
 | Fuente anual | `anio_tributario`, `anio_comercial`, `empresa`, `source_kind`, `source_label`, `authorization_ref`, `hash_fuentes` | probar origen y alcance |
 | Regla AT | `anio_tributario`, `regimen`, `version`, `fuente_ref`, `official_source`, `estado`, `hash_normativo` | evitar reglas implicitas |
 | Balance anual | `codigo_cuenta`, `clasificador_dj1847`, ocho columnas CLP, `formula_ref`, `evidencia_ref`, `source_payload`, `hash_linea` | separar preparacion contable anual de decision tributaria final |
+| Mapping DJ1847/RLI/CPT | `source_metric=annual_trial_balance.*`, `trial_balance_classifier`, destino RLI/CPT, fuente oficial/experta | impedir que el balance anual alimente F22/DDJJ sin pasar por RLI/CPT trazable |
 | Linea normalizada | `codigo_interno`, `origen`, `monto`, `signo`, `formula_ref`, `evidencia_ref`, `official_source`, `warnings` | trazabilidad de cada monto |
 | Registro empresarial | `tipo_registro`, `saldo_inicial`, `movimientos`, `saldo_final`, `fuente_saldo` | RAI/SAC no puede inventar saldos |
 | Paquete DDJJ | `formulario`, `medio_sii`, `periodo`, `registros`, `responsable_revision_ref`, `paquete_ref` | DDJJ revisable antes de F22 |
@@ -152,7 +153,10 @@ contratos:
    cuando aplica, conserva hash por linea y por workbook, expone
    API/snapshot/admin redactados y bloquea readiness si faltan workbooks,
    faltan lineas activas, hay warnings pendientes o el resumen anual queda
-   desalineado.
+   desalineado. Los mappings que declaran `source_metric` basado en
+   `annual_trial_balance.*` deben ser RLI/CPT y conservar
+   `trial_balance_classifier` DJ1847; readiness bloquea snapshots heredados
+   que salten esa capa intermedia.
 6. `stage6-enterprise-registers`: estructura RAI/SAC/retiros/dividendos con
    saldos iniciales y finales trazables. Implementado como
    `AnnualEnterpriseRegisterSet` y `AnnualEnterpriseRegisterMovement`: genera
@@ -242,7 +246,7 @@ necesarias ya tienen equivalente propio en LeaseManager:
 | Contribuyente, regimen y capacidades | implementado como fundacion local |
 | F29/PPM mensual | implementado como preparacion; cierre final bloqueado |
 | Parametria AT/regimen | shell implementado; reglas finales bloqueadas |
-| RLI/CPT | skeleton implementado; mapping fiscal pendiente |
+| RLI/CPT | skeleton implementado; guard DJ1847/clasificador activo; mapping fiscal final pendiente |
 | RAI/SAC/retiros/dividendos | preparacion implementada; saldos historicos pendientes |
 | Bienes raices/arriendos/contribuciones | seccion implementada; fuente contribuciones pendiente |
 | Matriz DDJJ/F22 | matriz revisable implementada |
@@ -282,6 +286,8 @@ DJ1847/RLI/CPT, porque ahi ocurre la union real entre contabilidad y renta.
 | Fuente anual incompleta | menos de 12 cierres aprobados, F29 faltante si aplica, ledger no cerrado |
 | Hechos mensuales incompletos | proceso anual sin 12 `MonthlyTaxFact` normalizados o resumen anual desalineado |
 | Regla AT ausente | cualquier calculo marcado como listo sin `TaxYearRuleSet` aprobado |
+| Mapping balance anual ambiguo | `TaxCodeMapping` RLI/CPT con `annual_trial_balance.*` sin `trial_balance_classifier` DJ1847 |
+| Mapping balance anual en destino posterior | `TaxCodeMapping` con `annual_trial_balance.*` apuntando directo a F22/DDJJ/RAI/SAC |
 | Workbooks RLI/CPT faltantes | proceso anual trazable sin ambos workbooks preparados |
 | Linea sin origen | RLI/CPT/DDJJ/F22 con monto sin fuente |
 | Linea RLI/CPT con warning | requiere revision tributaria antes de cierre |

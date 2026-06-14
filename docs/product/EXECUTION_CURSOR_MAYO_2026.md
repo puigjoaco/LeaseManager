@@ -22,16 +22,16 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno; `stage6-f22-export-layout` cerrado por este paquete. |
-| Fuente exacta | Base `main` en `900ebfb`, posterior al merge de PR #844. |
-| Brecha activa | Cerrada localmente: Etapa 6 tiene capa trazable de formato/certificacion F22 para que `AnnualTaxExport` siga siendo preview local revisable y no formato oficial ni presentacion SII. |
-| Motivo de prioridad | Evitar que una reanudacion o compactacion reabra `stage6-f22-official-export-format` despues de materializar `AnnualTaxF22ExportLayout`. |
-| Worktree | `D:/Proyectos/LeaseManager-stage6-f22-export-layout` hasta merge; luego remover. |
-| Rama | `codex/stage6-f22-export-layout` hasta merge; luego eliminar local/remoto. |
-| Estado | Implementacion local finalizada; pendiente solo commit, PR, CI, merge y limpieza. |
+| Frente activo | Ninguno; `stage6-trial-balance-mapping-guard` cerrado por este paquete. |
+| Fuente exacta | Base `main` en `2c9de1d`, posterior al merge de PR #845. |
+| Brecha activa | Cerrada localmente: Etapa 6 bloquea mappings basados en `annual_trial_balance.*` sin `trial_balance_classifier` DJ1847 o apuntando directo a destinos posteriores como F22/DDJJ. |
+| Motivo de prioridad | Impedir que la union contabilidad -> renta salte desde balance anual directo a F22/DDJJ sin pasar por RLI/CPT trazable. |
+| Worktree | `D:/Proyectos/LeaseManager-stage6-trial-balance-mapping-guard` hasta merge; luego remover. |
+| Rama | `codex/stage6-trial-balance-mapping-guard` hasta merge; luego eliminar local/remoto. |
+| Estado | Implementacion local finalizada; pendiente commit, PR, CI, merge y limpieza. |
 | Gate esperado | `scripts/run-stage6-readiness-gate.ps1` queda en `classification=parcial`; no cierra Etapa 6 ni presenta DDJJ/F22 sin fuente final, certificacion/formato, responsable, autorizacion y evidencia no sensible. |
-| Estado al cerrar paquete | Cumplir commit, PR, CI, merge y limpieza; main debe quedar sincronizado y sin worktree tactico de este frente. |
-| Bloqueos relacionados | F22 final sigue bloqueado sin archivo/formato oficial de produccion, casos controlados, responsable tributario, autorizacion explicita y evidencia no sensible. |
+| Estado al cerrar paquete | Commit, PR, CI, merge y limpieza; main debe quedar sincronizado y sin worktree tactico de este frente. |
+| Bloqueos relacionados | Mapping fiscal final sigue bloqueado sin fuente DJ1847/F22 revisada, responsable tributario, casos controlados, autorizacion explicita y evidencia no sensible. |
 | Politica de reanudacion | No reabrir goal prompts, EDIG ni este frente; si el paquete ya esta mergeado, diagnosticar el siguiente frente seguro desde main limpio y fuentes rectoras. |
 | Siguiente accion | Cerrar el paquete por PR/CI/merge. Despues del merge, continuar solo con el siguiente frente seguro; no usar SII real, navegador, datos reales ni secretos sin autorizacion explicita. |
 

@@ -978,6 +978,21 @@ class TaxCodeMapping(OperationalSIITextNormalizationMixin, TimestampedModel):
                 applies_to=self.destino,
                 regime_code=regime_code,
             )
+            metadata = self.metadata if isinstance(self.metadata, dict) else {}
+            source_metric = str(metadata.get('source_metric') or '').strip()
+            if source_metric.startswith('annual_trial_balance.'):
+                if self.destino not in {DestinoMapeoTributarioAnual.RLI, DestinoMapeoTributarioAnual.CPT}:
+                    _add_error(
+                        errors,
+                        'metadata',
+                        'Metricas annual_trial_balance solo pueden alimentar mappings RLI/CPT.',
+                    )
+                if not has_text(metadata.get('trial_balance_classifier')):
+                    _add_error(
+                        errors,
+                        'metadata',
+                        'Metricas annual_trial_balance requieren trial_balance_classifier DJ1847 trazable.',
+                    )
         _add_non_sensitive_reference_error(errors, self, 'formula_ref')
         _add_non_sensitive_reference_error(errors, self, 'evidencia_ref')
         _add_non_sensitive_payload_error(errors, 'metadata', self.metadata)
