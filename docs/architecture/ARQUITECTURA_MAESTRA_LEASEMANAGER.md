@@ -13,7 +13,9 @@ LeaseManager debe operar la administracion inmobiliaria, contractual,
 recaudatoria, documental y de preparacion contable/tributaria de patrimonios,
 empresas, comunidades y propietarios, manteniendo trazabilidad completa desde el
 dato maestro hasta el pre-cierre mensual, dossiers tributarios revisables y
-reporting.
+reporting. La renta anual forma parte del producto como flujo deterministico de
+software tributario: prepara, calcula, versiona, exporta y eventualmente
+presenta F22/DDJJ solo bajo gate SII/certificacion y aprobacion responsable.
 
 ## Stack v1
 
@@ -44,8 +46,10 @@ reporting.
    estados/reportes; el sistema mecaniza reglas y evidencia, no criterio
    discrecional sin responsable.
 8. Dominio tributario: empresas emisoras, DTE 34 cuando corresponda, SII,
-   preparacion F29/DDJJ/F22, dossier anual y certificados; las presentaciones
-   finales quedan bajo gate, aprobacion y revision responsable.
+   preparacion F29/DDJJ/F22, motor anual versionado por Ano Tributario, archivo
+   F22 compatible/certificable, dossier anual y certificados; las
+   presentaciones finales quedan bajo gate SII/casa de software o canal
+   autorizado, aprobacion y revision responsable.
 9. Dominio documental: PDFs, contratos, respaldos, politicas de firma y
    notaria, origen de reportes y evidencia.
 10. Operacion productiva: backups, restore, runbook, monitoreo, soporte,
@@ -85,7 +89,8 @@ Dependencias criticas:
 - Contabilidad no aprueba pre-cierre/cierre antes de que Conciliacion genere
   hechos confiables y exista evidencia revisable.
 - SII no cierra ni presenta antes de configuracion fiscal, ledger, cierre
-  mensual, gate aplicable y aprobacion responsable.
+  mensual, gate aplicable, certificacion/canal autorizado cuando corresponda y
+  aprobacion responsable.
 - Documentos no cierra sin politica de firma, notaria y origen verificable.
 - Reporting no cierra si sus cifras no trazan a datos, asientos o documentos.
 
@@ -93,15 +98,23 @@ Dependencias criticas:
 
 LeaseManager v1 es el sistema de hechos, reglas, paquetes, evidencia y
 trazabilidad. Puede generar asientos bajo reglas vigentes, preparar cierres,
-calcular obligaciones y armar dossiers F29/DDJJ/F22, pero no reemplaza el
-criterio profesional cuando una decision contable o tributaria requiere
-interpretacion, validacion normativa, revision experta u operacion frente a SII.
+calcular obligaciones, armar dossiers F29/DDJJ/F22 y generar archivos o
+paquetes anuales compatibles con el formato vigente cuando la regla este
+versionada por Ano Tributario. Si existe certificacion, API, carga de archivo o
+canal SII formalmente autorizado, el sistema puede operar como software
+tributario deterministico para presentar o preparar presentacion; aun asi no
+reemplaza el criterio profesional cuando una decision contable o tributaria
+requiere interpretacion, validacion normativa, revision experta u operacion
+frente a SII.
 
 Una automatizacion contable o tributaria solo puede avanzar si existe regla
 vigente, source controlada o real autorizada, gate aplicable, responsable
 trazado y evidencia no sensible. Si falta cualquiera de esos elementos, el
 estado correcto es preparacion, revision o bloqueo de cierre, no decision
-autonoma ni presentacion final.
+autonoma ni presentacion final. La automatizacion valida es mecanica,
+reproducible y auditable: mapea datos de LeaseManager a codigos tributarios
+versionados, deja diferencias y supuestos como bloqueos revisables, y ejecuta
+presentacion solo con aprobacion y canal/certificacion habilitados.
 
 ## Gates externos
 
