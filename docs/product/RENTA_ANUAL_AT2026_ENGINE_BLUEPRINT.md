@@ -79,7 +79,7 @@ certeza fiscal mediante navegacion automatica ni por inferencia de IA.
 | `AnnualTaxNormalizer` | Transformar fuentes a registros intermedios | source bundle + rule set | RLI, CPT, RAI, SAC, DDJJ base | no calcula sin rule set vigente |
 | `AnnualTaxWorkbook` RLI | Determinar lineas RLI trazadas | `TaxCodeMapping` + `MonthlyTaxFact` | lineas RLI, hashes, warnings | origen y fuente por linea |
 | `AnnualTaxWorkbook` CPT | Determinar capital propio tributario preparatorio | `TaxCodeMapping` + `MonthlyTaxFact` | lineas CPT, hashes y warnings | no cerrar con warnings |
-| `EnterpriseRegisterSet` | Construir RAI/SAC/retiros/dividendos | RLI/CPT/socios/movimientos | registros empresariales | saldos iniciales trazados |
+| `AnnualEnterpriseRegisterSet` | Construir RAI/SAC/retiros/dividendos | RLI/CPT/socios/movimientos | registros empresariales | saldos iniciales y movimientos trazados |
 | `RealEstateAnnualSection` | Normalizar bienes raices/arriendos | propiedades, contratos, pagos, contribuciones | seccion anual y respaldo | fuente SII/experta para codigos |
 | `DdjjPackageBuilder` | Preparar DDJJ/certificados | registros, socios, certificados | paquetes DDJJ revisables | medio SII vigente por formulario |
 | `F22DraftBuilder` | Mapear a codigos F22 | registros intermedios y DDJJ | preview F22 | formato/certificacion vigente |
@@ -127,7 +127,13 @@ contratos:
    faltan workbooks, faltan lineas activas, hay warnings pendientes o el
    resumen anual queda desalineado.
 5. `stage6-enterprise-registers`: estructura RAI/SAC/retiros/dividendos con
-   saldos iniciales y finales trazables.
+   saldos iniciales y finales trazables. Implementado como
+   `AnnualEnterpriseRegisterSet` y `AnnualEnterpriseRegisterMovement`: genera
+   registros RAI/SAC desde lineas RLI/CPT y retiros/dividendos desde
+   participaciones activas con movimientos cero trazados cuando aun no existen
+   eventos propios, conserva hashes por movimiento/registro, expone
+   API/snapshot/admin redactados y bloquea readiness si faltan registros,
+   movimientos, resumen alineado o si existen warnings pendientes.
 6. `stage6-real-estate-section`: seccion anual de bienes raices/arriendos y
    contribuciones.
 7. `stage6-ddjj-f22-artifact-matrix`: matriz DDJJ/F22 por fuente, medio,
@@ -147,7 +153,9 @@ contratos:
 | Linea sin origen | RLI/CPT/DDJJ/F22 con monto sin fuente |
 | Linea RLI/CPT con warning | requiere revision tributaria antes de cierre |
 | Resumen anual RLI/CPT desalineado | hash, tipo o conteo del proceso no coincide con workbooks vigentes |
-| Saldos empresariales opacos | RAI/SAC sin saldo inicial o sin movimiento trazado |
+| Registros empresariales faltantes | proceso anual trazable sin RAI/SAC/retiros/dividendos preparados |
+| Saldos empresariales opacos | RAI/SAC/retiros/dividendos sin saldo inicial o sin movimiento trazado |
+| Resumen empresarial desalineado | hash, tipo, saldo o conteo del proceso no coincide con registros vigentes |
 | Responsable ausente | DDJJ/F22/dossier avanzado sin `responsable_revision_ref` |
 | Refs sensibles | URLs, tokens, correos, certificados o claves en refs/payloads |
 | Presentacion sin gate | intento de marcar presentado sin formato SII, autorizacion y evidencia |

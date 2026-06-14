@@ -21,12 +21,15 @@ from core.state_transition_audit_readiness import count_audit_events_without_tra
 from documentos.models import DocumentoEmitido, EstadoDocumento, TipoDocumental
 from sii.models import (
     AmbienteSII,
+    AnnualEnterpriseRegisterMovement,
+    AnnualEnterpriseRegisterSet,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
     CapacidadSII,
     CapacidadTributariaSII,
     DDJJPreparacionAnual,
+    EstadoAnnualEnterpriseRegister,
     EstadoAnnualTaxSourceBundle,
     EstadoAnnualTaxWorkbook,
     EstadoReglaTributariaAnual,
@@ -37,6 +40,7 @@ from sii.models import (
     ProcesoRentaAnual,
     TaxCodeMapping,
     TaxYearRuleSet,
+    TipoAnnualEnterpriseRegister,
     TipoAnnualTaxWorkbook,
     has_text,
 )
@@ -344,6 +348,86 @@ def _collect_annual_tax_workbook_issues(workbooks, lines, processes, active_fisc
     return dict(sorted(counts.items()))
 
 
+def _collect_annual_enterprise_register_issues(registers, movements, processes, active_fiscal_company_ids: set[int]) -> dict[str, int]:
+    counts = Counter()
+    expected_types = {
+        TipoAnnualEnterpriseRegister.RAI,
+        TipoAnnualEnterpriseRegister.SAC,
+        TipoAnnualEnterpriseRegister.RETIROS,
+        TipoAnnualEnterpriseRegister.DIVIDENDOS,
+    }
+    invalid_registers = _count_invalid(registers)
+    if invalid_registers:
+        counts['enterprise_register_invalid'] = invalid_registers
+    invalid_movements = _count_invalid(movements)
+    if invalid_movements:
+        counts['enterprise_register_movement_invalid'] = invalid_movements
+    without_fiscal_config = _count_without_active_fiscal_config(registers, active_fiscal_company_ids)
+    if without_fiscal_config:
+        counts['enterprise_register_fiscal_config_missing'] = without_fiscal_config
+
+    prepared_registers = registers.filter(estado=EstadoAnnualEnterpriseRegister.PREPARED)
+    registers_by_process = {}
+    for register in prepared_registers:
+        registers_by_process.setdefault(register.proceso_renta_anual_id, {})[register.tipo_registro] = register
+
+    active_movement_counts = Counter()
+    warning_movement_counts = Counter()
+    for movement in movements.filter(estado=EstadoRegistro.ACTIVE).select_related('register_set'):
+        active_movement_counts[movement.register_set_id] += 1
+        warnings = movement.warnings if isinstance(movement.warnings, list) else []
+        if warnings:
+            warning_movement_counts[movement.register_set_id] += 1
+
+    for process in processes:
+        if process.estado not in ANNUAL_TRACEABLE_STATES:
+            continue
+        process_registers = registers_by_process.get(process.id, {})
+        present_types = set(process_registers.keys())
+        if not present_types:
+            counts['process_enterprise_registers_missing'] += 1
+        elif present_types != expected_types:
+            counts['process_enterprise_register_types_missing'] += 1
+
+        summary = process.resumen_anual if isinstance(process.resumen_anual, dict) else {}
+        register_summary = summary.get('annual_enterprise_registers')
+        if not isinstance(register_summary, dict):
+            counts['process_enterprise_register_summary_missing'] += 1
+        else:
+            by_type = register_summary.get('by_type') if isinstance(register_summary.get('by_type'), dict) else {}
+            try:
+                summary_total = int(register_summary.get('total') or 0)
+            except (TypeError, ValueError):
+                summary_total = -1
+            summary_types = set(register_summary.get('types') or [])
+            if summary_total != len(process_registers) or summary_types != present_types:
+                counts['process_enterprise_register_summary_mismatch'] += 1
+            else:
+                for register_type, register in process_registers.items():
+                    type_summary = by_type.get(register_type)
+                    if not isinstance(type_summary, dict):
+                        counts['process_enterprise_register_summary_mismatch'] += 1
+                        break
+                    if (
+                        type_summary.get('id') != register.id
+                        or type_summary.get('hash_registro') != register.hash_registro
+                        or str(type_summary.get('saldo_inicial_clp')) != str(register.saldo_inicial_clp)
+                        or str(type_summary.get('movimientos_total_clp')) != str(register.movimientos_total_clp)
+                        or str(type_summary.get('saldo_final_clp')) != str(register.saldo_final_clp)
+                        or int(type_summary.get('movements_total') or 0) != active_movement_counts[register.id]
+                    ):
+                        counts['process_enterprise_register_summary_mismatch'] += 1
+                        break
+
+        for register in process_registers.values():
+            if active_movement_counts[register.id] == 0:
+                counts['enterprise_register_movement_missing'] += 1
+            if warning_movement_counts[register.id]:
+                counts['enterprise_register_movement_warning_review_required'] += warning_movement_counts[register.id]
+
+    return dict(sorted(counts.items()))
+
+
 def _collect_tax_year_rule_issues(processes, active_fiscal_configs) -> dict[str, int]:
     counts = Counter()
     fiscal_config_by_company_id = {
@@ -502,6 +586,23 @@ def collect_stage6_renta_anual_readiness(
     annual_tax_workbook_issues = _collect_annual_tax_workbook_issues(
         annual_tax_workbooks,
         annual_tax_workbook_lines,
+        annual_processes,
+        active_fiscal_company_ids,
+    )
+    annual_enterprise_registers = AnnualEnterpriseRegisterSet.objects.select_related(
+        'empresa',
+        'proceso_renta_anual',
+        'source_bundle',
+        'rule_set',
+    )
+    annual_enterprise_register_movements = AnnualEnterpriseRegisterMovement.objects.select_related(
+        'register_set',
+        'register_set__empresa',
+        'source_workbook_line',
+    )
+    annual_enterprise_register_issues = _collect_annual_enterprise_register_issues(
+        annual_enterprise_registers,
+        annual_enterprise_register_movements,
         annual_processes,
         active_fiscal_company_ids,
     )
@@ -796,6 +897,55 @@ def collect_stage6_renta_anual_readiness(
     ]:
         if annual_tax_workbook_issues.get(key):
             issues.append(_issue(code, message, count=annual_tax_workbook_issues[key]))
+    for key, code, message in [
+        (
+            'enterprise_register_invalid',
+            'stage6.enterprise_register_invalid',
+            'Existen registros empresariales RAI/SAC/retiros/dividendos que no pasan validacion de dominio.',
+        ),
+        (
+            'enterprise_register_movement_invalid',
+            'stage6.enterprise_register_movement_invalid',
+            'Existen movimientos de registros empresariales que no pasan validacion de dominio o referencias.',
+        ),
+        (
+            'enterprise_register_fiscal_config_missing',
+            'stage6.enterprise_register_fiscal_config_missing',
+            'Existen registros empresariales para empresas sin ConfiguracionFiscalEmpresa activa propia.',
+        ),
+        (
+            'process_enterprise_registers_missing',
+            'stage6.process_enterprise_registers_missing',
+            'ProcesoRentaAnual trazable requiere registros empresariales RAI/SAC/retiros/dividendos preparados.',
+        ),
+        (
+            'process_enterprise_register_types_missing',
+            'stage6.process_enterprise_register_types_missing',
+            'ProcesoRentaAnual trazable requiere registros RAI, SAC, retiros y dividendos.',
+        ),
+        (
+            'process_enterprise_register_summary_missing',
+            'stage6.process_enterprise_register_summary_missing',
+            'ProcesoRentaAnual debe conservar resumen de registros empresariales en resumen_anual.',
+        ),
+        (
+            'process_enterprise_register_summary_mismatch',
+            'stage6.process_enterprise_register_summary_mismatch',
+            'ProcesoRentaAnual conserva resumen de registros empresariales desalineado con registros vigentes.',
+        ),
+        (
+            'enterprise_register_movement_missing',
+            'stage6.enterprise_register_movement_missing',
+            'Registro empresarial preparado requiere movimientos activos trazados.',
+        ),
+        (
+            'enterprise_register_movement_warning_review_required',
+            'stage6.enterprise_register_movement_warning_review_required',
+            'Existen movimientos de registros empresariales con warnings que requieren revision antes de cierre.',
+        ),
+    ]:
+        if annual_enterprise_register_issues.get(key):
+            issues.append(_issue(code, message, count=annual_enterprise_register_issues[key]))
     if approved_closes.count() < 12:
         issues.append(
             _issue(
@@ -1192,6 +1342,15 @@ def collect_stage6_renta_anual_readiness(
                 'lines_total': annual_tax_workbook_lines.count(),
                 'active_lines': annual_tax_workbook_lines.filter(estado=EstadoRegistro.ACTIVE).count(),
                 **annual_tax_workbook_issues,
+            },
+            'annual_enterprise_registers': {
+                'registers_total': annual_enterprise_registers.count(),
+                'prepared_registers': annual_enterprise_registers.filter(estado=EstadoAnnualEnterpriseRegister.PREPARED).count(),
+                'registers_by_state': _count_by(annual_enterprise_registers, 'estado'),
+                'registers_by_type': _count_by(annual_enterprise_registers, 'tipo_registro'),
+                'movements_total': annual_enterprise_register_movements.count(),
+                'active_movements': annual_enterprise_register_movements.filter(estado=EstadoRegistro.ACTIVE).count(),
+                **annual_enterprise_register_issues,
             },
             'annual_documents': {
                 'ddjj_total': ddjj_preparations.count(),

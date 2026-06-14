@@ -11,6 +11,8 @@ from cobranza.models import PagoMensual
 from patrimonio.models import Empresa
 
 from .models import (
+    AnnualEnterpriseRegisterMovement,
+    AnnualEnterpriseRegisterSet,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -22,6 +24,8 @@ from .models import (
     TaxYearRuleSet,
 )
 from .serializers import (
+    AnnualEnterpriseRegisterMovementSerializer,
+    AnnualEnterpriseRegisterSetSerializer,
     AnnualGenerateSerializer,
     AnnualStatusSerializer,
     AnnualTaxSourceBundleSerializer,
@@ -196,6 +200,25 @@ class SiiSnapshotView(APIView):
             access,
             company_paths=('workbook__empresa_id',),
         )
+        annual_enterprise_registers = scope_queryset_for_access(
+            AnnualEnterpriseRegisterSet.objects.select_related(
+                'empresa',
+                'proceso_renta_anual',
+                'source_bundle',
+                'rule_set',
+            ).order_by('-anio_tributario', 'empresa_id', 'tipo_registro'),
+            access,
+            company_paths=('empresa_id',),
+        )
+        annual_enterprise_register_movements = scope_queryset_for_access(
+            AnnualEnterpriseRegisterMovement.objects.select_related(
+                'register_set',
+                'register_set__empresa',
+                'source_workbook_line',
+            ).order_by('register_set_id', 'codigo_interno', 'origen'),
+            access,
+            company_paths=('register_set__empresa_id',),
+        )
         tax_year_rule_sets = TaxYearRuleSet.objects.select_related('regimen_tributario').order_by(
             '-anio_tributario',
             'regimen_tributario_id',
@@ -348,6 +371,45 @@ class SiiSnapshotView(APIView):
                         'estado': item.estado,
                     }
                     for item in annual_tax_workbook_lines
+                ],
+                'annual_enterprise_registers': [
+                    {
+                        'id': item.id,
+                        'empresa': item.empresa_id,
+                        'proceso_renta_anual': item.proceso_renta_anual_id,
+                        'source_bundle': item.source_bundle_id,
+                        'rule_set': item.rule_set_id,
+                        'anio_tributario': item.anio_tributario,
+                        'anio_comercial': item.anio_comercial,
+                        'tipo_registro': item.tipo_registro,
+                        'source_ref': redact_sensitive_reference(item.source_ref),
+                        'responsible_ref': redact_sensitive_reference(item.responsible_ref),
+                        'saldo_inicial_clp': item.saldo_inicial_clp,
+                        'movimientos_total_clp': item.movimientos_total_clp,
+                        'saldo_final_clp': item.saldo_final_clp,
+                        'resumen_registro': redact_sensitive_payload(item.resumen_registro),
+                        'hash_registro': item.hash_registro,
+                        'estado': item.estado,
+                    }
+                    for item in annual_enterprise_registers
+                ],
+                'annual_enterprise_register_movements': [
+                    {
+                        'id': item.id,
+                        'register_set': item.register_set_id,
+                        'source_workbook_line': item.source_workbook_line_id,
+                        'codigo_interno': item.codigo_interno,
+                        'origen': item.origen,
+                        'signo': item.signo,
+                        'monto_clp': item.monto_clp,
+                        'formula_ref': redact_sensitive_reference(item.formula_ref),
+                        'evidencia_ref': redact_sensitive_reference(item.evidencia_ref),
+                        'warnings': redact_sensitive_payload(item.warnings),
+                        'source_payload': redact_sensitive_payload(item.source_payload),
+                        'hash_movimiento': item.hash_movimiento,
+                        'estado': item.estado,
+                    }
+                    for item in annual_enterprise_register_movements
                 ],
                 'ddjjs': [
                     {
@@ -542,6 +604,52 @@ class AnnualTaxWorkbookLineDetailView(ScopedQuerysetMixin, generics.RetrieveAPIV
         'mapping',
     ).all()
     company_scope_paths = ('workbook__empresa_id',)
+
+
+class AnnualEnterpriseRegisterSetListView(ScopedQuerysetMixin, generics.ListAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualEnterpriseRegisterSetSerializer
+    queryset = AnnualEnterpriseRegisterSet.objects.select_related(
+        'empresa',
+        'proceso_renta_anual',
+        'source_bundle',
+        'rule_set',
+    ).all()
+    company_scope_paths = ('empresa_id',)
+
+
+class AnnualEnterpriseRegisterSetDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualEnterpriseRegisterSetSerializer
+    queryset = AnnualEnterpriseRegisterSet.objects.select_related(
+        'empresa',
+        'proceso_renta_anual',
+        'source_bundle',
+        'rule_set',
+    ).all()
+    company_scope_paths = ('empresa_id',)
+
+
+class AnnualEnterpriseRegisterMovementListView(ScopedQuerysetMixin, generics.ListAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualEnterpriseRegisterMovementSerializer
+    queryset = AnnualEnterpriseRegisterMovement.objects.select_related(
+        'register_set',
+        'register_set__empresa',
+        'source_workbook_line',
+    ).all()
+    company_scope_paths = ('register_set__empresa_id',)
+
+
+class AnnualEnterpriseRegisterMovementDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualEnterpriseRegisterMovementSerializer
+    queryset = AnnualEnterpriseRegisterMovement.objects.select_related(
+        'register_set',
+        'register_set__empresa',
+        'source_workbook_line',
+    ).all()
+    company_scope_paths = ('register_set__empresa_id',)
 
 
 class DTEEmitidoListView(ScopedQuerysetMixin, generics.ListAPIView):

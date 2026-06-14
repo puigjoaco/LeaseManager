@@ -68,6 +68,12 @@ RLI/CPT: para cada `ProcesoRentaAnual` se preparan workbooks RLI y CPT desde
 warnings revisables y exposicion redactada. Esta capa no declara calculo
 tributario final; deja importes, origenes y advertencias listos para revision
 antes de avanzar a RAI/SAC/DDJJ/F22.
+`AnnualEnterpriseRegisterSet` y `AnnualEnterpriseRegisterMovement` materializan
+la siguiente capa: registros RAI, SAC, retiros y dividendos por proceso anual,
+con saldos iniciales/finales, movimientos trazados a RLI/CPT o participaciones
+activas, hashes por movimiento/registro y exposicion redactada. Esta capa
+mantiene `final_tax_calculation=false`; no reemplaza revision tributaria ni
+presentacion SII.
 
 ## Gate
 
@@ -93,6 +99,15 @@ antes de avanzar a RAI/SAC/DDJJ/F22.
   origen, monto, `formula_ref`, `evidencia_ref`, `source_payload` y
   `hash_linea` coherente. Lineas con warnings bloquean readiness hasta revision
   tributaria; no se transforman en cierre automatico.
+- `AnnualEnterpriseRegisterSet` preparado requiere proceso anual, bundle y rule
+  set coherentes, saldos iniciales/finales trazables, `resumen_registro` y
+  `hash_registro` coherentes. Para tratar un proceso anual como trazable deben
+  existir registros RAI, SAC, retiros y dividendos.
+- `AnnualEnterpriseRegisterMovement` activo requiere origen, monto, signo,
+  `formula_ref`, `evidencia_ref`, `source_payload` y `hash_movimiento`
+  coherente. Movimientos con warnings bloquean readiness hasta revision
+  tributaria; retiros/dividendos pueden conservar movimientos cero trazados a
+  participaciones activas mientras no existan eventos propios.
 - Responsable de revision anual trazado antes de tratar el paquete como
   aprobado.
 - Documentos generados desde datos trazables.
@@ -198,6 +213,10 @@ antes de avanzar a RAI/SAC/DDJJ/F22.
   el proceso anual y antes de emitir DDJJ/F22 locales. La readiness bloquea
   procesos trazables sin ambos workbooks, sin lineas activas, con warnings,
   invalidos o con resumen RLI/CPT desalineado.
+- `generate_annual_preparation()` sincroniza registros empresariales despues de
+  RLI/CPT y antes de emitir DDJJ/F22 locales. La readiness bloquea procesos
+  trazables sin RAI/SAC/retiros/dividendos, sin movimientos activos, con
+  warnings, invalidos o con resumen empresarial desalineado.
 - La API/snapshot/admin de SII exponen `TaxYearRuleSet` y `TaxCodeMapping` con
   referencias/payloads redactados y auditoria de creacion/actualizacion; el
   bootstrap demo anual crea parametria demo controlada, no oficial, antes de
@@ -212,6 +231,10 @@ antes de avanzar a RAI/SAC/DDJJ/F22.
   `AnnualTaxWorkbookLine` con refs, warnings y payloads redactados; el admin es
   solo lectura para preservar que RLI/CPT provienen del normalizador anual y no
   de edicion manual opaca.
+- La API/snapshot/admin de SII exponen `AnnualEnterpriseRegisterSet` y
+  `AnnualEnterpriseRegisterMovement` con refs, warnings y payloads redactados;
+  el admin es solo lectura para preservar que RAI/SAC/retiros/dividendos
+  provienen del motor anual y no de edicion manual opaca.
 
 ```powershell
 scripts\run-stage6-readiness-gate.ps1 -PythonExe backend\.venv\Scripts\python.exe

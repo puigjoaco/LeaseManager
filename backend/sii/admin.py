@@ -3,6 +3,8 @@ from django.contrib import admin
 from core.reference_validation import redact_sensitive_payload, redact_sensitive_reference
 
 from .models import (
+    AnnualEnterpriseRegisterMovement,
+    AnnualEnterpriseRegisterSet,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -369,6 +371,119 @@ class AnnualTaxWorkbookLineAdmin(admin.ModelAdmin):
     )
     list_filter = ('workbook__tipo', 'estado')
     search_fields = ('codigo_interno', 'codigo_destino', 'workbook__empresa__razon_social')
+
+    @admin.display(description='formula_ref')
+    def formula_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'formula_ref')
+
+    @admin.display(description='evidencia_ref')
+    def evidencia_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'evidencia_ref')
+
+    @admin.display(description='warnings')
+    def warnings_redacted(self, obj):
+        return _redacted_payload_attr(obj, 'warnings')
+
+    @admin.display(description='source_payload')
+    def source_payload_redacted(self, obj):
+        return _redacted_payload_attr(obj, 'source_payload')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(AnnualEnterpriseRegisterSet)
+class AnnualEnterpriseRegisterSetAdmin(admin.ModelAdmin):
+    fields = (
+        'empresa',
+        'proceso_renta_anual',
+        'source_bundle',
+        'rule_set',
+        'anio_tributario',
+        'anio_comercial',
+        'tipo_registro',
+        'source_ref_redacted',
+        'responsible_ref_redacted',
+        'saldo_inicial_clp',
+        'movimientos_total_clp',
+        'saldo_final_clp',
+        'resumen_registro_redacted',
+        'hash_registro',
+        'estado',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = fields
+    list_display = (
+        'empresa',
+        'anio_tributario',
+        'tipo_registro',
+        'estado',
+        'saldo_final_clp',
+        'source_ref_redacted',
+        'responsible_ref_redacted',
+    )
+    list_filter = ('anio_tributario', 'tipo_registro', 'estado')
+    search_fields = ('empresa__razon_social',)
+
+    @admin.display(description='source_ref')
+    def source_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'source_ref')
+
+    @admin.display(description='responsible_ref')
+    def responsible_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'responsible_ref')
+
+    @admin.display(description='resumen_registro')
+    def resumen_registro_redacted(self, obj):
+        return _redacted_payload_attr(obj, 'resumen_registro')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(AnnualEnterpriseRegisterMovement)
+class AnnualEnterpriseRegisterMovementAdmin(admin.ModelAdmin):
+    fields = (
+        'register_set',
+        'source_workbook_line',
+        'codigo_interno',
+        'origen',
+        'signo',
+        'monto_clp',
+        'formula_ref_redacted',
+        'evidencia_ref_redacted',
+        'warnings_redacted',
+        'source_payload_redacted',
+        'hash_movimiento',
+        'estado',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = fields
+    list_display = (
+        'register_set',
+        'codigo_interno',
+        'origen',
+        'monto_clp',
+        'estado',
+        'formula_ref_redacted',
+        'evidencia_ref_redacted',
+    )
+    list_filter = ('register_set__tipo_registro', 'estado')
+    search_fields = ('codigo_interno', 'register_set__empresa__razon_social')
 
     @admin.display(description='formula_ref')
     def formula_ref_redacted(self, obj):

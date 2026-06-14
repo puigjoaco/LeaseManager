@@ -34,6 +34,8 @@ from documentos.models import (
 )
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Socio
 from sii.models import (
+    AnnualEnterpriseRegisterMovement,
+    AnnualEnterpriseRegisterSet,
     AmbienteSII,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
@@ -42,6 +44,7 @@ from sii.models import (
     CapacidadTributariaSII,
     DDJJPreparacionAnual,
     DestinoMapeoTributarioAnual,
+    EstadoAnnualEnterpriseRegister,
     EstadoAnnualTaxSourceBundle,
     EstadoRegistro,
     EstadoReglaTributariaAnual,
@@ -52,7 +55,13 @@ from sii.models import (
     TaxCodeMapping,
     TaxYearRuleSet,
 )
-from sii.services import summarize_annual_tax_workbooks, sync_annual_tax_workbooks, sync_monthly_tax_facts
+from sii.services import (
+    summarize_annual_enterprise_registers,
+    summarize_annual_tax_workbooks,
+    sync_annual_enterprise_registers,
+    sync_annual_tax_workbooks,
+    sync_monthly_tax_facts,
+)
 
 
 VALID_DOCUMENT_SHA256 = 'd' * 64
@@ -223,7 +232,22 @@ class Stage6RentaAnualReadinessTests(TestCase):
                 'CPT-CAP-001',
                 'monthly_tax_facts.obligations_total_amount',
             ),
+            (
+                DestinoMapeoTributarioAnual.RAI,
+                'lease.register.rai',
+                'RAI-REG-001',
+                '',
+            ),
+            (
+                DestinoMapeoTributarioAnual.SAC,
+                'lease.register.sac',
+                'SAC-REG-001',
+                '',
+            ),
         ):
+            metadata = {'source': 'stage6-controlled'}
+            if source_metric:
+                metadata['source_metric'] = source_metric
             TaxCodeMapping.objects.create(
                 rule_set=rule_set,
                 destino=destino,
@@ -231,7 +255,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
                 codigo_destino=codigo_destino,
                 formula_ref=f'formula-ref-{codigo_destino.lower()}-controlled',
                 evidencia_ref=f'evidence-ref-{codigo_destino.lower()}-controlled',
-                metadata={'source': 'stage6-controlled', 'source_metric': source_metric},
+                metadata=metadata,
             )
         return rule_set
 
@@ -312,7 +336,9 @@ class Stage6RentaAnualReadinessTests(TestCase):
             responsable_revision_ref='stage6-review-owner-controlled',
         )
         sync_annual_tax_workbooks(process, rule_set, source_bundle)
+        sync_annual_enterprise_registers(process, rule_set, source_bundle)
         summary['annual_tax_workbooks'] = summarize_annual_tax_workbooks(process)
+        summary['annual_enterprise_registers'] = summarize_annual_enterprise_registers(process)
         process.resumen_anual = summary
         process.save(update_fields=['resumen_anual', 'updated_at'])
         DDJJPreparacionAnual.objects.create(
@@ -436,6 +462,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
 
     def test_annual_process_without_tax_workbooks_is_blocking(self):
         self._create_valid_local_matrix()
+        AnnualEnterpriseRegisterSet.objects.all().delete()
         AnnualTaxWorkbook.objects.all().delete()
 
         result = self._collect_with_final_refs()
@@ -531,6 +558,106 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage6_renta_anual'])
         self.assertIn('stage6.tax_workbook_invalid', issue_codes)
         self.assertIn('stage6.tax_workbook_line_invalid', issue_codes)
+        self.assertNotIn('token=secret', serialized_result)
+        self.assertNotIn('api_key', serialized_result)
+        self.assertNotIn('access_token', serialized_result)
+
+    def test_annual_process_without_enterprise_registers_is_blocking(self):
+        self._create_valid_local_matrix()
+        AnnualEnterpriseRegisterSet.objects.all().delete()
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.process_enterprise_registers_missing', issue_codes)
+        self.assertEqual(result['sections']['annual_enterprise_registers']['registers_total'], 0)
+
+    def test_enterprise_register_without_active_movements_is_blocking(self):
+        self._create_valid_local_matrix()
+        register = AnnualEnterpriseRegisterSet.objects.get(tipo_registro='RAI')
+        AnnualEnterpriseRegisterMovement.objects.filter(register_set=register).update(estado=EstadoRegistro.INACTIVE)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.enterprise_register_movement_missing', issue_codes)
+
+    def test_enterprise_register_movement_warning_is_blocking(self):
+        self._create_valid_local_matrix()
+        movement = AnnualEnterpriseRegisterMovement.objects.select_related('register_set').get(register_set__tipo_registro='RAI')
+        movement.warnings = ['opening_balance_requires_expert_review']
+        movement.hash_movimiento = hashlib.sha256(
+            json.dumps(
+                {
+                    'register_set_id': movement.register_set_id,
+                    'source_workbook_line_id': movement.source_workbook_line_id,
+                    'codigo_interno': movement.codigo_interno,
+                    'origen': movement.origen,
+                    'signo': movement.signo,
+                    'monto_clp': str(movement.monto_clp),
+                    'formula_ref': movement.formula_ref,
+                    'evidencia_ref': movement.evidencia_ref,
+                    'warnings': movement.warnings,
+                    'source_payload': movement.source_payload,
+                },
+                sort_keys=True,
+                separators=(',', ':'),
+                ensure_ascii=True,
+                default=str,
+            ).encode('utf-8')
+        ).hexdigest()
+        movement.save(update_fields=['warnings', 'hash_movimiento', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.enterprise_register_movement_warning_review_required', issue_codes)
+
+    def test_enterprise_register_summary_hash_mismatch_is_blocking(self):
+        self._create_valid_local_matrix()
+        process = ProcesoRentaAnual.objects.get()
+        summary = dict(process.resumen_anual)
+        register_summary = dict(summary['annual_enterprise_registers'])
+        by_type = dict(register_summary['by_type'])
+        rai_summary = dict(by_type['RAI'])
+        rai_summary['hash_registro'] = 'f' * 64
+        by_type['RAI'] = rai_summary
+        register_summary['by_type'] = by_type
+        summary['annual_enterprise_registers'] = register_summary
+        process.resumen_anual = summary
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.process_enterprise_register_summary_mismatch', issue_codes)
+
+    def test_invalid_enterprise_register_is_blocking_without_leak(self):
+        self._create_valid_local_matrix()
+        register = AnnualEnterpriseRegisterSet.objects.get(tipo_registro='RAI')
+        movement = AnnualEnterpriseRegisterMovement.objects.get(register_set=register)
+        AnnualEnterpriseRegisterSet.objects.filter(pk=register.pk).update(
+            source_ref='https://sii.example.test/rai?token=secret',
+            resumen_registro={'api_key': 'secret'},
+            hash_registro='not-a-sha',
+        )
+        AnnualEnterpriseRegisterMovement.objects.filter(pk=movement.pk).update(
+            evidencia_ref='https://sii.example.test/movement?token=secret',
+            source_payload={'access_token': 'secret-register-value'},
+            hash_movimiento='not-a-sha',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+        serialized_result = json.dumps(result)
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.enterprise_register_invalid', issue_codes)
+        self.assertIn('stage6.enterprise_register_movement_invalid', issue_codes)
         self.assertNotIn('token=secret', serialized_result)
         self.assertNotIn('api_key', serialized_result)
         self.assertNotIn('access_token', serialized_result)
@@ -648,6 +775,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
 
     def test_annual_process_without_rli_cpt_workbooks_is_blocking(self):
         self._create_valid_local_matrix()
+        AnnualEnterpriseRegisterSet.objects.all().delete()
         AnnualTaxWorkbookLine.objects.all().delete()
         AnnualTaxWorkbook.objects.all().delete()
         process = ProcesoRentaAnual.objects.get()
@@ -721,6 +849,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
 
     def test_approved_tax_year_ruleset_without_mapping_is_blocking(self):
         self._create_valid_local_matrix()
+        AnnualEnterpriseRegisterSet.objects.all().delete()
         AnnualTaxWorkbookLine.objects.all().delete()
         AnnualTaxWorkbook.objects.all().delete()
         TaxCodeMapping.objects.all().delete()
