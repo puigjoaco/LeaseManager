@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 
 from audit.services import create_audit_event
 from core.permissions import ControlModulePermission
-from core.reference_validation import redact_sensitive_reference
+from core.reference_validation import redact_sensitive_payload, redact_sensitive_reference
 from core.scope_access import (
     ScopedQuerysetMixin,
     get_scope_access,
@@ -696,14 +696,32 @@ class CierreMensualApproveView(APIView):
             ),
             pk=pk,
         )
+        previous_state = close.estado
         try:
             with transaction.atomic():
                 close = approve_monthly_close(close)
+                approval_context = (close.resumen_obligaciones or {}).get('liquidacion_mensual', {})
+                transition_metadata = {
+                    'campo_estado': 'estado',
+                    'estado_anterior': previous_state,
+                    'estado_nuevo': close.estado,
+                    'liquidacion_mensual': redact_sensitive_payload(approval_context),
+                }
                 create_audit_event(
                     event_type='contabilidad.cierre_mensual.approved',
                     entity_type='cierre_mensual_contable',
                     entity_id=str(close.pk),
                     summary='Cierre mensual aprobado',
+                    metadata=transition_metadata,
+                    actor_user=request.user,
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                )
+                create_audit_event(
+                    event_type='contabilidad.cierre_mensual.state_changed',
+                    entity_type='cierre_mensual_contable',
+                    entity_id=str(close.pk),
+                    summary='Cambio de estado de cierre mensual',
+                    metadata=transition_metadata,
                     actor_user=request.user,
                     ip_address=request.META.get('REMOTE_ADDR'),
                 )

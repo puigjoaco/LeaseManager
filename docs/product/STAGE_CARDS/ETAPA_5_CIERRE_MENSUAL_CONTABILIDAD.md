@@ -50,9 +50,11 @@ contable o tributaria requiere criterio.
 - Un cierre mensual aprobado debe conservar `LiquidacionMensual` de empresa
   preparada o aprobada para el mismo periodo y cierre contable.
   `approve_monthly_close()` exige esa liquidacion antes de pasar el cierre a
-  `aprobado`, y agrega la referencia no sensible de liquidacion al resumen del
-  cierre. La readiness Etapa 5 detecta cierres heredados cuya liquidacion de
-  empresa existe para el periodo pero no esta vinculada al cierre aprobado.
+  `aprobado`, y agrega la referencia no sensible de liquidacion, responsable y
+  evidencia base al resumen del cierre y al evento auditable de aprobacion. La
+  readiness Etapa 5 detecta cierres heredados cuya liquidacion de empresa
+  existe para el periodo pero no esta vinculada al cierre aprobado, o cuyo
+  resumen de cierre perdio el contexto de responsable/evidencia de aprobacion.
 - Si la liquidacion mensual declara comision de administracion aplicable, debe
   existir una `LineaLiquidacionMensual` explicita de
   `comision_administracion` con beneficiario, monto positivo y evidencia no

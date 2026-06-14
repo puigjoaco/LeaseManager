@@ -2303,7 +2303,28 @@ class ContabilidadAPITests(APITestCase):
         )
         self.assertEqual(approved.status_code, status.HTTP_200_OK)
         self.assertEqual(approved.data['estado'], 'aprobado')
-        self.assertEqual(approved.data['resumen_obligaciones']['liquidacion_mensual']['owner_tipo'], 'empresa')
+        approval_context = approved.data['resumen_obligaciones']['liquidacion_mensual']
+        self.assertEqual(approval_context['owner_tipo'], 'empresa')
+        self.assertEqual(approval_context['evidencia_base_ref'], f'stage5-liquidation-base-{prepare.data["id"]}')
+        self.assertEqual(approval_context['responsable_ref'], f'stage5-liquidation-owner-{prepare.data["id"]}')
+        approved_event = AuditEvent.objects.get(
+            event_type='contabilidad.cierre_mensual.approved',
+            entity_type='cierre_mensual_contable',
+            entity_id=str(prepare.data['id']),
+        )
+        self.assertEqual(approved_event.metadata['campo_estado'], 'estado')
+        self.assertEqual(approved_event.metadata['estado_anterior'], 'preparado')
+        self.assertEqual(approved_event.metadata['estado_nuevo'], 'aprobado')
+        self.assertEqual(
+            approved_event.metadata['liquidacion_mensual']['responsable_ref'],
+            f'stage5-liquidation-owner-{prepare.data["id"]}',
+        )
+        state_event = AuditEvent.objects.get(
+            event_type='contabilidad.cierre_mensual.state_changed',
+            entity_type='cierre_mensual_contable',
+            entity_id=str(prepare.data['id']),
+        )
+        self.assertEqual(state_event.metadata['estado_nuevo'], 'aprobado')
 
     def test_approve_monthly_close_rolls_back_when_view_audit_fails(self):
         empresa, _, close = self._prepare_monthly_close_for_audit_tests('000444')
@@ -2326,6 +2347,30 @@ class ContabilidadAPITests(APITestCase):
         self.assertEqual(
             BalanceComprobacion.objects.get(empresa=empresa, periodo='2026-01').estado_snapshot,
             'preparado',
+        )
+
+    def test_approve_monthly_close_rolls_back_when_state_changed_audit_fails(self):
+        empresa, _, close = self._prepare_monthly_close_for_audit_tests('000555')
+        self._create_company_liquidation_for_close(empresa, close)
+
+        def fail_state_changed_audit(**kwargs):
+            if kwargs['event_type'] == 'contabilidad.cierre_mensual.state_changed':
+                raise RuntimeError('approve state audit unavailable')
+            return None
+
+        with patch('contabilidad.views.create_audit_event', side_effect=fail_state_changed_audit):
+            with self.assertRaisesRegex(RuntimeError, 'approve state audit unavailable'):
+                self.client.post(reverse('contabilidad-cierre-approve', args=[close.id]), format='json')
+
+        close.refresh_from_db()
+        self.assertEqual(close.estado, 'preparado')
+        self.assertIsNone(close.fecha_aprobacion)
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type='contabilidad.cierre_mensual.approved',
+                entity_type='cierre_mensual_contable',
+                entity_id=str(close.pk),
+            ).exists()
         )
 
     def test_end_to_end_payment_reconciliation_close_lifecycle(self):

@@ -734,6 +734,18 @@ def assert_company_period_liquidation_ready(close):
     return liquidation
 
 
+def build_monthly_close_liquidation_context(liquidation):
+    return {
+        'id': liquidation.pk,
+        'estado': liquidation.estado,
+        'owner_tipo': liquidation.owner_tipo,
+        'evidencia_base_ref': liquidation.evidencia_base_ref,
+        'responsable_ref': liquidation.responsable_ref,
+        'saldo_final_clp': str(liquidation.saldo_final_clp),
+        'saldo_final_evidencia_ref': liquidation.saldo_final_evidencia_ref,
+    }
+
+
 @transaction.atomic
 def prepare_monthly_close(empresa, anio, mes):
     existing_close = CierreMensualContable.objects.filter(empresa=empresa, anio=anio, mes=mes).first()
@@ -781,11 +793,7 @@ def approve_monthly_close(close):
     close.resumen_obligaciones = {
         **(close.resumen_obligaciones or {}),
         'conciliacion': conciliacion_summary,
-        'liquidacion_mensual': {
-            'id': liquidation.pk,
-            'estado': liquidation.estado,
-            'owner_tipo': liquidation.owner_tipo,
-        },
+        'liquidacion_mensual': build_monthly_close_liquidation_context(liquidation),
     }
     update_ledger_snapshot_state(close.empresa, close.anio, close.mes, EstadoCierreMensual.APPROVED)
     close.estado = EstadoCierreMensual.APPROVED
