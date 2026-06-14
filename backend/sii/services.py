@@ -4,7 +4,7 @@ from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.utils import timezone
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import Q
 
 from contabilidad.models import (
@@ -29,6 +29,7 @@ from .models import (
     AnnualRealEstateSection,
     AnnualTaxArtifactMatrix,
     AnnualTaxArtifactMatrixItem,
+    AnnualTaxDDJJFormLayout,
     AnnualTaxDossier,
     AnnualTaxExport,
     AnnualTaxOfficialSource,
@@ -46,6 +47,7 @@ from .models import (
     EstadoAnnualRealEstateSection,
     EstadoAnnualTaxArtifactMatrix,
     EstadoAnnualTaxArtifactReview,
+    EstadoAnnualTaxDDJJLayout,
     EstadoAnnualTaxDossier,
     EstadoAnnualTaxExport,
     EstadoAnnualTaxOfficialSource,
@@ -1082,6 +1084,45 @@ def summarize_annual_real_estate_sections(process):
     }
 
 
+def summarize_annual_tax_ddjj_layouts(process):
+    try:
+        config = process.empresa.configuracion_fiscal
+    except ObjectDoesNotExist:
+        config = None
+    configured_forms = sorted(str(code) for code in (getattr(config, 'ddjj_habilitadas', None) or []))
+    layouts = AnnualTaxDDJJFormLayout.objects.filter(
+        anio_tributario=process.anio_tributario,
+        form_code__in=configured_forms,
+        estado=EstadoAnnualTaxDDJJLayout.PREPARED,
+    ).order_by('form_code')
+    by_form_code = {}
+    warnings_total = 0
+    for layout in layouts:
+        warnings = layout.warnings if isinstance(layout.warnings, list) else []
+        warnings_total += len(warnings)
+        by_form_code[layout.form_code] = {
+            'id': layout.id,
+            'form_code': layout.form_code,
+            'title': layout.title,
+            'periodicidad': layout.periodicidad,
+            'medio_preferente': layout.medio_preferente,
+            'due_date_label': layout.due_date_label,
+            'certificate_code': layout.certificate_code,
+            'certificate_due_label': layout.certificate_due_label,
+            'declaration_status': layout.declaration_status,
+            'hash_layout': layout.hash_layout,
+            'warnings_total': len(warnings),
+        }
+    return {
+        'total': layouts.count(),
+        'configured_form_codes': configured_forms,
+        'form_codes': sorted(by_form_code.keys()),
+        'missing_form_codes': sorted(set(configured_forms) - set(by_form_code.keys())),
+        'warnings_total': warnings_total,
+        'by_form_code': by_form_code,
+    }
+
+
 def summarize_annual_tax_artifact_matrices(process):
     matrices = AnnualTaxArtifactMatrix.objects.filter(
         proceso_renta_anual=process,
@@ -1936,10 +1977,63 @@ def _artifact_matrix_add_spec(specs, matrix, *, target_kind, target_code, source
     })
 
 
+def _ddjj_layout_source_payload(layout):
+    return {
+        'ddjj_form_code': layout.form_code,
+        'layout_id': layout.id,
+        'hash_layout': layout.hash_layout,
+        'periodicidad': layout.periodicidad,
+        'due_date_label': layout.due_date_label,
+        'certificate_code': layout.certificate_code,
+        'certificate_due_label': layout.certificate_due_label,
+        'declaration_status': layout.declaration_status,
+        'allowed_media': {
+            'formulario_electronico': layout.allows_electronic_form,
+            'transferencia_archivos_importador': layout.allows_file_importer,
+            'transferencia_archivos_upload': layout.allows_file_upload,
+            'software_comercial': layout.allows_commercial_software,
+            'asistente': layout.allows_assistant,
+        },
+        'official_media_source_id': layout.official_media_source_id,
+        'official_form_source_id': layout.official_form_source_id,
+        'official_software_source_id': layout.official_software_source_id,
+        'source': 'AnnualTaxDDJJFormLayout',
+    }
+
+
 def _artifact_matrix_specs(matrix, rule_set, source_bundle, config):
     specs = []
     ddjj_enabled = bool(config.ddjj_habilitadas)
-    for form_code in sorted(config.ddjj_habilitadas or []):
+    ddjj_form_codes = sorted(str(code) for code in (config.ddjj_habilitadas or []))
+    ddjj_layouts = {
+        layout.form_code: layout
+        for layout in AnnualTaxDDJJFormLayout.objects.filter(
+            anio_tributario=matrix.anio_tributario,
+            form_code__in=ddjj_form_codes,
+            estado=EstadoAnnualTaxDDJJLayout.PREPARED,
+        )
+    }
+    for form_code in ddjj_form_codes:
+        layout = ddjj_layouts.get(form_code)
+        if layout is not None:
+            layout_warnings = layout.warnings if isinstance(layout.warnings, list) else []
+            _artifact_matrix_add_spec(
+                specs,
+                matrix,
+                target_kind=TipoAnnualTaxArtifactTarget.DDJJ,
+                target_code=f'DDJJ-{form_code}',
+                medio_sii=layout.medio_preferente,
+                source_kind=SourceKindAnnualTaxArtifact.DDJJ_LAYOUT,
+                source_model='AnnualTaxDDJJFormLayout',
+                source_object_id=layout.id,
+                source_hash=layout.hash_layout,
+                formula_ref=layout.instructions_ref,
+                evidencia_ref=layout.layout_ref,
+                responsible_ref=layout.responsible_ref,
+                warnings=layout_warnings,
+                source_payload=_ddjj_layout_source_payload(layout),
+            )
+            continue
         _artifact_matrix_add_spec(
             specs,
             matrix,
@@ -1956,6 +2050,7 @@ def _artifact_matrix_specs(matrix, rule_set, source_bundle, config):
                 'regimen_tributario_id': config.regimen_tributario_id,
                 'source': 'ConfiguracionFiscalEmpresa.ddjj_habilitadas',
             },
+            warnings=['ddjj_layout_missing'],
         )
 
     mappings = TaxCodeMapping.objects.filter(
@@ -2235,6 +2330,7 @@ def _annual_tax_dossier_summary(process, rule_set, source_bundle, matrix):
     workbook_summary = process_summary.get('annual_tax_workbooks', {})
     register_summary = process_summary.get('annual_enterprise_registers', {})
     real_estate_summary = process_summary.get('annual_real_estate_sections', {})
+    ddjj_layout_summary = process_summary.get('annual_tax_ddjj_layouts', {})
     active_items = matrix.items.filter(estado=EstadoRegistro.ACTIVE).order_by(
         'target_kind',
         'target_code',
@@ -2302,6 +2398,7 @@ def _annual_tax_dossier_summary(process, rule_set, source_bundle, matrix):
             'annual_tax_workbooks': workbook_summary,
             'annual_enterprise_registers': register_summary,
             'annual_real_estate_sections': real_estate_summary,
+            'annual_tax_ddjj_layouts': ddjj_layout_summary,
             'annual_tax_artifact_matrices': matrix_summary,
         },
         'matrix_items_total': artifact_matrix_items_total,
@@ -2502,6 +2599,7 @@ def _annual_tax_review_checklist_summary(process, rule_set, source_bundle, dossi
     workbook_summary = process_summary.get('annual_tax_workbooks', {})
     register_summary = process_summary.get('annual_enterprise_registers', {})
     real_estate_summary = process_summary.get('annual_real_estate_sections', {})
+    ddjj_layout_summary = process_summary.get('annual_tax_ddjj_layouts', {})
     matrix_summary = process_summary.get('annual_tax_artifact_matrices', {})
     dossier_summary = process_summary.get('annual_tax_dossiers', {})
     export_summary = process_summary.get('annual_tax_exports', {})
@@ -2521,6 +2619,8 @@ def _annual_tax_review_checklist_summary(process, rule_set, source_bundle, dossi
     workbook_warnings = _summary_warning_total(workbook_summary, key='by_type')
     register_warnings = _summary_warning_total(register_summary, key='by_type')
     real_estate_warnings = _summary_warning_total(real_estate_summary)
+    ddjj_layout_missing = len(ddjj_layout_summary.get('missing_form_codes') or []) if isinstance(ddjj_layout_summary, dict) else 0
+    ddjj_layout_warnings = _summary_warning_total(ddjj_layout_summary, key='by_form_code')
 
     items = [
         _checklist_item(
@@ -2560,6 +2660,17 @@ def _annual_tax_review_checklist_summary(process, rule_set, source_bundle, dossi
             'Bienes raices y contribuciones trazados como respaldo anual',
             'warning' if real_estate_warnings else ('complete' if int(real_estate_summary.get('total') or 0) > 0 else 'blocking'),
             details={'sections_total': real_estate_summary.get('total') if isinstance(real_estate_summary, dict) else 0, 'warnings_total': real_estate_warnings},
+        ),
+        _checklist_item(
+            'ddjj_layouts',
+            'Formularios DDJJ habilitados con medio, vencimiento y layout trazable',
+            'blocking' if ddjj_layout_missing else ('warning' if ddjj_layout_warnings else 'complete'),
+            details={
+                'configured_form_codes': ddjj_layout_summary.get('configured_form_codes') if isinstance(ddjj_layout_summary, dict) else [],
+                'form_codes': ddjj_layout_summary.get('form_codes') if isinstance(ddjj_layout_summary, dict) else [],
+                'missing_form_codes': ddjj_layout_summary.get('missing_form_codes') if isinstance(ddjj_layout_summary, dict) else [],
+                'warnings_total': ddjj_layout_warnings,
+            },
         ),
         _checklist_item(
             'artifact_matrix',
@@ -2629,6 +2740,7 @@ def _annual_tax_review_checklist_summary(process, rule_set, source_bundle, dossi
         'warnings_total': warnings_total,
         'items': items,
         'component_summaries': {
+            'annual_tax_ddjj_layouts': ddjj_layout_summary,
             'annual_tax_dossiers': dossier_summary,
             'annual_tax_exports': export_summary,
         },
@@ -2822,6 +2934,7 @@ def build_annual_summary(empresa, fiscal_year, rule_set, source_bundle, process=
         summary['annual_tax_workbooks'] = summarize_annual_tax_workbooks(process)
         summary['annual_enterprise_registers'] = summarize_annual_enterprise_registers(process)
         summary['annual_real_estate_sections'] = summarize_annual_real_estate_sections(process)
+        summary['annual_tax_ddjj_layouts'] = summarize_annual_tax_ddjj_layouts(process)
         summary['annual_tax_artifact_matrices'] = summarize_annual_tax_artifact_matrices(process)
         summary['annual_tax_dossiers'] = summarize_annual_tax_dossiers(process)
         summary['annual_tax_exports'] = summarize_annual_tax_exports(process)

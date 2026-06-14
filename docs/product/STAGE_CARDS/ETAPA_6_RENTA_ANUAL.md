@@ -136,6 +136,13 @@ referencia no sensible, hash SHA-256, fecha de recuperacion, responsable,
 alcance y destino RLI/CPT/RAI/SAC/DDJJ/F22/Dossier. API, snapshot y admin
 redactan refs, notas y metadata sensibles; readiness bloquea fuentes invalidas
 sin exponer valores.
+`AnnualTaxDDJJFormLayout` materializa la capa DDJJ por ano tributario y
+formulario: conserva medios SII permitidos, medio preferente, vencimiento,
+certificado, resolucion, refs de layout/instrucciones/responsable, fuente
+oficial/experta y `hash_layout`. API, snapshot y admin redactan refs/payloads
+sensibles. Esta capa alimenta la matriz DDJJ/F22 como preparacion revisable;
+no declara formato oficial SII, calculo tributario final ni presentacion
+autonoma.
 
 ## Gate
 
@@ -194,6 +201,14 @@ sin exponer valores.
   `hash_item` coherente. El snapshot anual queda congelado: cambios posteriores
   en la ficha maestra de la propiedad no invalidan evidencia ya preparada,
   siempre que el hash del item se mantenga vigente.
+- `AnnualTaxDDJJFormLayout` preparado requiere una fila por cada formulario
+  habilitado en `ConfiguracionFiscalEmpresa.ddjj_habilitadas`, fuente
+  oficial/experta lista del mismo ano tributario y aplicable a DDJJ, medio
+  preferente permitido, refs no sensibles, `source_payload` dict y
+  `hash_layout` coherente. Para tratar un proceso anual como trazable, su
+  resumen `annual_tax_ddjj_layouts` debe coincidir con los layouts preparados.
+  Layouts invalidos, faltantes, desalineados o con warnings bloquean readiness
+  hasta revision tributaria.
 - `AnnualTaxArtifactMatrix` preparada requiere proceso anual, bundle, rule set,
   configuracion fiscal activa, refs no sensibles, conteos DDJJ/F22, resumen e
   `hash_matriz` coherentes. Para tratar un proceso anual como trazable debe
@@ -249,6 +264,11 @@ sin exponer valores.
   de RLI/CPT y registros empresariales, antes de emitir DDJJ/F22 locales. La
   readiness bloquea procesos trazables sin seccion inmobiliaria, sin items
   activos, con resumen desalineado, invalidos o con warnings pendientes.
+- `generate_annual_preparation()` resume `AnnualTaxDDJJFormLayout` antes de
+  sincronizar la matriz DDJJ/F22. La readiness bloquea procesos trazables sin
+  layout preparado por formulario DDJJ habilitado, con resumen desalineado,
+  layouts invalidos o warnings pendientes, manteniendo DDJJ como insumo
+  revisable y no como presentacion SII.
 - `generate_annual_preparation()` sincroniza la matriz DDJJ/F22 despues de
   RLI/CPT, registros empresariales y bienes raices, antes de emitir DDJJ/F22
   locales. La readiness bloquea procesos trazables sin matriz, sin items DDJJ
@@ -408,6 +428,10 @@ sin exponer valores.
   redacta rol/direccion de propiedad y el admin es solo lectura para preservar
   que bienes raices/arriendos provienen del normalizador anual y no de edicion
   manual opaca.
+- La API/snapshot/admin de SII exponen `AnnualTaxDDJJFormLayout` con refs,
+  fuentes, warnings y payloads redactados; el admin es solo lectura para
+  preservar que los medios/layouts DDJJ provienen de fuentes revisadas y no de
+  edicion manual opaca.
 - La API/snapshot/admin de SII exponen `AnnualTaxArtifactMatrix` y
   `AnnualTaxArtifactMatrixItem` con refs, warnings y payloads redactados; el
   admin es solo lectura para preservar que la matriz DDJJ/F22 proviene del

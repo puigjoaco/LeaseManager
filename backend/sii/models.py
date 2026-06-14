@@ -491,6 +491,20 @@ class EstadoAnnualTaxTrialBalance(models.TextChoices):
     RETIRED = 'retirado', 'Retirado'
 
 
+class EstadoAnnualTaxDDJJLayout(models.TextChoices):
+    DRAFT = 'borrador', 'Borrador'
+    PREPARED = 'preparado', 'Preparado'
+    RETIRED = 'retirado', 'Retirado'
+
+
+class MedioAnnualTaxDDJJ(models.TextChoices):
+    ELECTRONIC_FORM = 'formulario_electronico', 'Formulario electronico'
+    FILE_IMPORTER = 'transferencia_archivos_importador', 'Transferencia importador'
+    FILE_UPLOAD = 'transferencia_archivos_upload', 'Transferencia upload'
+    COMMERCIAL_SOFTWARE = 'software_comercial', 'Software comercial'
+    ASSISTANT = 'asistente', 'Asistente'
+
+
 class TipoAnnualTaxWorkbook(models.TextChoices):
     RLI = 'RLI', 'RLI'
     CPT = 'CPT', 'CPT'
@@ -557,6 +571,7 @@ class TipoAnnualTaxArtifactTarget(models.TextChoices):
 class SourceKindAnnualTaxArtifact(models.TextChoices):
     SOURCE_BUNDLE = 'source_bundle', 'Source bundle'
     TAX_MAPPING = 'tax_mapping', 'Tax code mapping'
+    DDJJ_LAYOUT = 'ddjj_layout', 'DDJJ layout'
     ANNUAL_SUMMARY = 'annual_summary', 'Annual summary'
     ANNUAL_WORKBOOK = 'annual_workbook', 'Annual workbook'
     ENTERPRISE_REGISTER = 'enterprise_register', 'Enterprise register'
@@ -725,6 +740,34 @@ def _real_estate_item_integrity_payload(item):
         'evidencia_ref': item.evidencia_ref,
         'warnings': item.warnings,
         'source_payload': item.source_payload,
+    }
+
+
+def _annual_tax_ddjj_layout_integrity_payload(layout):
+    return {
+        'anio_tributario': layout.anio_tributario,
+        'form_code': layout.form_code,
+        'title': layout.title,
+        'periodicidad': layout.periodicidad,
+        'allows_electronic_form': layout.allows_electronic_form,
+        'allows_file_importer': layout.allows_file_importer,
+        'allows_file_upload': layout.allows_file_upload,
+        'allows_commercial_software': layout.allows_commercial_software,
+        'allows_assistant': layout.allows_assistant,
+        'medio_preferente': layout.medio_preferente,
+        'due_date_label': layout.due_date_label,
+        'certificate_code': layout.certificate_code,
+        'certificate_due_label': layout.certificate_due_label,
+        'resolution_ref': layout.resolution_ref,
+        'declaration_status': layout.declaration_status,
+        'layout_ref': layout.layout_ref,
+        'instructions_ref': layout.instructions_ref,
+        'responsible_ref': layout.responsible_ref,
+        'official_media_source_id': layout.official_media_source_id,
+        'official_form_source_id': layout.official_form_source_id,
+        'official_software_source_id': layout.official_software_source_id,
+        'warnings': layout.warnings,
+        'source_payload': layout.source_payload,
     }
 
 
@@ -987,6 +1030,204 @@ class AnnualTaxOfficialSource(OperationalSIITextNormalizationMixin, TimestampedM
         _add_non_sensitive_reference_error(errors, self, 'responsible_ref')
         _add_non_sensitive_text_error(errors, 'scope_note', self.scope_note)
         _add_non_sensitive_payload_error(errors, 'metadata', self.metadata)
+        if errors:
+            raise ValidationError(errors)
+
+
+class AnnualTaxDDJJFormLayout(OperationalSIITextNormalizationMixin, TimestampedModel):
+    operational_text_fields = (
+        'form_code',
+        'title',
+        'periodicidad',
+        'medio_preferente',
+        'due_date_label',
+        'certificate_code',
+        'certificate_due_label',
+        'resolution_ref',
+        'declaration_status',
+        'layout_ref',
+        'instructions_ref',
+        'responsible_ref',
+        'hash_layout',
+    )
+
+    anio_tributario = models.PositiveSmallIntegerField()
+    form_code = models.CharField(max_length=32)
+    title = models.CharField(max_length=180)
+    periodicidad = models.CharField(max_length=32, default='Anual')
+    allows_electronic_form = models.BooleanField(default=False)
+    allows_file_importer = models.BooleanField(default=False)
+    allows_file_upload = models.BooleanField(default=False)
+    allows_commercial_software = models.BooleanField(default=False)
+    allows_assistant = models.BooleanField(default=False)
+    medio_preferente = models.CharField(max_length=64, choices=MedioAnnualTaxDDJJ.choices)
+    due_date_label = models.CharField(max_length=64, blank=True)
+    certificate_code = models.CharField(max_length=64, blank=True)
+    certificate_due_label = models.CharField(max_length=64, blank=True)
+    resolution_ref = models.CharField(max_length=255, blank=True)
+    declaration_status = models.CharField(max_length=64, blank=True)
+    layout_ref = models.CharField(max_length=255, blank=True)
+    instructions_ref = models.CharField(max_length=255, blank=True)
+    responsible_ref = models.CharField(max_length=255, blank=True)
+    official_media_source = models.ForeignKey(
+        AnnualTaxOfficialSource,
+        on_delete=models.PROTECT,
+        related_name='ddjj_media_layouts',
+        null=True,
+        blank=True,
+    )
+    official_form_source = models.ForeignKey(
+        AnnualTaxOfficialSource,
+        on_delete=models.PROTECT,
+        related_name='ddjj_form_layouts',
+        null=True,
+        blank=True,
+    )
+    official_software_source = models.ForeignKey(
+        AnnualTaxOfficialSource,
+        on_delete=models.PROTECT,
+        related_name='ddjj_software_layouts',
+        null=True,
+        blank=True,
+    )
+    warnings = models.JSONField(default=list, blank=True)
+    source_payload = models.JSONField(default=dict, blank=True)
+    hash_layout = models.CharField(max_length=64, blank=True)
+    estado = models.CharField(
+        max_length=16,
+        choices=EstadoAnnualTaxDDJJLayout.choices,
+        default=EstadoAnnualTaxDDJJLayout.DRAFT,
+    )
+
+    class Meta:
+        ordering = ['-anio_tributario', 'form_code']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['anio_tributario', 'form_code'],
+                name='uniq_annual_tax_ddjj_layout_form',
+            ),
+        ]
+
+    def __str__(self):
+        return f'DDJJ {self.form_code} AT{self.anio_tributario}'
+
+    def compute_hash_layout(self):
+        return _payload_hash(_annual_tax_ddjj_layout_integrity_payload(self))
+
+    def _allowed_media(self):
+        media = set()
+        if self.allows_electronic_form:
+            media.add(MedioAnnualTaxDDJJ.ELECTRONIC_FORM)
+        if self.allows_file_importer:
+            media.add(MedioAnnualTaxDDJJ.FILE_IMPORTER)
+        if self.allows_file_upload:
+            media.add(MedioAnnualTaxDDJJ.FILE_UPLOAD)
+        if self.allows_commercial_software:
+            media.add(MedioAnnualTaxDDJJ.COMMERCIAL_SOFTWARE)
+        if self.allows_assistant:
+            media.add(MedioAnnualTaxDDJJ.ASSISTANT)
+        return media
+
+    def _add_source_type_error(self, errors, field_name, allowed_types):
+        try:
+            source = getattr(self, field_name)
+        except ObjectDoesNotExist:
+            source = None
+        if source is None:
+            return
+        if source.source_type not in allowed_types:
+            errors[field_name] = 'AnnualTaxOfficialSource no corresponde al tipo de fuente requerido.'
+            return
+        if has_text(source.form_code) and source.form_code != self.form_code:
+            errors[field_name] = 'AnnualTaxOfficialSource no corresponde al formulario DDJJ del layout.'
+
+    def clean(self):
+        super().clean()
+        self.hash_layout = _normalize_hash(self.hash_layout)
+        errors = {}
+        if self.anio_tributario < 2000:
+            errors['anio_tributario'] = 'anio_tributario debe ser un ano tributario valido.'
+        if not has_text(self.form_code):
+            errors['form_code'] = 'AnnualTaxDDJJFormLayout requiere form_code.'
+        elif not str(self.form_code).isdigit():
+            errors['form_code'] = 'form_code debe ser numerico para formularios DDJJ SII.'
+        _add_non_sensitive_reference_error(errors, self, 'resolution_ref')
+        _add_non_sensitive_reference_error(errors, self, 'layout_ref')
+        _add_non_sensitive_reference_error(errors, self, 'instructions_ref')
+        _add_non_sensitive_reference_error(errors, self, 'responsible_ref')
+        _add_non_sensitive_payload_error(errors, 'warnings', self.warnings)
+        _add_non_sensitive_payload_error(errors, 'source_payload', self.source_payload)
+        if self.warnings and not isinstance(self.warnings, list):
+            errors['warnings'] = 'warnings debe ser una lista JSON.'
+        if self.source_payload and not isinstance(self.source_payload, dict):
+            errors['source_payload'] = 'source_payload debe ser un objeto JSON.'
+
+        allowed_media = self._allowed_media()
+        if self.medio_preferente and self.medio_preferente not in allowed_media:
+            errors['medio_preferente'] = 'medio_preferente debe estar permitido para el formulario DDJJ.'
+
+        if has_text(self.hash_layout) and not _is_sha256(self.hash_layout):
+            errors['hash_layout'] = 'hash_layout debe ser SHA-256 hexadecimal de 64 caracteres.'
+        expected_hash = self.compute_hash_layout()
+        if self.hash_layout and self.hash_layout != expected_hash:
+            errors['hash_layout'] = 'hash_layout debe corresponder al layout DDJJ normalizado.'
+
+        if self.estado == EstadoAnnualTaxDDJJLayout.PREPARED:
+            if not allowed_media:
+                errors['medio_preferente'] = 'Layout DDJJ preparado requiere al menos un medio SII habilitado.'
+            for field_name in (
+                'title',
+                'periodicidad',
+                'medio_preferente',
+                'due_date_label',
+                'layout_ref',
+                'instructions_ref',
+                'responsible_ref',
+            ):
+                if not has_text(getattr(self, field_name)):
+                    errors[field_name] = f'Layout DDJJ preparado requiere {field_name}.'
+            if not self.source_payload:
+                errors['source_payload'] = 'Layout DDJJ preparado requiere source_payload trazable.'
+            if not has_text(self.hash_layout):
+                errors['hash_layout'] = 'Layout DDJJ preparado requiere hash_layout.'
+
+            _add_official_source_link_errors(
+                errors,
+                self,
+                'official_media_source',
+                anio_tributario=self.anio_tributario,
+                applies_to=DestinoMapeoTributarioAnual.DDJJ,
+            )
+            _add_official_source_link_errors(
+                errors,
+                self,
+                'official_form_source',
+                anio_tributario=self.anio_tributario,
+                applies_to=DestinoMapeoTributarioAnual.DDJJ,
+            )
+            if self.official_software_source_id:
+                _add_official_source_link_errors(
+                    errors,
+                    self,
+                    'official_software_source',
+                    anio_tributario=self.anio_tributario,
+                    applies_to=DestinoMapeoTributarioAnual.DDJJ,
+                )
+            self._add_source_type_error(
+                errors,
+                'official_media_source',
+                {TipoAnnualTaxOfficialSource.SII_DDJJ_MEDIA, TipoAnnualTaxOfficialSource.EXPERT_REVIEW},
+            )
+            self._add_source_type_error(
+                errors,
+                'official_form_source',
+                {TipoAnnualTaxOfficialSource.SII_DDJJ_FORMS, TipoAnnualTaxOfficialSource.EXPERT_REVIEW},
+            )
+            self._add_source_type_error(
+                errors,
+                'official_software_source',
+                {TipoAnnualTaxOfficialSource.SII_DDJJ_SOFTWARE_HOUSES, TipoAnnualTaxOfficialSource.EXPERT_REVIEW},
+            )
         if errors:
             raise ValidationError(errors)
 

@@ -44,6 +44,7 @@ from sii.models import (
     AnnualRealEstateSection,
     AnnualTaxArtifactMatrix,
     AnnualTaxArtifactMatrixItem,
+    AnnualTaxDDJJFormLayout,
     AnnualTaxDossier,
     AnnualTaxExport,
     AnnualTaxOfficialSource,
@@ -60,12 +61,14 @@ from sii.models import (
     DestinoMapeoTributarioAnual,
     EstadoAnnualEnterpriseRegister,
     EstadoAnnualTaxArtifactReview,
+    EstadoAnnualTaxDDJJLayout,
     EstadoAnnualTaxOfficialSource,
     EstadoAnnualTaxSourceBundle,
     EstadoRegistro,
     EstadoReglaTributariaAnual,
     EstadoGateSII,
     F22PreparacionAnual,
+    MedioAnnualTaxDDJJ,
     MonthlyTaxFact,
     ProcesoRentaAnual,
     TaxCodeMapping,
@@ -77,6 +80,7 @@ from sii.services import (
     summarize_annual_real_estate_sections,
     summarize_annual_tax_artifact_matrices,
     summarize_annual_tax_dossiers,
+    summarize_annual_tax_ddjj_layouts,
     summarize_annual_tax_exports,
     summarize_annual_tax_review_checklists,
     summarize_annual_tax_trial_balances,
@@ -254,6 +258,51 @@ class Stage6RentaAnualReadinessTests(TestCase):
             scope_note='Fuente experta controlada para pruebas locales Stage 6.',
             metadata={'source': 'stage6-controlled'},
         )
+
+    def _create_ddjj_layouts(self, config, *, anio_tributario=2026):
+        source = self._create_official_source(
+            anio_tributario=anio_tributario,
+            applies_to=DestinoMapeoTributarioAnual.DDJJ,
+            regime_code=config.regimen_tributario.codigo_regimen,
+        )
+        layouts = []
+        for form_code in config.ddjj_habilitadas:
+            layout = AnnualTaxDDJJFormLayout(
+                anio_tributario=anio_tributario,
+                form_code=str(form_code),
+                title=f'DDJJ {form_code} controlada',
+                periodicidad='Anual',
+                allows_electronic_form=True,
+                allows_file_importer=True,
+                allows_file_upload=False,
+                allows_commercial_software=True,
+                allows_assistant=False,
+                medio_preferente=MedioAnnualTaxDDJJ.COMMERCIAL_SOFTWARE,
+                due_date_label=f'AT{anio_tributario}-plazo-ddjj-{form_code}',
+                certificate_code=f'cert-ddjj-{form_code}',
+                certificate_due_label=f'AT{anio_tributario}-plazo-certificado-{form_code}',
+                resolution_ref=f'resolution-ddjj-{form_code}-controlled',
+                declaration_status='preparacion_local_revisable',
+                layout_ref=f'layout-ddjj-{form_code}-controlled',
+                instructions_ref=f'instructions-ddjj-{form_code}-controlled',
+                responsible_ref='stage6-ddjj-layout-owner',
+                official_media_source=source,
+                official_form_source=source,
+                warnings=[],
+                source_payload={
+                    'source': 'stage6-controlled',
+                    'anio_tributario': anio_tributario,
+                    'form_code': str(form_code),
+                    'official_format': False,
+                    'sii_submission': False,
+                },
+                estado=EstadoAnnualTaxDDJJLayout.PREPARED,
+            )
+            layout.hash_layout = layout.compute_hash_layout()
+            layout.full_clean()
+            layout.save()
+            layouts.append(layout)
+        return layouts
 
     def _create_approved_tax_year_ruleset(self, config, anio_tributario=2026):
         rule_source = self._create_official_source(
@@ -461,10 +510,12 @@ class Stage6RentaAnualReadinessTests(TestCase):
         sync_annual_tax_workbooks(process, rule_set, source_bundle)
         sync_annual_enterprise_registers(process, rule_set, source_bundle)
         sync_annual_real_estate_section(process, rule_set, source_bundle)
+        self._create_ddjj_layouts(config)
         summary['annual_tax_trial_balances'] = summarize_annual_tax_trial_balances(process)
         summary['annual_tax_workbooks'] = summarize_annual_tax_workbooks(process)
         summary['annual_enterprise_registers'] = summarize_annual_enterprise_registers(process)
         summary['annual_real_estate_sections'] = summarize_annual_real_estate_sections(process)
+        summary['annual_tax_ddjj_layouts'] = summarize_annual_tax_ddjj_layouts(process)
         process.resumen_anual = summary
         process.save(update_fields=['resumen_anual', 'updated_at'])
         sync_annual_tax_artifact_matrix(process, rule_set, source_bundle, config)
@@ -986,6 +1037,69 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertNotIn('token=secret', serialized_result)
         self.assertNotIn('api_key', serialized_result)
         self.assertNotIn('access_token', serialized_result)
+
+    def test_ddjj_layout_missing_is_blocking(self):
+        self._create_valid_local_matrix()
+        AnnualTaxDDJJFormLayout.objects.all().delete()
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.process_ddjj_layout_missing', issue_codes)
+        self.assertEqual(result['sections']['annual_tax_ddjj_layouts']['layouts_total'], 0)
+
+    def test_ddjj_layout_warning_is_blocking(self):
+        self._create_valid_local_matrix()
+        layout = AnnualTaxDDJJFormLayout.objects.get()
+        layout.warnings = ['ddjj_layout_requires_expert_review']
+        layout.hash_layout = layout.compute_hash_layout()
+        layout.save(update_fields=['warnings', 'hash_layout', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.ddjj_layout_warning_review_required', issue_codes)
+
+    def test_ddjj_layout_summary_hash_mismatch_is_blocking(self):
+        self._create_valid_local_matrix()
+        process = ProcesoRentaAnual.objects.get()
+        summary = dict(process.resumen_anual)
+        layout_summary = dict(summary['annual_tax_ddjj_layouts'])
+        by_form_code = dict(layout_summary['by_form_code'])
+        form_code = next(iter(by_form_code.keys()))
+        form_summary = dict(by_form_code[form_code])
+        form_summary['hash_layout'] = 'f' * 64
+        by_form_code[form_code] = form_summary
+        layout_summary['by_form_code'] = by_form_code
+        summary['annual_tax_ddjj_layouts'] = layout_summary
+        process.resumen_anual = summary
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.process_ddjj_layout_summary_mismatch', issue_codes)
+
+    def test_invalid_ddjj_layout_is_blocking_without_leak(self):
+        self._create_valid_local_matrix()
+        layout = AnnualTaxDDJJFormLayout.objects.get()
+        AnnualTaxDDJJFormLayout.objects.filter(pk=layout.pk).update(
+            layout_ref='https://sii.example.test/ddjj-layout?token=secret',
+            source_payload={'api_key': 'secret-ddjj-layout'},
+            hash_layout='not-a-sha',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+        serialized_result = json.dumps(result)
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.ddjj_layout_invalid', issue_codes)
+        self.assertNotIn('token=secret', serialized_result)
+        self.assertNotIn('api_key', serialized_result)
 
     def test_annual_process_without_artifact_matrix_is_blocking(self):
         self._create_valid_local_matrix()
@@ -1659,7 +1773,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage6_renta_anual'])
         self.assertIn('stage6.official_source_invalid', issue_codes)
         self.assertEqual(result['sections']['annual_tax_official_sources']['official_source_invalid'], 1)
-        self.assertEqual(result['sections']['annual_tax_official_sources']['sources_total'], 6)
+        self.assertEqual(result['sections']['annual_tax_official_sources']['sources_total'], 7)
         self.assertNotIn('token=secret', serialized_result)
         self.assertNotIn('source-secret', serialized_result)
 

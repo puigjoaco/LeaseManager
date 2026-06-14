@@ -70,6 +70,14 @@ snapshot y admin redactan refs/payloads, y readiness bloquea procesos sin
 balance preparado, resumen alineado, lineas activas o revision de warnings. No
 declara calculo tributario final ni presentacion SII.
 
+Nota 2026-06-14: Etapa 6 agrega `AnnualTaxDDJJFormLayout` como capa anual de
+medios/layouts DDJJ por formulario. `generate_annual_preparation()` resume los
+layouts preparados antes de la matriz DDJJ/F22, y la matriz usa
+`source_kind=ddjj_layout` cuando existe layout trazable. API, snapshot y admin
+redactan refs/payloads; readiness bloquea formularios habilitados sin layout
+preparado, layouts invalidos, warnings pendientes o resumen anual desalineado.
+No declara formato oficial, upload SII ni calculo tributario final.
+
 Nota 2026-06-14: Etapa 6 agrega `AnnualTaxReviewChecklist` como frontera
 auditable entre preparacion mecanica y decision tributaria supervisada. El
 checklist resume dossier, export local, fuentes, reglas, matriz DDJJ/F22 e

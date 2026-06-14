@@ -17,6 +17,7 @@ from .models import (
     AnnualRealEstateSection,
     AnnualTaxArtifactMatrix,
     AnnualTaxArtifactMatrixItem,
+    AnnualTaxDDJJFormLayout,
     AnnualTaxDossier,
     AnnualTaxExport,
     AnnualTaxOfficialSource,
@@ -41,6 +42,7 @@ from .serializers import (
     AnnualRealEstateSectionSerializer,
     AnnualTaxArtifactMatrixItemSerializer,
     AnnualTaxArtifactMatrixSerializer,
+    AnnualTaxDDJJFormLayoutSerializer,
     AnnualTaxDossierSerializer,
     AnnualTaxExportSerializer,
     AnnualGenerateSerializer,
@@ -193,6 +195,11 @@ class SiiSnapshotView(APIView):
             company_paths=('empresa_id',),
         )
         official_sources = AnnualTaxOfficialSource.objects.order_by('-anio_tributario', 'source_type', 'source_key')
+        annual_tax_ddjj_layouts = AnnualTaxDDJJFormLayout.objects.select_related(
+            'official_media_source',
+            'official_form_source',
+            'official_software_source',
+        ).order_by('-anio_tributario', 'form_code')
         monthly_tax_facts = scope_queryset_for_access(
             MonthlyTaxFact.objects.select_related(
                 'empresa',
@@ -459,6 +466,37 @@ class SiiSnapshotView(APIView):
                         'metadata': redact_sensitive_payload(item.metadata),
                     }
                     for item in official_sources
+                ],
+                'annual_tax_ddjj_layouts': [
+                    {
+                        'id': item.id,
+                        'anio_tributario': item.anio_tributario,
+                        'form_code': item.form_code,
+                        'title': item.title,
+                        'periodicidad': item.periodicidad,
+                        'allows_electronic_form': item.allows_electronic_form,
+                        'allows_file_importer': item.allows_file_importer,
+                        'allows_file_upload': item.allows_file_upload,
+                        'allows_commercial_software': item.allows_commercial_software,
+                        'allows_assistant': item.allows_assistant,
+                        'medio_preferente': item.medio_preferente,
+                        'due_date_label': item.due_date_label,
+                        'certificate_code': item.certificate_code,
+                        'certificate_due_label': item.certificate_due_label,
+                        'resolution_ref': redact_sensitive_reference(item.resolution_ref),
+                        'declaration_status': item.declaration_status,
+                        'layout_ref': redact_sensitive_reference(item.layout_ref),
+                        'instructions_ref': redact_sensitive_reference(item.instructions_ref),
+                        'responsible_ref': redact_sensitive_reference(item.responsible_ref),
+                        'official_media_source': item.official_media_source_id,
+                        'official_form_source': item.official_form_source_id,
+                        'official_software_source': item.official_software_source_id,
+                        'warnings': redact_sensitive_payload(item.warnings),
+                        'source_payload': redact_sensitive_payload(item.source_payload),
+                        'hash_layout': item.hash_layout,
+                        'estado': item.estado,
+                    }
+                    for item in annual_tax_ddjj_layouts
                 ],
                 'monthly_tax_facts': [
                     {
@@ -895,6 +933,30 @@ class AnnualTaxOfficialSourceDetailView(AuditCreateUpdateMixin, generics.Retriev
     queryset = AnnualTaxOfficialSource.objects.all()
     audit_entity_type = 'annual_tax_official_source'
     audit_entity_label = 'AnnualTaxOfficialSource'
+
+
+class AnnualTaxDDJJFormLayoutListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualTaxDDJJFormLayoutSerializer
+    queryset = AnnualTaxDDJJFormLayout.objects.select_related(
+        'official_media_source',
+        'official_form_source',
+        'official_software_source',
+    ).all()
+    audit_entity_type = 'annual_tax_ddjj_form_layout'
+    audit_entity_label = 'AnnualTaxDDJJFormLayout'
+
+
+class AnnualTaxDDJJFormLayoutDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualTaxDDJJFormLayoutSerializer
+    queryset = AnnualTaxDDJJFormLayout.objects.select_related(
+        'official_media_source',
+        'official_form_source',
+        'official_software_source',
+    ).all()
+    audit_entity_type = 'annual_tax_ddjj_form_layout'
+    audit_entity_label = 'AnnualTaxDDJJFormLayout'
 
 
 class AnnualTaxSourceBundleListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):

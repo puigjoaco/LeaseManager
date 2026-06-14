@@ -39,6 +39,7 @@ from .admin import (
     AnnualRealEstateSectionAdmin,
     AnnualTaxArtifactMatrixAdmin,
     AnnualTaxArtifactMatrixItemAdmin,
+    AnnualTaxDDJJFormLayoutAdmin,
     AnnualTaxDossierAdmin,
     AnnualTaxExportAdmin,
     AnnualTaxOfficialSourceAdmin,
@@ -65,6 +66,7 @@ from .models import (
     AnnualRealEstateSection,
     AnnualTaxArtifactMatrix,
     AnnualTaxArtifactMatrixItem,
+    AnnualTaxDDJJFormLayout,
     AnnualTaxDossier,
     AnnualTaxExport,
     AnnualTaxOfficialSource,
@@ -79,6 +81,7 @@ from .models import (
     DestinoMapeoTributarioAnual,
     DTEEmitido,
     EstadoGateSII,
+    EstadoAnnualTaxDDJJLayout,
     EstadoAnnualTaxOfficialSource,
     EstadoAnnualTaxSourceBundle,
     EstadoMonthlyTaxFact,
@@ -87,6 +90,7 @@ from .models import (
     F29PreparacionMensual,
     MonthlyTaxFact,
     ProcesoRentaAnual,
+    MedioAnnualTaxDDJJ,
     SourceKindRentaAnual,
     TaxCodeMapping,
     TaxYearRuleSet,
@@ -268,6 +272,85 @@ class SiiAPITests(APITestCase):
         )
         return source
 
+    def _ensure_ddjj_form_layout(self, form_code='1887', *, anio_tributario=2027, warnings=None):
+        media_source = self._ensure_official_source(
+            anio_tributario=anio_tributario,
+            key=f'ddjj-media-{form_code}',
+            applies_to=DestinoMapeoTributarioAnual.DDJJ,
+        )
+        form_source = self._ensure_official_source(
+            anio_tributario=anio_tributario,
+            key=f'ddjj-form-{form_code}',
+            applies_to=DestinoMapeoTributarioAnual.DDJJ,
+        )
+        layout, _ = AnnualTaxDDJJFormLayout.objects.get_or_create(
+            anio_tributario=anio_tributario,
+            form_code=str(form_code),
+            defaults={
+                'title': f'Declaracion Jurada {form_code}',
+                'periodicidad': 'Anual',
+                'allows_electronic_form': True,
+                'allows_file_importer': True,
+                'allows_file_upload': False,
+                'allows_commercial_software': True,
+                'allows_assistant': False,
+                'medio_preferente': MedioAnnualTaxDDJJ.FILE_IMPORTER,
+                'due_date_label': '30 de junio',
+                'certificate_code': f'C-{form_code}',
+                'certificate_due_label': 'Segun instrucciones SII AT controlado',
+                'resolution_ref': f'resolution-ref-ddjj-{form_code}-controlled',
+                'declaration_status': 'vigente_controlado',
+                'layout_ref': f'layout-ref-ddjj-{form_code}-controlled',
+                'instructions_ref': f'instructions-ref-ddjj-{form_code}-controlled',
+                'responsible_ref': 'tax-ddjj-layout-reviewer-controlled',
+                'official_media_source': media_source,
+                'official_form_source': form_source,
+                'warnings': list(warnings or []),
+                'source_payload': {
+                    'source': 'sii-test-controlled',
+                    'form_code': str(form_code),
+                    'anio_tributario': anio_tributario,
+                    'official_format': False,
+                    'sii_submission': False,
+                    'final_tax_calculation': False,
+                },
+                'estado': EstadoAnnualTaxDDJJLayout.PREPARED,
+            },
+        )
+        layout.title = f'Declaracion Jurada {form_code}'
+        layout.periodicidad = 'Anual'
+        layout.allows_electronic_form = True
+        layout.allows_file_importer = True
+        layout.allows_file_upload = False
+        layout.allows_commercial_software = True
+        layout.allows_assistant = False
+        layout.medio_preferente = MedioAnnualTaxDDJJ.FILE_IMPORTER
+        layout.due_date_label = '30 de junio'
+        layout.certificate_code = f'C-{form_code}'
+        layout.certificate_due_label = 'Segun instrucciones SII AT controlado'
+        layout.resolution_ref = f'resolution-ref-ddjj-{form_code}-controlled'
+        layout.declaration_status = 'vigente_controlado'
+        layout.layout_ref = f'layout-ref-ddjj-{form_code}-controlled'
+        layout.instructions_ref = f'instructions-ref-ddjj-{form_code}-controlled'
+        layout.responsible_ref = 'tax-ddjj-layout-reviewer-controlled'
+        layout.official_media_source = media_source
+        layout.official_form_source = form_source
+        layout.official_software_source = None
+        layout.warnings = list(warnings or [])
+        layout.source_payload = {
+            'source': 'sii-test-controlled',
+            'form_code': str(form_code),
+            'anio_tributario': anio_tributario,
+            'official_format': False,
+            'sii_submission': False,
+            'final_tax_calculation': False,
+        }
+        layout.estado = EstadoAnnualTaxDDJJLayout.PREPARED
+        layout.hash_layout = layout.compute_hash_layout()
+        layout.full_clean()
+        layout.save()
+        return layout
+
     def _activate_fiscal_config(self, empresa, ddjj_habilitadas=None, *, with_tax_year_ruleset=True, anio_tributario=2027):
         regime, _ = RegimenTributarioEmpresa.objects.get_or_create(
             codigo_regimen='EmpresaContabilidadCompletaV1',
@@ -286,6 +369,8 @@ class SiiAPITests(APITestCase):
         )
         if with_tax_year_ruleset:
             self._ensure_tax_year_ruleset(regime, anio_tributario=anio_tributario)
+        for form_code in ddjj_habilitadas or []:
+            self._ensure_ddjj_form_layout(form_code, anio_tributario=anio_tributario)
         return config
 
     def _ensure_tax_year_ruleset(self, regime, *, anio_tributario=2027):
@@ -793,6 +878,73 @@ class SiiAPITests(APITestCase):
         self.assertEqual(official_source['scope_note'], REDACTED_SENSITIVE_REFERENCE)
         self.assertNotIn('token=secret', serialized_snapshot)
         self.assertNotIn('source-secret', serialized_snapshot)
+
+    def test_annual_tax_ddjj_layout_api_admin_and_snapshot_redact_sensitive_refs(self):
+        layout = self._ensure_ddjj_form_layout('1847', anio_tributario=2027)
+        list_response = self.client.get(reverse('sii-annual-tax-ddjj-layout-list'))
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(list_response.data), 1)
+        self.assertEqual(list_response.data[0]['form_code'], '1847')
+
+        AnnualTaxDDJJFormLayout.objects.filter(pk=layout.pk).update(
+            resolution_ref='https://sii.example.test/resolution?token=secret',
+            layout_ref='Bearer layout-secret',
+            instructions_ref='https://sii.example.test/instructions?token=secret',
+            responsible_ref='layout-reviewer-secret@example.test',
+            warnings=['Bearer warning-secret'],
+            source_payload={'api_key': 'secret'},
+        )
+        snapshot = self.client.get(reverse('sii-snapshot'))
+        self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
+        layout_snapshot = next(
+            item for item in snapshot.data['annual_tax_ddjj_layouts'] if item['id'] == layout.id
+        )
+        serialized_snapshot = json.dumps(snapshot.data)
+        self.assertEqual(layout_snapshot['resolution_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(layout_snapshot['layout_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(layout_snapshot['instructions_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(layout_snapshot['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('secret', serialized_snapshot)
+
+        layout.refresh_from_db()
+        layout_admin = AnnualTaxDDJJFormLayoutAdmin(AnnualTaxDDJJFormLayout, AdminSite())
+        self.assertEqual(layout_admin.layout_ref_redacted(layout), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(layout_admin.instructions_ref_redacted(layout), REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('secret', json.dumps(layout_admin.source_payload_redacted(layout)))
+
+    def test_annual_tax_ddjj_layout_requires_prepared_sources_and_allowed_medium(self):
+        source = self._ensure_official_source(
+            anio_tributario=2027,
+            key='ddjj-layout-validation',
+            applies_to=DestinoMapeoTributarioAnual.DDJJ,
+        )
+        layout = AnnualTaxDDJJFormLayout(
+            anio_tributario=2027,
+            form_code='1887',
+            title='Declaracion Jurada 1887',
+            periodicidad='Anual',
+            allows_electronic_form=True,
+            allows_file_importer=False,
+            medio_preferente=MedioAnnualTaxDDJJ.FILE_IMPORTER,
+            due_date_label='30 de junio',
+            layout_ref='layout-ref-ddjj-1887-controlled',
+            instructions_ref='instructions-ref-ddjj-1887-controlled',
+            responsible_ref='tax-ddjj-layout-reviewer-controlled',
+            official_media_source=source,
+            official_form_source=source,
+            source_payload={'source': 'sii-test-controlled'},
+            estado=EstadoAnnualTaxDDJJLayout.PREPARED,
+        )
+        layout.hash_layout = layout.compute_hash_layout()
+
+        with self.assertRaises(ValidationError) as error:
+            layout.full_clean()
+
+        self.assertIn('medio_preferente', error.exception.message_dict)
+
+        layout.allows_file_importer = True
+        layout.hash_layout = layout.compute_hash_layout()
+        layout.full_clean()
 
     def _valid_source_bundle_summary(self):
         return {
@@ -3211,6 +3363,12 @@ class SiiAPITests(APITestCase):
         self.assertEqual(section_summary['propiedades_total'], 1)
         self.assertEqual(section_summary['items_total'], 1)
         self.assertEqual(section_summary['warnings_total'], 0)
+        ddjj_layouts = AnnualTaxDDJJFormLayout.objects.filter(anio_tributario=2027).order_by('form_code')
+        self.assertEqual(ddjj_layouts.count(), 2)
+        self.assertEqual(process.resumen_anual['annual_tax_ddjj_layouts']['total'], 2)
+        self.assertEqual(process.resumen_anual['annual_tax_ddjj_layouts']['form_codes'], ['1879', '1887'])
+        self.assertEqual(process.resumen_anual['annual_tax_ddjj_layouts']['missing_form_codes'], [])
+        self.assertEqual(process.resumen_anual['annual_tax_ddjj_layouts']['warnings_total'], 0)
         artifact_matrices = AnnualTaxArtifactMatrix.objects.filter(proceso_renta_anual=process)
         artifact_items = AnnualTaxArtifactMatrixItem.objects.filter(matrix__proceso_renta_anual=process)
         self.assertEqual(artifact_matrices.count(), 1)
@@ -3221,6 +3379,19 @@ class SiiAPITests(APITestCase):
         self.assertGreater(matrix_summary['ddjj_items_total'], 0)
         self.assertGreater(matrix_summary['f22_items_total'], 0)
         self.assertEqual(matrix_summary['warnings_total'], 0)
+        ddjj_1887_layout = ddjj_layouts.get(form_code='1887')
+        ddjj_1887_item = artifact_items.get(
+            target_kind='DDJJ',
+            target_code='DDJJ-1887',
+            source_kind='ddjj_layout',
+            source_model='AnnualTaxDDJJFormLayout',
+            source_object_id=ddjj_1887_layout.id,
+        )
+        self.assertEqual(ddjj_1887_item.medio_sii, ddjj_1887_layout.medio_preferente)
+        self.assertEqual(ddjj_1887_item.source_hash, ddjj_1887_layout.hash_layout)
+        self.assertEqual(ddjj_1887_item.source_payload['layout_id'], ddjj_1887_layout.id)
+        self.assertEqual(ddjj_1887_item.source_payload['hash_layout'], ddjj_1887_layout.hash_layout)
+        self.assertEqual(ddjj_1887_item.warnings, [])
         dossiers = AnnualTaxDossier.objects.filter(proceso_renta_anual=process)
         self.assertEqual(dossiers.count(), 1)
         dossier = dossiers.get()
@@ -3292,6 +3463,7 @@ class SiiAPITests(APITestCase):
         enterprise_movement_response = self.client.get(reverse('sii-annual-enterprise-register-movement-list'))
         real_estate_section_response = self.client.get(reverse('sii-annual-real-estate-section-list'))
         real_estate_item_response = self.client.get(reverse('sii-annual-real-estate-item-list'))
+        ddjj_layout_response = self.client.get(reverse('sii-annual-tax-ddjj-layout-list'))
         artifact_matrix_response = self.client.get(reverse('sii-annual-tax-artifact-matrix-list'))
         artifact_matrix_item_response = self.client.get(reverse('sii-annual-tax-artifact-matrix-item-list'))
         dossier_response = self.client.get(reverse('sii-annual-tax-dossier-list'))
@@ -3305,6 +3477,7 @@ class SiiAPITests(APITestCase):
         self.assertEqual(enterprise_movement_response.status_code, status.HTTP_200_OK)
         self.assertEqual(real_estate_section_response.status_code, status.HTTP_200_OK)
         self.assertEqual(real_estate_item_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(ddjj_layout_response.status_code, status.HTTP_200_OK)
         self.assertEqual(artifact_matrix_response.status_code, status.HTTP_200_OK)
         self.assertEqual(artifact_matrix_item_response.status_code, status.HTTP_200_OK)
         self.assertEqual(dossier_response.status_code, status.HTTP_200_OK)
@@ -3318,6 +3491,7 @@ class SiiAPITests(APITestCase):
         self.assertGreaterEqual(len(enterprise_movement_response.data), 6)
         self.assertEqual(len(real_estate_section_response.data), 1)
         self.assertEqual(len(real_estate_item_response.data), 1)
+        self.assertEqual(len(ddjj_layout_response.data), 2)
         self.assertEqual(len(artifact_matrix_response.data), 1)
         self.assertEqual(len(artifact_matrix_item_response.data), artifact_items.count())
         self.assertEqual(len(dossier_response.data), 1)
@@ -3334,6 +3508,7 @@ class SiiAPITests(APITestCase):
         self.assertGreaterEqual(len(snapshot.data['annual_enterprise_register_movements']), 6)
         self.assertEqual(len(snapshot.data['annual_real_estate_sections']), 1)
         self.assertEqual(len(snapshot.data['annual_real_estate_items']), 1)
+        self.assertEqual(len(snapshot.data['annual_tax_ddjj_layouts']), 2)
         self.assertEqual(len(snapshot.data['annual_tax_artifact_matrices']), 1)
         self.assertEqual(len(snapshot.data['annual_tax_artifact_matrix_items']), artifact_items.count())
         self.assertEqual(len(snapshot.data['annual_tax_dossiers']), 1)
