@@ -80,7 +80,7 @@ un export local en presentacion oficial.
 | Balance/RLI/CPT | Capa de balance, RLI, CPT y parametros. | `AnnualTaxTrialBalance` + `AnnualTaxWorkbook` RLI/CPT preparatorio. | Fuente DJ1847/DJ1926/F22 revisada por responsable para promover mappings desde preparacion a cierre. |
 | RAI/SAC | Registros empresariales y saldos. | `AnnualEnterpriseRegisterSet` preparatorio. | Saldos historicos, creditos y movimientos con fuente aprobada. |
 | Bienes raices | Arriendos, propiedades y contribuciones. | `AnnualRealEstateSection` con warnings y `not_loaded_v1`. | Fuente oficial/experta de contribuciones, creditos y codigos F22. |
-| DDJJ | Formularios, certificados y medios. | `AnnualTaxArtifactMatrix` revisable. | Instrucciones/layout/medio por formulario aplicable a LeaseManager. |
+| DDJJ | Formularios, certificados y medios. | `AnnualTaxDDJJFormLayout` + `AnnualTaxArtifactMatrix` revisables. | Fuente oficial/experta y revision responsable para promover layout/medio a cierre real. |
 | F22 | Preview, plantilla, export/upload. | `AnnualTaxExport` local con `official_format=false`. | Formato/certificacion F22, casos controlados, responsable y autorizacion. |
 | Dossier | Reportes y respaldos. | `AnnualTaxDossier` hasheado y revisable. | Checklist tributario anual y aprobacion responsable. |
 
@@ -109,8 +109,10 @@ un export local en presentacion oficial.
    `AnnualTaxTrialBalance`/lineas y conexion de workbooks RLI/CPT a metricas
    del balance de ocho columnas. Sigue siendo preparacion revisable; no cierra
    calculo final ni presentacion.
-3. `stage6-ddjj-official-media-layouts`: declarar formularios DDJJ aplicables,
-   medio SII, vencimiento, layout/certificado y campos propios.
+3. `stage6-ddjj-official-media-layouts`: materializado como
+   `AnnualTaxDDJJFormLayout`; declara formularios DDJJ aplicables, medios SII,
+   vencimiento, layout/certificado, fuente oficial/experta y campos propios,
+   alimentando la matriz DDJJ/F22 sin producir formato oficial ni presentacion.
 4. `stage6-real-estate-official-source`: cargar contribuciones/codigos con
    respaldo SII/experto y mantener warnings hasta aprobacion.
 5. `stage6-f22-official-export-format`: evaluar formato/certificacion F22 solo
@@ -149,3 +151,10 @@ propia: toma balance contable aprobado, clasificador por cuenta y fuente
 oficial/experta revisada para preparar montos trazables. No convierte el
 balance en declaracion de renta; cualquier warning de clasificacion, fuente o
 criterio mantiene el cierre bajo revision responsable.
+
+`AnnualTaxDDJJFormLayout` baja la brecha de medios/formularios DDJJ a una capa
+operativa propia: una fila por ano tributario y formulario conserva medios SII
+permitidos, medio preferente, vencimientos, certificado, resolucion, refs de
+layout/instrucciones/responsable, fuentes oficiales/expertas y hash. Esa capa
+alimenta `AnnualTaxArtifactMatrix` como preparacion revisable, sin archivo
+oficial, sin upload SII y sin decision tributaria final.

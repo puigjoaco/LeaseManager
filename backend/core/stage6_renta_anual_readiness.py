@@ -27,6 +27,7 @@ from sii.models import (
     AnnualRealEstateSection,
     AnnualTaxArtifactMatrix,
     AnnualTaxArtifactMatrixItem,
+    AnnualTaxDDJJFormLayout,
     AnnualTaxDossier,
     AnnualTaxExport,
     AnnualTaxOfficialSource,
@@ -43,6 +44,7 @@ from sii.models import (
     EstadoAnnualRealEstateSection,
     EstadoAnnualTaxArtifactMatrix,
     EstadoAnnualTaxArtifactReview,
+    EstadoAnnualTaxDDJJLayout,
     EstadoAnnualTaxDossier,
     EstadoAnnualTaxExport,
     EstadoAnnualTaxOfficialSource,
@@ -602,6 +604,82 @@ def _collect_annual_real_estate_issues(sections, items, processes, active_fiscal
                 counts['real_estate_item_missing'] += 1
             if warning_item_counts[section.id]:
                 counts['real_estate_item_warning_review_required'] += warning_item_counts[section.id]
+
+    return dict(sorted(counts.items()))
+
+
+def _collect_annual_tax_ddjj_layout_issues(layouts, processes, active_fiscal_configs) -> dict[str, int]:
+    counts = Counter()
+    invalid_layouts = _count_invalid(layouts)
+    if invalid_layouts:
+        counts['ddjj_layout_invalid'] = invalid_layouts
+
+    configured_forms_by_company = {}
+    for config in active_fiscal_configs:
+        configured_forms_by_company[config.empresa_id] = sorted(str(code) for code in (config.ddjj_habilitadas or []))
+
+    prepared_layouts = layouts.filter(estado=EstadoAnnualTaxDDJJLayout.PREPARED)
+    prepared_by_year_form = {
+        (layout.anio_tributario, layout.form_code): layout
+        for layout in prepared_layouts
+    }
+    for layout in prepared_layouts:
+        warnings = layout.warnings if isinstance(layout.warnings, list) else []
+        if warnings:
+            counts['ddjj_layout_warning_review_required'] += len(warnings)
+
+    for process in processes:
+        if process.estado not in ANNUAL_TRACEABLE_STATES:
+            continue
+        configured_forms = configured_forms_by_company.get(process.empresa_id, [])
+        if not configured_forms:
+            continue
+        missing_forms = [
+            form_code
+            for form_code in configured_forms
+            if (process.anio_tributario, form_code) not in prepared_by_year_form
+        ]
+        if missing_forms:
+            counts['process_ddjj_layout_missing'] += len(missing_forms)
+
+        summary = process.resumen_anual if isinstance(process.resumen_anual, dict) else {}
+        layout_summary = summary.get('annual_tax_ddjj_layouts')
+        if not isinstance(layout_summary, dict):
+            counts['process_ddjj_layout_summary_missing'] += 1
+            continue
+
+        summary_configured = sorted(str(code) for code in (layout_summary.get('configured_form_codes') or []))
+        summary_forms = sorted(str(code) for code in (layout_summary.get('form_codes') or []))
+        summary_missing = sorted(str(code) for code in (layout_summary.get('missing_form_codes') or []))
+        expected_forms = sorted(
+            form_code
+            for form_code in configured_forms
+            if (process.anio_tributario, form_code) in prepared_by_year_form
+        )
+        if (
+            summary_configured != configured_forms
+            or summary_forms != expected_forms
+            or summary_missing != sorted(missing_forms)
+        ):
+            counts['process_ddjj_layout_summary_mismatch'] += 1
+            continue
+
+        by_form_code = layout_summary.get('by_form_code') if isinstance(layout_summary.get('by_form_code'), dict) else {}
+        for form_code in expected_forms:
+            layout = prepared_by_year_form[(process.anio_tributario, form_code)]
+            item_summary = by_form_code.get(form_code)
+            if not isinstance(item_summary, dict):
+                counts['process_ddjj_layout_summary_mismatch'] += 1
+                break
+            warnings = layout.warnings if isinstance(layout.warnings, list) else []
+            if (
+                item_summary.get('id') != layout.id
+                or item_summary.get('hash_layout') != layout.hash_layout
+                or item_summary.get('medio_preferente') != layout.medio_preferente
+                or int(item_summary.get('warnings_total') or 0) != len(warnings)
+            ):
+                counts['process_ddjj_layout_summary_mismatch'] += 1
+                break
 
     return dict(sorted(counts.items()))
 
@@ -1198,6 +1276,16 @@ def collect_stage6_renta_anual_readiness(
         annual_processes,
         active_fiscal_company_ids,
     )
+    annual_tax_ddjj_layouts = AnnualTaxDDJJFormLayout.objects.select_related(
+        'official_media_source',
+        'official_form_source',
+        'official_software_source',
+    )
+    annual_tax_ddjj_layout_issues = _collect_annual_tax_ddjj_layout_issues(
+        annual_tax_ddjj_layouts,
+        annual_processes,
+        active_fiscal_configs,
+    )
     annual_tax_artifact_matrices = AnnualTaxArtifactMatrix.objects.select_related(
         'empresa',
         'proceso_renta_anual',
@@ -1690,6 +1778,35 @@ def collect_stage6_renta_anual_readiness(
     ]:
         if annual_real_estate_issues.get(key):
             issues.append(_issue(code, message, count=annual_real_estate_issues[key]))
+    for key, code, message in [
+        (
+            'ddjj_layout_invalid',
+            'stage6.ddjj_layout_invalid',
+            'Existen layouts DDJJ que no pasan validacion de dominio o referencias oficiales/experta.',
+        ),
+        (
+            'process_ddjj_layout_missing',
+            'stage6.process_ddjj_layout_missing',
+            'ProcesoRentaAnual trazable requiere layout/medio SII preparado para cada DDJJ habilitada.',
+        ),
+        (
+            'process_ddjj_layout_summary_missing',
+            'stage6.process_ddjj_layout_summary_missing',
+            'ProcesoRentaAnual debe conservar resumen de layouts DDJJ en resumen_anual.',
+        ),
+        (
+            'process_ddjj_layout_summary_mismatch',
+            'stage6.process_ddjj_layout_summary_mismatch',
+            'ProcesoRentaAnual conserva resumen de layouts DDJJ desalineado con layouts vigentes.',
+        ),
+        (
+            'ddjj_layout_warning_review_required',
+            'stage6.ddjj_layout_warning_review_required',
+            'Existen layouts DDJJ con warnings que requieren revision antes de cierre.',
+        ),
+    ]:
+        if annual_tax_ddjj_layout_issues.get(key):
+            issues.append(_issue(code, message, count=annual_tax_ddjj_layout_issues[key]))
     for key, code, message in [
         (
             'artifact_matrix_invalid',
@@ -2427,6 +2544,14 @@ def collect_stage6_renta_anual_readiness(
                 'items_total': annual_real_estate_items.count(),
                 'active_items': annual_real_estate_items.filter(estado=EstadoRegistro.ACTIVE).count(),
                 **annual_real_estate_issues,
+            },
+            'annual_tax_ddjj_layouts': {
+                'layouts_total': annual_tax_ddjj_layouts.count(),
+                'prepared_layouts': annual_tax_ddjj_layouts.filter(estado=EstadoAnnualTaxDDJJLayout.PREPARED).count(),
+                'layouts_by_state': _count_by(annual_tax_ddjj_layouts, 'estado'),
+                'layouts_by_year': _count_by(annual_tax_ddjj_layouts, 'anio_tributario'),
+                'layouts_by_form': _count_by(annual_tax_ddjj_layouts, 'form_code'),
+                **annual_tax_ddjj_layout_issues,
             },
             'annual_tax_artifact_matrices': {
                 'matrices_total': annual_tax_artifact_matrices.count(),

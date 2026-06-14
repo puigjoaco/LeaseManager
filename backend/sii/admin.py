@@ -9,6 +9,7 @@ from .models import (
     AnnualRealEstateSection,
     AnnualTaxArtifactMatrix,
     AnnualTaxArtifactMatrixItem,
+    AnnualTaxDDJJFormLayout,
     AnnualTaxDossier,
     AnnualTaxExport,
     AnnualTaxOfficialSource,
@@ -256,6 +257,83 @@ class AnnualTaxOfficialSourceAdmin(admin.ModelAdmin):
     @admin.display(description='metadata')
     def metadata_redacted(self, obj):
         return _redacted_payload_attr(obj, 'metadata')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(AnnualTaxDDJJFormLayout)
+class AnnualTaxDDJJFormLayoutAdmin(admin.ModelAdmin):
+    fields = (
+        'anio_tributario',
+        'form_code',
+        'title',
+        'periodicidad',
+        'allows_electronic_form',
+        'allows_file_importer',
+        'allows_file_upload',
+        'allows_commercial_software',
+        'allows_assistant',
+        'medio_preferente',
+        'due_date_label',
+        'certificate_code',
+        'certificate_due_label',
+        'resolution_ref_redacted',
+        'declaration_status',
+        'layout_ref_redacted',
+        'instructions_ref_redacted',
+        'responsible_ref_redacted',
+        'official_media_source',
+        'official_form_source',
+        'official_software_source',
+        'warnings_redacted',
+        'source_payload_redacted',
+        'hash_layout',
+        'estado',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = fields
+    list_display = (
+        'anio_tributario',
+        'form_code',
+        'title',
+        'medio_preferente',
+        'estado',
+        'responsible_ref_redacted',
+    )
+    list_filter = ('anio_tributario', 'medio_preferente', 'estado')
+    search_fields = ('form_code', 'title')
+
+    @admin.display(description='resolution_ref')
+    def resolution_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'resolution_ref')
+
+    @admin.display(description='layout_ref')
+    def layout_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'layout_ref')
+
+    @admin.display(description='instructions_ref')
+    def instructions_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'instructions_ref')
+
+    @admin.display(description='responsible_ref')
+    def responsible_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'responsible_ref')
+
+    @admin.display(description='warnings')
+    def warnings_redacted(self, obj):
+        return _redacted_payload_attr(obj, 'warnings')
+
+    @admin.display(description='source_payload')
+    def source_payload_redacted(self, obj):
+        return _redacted_payload_attr(obj, 'source_payload')
 
     def has_add_permission(self, request):
         return False

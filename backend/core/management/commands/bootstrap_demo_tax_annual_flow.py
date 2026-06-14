@@ -21,11 +21,14 @@ from contabilidad.models import (
 from contabilidad.services import approve_monthly_close, prepare_monthly_close
 from patrimonio.models import Empresa
 from sii.models import (
+    AnnualTaxDDJJFormLayout,
     CapacidadSII,
     DestinoMapeoTributarioAnual,
     AnnualTaxOfficialSource,
+    EstadoAnnualTaxDDJJLayout,
     EstadoAnnualTaxOfficialSource,
     EstadoReglaTributariaAnual,
+    MedioAnnualTaxDDJJ,
     TaxCodeMapping,
     TaxYearRuleSet,
     TipoAnnualTaxOfficialSource,
@@ -74,6 +77,7 @@ class Command(BaseCommand):
         config = self._get_config(empresa)
         self._ensure_config_baseline(config=config, ppm_rate=ppm_rate, ddjj_codes=ddjj_codes)
         self._ensure_tax_year_ruleset(config=config, anio_tributario=anio_tributario, ddjj_codes=ddjj_codes)
+        self._ensure_ddjj_layouts(config=config, anio_tributario=anio_tributario, ddjj_codes=ddjj_codes)
         updated_capabilities = self._ensure_annual_cert_refs(empresa=empresa, cert_prefix=cert_prefix)
 
         prepared_months = 0
@@ -293,6 +297,96 @@ class Command(BaseCommand):
                 source.full_clean()
                 source.save(update_fields=[*dirty_fields, "updated_at"])
         return source
+
+    def _ensure_ddjj_layouts(
+        self,
+        *,
+        config: ConfiguracionFiscalEmpresa,
+        anio_tributario: int,
+        ddjj_codes: tuple[str, ...],
+    ) -> list[AnnualTaxDDJJFormLayout]:
+        layouts = []
+        for form_code in ddjj_codes:
+            media_source = self._ensure_official_source(
+                config=config,
+                anio_tributario=anio_tributario,
+                key=f"ddjj-media-{form_code}",
+                applies_to=DestinoMapeoTributarioAnual.DDJJ,
+            )
+            form_source = self._ensure_official_source(
+                config=config,
+                anio_tributario=anio_tributario,
+                key=f"ddjj-form-{form_code}",
+                applies_to=DestinoMapeoTributarioAnual.DDJJ,
+            )
+            layout, _ = AnnualTaxDDJJFormLayout.objects.get_or_create(
+                anio_tributario=anio_tributario,
+                form_code=form_code,
+                defaults={
+                    "title": f"DDJJ {form_code} demo controlada",
+                    "periodicidad": "Anual",
+                    "allows_electronic_form": True,
+                    "allows_file_importer": True,
+                    "allows_file_upload": False,
+                    "allows_commercial_software": True,
+                    "allows_assistant": False,
+                    "medio_preferente": MedioAnnualTaxDDJJ.FILE_IMPORTER,
+                    "due_date_label": f"AT{anio_tributario}-plazo-ddjj-{form_code}",
+                    "certificate_code": f"cert-ddjj-{form_code}",
+                    "certificate_due_label": f"AT{anio_tributario}-plazo-certificado-{form_code}",
+                    "resolution_ref": f"demo-resolution-ddjj-{form_code}-at{anio_tributario}",
+                    "declaration_status": "preparacion_local_revisable",
+                    "layout_ref": f"demo-layout-ddjj-{form_code}-at{anio_tributario}",
+                    "instructions_ref": f"demo-instructions-ddjj-{form_code}-at{anio_tributario}",
+                    "responsible_ref": f"demo-ddjj-layout-reviewer-at{anio_tributario}",
+                    "official_media_source": media_source,
+                    "official_form_source": form_source,
+                    "warnings": [],
+                    "source_payload": {
+                        "source": "bootstrap_demo_tax_annual_flow",
+                        "form_code": form_code,
+                        "anio_tributario": anio_tributario,
+                        "official_format": False,
+                        "sii_submission": False,
+                        "final_tax_calculation": False,
+                    },
+                    "estado": EstadoAnnualTaxDDJJLayout.PREPARED,
+                },
+            )
+            layout.title = f"DDJJ {form_code} demo controlada"
+            layout.periodicidad = "Anual"
+            layout.allows_electronic_form = True
+            layout.allows_file_importer = True
+            layout.allows_file_upload = False
+            layout.allows_commercial_software = True
+            layout.allows_assistant = False
+            layout.medio_preferente = MedioAnnualTaxDDJJ.FILE_IMPORTER
+            layout.due_date_label = f"AT{anio_tributario}-plazo-ddjj-{form_code}"
+            layout.certificate_code = f"cert-ddjj-{form_code}"
+            layout.certificate_due_label = f"AT{anio_tributario}-plazo-certificado-{form_code}"
+            layout.resolution_ref = f"demo-resolution-ddjj-{form_code}-at{anio_tributario}"
+            layout.declaration_status = "preparacion_local_revisable"
+            layout.layout_ref = f"demo-layout-ddjj-{form_code}-at{anio_tributario}"
+            layout.instructions_ref = f"demo-instructions-ddjj-{form_code}-at{anio_tributario}"
+            layout.responsible_ref = f"demo-ddjj-layout-reviewer-at{anio_tributario}"
+            layout.official_media_source = media_source
+            layout.official_form_source = form_source
+            layout.official_software_source = None
+            layout.warnings = []
+            layout.source_payload = {
+                "source": "bootstrap_demo_tax_annual_flow",
+                "form_code": form_code,
+                "anio_tributario": anio_tributario,
+                "official_format": False,
+                "sii_submission": False,
+                "final_tax_calculation": False,
+            }
+            layout.estado = EstadoAnnualTaxDDJJLayout.PREPARED
+            layout.hash_layout = layout.compute_hash_layout()
+            layout.full_clean()
+            layout.save()
+            layouts.append(layout)
+        return layouts
 
     def _ensure_annual_cert_refs(self, *, empresa: Empresa, cert_prefix: str) -> int:
         updated = 0

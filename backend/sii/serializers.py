@@ -14,6 +14,7 @@ from .models import (
     AnnualRealEstateSection,
     AnnualTaxArtifactMatrix,
     AnnualTaxArtifactMatrixItem,
+    AnnualTaxDDJJFormLayout,
     AnnualTaxDossier,
     AnnualTaxExport,
     AnnualTaxOfficialSource,
@@ -221,6 +222,64 @@ class AnnualTaxOfficialSourceSerializer(RedactSensitiveSiiFieldsMixin, serialize
 
     def validate(self, attrs):
         candidate = build_validation_candidate(self.instance, AnnualTaxOfficialSource)
+        for field, value in attrs.items():
+            setattr(candidate, field, value)
+        try:
+            candidate.full_clean()
+        except DjangoValidationError as error:
+            raise_drf_validation_error(error)
+        return attrs
+
+
+class AnnualTaxDDJJFormLayoutSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = (
+        'resolution_ref',
+        'layout_ref',
+        'instructions_ref',
+        'responsible_ref',
+    )
+    redacted_payload_fields = ('warnings', 'source_payload')
+
+    class Meta:
+        model = AnnualTaxDDJJFormLayout
+        fields = (
+            'id',
+            'anio_tributario',
+            'form_code',
+            'title',
+            'periodicidad',
+            'allows_electronic_form',
+            'allows_file_importer',
+            'allows_file_upload',
+            'allows_commercial_software',
+            'allows_assistant',
+            'medio_preferente',
+            'due_date_label',
+            'certificate_code',
+            'certificate_due_label',
+            'resolution_ref',
+            'declaration_status',
+            'layout_ref',
+            'instructions_ref',
+            'responsible_ref',
+            'official_media_source',
+            'official_form_source',
+            'official_software_source',
+            'warnings',
+            'source_payload',
+            'hash_layout',
+            'estado',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'created_at', 'updated_at')
+
+    def get_validators(self):
+        # Model full_clean validates the conditional source/hash contract with instance context.
+        return []
+
+    def validate(self, attrs):
+        candidate = build_validation_candidate(self.instance, AnnualTaxDDJJFormLayout)
         for field, value in attrs.items():
             setattr(candidate, field, value)
         try:
