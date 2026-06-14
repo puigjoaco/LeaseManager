@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `stage6-ddjj-media-layouts`. |
-| Fuente exacta | `main` en `b211290a`, posterior al merge de PR #840. |
-| Brecha activa | Etapa 6 necesita declarar formularios DDJJ aplicables con medio SII, vencimiento, layout/certificado, fuente oficial/experta y campos propios antes de tratar la matriz DDJJ/F22 como trazable. |
-| Motivo de prioridad | `RENTA_ANUAL_OFFICIAL_SOURCE_GAPS_AT2026.md` deja `stage6-ddjj-official-media-layouts` como siguiente avance recomendado despues de materializar balance/RLI/CPT; es preparacion local revisable, no presentacion SII. |
-| Worktree | `D:/Proyectos/LeaseManager-stage6-ddjj-media-layouts`. |
-| Rama | `codex/stage6-ddjj-media-layouts`. |
-| Estado | Paquete implementado localmente; pendiente validacion final, PR, CI, merge y limpieza. |
-| Gate esperado | Mantener `classification=parcial`; no cerrar Etapa 6 ni presentar DDJJ/F22 sin fuente final, certificacion/formato, responsable, autorizacion y evidencia no sensible. |
-| Estado al cerrar paquete | Commit, PR, CI, merge y limpieza; main debe quedar sincronizado y sin worktree tactico. |
+| Frente activo | Ninguno abierto. Ultimo paquete: `stage6-ddjj-media-layouts`. |
+| Fuente exacta | `main` en `11df1e53`, posterior al merge de PR #841. |
+| Brecha cerrada localmente | Etapa 6 incorpora `AnnualTaxDDJJFormLayout` para declarar formularios DDJJ aplicables con medio SII, vencimiento, layout/certificado, fuente oficial/experta, hash y resumen trazable antes de la matriz DDJJ/F22. |
+| Motivo de prioridad | Materializa `stage6-ddjj-official-media-layouts` desde `RENTA_ANUAL_OFFICIAL_SOURCE_GAPS_AT2026.md` como preparacion local revisable, no presentacion SII. |
+| Worktree | Cerrado y removido: `D:/Proyectos/LeaseManager-stage6-ddjj-media-layouts`. |
+| Rama | Cerrada: `codex/stage6-ddjj-media-layouts`. |
+| Estado | PR #841 mergeado; main sincronizado. Queda solo este cierre de cursor operativo. |
+| Gate esperado | `scripts/run-stage6-readiness-gate.ps1` queda en `classification=parcial`; no cierra Etapa 6 ni presenta DDJJ/F22 sin fuente final, certificacion/formato, responsable, autorizacion y evidencia no sensible. |
+| Estado al cerrar paquete | Paquete DDJJ cerrado. Reanudar desde main limpio y elegir siguiente brecha segura por trazabilidad. |
 | Bloqueos relacionados | DDJJ/F22 final sigue bloqueado sin medios/formato/certificacion SII vigentes, responsable y autorizacion explicita. |
-| Politica de reanudacion | Continuar este worktree hasta cerrar, pausar explicitamente o limpiar; no reabrir goal prompts ni EDIG. |
-| Siguiente accion | Ejecutar validacion final proporcional, registrar evidencia, abrir PR, esperar CI, mergear y limpiar worktree tactico. |
+| Politica de reanudacion | No reabrir `stage6-ddjj-media-layouts`; no reabrir goal prompts ni EDIG salvo nueva solicitud concreta. |
+| Siguiente accion | Cerrar este cursor y luego tomar el siguiente paquete seguro desde `RENTA_ANUAL_OFFICIAL_SOURCE_GAPS_AT2026.md`, stage cards y trazabilidad vigentes. |
 
 ## Actualizacion
 
