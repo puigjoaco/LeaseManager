@@ -61,6 +61,32 @@ propietaria.
 | Validacion | Reglas oficiales, set de validaciones, casos de prueba | Validador por AT y regimen | Readiness anual y errores por codigo | Falta fuente oficial/casa software/certificacion |
 | Presentacion | Archivo certificable, responsable, autorizacion y ambiente SII | Gate externo | Presentacion manual/controlada o podada | Sigue bloqueada sin certificacion y autorizacion |
 
+## Cobertura estatica extendida
+
+`scripts/analyze-edig-at2026.ps1` genera una matriz local ignorada en
+`local-evidence/` con senales funcionales por area tributaria. La corrida local
+read-only sobre EDIG AT2026 detecto cobertura para administracion de
+contribuyentes, F22, F29/PPM, regimenes 14A/14D3/14D8/14G, RLI, CPT, RAI,
+SAC, DDJJ, balance/contabilidad, bienes raices/arriendos, reportes/respaldo,
+upload/export y conectividad auxiliar.
+
+La matriz no copia reglas ni formulas EDIG. Solo clasifica nombres de artefactos
+seguros, metadata de ejecutables, plantillas, reportes y tokens estructurales
+filtrados de MDB nucleo. Las raices `CONTRIB/`, `LICENCIAS/`, `RESPUESTA/` y
+`UPLOAD/` se excluyen o redactan para evitar arrastrar datos de usuario,
+licencia o salidas de presentacion.
+
+La lectura mas importante para LeaseManager es de diseno: EDIG evidencia una
+separacion entre entrada contable, parametria por regimen, registros
+intermedios y render/export. Por eso el motor propio debe avanzar por:
+
+1. perfil tributario anual;
+2. normalizador desde cierres/F29/ledger;
+3. RLI/CPT/RAI/SAC y registros empresariales;
+4. DDJJ/certificados;
+5. F22 preview/export;
+6. gate de presentacion externa.
+
 ## Linea de diseno propia
 
 LeaseManager debe implementar un motor anual por ano tributario con estas
