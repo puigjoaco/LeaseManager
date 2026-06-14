@@ -9,6 +9,7 @@ from .models import (
     AnnualRealEstateSection,
     AnnualTaxArtifactMatrix,
     AnnualTaxArtifactMatrixItem,
+    AnnualTaxDossier,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -746,6 +747,71 @@ class AnnualTaxArtifactMatrixItemAdmin(admin.ModelAdmin):
     @admin.display(description='source_payload')
     def source_payload_redacted(self, obj):
         return _redacted_payload_attr(obj, 'source_payload')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(AnnualTaxDossier)
+class AnnualTaxDossierAdmin(admin.ModelAdmin):
+    fields = (
+        'empresa',
+        'proceso_renta_anual',
+        'source_bundle',
+        'rule_set',
+        'artifact_matrix',
+        'anio_tributario',
+        'anio_comercial',
+        'source_ref_redacted',
+        'responsible_ref_redacted',
+        'dossier_ref_redacted',
+        'review_state',
+        'monthly_facts_total',
+        'workbooks_total',
+        'enterprise_registers_total',
+        'real_estate_sections_total',
+        'artifact_matrix_items_total',
+        'warnings_total',
+        'resumen_dossier_redacted',
+        'hash_dossier',
+        'estado',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = fields
+    list_display = (
+        'empresa',
+        'anio_tributario',
+        'estado',
+        'review_state',
+        'warnings_total',
+        'artifact_matrix',
+        'dossier_ref_redacted',
+    )
+    list_filter = ('anio_tributario', 'estado', 'review_state')
+    search_fields = ('empresa__razon_social',)
+
+    @admin.display(description='source_ref')
+    def source_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'source_ref')
+
+    @admin.display(description='responsible_ref')
+    def responsible_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'responsible_ref')
+
+    @admin.display(description='dossier_ref')
+    def dossier_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'dossier_ref')
+
+    @admin.display(description='resumen_dossier')
+    def resumen_dossier_redacted(self, obj):
+        return _redacted_payload_attr(obj, 'resumen_dossier')
 
     def has_add_permission(self, request):
         return False

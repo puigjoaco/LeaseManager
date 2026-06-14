@@ -14,6 +14,7 @@ from .models import (
     AnnualRealEstateSection,
     AnnualTaxArtifactMatrix,
     AnnualTaxArtifactMatrixItem,
+    AnnualTaxDossier,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -488,6 +489,40 @@ class AnnualTaxArtifactMatrixItemSerializer(RedactSensitiveSiiFieldsMixin, seria
             'warnings',
             'source_payload',
             'hash_item',
+            'estado',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = fields
+
+
+class AnnualTaxDossierSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('source_ref', 'responsible_ref', 'dossier_ref')
+    redacted_payload_fields = ('resumen_dossier',)
+
+    class Meta:
+        model = AnnualTaxDossier
+        fields = (
+            'id',
+            'empresa',
+            'proceso_renta_anual',
+            'source_bundle',
+            'rule_set',
+            'artifact_matrix',
+            'anio_tributario',
+            'anio_comercial',
+            'source_ref',
+            'responsible_ref',
+            'dossier_ref',
+            'review_state',
+            'monthly_facts_total',
+            'workbooks_total',
+            'enterprise_registers_total',
+            'real_estate_sections_total',
+            'artifact_matrix_items_total',
+            'warnings_total',
+            'resumen_dossier',
+            'hash_dossier',
             'estado',
             'created_at',
             'updated_at',

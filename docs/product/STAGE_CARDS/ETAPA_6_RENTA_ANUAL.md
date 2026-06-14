@@ -88,6 +88,12 @@ raices con destinos DDJJ/F22 revisables. Cada item conserva fuente, medio SII,
 responsable, payload no sensible, hash, estado de revision y
 `final_tax_calculation=false`; no declara formato final SII ni presentacion
 autonoma.
+`AnnualTaxDossier` materializa el paquete anual revisable: consolida source
+bundle, hechos mensuales, RLI/CPT, registros empresariales, bienes raices y
+matriz DDJJ/F22 en un resumen hasheado con responsable y referencias no
+sensibles. El dossier conserva `final_tax_calculation=false` y
+`sii_submission=false`; sirve para revision experta/oficial antes de cualquier
+export o presentacion, no para que LeaseManager decida la renta final.
 
 ## Gate
 
@@ -140,6 +146,15 @@ autonoma.
   medio SII, fuente, modelo origen, `formula_ref`, `evidencia_ref`,
   `responsible_ref`, `source_payload` y `hash_item` coherente. Items con
   warnings o estado `bloqueado` bloquean readiness hasta revision tributaria.
+- `AnnualTaxDossier` preparado requiere proceso anual, source bundle, rule set,
+  matriz DDJJ/F22 y configuracion fiscal activa coherentes; refs no sensibles,
+  responsable, `dossier_ref`, conteos anuales, `resumen_dossier` y
+  `hash_dossier` alineados. Para tratar un proceso anual como trazable debe
+  existir un dossier preparado y su resumen debe coincidir con
+  `ProcesoRentaAnual.resumen_anual.annual_tax_dossiers`.
+- Un dossier con warnings, estado `requiere_revision` o `bloqueado` bloquea
+  readiness hasta revision tributaria responsable; no se convierte en export ni
+  presentacion SII por conveniencia.
 - `generate_annual_preparation()` sincroniza bienes raices/arriendos despues
   de RLI/CPT y registros empresariales, antes de emitir DDJJ/F22 locales. La
   readiness bloquea procesos trazables sin seccion inmobiliaria, sin items
@@ -149,6 +164,10 @@ autonoma.
   locales. La readiness bloquea procesos trazables sin matriz, sin items DDJJ
   o F22, con resumen desalineado, invalidos, con warnings pendientes o items
   bloqueados.
+- `generate_annual_preparation()` sincroniza `AnnualTaxDossier` despues de la
+  matriz DDJJ/F22 y antes de emitir DDJJ/F22 locales. La readiness bloquea
+  procesos trazables sin dossier, con resumen desalineado, refs faltantes,
+  invalidos o con revision pendiente.
 - Responsable de revision anual trazado antes de tratar el paquete como
   aprobado.
 - Documentos generados desde datos trazables.
@@ -285,6 +304,10 @@ autonoma.
   `AnnualTaxArtifactMatrixItem` con refs, warnings y payloads redactados; el
   admin es solo lectura para preservar que la matriz DDJJ/F22 proviene del
   motor anual y no de edicion manual opaca.
+- La API/snapshot/admin de SII exponen `AnnualTaxDossier` con source,
+  responsable, dossier ref y payload anual redactados; el admin es solo lectura
+  para preservar que el dossier proviene del motor anual y no de edicion manual
+  opaca.
 
 ```powershell
 scripts\run-stage6-readiness-gate.ps1 -PythonExe backend\.venv\Scripts\python.exe

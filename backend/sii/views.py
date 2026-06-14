@@ -17,6 +17,7 @@ from .models import (
     AnnualRealEstateSection,
     AnnualTaxArtifactMatrix,
     AnnualTaxArtifactMatrixItem,
+    AnnualTaxDossier,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -34,6 +35,7 @@ from .serializers import (
     AnnualRealEstateSectionSerializer,
     AnnualTaxArtifactMatrixItemSerializer,
     AnnualTaxArtifactMatrixSerializer,
+    AnnualTaxDossierSerializer,
     AnnualGenerateSerializer,
     AnnualStatusSerializer,
     AnnualTaxSourceBundleSerializer,
@@ -263,6 +265,17 @@ class SiiSnapshotView(APIView):
             ).order_by('matrix_id', 'target_kind', 'target_code', 'source_kind', 'source_model', 'source_object_id'),
             access,
             company_paths=('matrix__empresa_id',),
+        )
+        annual_tax_dossiers = scope_queryset_for_access(
+            AnnualTaxDossier.objects.select_related(
+                'empresa',
+                'proceso_renta_anual',
+                'source_bundle',
+                'rule_set',
+                'artifact_matrix',
+            ).order_by('-anio_tributario', 'empresa_id', 'id'),
+            access,
+            company_paths=('empresa_id',),
         )
         tax_year_rule_sets = TaxYearRuleSet.objects.select_related('regimen_tributario').order_by(
             '-anio_tributario',
@@ -545,6 +558,32 @@ class SiiSnapshotView(APIView):
                         'estado': item.estado,
                     }
                     for item in annual_tax_artifact_matrix_items
+                ],
+                'annual_tax_dossiers': [
+                    {
+                        'id': item.id,
+                        'empresa': item.empresa_id,
+                        'proceso_renta_anual': item.proceso_renta_anual_id,
+                        'source_bundle': item.source_bundle_id,
+                        'rule_set': item.rule_set_id,
+                        'artifact_matrix': item.artifact_matrix_id,
+                        'anio_tributario': item.anio_tributario,
+                        'anio_comercial': item.anio_comercial,
+                        'source_ref': redact_sensitive_reference(item.source_ref),
+                        'responsible_ref': redact_sensitive_reference(item.responsible_ref),
+                        'dossier_ref': redact_sensitive_reference(item.dossier_ref),
+                        'review_state': item.review_state,
+                        'monthly_facts_total': item.monthly_facts_total,
+                        'workbooks_total': item.workbooks_total,
+                        'enterprise_registers_total': item.enterprise_registers_total,
+                        'real_estate_sections_total': item.real_estate_sections_total,
+                        'artifact_matrix_items_total': item.artifact_matrix_items_total,
+                        'warnings_total': item.warnings_total,
+                        'resumen_dossier': redact_sensitive_payload(item.resumen_dossier),
+                        'hash_dossier': item.hash_dossier,
+                        'estado': item.estado,
+                    }
+                    for item in annual_tax_dossiers
                 ],
                 'ddjjs': [
                     {
@@ -875,6 +914,32 @@ class AnnualTaxArtifactMatrixItemDetailView(ScopedQuerysetMixin, generics.Retrie
         'matrix__empresa',
     ).all()
     company_scope_paths = ('matrix__empresa_id',)
+
+
+class AnnualTaxDossierListView(ScopedQuerysetMixin, generics.ListAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualTaxDossierSerializer
+    queryset = AnnualTaxDossier.objects.select_related(
+        'empresa',
+        'proceso_renta_anual',
+        'source_bundle',
+        'rule_set',
+        'artifact_matrix',
+    ).all()
+    company_scope_paths = ('empresa_id',)
+
+
+class AnnualTaxDossierDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualTaxDossierSerializer
+    queryset = AnnualTaxDossier.objects.select_related(
+        'empresa',
+        'proceso_renta_anual',
+        'source_bundle',
+        'rule_set',
+        'artifact_matrix',
+    ).all()
+    company_scope_paths = ('empresa_id',)
 
 
 class DTEEmitidoListView(ScopedQuerysetMixin, generics.ListAPIView):
