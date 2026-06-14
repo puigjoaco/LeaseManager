@@ -30,6 +30,7 @@ from .models import (
     AnnualTaxArtifactMatrix,
     AnnualTaxArtifactMatrixItem,
     AnnualTaxDDJJFormLayout,
+    AnnualTaxF22ExportLayout,
     AnnualTaxDossier,
     AnnualTaxExport,
     AnnualTaxOfficialSource,
@@ -49,6 +50,7 @@ from .models import (
     EstadoAnnualTaxArtifactMatrix,
     EstadoAnnualTaxArtifactReview,
     EstadoAnnualTaxDDJJLayout,
+    EstadoAnnualTaxF22ExportLayout,
     EstadoAnnualTaxDossier,
     EstadoAnnualTaxExport,
     EstadoAnnualTaxOfficialSource,
@@ -76,6 +78,7 @@ from .models import (
     TipoAnnualTaxOfficialSource,
     TipoAnnualTaxWorkbook,
     TipoDTE,
+    has_text,
 )
 from patrimonio.models import ParticipacionPatrimonial, Propiedad
 
@@ -448,6 +451,63 @@ def _find_real_estate_contribution_source_for_year(anio_tributario, regime_code=
     return None
 
 
+def _source_matches_f22_export_format(source):
+    if source is None:
+        return False
+    if has_text(source.applies_to) and source.applies_to != DestinoMapeoTributarioAnual.F22:
+        return False
+    if has_text(source.form_code) and str(source.form_code).strip() != 'F22':
+        return False
+    if source.source_type == TipoAnnualTaxOfficialSource.SII_F22_CERTIFICATION:
+        return True
+    metadata = source.metadata if isinstance(source.metadata, dict) else {}
+    return (
+        source.source_type == TipoAnnualTaxOfficialSource.EXPERT_REVIEW
+        and (
+            metadata.get('f22_export_format') is True
+            or metadata.get('f22_certification') is True
+        )
+    )
+
+
+def _find_f22_export_format_source_for_year(anio_tributario, regime_code=''):
+    candidates = list(
+        AnnualTaxOfficialSource.objects.filter(
+            anio_tributario=anio_tributario,
+            estado__in=ANNUAL_TAX_OFFICIAL_SOURCE_READY_STATES,
+        )
+        .filter(
+            Q(source_type=TipoAnnualTaxOfficialSource.SII_F22_CERTIFICATION)
+            | Q(
+                source_type=TipoAnnualTaxOfficialSource.EXPERT_REVIEW,
+                applies_to=DestinoMapeoTributarioAnual.F22,
+            )
+        )
+        .filter(Q(applies_to='') | Q(applies_to=DestinoMapeoTributarioAnual.F22))
+        .filter(Q(regime_code='') | Q(regime_code=regime_code))
+        .order_by('source_type', 'source_key', 'id')
+    )
+    for source in candidates:
+        if source.source_type == TipoAnnualTaxOfficialSource.SII_F22_CERTIFICATION and _source_matches_f22_export_format(source):
+            return source
+    for source in candidates:
+        if _source_matches_f22_export_format(source):
+            return source
+    return None
+
+
+def _f22_export_format_summary(source):
+    return {
+        'source': 'official_or_expert_review' if source else 'not_loaded_v1',
+        'official_source_id': source.id if source else None,
+        'official_format': False,
+        'sii_submission': False,
+        'final_tax_calculation': False,
+        'requires_official_format_gate': True,
+        'requires_explicit_submission_authorization': True,
+    }
+
+
 def build_annual_tax_source_summary(empresa, fiscal_year, config, rule_set):
     approved_closes = CierreMensualContable.objects.filter(
         empresa=empresa,
@@ -479,6 +539,10 @@ def build_annual_tax_source_summary(empresa, fiscal_year, config, rule_set):
         config.regimen_tributario.codigo_regimen,
     )
     real_estate_contribution_values = _metadata_real_estate_contribution_values(real_estate_contribution_source)
+    f22_export_format_source = _find_f22_export_format_source_for_year(
+        rule_set.anio_tributario,
+        config.regimen_tributario.codigo_regimen,
+    )
     liquidation_lines = LineaLiquidacionMensual.objects.filter(
         liquidacion__owner_tipo=TipoOwnerLiquidacion.COMPANY,
         liquidacion__empresa=empresa,
@@ -524,6 +588,7 @@ def build_annual_tax_source_summary(empresa, fiscal_year, config, rule_set):
             'values_by_property_id': real_estate_contribution_values,
             'final_tax_calculation': False,
         },
+        'f22_export_format': _f22_export_format_summary(f22_export_format_source),
         'liquidation_line_months': sorted(set(liquidation_lines.values_list('liquidacion__mes', flat=True))),
         'liquidation_lines_total': liquidation_lines.count(),
         'liquidation_lines_total_amount': str(sum((item.monto_clp for item in liquidation_lines), 0)),
@@ -1181,6 +1246,45 @@ def summarize_annual_tax_ddjj_layouts(process):
     }
 
 
+def summarize_annual_tax_f22_export_layouts(process):
+    layouts = AnnualTaxF22ExportLayout.objects.filter(
+        anio_tributario=process.anio_tributario,
+        form_code='F22',
+        estado=EstadoAnnualTaxF22ExportLayout.PREPARED,
+    ).order_by('form_code')
+    by_form_code = {}
+    warnings_total = 0
+    for layout in layouts:
+        warnings = layout.warnings if isinstance(layout.warnings, list) else []
+        warnings_total += len(warnings)
+        by_form_code[layout.form_code] = {
+            'id': layout.id,
+            'form_code': layout.form_code,
+            'title': layout.title,
+            'medio_preferente': layout.medio_preferente,
+            'allows_local_preview': layout.allows_local_preview,
+            'allows_certified_file': layout.allows_certified_file,
+            'allows_supervised_portal': layout.allows_supervised_portal,
+            'official_certification_source_id': layout.official_certification_source_id,
+            'official_instructions_source_id': layout.official_instructions_source_id,
+            'hash_layout': layout.hash_layout,
+            'warnings_total': len(warnings),
+            'official_format': False,
+            'sii_submission': False,
+            'final_tax_calculation': False,
+        }
+    return {
+        'total': layouts.count(),
+        'form_codes': sorted(by_form_code.keys()),
+        'missing_form_codes': [] if 'F22' in by_form_code else ['F22'],
+        'warnings_total': warnings_total,
+        'by_form_code': by_form_code,
+        'official_format': False,
+        'sii_submission': False,
+        'final_tax_calculation': False,
+    }
+
+
 def summarize_annual_tax_artifact_matrices(process):
     matrices = AnnualTaxArtifactMatrix.objects.filter(
         proceso_renta_anual=process,
@@ -1265,6 +1369,11 @@ def summarize_annual_tax_exports(process):
             'source_bundle_id': export.source_bundle_id,
             'rule_set_id': export.rule_set_id,
             'artifact_matrix_id': export.artifact_matrix_id,
+            'official_format_source_id': export.official_format_source_id,
+            'official_format_source': payload.get('official_format_source'),
+            'f22_export_layout_id': payload.get('f22_export_layout_id'),
+            'f22_export_layout_hash': payload.get('f22_export_layout_hash'),
+            'f22_export_layout_medio': payload.get('f22_export_layout_medio'),
             'review_state': export.review_state,
             'target_items_total': export.target_items_total,
             'ddjj_items_total': export.ddjj_items_total,
@@ -2182,6 +2291,26 @@ def _ddjj_layout_source_payload(layout):
     }
 
 
+def _f22_export_layout_source_payload(layout):
+    return {
+        'f22_form_code': layout.form_code,
+        'layout_id': layout.id,
+        'hash_layout': layout.hash_layout,
+        'medio_preferente': layout.medio_preferente,
+        'allowed_media': {
+            'preview_local_controlado': layout.allows_local_preview,
+            'archivo_certificado_sii': layout.allows_certified_file,
+            'portal_sii_supervisado': layout.allows_supervised_portal,
+        },
+        'official_certification_source_id': layout.official_certification_source_id,
+        'official_instructions_source_id': layout.official_instructions_source_id,
+        'official_format': False,
+        'sii_submission': False,
+        'final_tax_calculation': False,
+        'source': 'AnnualTaxF22ExportLayout',
+    }
+
+
 def _artifact_matrix_specs(matrix, rule_set, source_bundle, config):
     specs = []
     ddjj_enabled = bool(config.ddjj_habilitadas)
@@ -2232,6 +2361,52 @@ def _artifact_matrix_specs(matrix, rule_set, source_bundle, config):
                 'source': 'ConfiguracionFiscalEmpresa.ddjj_habilitadas',
             },
             warnings=['ddjj_layout_missing'],
+        )
+
+    f22_layout = AnnualTaxF22ExportLayout.objects.filter(
+        anio_tributario=matrix.anio_tributario,
+        form_code='F22',
+        estado=EstadoAnnualTaxF22ExportLayout.PREPARED,
+    ).first()
+    if f22_layout is not None:
+        layout_warnings = f22_layout.warnings if isinstance(f22_layout.warnings, list) else []
+        _artifact_matrix_add_spec(
+            specs,
+            matrix,
+            target_kind=TipoAnnualTaxArtifactTarget.F22,
+            target_code='F22-FORMATO',
+            medio_sii=f22_layout.medio_preferente,
+            source_kind=SourceKindAnnualTaxArtifact.F22_EXPORT_LAYOUT,
+            source_model='AnnualTaxF22ExportLayout',
+            source_object_id=f22_layout.id,
+            source_hash=f22_layout.hash_layout,
+            formula_ref=f22_layout.instructions_ref,
+            evidencia_ref=f22_layout.format_ref,
+            responsible_ref=f22_layout.responsible_ref,
+            warnings=layout_warnings,
+            source_payload=_f22_export_layout_source_payload(f22_layout),
+        )
+    else:
+        _artifact_matrix_add_spec(
+            specs,
+            matrix,
+            target_kind=TipoAnnualTaxArtifactTarget.F22,
+            target_code='F22-FORMATO',
+            source_kind=SourceKindAnnualTaxArtifact.FISCAL_CONFIG,
+            source_model='ConfiguracionFiscalEmpresa',
+            source_object_id=config.id,
+            source_hash='',
+            formula_ref='f22-export-layout-missing-v1',
+            evidencia_ref=f'fiscal-config-{config.id}-f22-export-layout',
+            source_payload={
+                'form_code': 'F22',
+                'regimen_tributario_id': config.regimen_tributario_id,
+                'source': 'ConfiguracionFiscalEmpresa',
+                'official_format': False,
+                'sii_submission': False,
+                'final_tax_calculation': False,
+            },
+            warnings=['f22_export_layout_missing'],
         )
 
     mappings = TaxCodeMapping.objects.filter(
@@ -2522,6 +2697,7 @@ def _annual_tax_dossier_summary(process, rule_set, source_bundle, matrix):
     register_summary = process_summary.get('annual_enterprise_registers', {})
     real_estate_summary = process_summary.get('annual_real_estate_sections', {})
     ddjj_layout_summary = process_summary.get('annual_tax_ddjj_layouts', {})
+    f22_export_layout_summary = process_summary.get('annual_tax_f22_export_layouts', {})
     active_items = matrix.items.filter(estado=EstadoRegistro.ACTIVE).order_by(
         'target_kind',
         'target_code',
@@ -2590,6 +2766,7 @@ def _annual_tax_dossier_summary(process, rule_set, source_bundle, matrix):
             'annual_enterprise_registers': register_summary,
             'annual_real_estate_sections': real_estate_summary,
             'annual_tax_ddjj_layouts': ddjj_layout_summary,
+            'annual_tax_f22_export_layouts': f22_export_layout_summary,
             'annual_tax_artifact_matrices': matrix_summary,
         },
         'matrix_items_total': artifact_matrix_items_total,
@@ -2648,8 +2825,31 @@ def sync_annual_tax_dossier(process, rule_set, source_bundle):
     return dossier
 
 
-def _annual_tax_export_summary(process, dossier, ddjj, f22):
+def _f22_export_format_source_from_bundle(source_bundle):
+    summary = source_bundle.resumen_fuentes if isinstance(source_bundle.resumen_fuentes, dict) else {}
+    f22_export_format = summary.get('f22_export_format') if isinstance(summary.get('f22_export_format'), dict) else {}
+    source_id = f22_export_format.get('official_source_id')
+    if not source_id:
+        return None
+    try:
+        return AnnualTaxOfficialSource.objects.get(
+            pk=source_id,
+            anio_tributario=source_bundle.anio_tributario,
+            estado__in=ANNUAL_TAX_OFFICIAL_SOURCE_READY_STATES,
+        )
+    except AnnualTaxOfficialSource.DoesNotExist:
+        return None
+
+
+def _annual_tax_export_summary(process, dossier, ddjj, f22, official_format_source=None):
     dossier_summary = dossier.resumen_dossier if isinstance(dossier.resumen_dossier, dict) else {}
+    process_summary = process.resumen_anual if isinstance(process.resumen_anual, dict) else {}
+    f22_layout_summary = process_summary.get('annual_tax_f22_export_layouts', {})
+    f22_layout = (
+        f22_layout_summary.get('by_form_code', {}).get('F22')
+        if isinstance(f22_layout_summary.get('by_form_code'), dict)
+        else None
+    )
     item_refs = dossier_summary.get('item_refs') if isinstance(dossier_summary.get('item_refs'), list) else []
     export_items = [
         {
@@ -2689,10 +2889,15 @@ def _annual_tax_export_summary(process, dossier, ddjj, f22):
         'source_bundle_hash': dossier_summary.get('source_bundle_hash'),
         'rule_set_id': dossier.rule_set_id,
         'rule_set_hash': dossier_summary.get('rule_set_hash'),
+        'official_format_source_id': official_format_source.id if official_format_source else None,
+        'official_format_source': _f22_export_format_summary(official_format_source),
         'ddjj_preparacion_id': ddjj.id if ddjj else None,
         'ddjj_estado_preparacion': ddjj.estado_preparacion if ddjj else '',
         'f22_preparacion_id': f22.id if f22 else None,
         'f22_estado_preparacion': f22.estado_preparacion if f22 else '',
+        'f22_export_layout_id': f22_layout.get('id') if isinstance(f22_layout, dict) else None,
+        'f22_export_layout_hash': f22_layout.get('hash_layout') if isinstance(f22_layout, dict) else '',
+        'f22_export_layout_medio': f22_layout.get('medio_preferente') if isinstance(f22_layout, dict) else '',
         'target_items_total': ddjj_items_total + f22_items_total,
         'ddjj_items_total': ddjj_items_total,
         'f22_items_total': f22_items_total,
@@ -2717,7 +2922,8 @@ def sync_annual_tax_export(process, rule_set, source_bundle):
     f22 = F22PreparacionAnual.objects.filter(proceso_renta_anual=process).first()
     if ddjj is None or f22 is None:
         raise ValueError('AnnualTaxExport requiere DDJJ y F22 preparados antes de emitir preview controlado.')
-    summary = _annual_tax_export_summary(process, dossier, ddjj, f22)
+    official_format_source = _f22_export_format_source_from_bundle(source_bundle)
+    summary = _annual_tax_export_summary(process, dossier, ddjj, f22, official_format_source)
     export, _ = AnnualTaxExport.objects.update_or_create(
         proceso_renta_anual=process,
         export_kind=TipoAnnualTaxExport.PREVIEW_PACKAGE,
@@ -2727,6 +2933,7 @@ def sync_annual_tax_export(process, rule_set, source_bundle):
             'source_bundle': source_bundle,
             'rule_set': rule_set,
             'artifact_matrix': dossier.artifact_matrix,
+            'official_format_source': official_format_source,
             'anio_tributario': process.anio_tributario,
             'anio_comercial': process.anio_tributario - 1,
             'source_ref': f'annual-tax-export-source-{process.empresa_id}-at{process.anio_tributario}',
@@ -2791,6 +2998,7 @@ def _annual_tax_review_checklist_summary(process, rule_set, source_bundle, dossi
     register_summary = process_summary.get('annual_enterprise_registers', {})
     real_estate_summary = process_summary.get('annual_real_estate_sections', {})
     ddjj_layout_summary = process_summary.get('annual_tax_ddjj_layouts', {})
+    f22_export_layout_summary = process_summary.get('annual_tax_f22_export_layouts', {})
     matrix_summary = process_summary.get('annual_tax_artifact_matrices', {})
     dossier_summary = process_summary.get('annual_tax_dossiers', {})
     export_summary = process_summary.get('annual_tax_exports', {})
@@ -2812,6 +3020,8 @@ def _annual_tax_review_checklist_summary(process, rule_set, source_bundle, dossi
     real_estate_warnings = _summary_warning_total(real_estate_summary)
     ddjj_layout_missing = len(ddjj_layout_summary.get('missing_form_codes') or []) if isinstance(ddjj_layout_summary, dict) else 0
     ddjj_layout_warnings = _summary_warning_total(ddjj_layout_summary, key='by_form_code')
+    f22_layout_missing = len(f22_export_layout_summary.get('missing_form_codes') or []) if isinstance(f22_export_layout_summary, dict) else 1
+    f22_layout_warnings = _summary_warning_total(f22_export_layout_summary, key='by_form_code')
 
     items = [
         _checklist_item(
@@ -2861,6 +3071,19 @@ def _annual_tax_review_checklist_summary(process, rule_set, source_bundle, dossi
                 'form_codes': ddjj_layout_summary.get('form_codes') if isinstance(ddjj_layout_summary, dict) else [],
                 'missing_form_codes': ddjj_layout_summary.get('missing_form_codes') if isinstance(ddjj_layout_summary, dict) else [],
                 'warnings_total': ddjj_layout_warnings,
+            },
+        ),
+        _checklist_item(
+            'f22_export_layout',
+            'F22 preparado contra layout/formato revisable sin presentacion automatica',
+            'blocking' if f22_layout_missing else ('warning' if f22_layout_warnings else 'complete'),
+            details={
+                'form_codes': f22_export_layout_summary.get('form_codes') if isinstance(f22_export_layout_summary, dict) else [],
+                'missing_form_codes': f22_export_layout_summary.get('missing_form_codes') if isinstance(f22_export_layout_summary, dict) else ['F22'],
+                'warnings_total': f22_layout_warnings,
+                'official_format': False,
+                'sii_submission': False,
+                'final_tax_calculation': False,
             },
         ),
         _checklist_item(
@@ -2932,6 +3155,7 @@ def _annual_tax_review_checklist_summary(process, rule_set, source_bundle, dossi
         'items': items,
         'component_summaries': {
             'annual_tax_ddjj_layouts': ddjj_layout_summary,
+            'annual_tax_f22_export_layouts': f22_export_layout_summary,
             'annual_tax_dossiers': dossier_summary,
             'annual_tax_exports': export_summary,
         },
@@ -3126,6 +3350,7 @@ def build_annual_summary(empresa, fiscal_year, rule_set, source_bundle, process=
         summary['annual_enterprise_registers'] = summarize_annual_enterprise_registers(process)
         summary['annual_real_estate_sections'] = summarize_annual_real_estate_sections(process)
         summary['annual_tax_ddjj_layouts'] = summarize_annual_tax_ddjj_layouts(process)
+        summary['annual_tax_f22_export_layouts'] = summarize_annual_tax_f22_export_layouts(process)
         summary['annual_tax_artifact_matrices'] = summarize_annual_tax_artifact_matrices(process)
         summary['annual_tax_dossiers'] = summarize_annual_tax_dossiers(process)
         summary['annual_tax_exports'] = summarize_annual_tax_exports(process)

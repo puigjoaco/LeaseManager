@@ -10,6 +10,7 @@ from .models import (
     AnnualTaxArtifactMatrix,
     AnnualTaxArtifactMatrixItem,
     AnnualTaxDDJJFormLayout,
+    AnnualTaxF22ExportLayout,
     AnnualTaxDossier,
     AnnualTaxExport,
     AnnualTaxOfficialSource,
@@ -318,6 +319,75 @@ class AnnualTaxDDJJFormLayoutAdmin(admin.ModelAdmin):
     @admin.display(description='layout_ref')
     def layout_ref_redacted(self, obj):
         return _redacted_attr(obj, 'layout_ref')
+
+    @admin.display(description='instructions_ref')
+    def instructions_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'instructions_ref')
+
+    @admin.display(description='responsible_ref')
+    def responsible_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'responsible_ref')
+
+    @admin.display(description='warnings')
+    def warnings_redacted(self, obj):
+        return _redacted_payload_attr(obj, 'warnings')
+
+    @admin.display(description='source_payload')
+    def source_payload_redacted(self, obj):
+        return _redacted_payload_attr(obj, 'source_payload')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(AnnualTaxF22ExportLayout)
+class AnnualTaxF22ExportLayoutAdmin(admin.ModelAdmin):
+    fields = (
+        'anio_tributario',
+        'form_code',
+        'title',
+        'allows_local_preview',
+        'allows_certified_file',
+        'allows_supervised_portal',
+        'medio_preferente',
+        'certification_ref_redacted',
+        'format_ref_redacted',
+        'instructions_ref_redacted',
+        'responsible_ref_redacted',
+        'official_certification_source',
+        'official_instructions_source',
+        'warnings_redacted',
+        'source_payload_redacted',
+        'hash_layout',
+        'estado',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = fields
+    list_display = (
+        'anio_tributario',
+        'form_code',
+        'title',
+        'medio_preferente',
+        'estado',
+        'responsible_ref_redacted',
+    )
+    list_filter = ('anio_tributario', 'medio_preferente', 'estado')
+    search_fields = ('form_code', 'title')
+
+    @admin.display(description='certification_ref')
+    def certification_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'certification_ref')
+
+    @admin.display(description='format_ref')
+    def format_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'format_ref')
 
     @admin.display(description='instructions_ref')
     def instructions_ref_redacted(self, obj):
@@ -1114,6 +1184,7 @@ class AnnualTaxExportAdmin(admin.ModelAdmin):
         'source_bundle',
         'rule_set',
         'artifact_matrix',
+        'official_format_source',
         'anio_tributario',
         'anio_comercial',
         'export_kind',
@@ -1142,9 +1213,10 @@ class AnnualTaxExportAdmin(admin.ModelAdmin):
         'estado',
         'review_state',
         'target_items_total',
+        'official_format_source',
         'export_ref_redacted',
     )
-    list_filter = ('anio_tributario', 'export_kind', 'estado', 'review_state')
+    list_filter = ('anio_tributario', 'export_kind', 'estado', 'review_state', 'official_format_source')
     search_fields = ('empresa__razon_social',)
 
     @admin.display(description='source_ref')

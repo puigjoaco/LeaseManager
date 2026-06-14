@@ -40,6 +40,7 @@ from .admin import (
     AnnualTaxArtifactMatrixAdmin,
     AnnualTaxArtifactMatrixItemAdmin,
     AnnualTaxDDJJFormLayoutAdmin,
+    AnnualTaxF22ExportLayoutAdmin,
     AnnualTaxDossierAdmin,
     AnnualTaxExportAdmin,
     AnnualTaxOfficialSourceAdmin,
@@ -67,6 +68,7 @@ from .models import (
     AnnualTaxArtifactMatrix,
     AnnualTaxArtifactMatrixItem,
     AnnualTaxDDJJFormLayout,
+    AnnualTaxF22ExportLayout,
     AnnualTaxDossier,
     AnnualTaxExport,
     AnnualTaxOfficialSource,
@@ -82,6 +84,7 @@ from .models import (
     DTEEmitido,
     EstadoGateSII,
     EstadoAnnualTaxDDJJLayout,
+    EstadoAnnualTaxF22ExportLayout,
     EstadoAnnualTaxOfficialSource,
     EstadoAnnualTaxSourceBundle,
     EstadoMonthlyTaxFact,
@@ -91,6 +94,7 @@ from .models import (
     MonthlyTaxFact,
     ProcesoRentaAnual,
     MedioAnnualTaxDDJJ,
+    MedioAnnualTaxF22Export,
     SourceKindRentaAnual,
     TaxCodeMapping,
     TaxYearRuleSet,
@@ -302,6 +306,79 @@ class SiiAPITests(APITestCase):
             },
         )
 
+    def _ensure_f22_export_format_source(self, *, anio_tributario=2027, regime_code='EmpresaContabilidadCompletaV1'):
+        return self._ensure_official_source(
+            anio_tributario=anio_tributario,
+            key='f22-export-format',
+            applies_to=DestinoMapeoTributarioAnual.F22,
+            regime_code=regime_code,
+            metadata_extra={
+                'f22_export_format': True,
+                'official_format': False,
+                'sii_submission': False,
+            },
+        )
+
+    def _ensure_f22_export_layout(self, *, anio_tributario=2027, warnings=None):
+        certification_source = self._ensure_f22_export_format_source(anio_tributario=anio_tributario)
+        instructions_source = self._ensure_official_source(
+            anio_tributario=anio_tributario,
+            key='f22-instructions',
+            applies_to=DestinoMapeoTributarioAnual.F22,
+        )
+        layout, _ = AnnualTaxF22ExportLayout.objects.get_or_create(
+            anio_tributario=anio_tributario,
+            form_code='F22',
+            defaults={
+                'title': f'F22 AT{anio_tributario} preview local controlado',
+                'allows_local_preview': True,
+                'allows_certified_file': False,
+                'allows_supervised_portal': False,
+                'medio_preferente': MedioAnnualTaxF22Export.LOCAL_PREVIEW,
+                'certification_ref': f'f22-certification-ref-at{anio_tributario}-controlled',
+                'format_ref': f'f22-layout-ref-at{anio_tributario}-controlled',
+                'instructions_ref': f'f22-instructions-ref-at{anio_tributario}-controlled',
+                'responsible_ref': 'tax-f22-layout-reviewer-controlled',
+                'official_certification_source': certification_source,
+                'official_instructions_source': instructions_source,
+                'warnings': list(warnings or []),
+                'source_payload': {
+                    'source': 'sii-test-controlled',
+                    'form_code': 'F22',
+                    'anio_tributario': anio_tributario,
+                    'official_format': False,
+                    'sii_submission': False,
+                    'final_tax_calculation': False,
+                },
+                'estado': EstadoAnnualTaxF22ExportLayout.PREPARED,
+            },
+        )
+        layout.title = f'F22 AT{anio_tributario} preview local controlado'
+        layout.allows_local_preview = True
+        layout.allows_certified_file = False
+        layout.allows_supervised_portal = False
+        layout.medio_preferente = MedioAnnualTaxF22Export.LOCAL_PREVIEW
+        layout.certification_ref = f'f22-certification-ref-at{anio_tributario}-controlled'
+        layout.format_ref = f'f22-layout-ref-at{anio_tributario}-controlled'
+        layout.instructions_ref = f'f22-instructions-ref-at{anio_tributario}-controlled'
+        layout.responsible_ref = 'tax-f22-layout-reviewer-controlled'
+        layout.official_certification_source = certification_source
+        layout.official_instructions_source = instructions_source
+        layout.warnings = list(warnings or [])
+        layout.source_payload = {
+            'source': 'sii-test-controlled',
+            'form_code': 'F22',
+            'anio_tributario': anio_tributario,
+            'official_format': False,
+            'sii_submission': False,
+            'final_tax_calculation': False,
+        }
+        layout.estado = EstadoAnnualTaxF22ExportLayout.PREPARED
+        layout.hash_layout = layout.compute_hash_layout()
+        layout.full_clean()
+        layout.save()
+        return layout
+
     def _ensure_ddjj_form_layout(self, form_code='1887', *, anio_tributario=2027, warnings=None):
         media_source = self._ensure_official_source(
             anio_tributario=anio_tributario,
@@ -404,6 +481,7 @@ class SiiAPITests(APITestCase):
             anio_tributario=anio_tributario,
             regime_code=regime.codigo_regimen,
         )
+        self._ensure_f22_export_layout(anio_tributario=anio_tributario)
         for form_code in ddjj_habilitadas or []:
             self._ensure_ddjj_form_layout(form_code, anio_tributario=anio_tributario)
         return config
@@ -978,6 +1056,76 @@ class SiiAPITests(APITestCase):
         self.assertIn('medio_preferente', error.exception.message_dict)
 
         layout.allows_file_importer = True
+        layout.hash_layout = layout.compute_hash_layout()
+        layout.full_clean()
+
+    def test_annual_tax_f22_export_layout_api_admin_and_snapshot_redact_sensitive_refs(self):
+        layout = self._ensure_f22_export_layout(anio_tributario=2027)
+        list_response = self.client.get(reverse('sii-annual-tax-f22-export-layout-list'))
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(list_response.data), 1)
+        self.assertEqual(list_response.data[0]['form_code'], 'F22')
+
+        AnnualTaxF22ExportLayout.objects.filter(pk=layout.pk).update(
+            certification_ref='https://sii.example.test/f22-cert?token=secret',
+            format_ref='Bearer f22-format-secret',
+            instructions_ref='https://sii.example.test/f22-instructions?token=secret',
+            responsible_ref='f22-reviewer-secret@example.test',
+            warnings=['Bearer f22-warning-secret'],
+            source_payload={'api_key': 'secret'},
+        )
+        snapshot = self.client.get(reverse('sii-snapshot'))
+        self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
+        layout_snapshot = next(
+            item for item in snapshot.data['annual_tax_f22_export_layouts'] if item['id'] == layout.id
+        )
+        serialized_snapshot = json.dumps(snapshot.data)
+        self.assertEqual(layout_snapshot['certification_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(layout_snapshot['format_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(layout_snapshot['instructions_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(layout_snapshot['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('secret', serialized_snapshot)
+
+        layout.refresh_from_db()
+        layout_admin = AnnualTaxF22ExportLayoutAdmin(AnnualTaxF22ExportLayout, AdminSite())
+        self.assertEqual(layout_admin.format_ref_redacted(layout), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(layout_admin.instructions_ref_redacted(layout), REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('secret', json.dumps(layout_admin.source_payload_redacted(layout)))
+
+    def test_annual_tax_f22_export_layout_requires_sources_and_keeps_boundary(self):
+        source = self._ensure_f22_export_format_source(anio_tributario=2027)
+        layout = AnnualTaxF22ExportLayout(
+            anio_tributario=2027,
+            form_code='F22',
+            title='F22 AT2027 preview local controlado',
+            allows_local_preview=True,
+            allows_certified_file=False,
+            allows_supervised_portal=False,
+            medio_preferente=MedioAnnualTaxF22Export.CERTIFIED_FILE,
+            certification_ref='f22-certification-ref-controlled',
+            format_ref='f22-format-ref-controlled',
+            instructions_ref='f22-instructions-ref-controlled',
+            responsible_ref='tax-f22-layout-reviewer-controlled',
+            official_certification_source=source,
+            official_instructions_source=source,
+            source_payload={'source': 'sii-test-controlled', 'official_format': True},
+            estado=EstadoAnnualTaxF22ExportLayout.PREPARED,
+        )
+        layout.hash_layout = layout.compute_hash_layout()
+
+        with self.assertRaises(ValidationError) as error:
+            layout.full_clean()
+
+        self.assertIn('medio_preferente', error.exception.message_dict)
+        self.assertIn('source_payload', error.exception.message_dict)
+
+        layout.medio_preferente = MedioAnnualTaxF22Export.LOCAL_PREVIEW
+        layout.source_payload = {
+            'source': 'sii-test-controlled',
+            'official_format': False,
+            'sii_submission': False,
+            'final_tax_calculation': False,
+        }
         layout.hash_layout = layout.compute_hash_layout()
         layout.full_clean()
 
@@ -3309,6 +3457,7 @@ class SiiAPITests(APITestCase):
         self._activate_annual_capabilities(empresa)
         self._create_twelve_approved_closes(empresa, fiscal_year=2026)
         self._create_annual_trial_balance_source(empresa, fiscal_year=2026)
+        self._ensure_f22_export_format_source()
         rule_set = TaxYearRuleSet.objects.get(anio_tributario=2027, estado=EstadoReglaTributariaAnual.APPROVED)
         TaxCodeMapping.objects.filter(rule_set=rule_set, destino=DestinoMapeoTributarioAnual.RLI).update(
             metadata={
@@ -3419,6 +3568,13 @@ class SiiAPITests(APITestCase):
         self.assertEqual(process.resumen_anual['annual_tax_ddjj_layouts']['form_codes'], ['1879', '1887'])
         self.assertEqual(process.resumen_anual['annual_tax_ddjj_layouts']['missing_form_codes'], [])
         self.assertEqual(process.resumen_anual['annual_tax_ddjj_layouts']['warnings_total'], 0)
+        f22_layouts = AnnualTaxF22ExportLayout.objects.filter(anio_tributario=2027).order_by('form_code')
+        self.assertEqual(f22_layouts.count(), 1)
+        f22_layout = f22_layouts.get()
+        self.assertEqual(process.resumen_anual['annual_tax_f22_export_layouts']['total'], 1)
+        self.assertEqual(process.resumen_anual['annual_tax_f22_export_layouts']['form_codes'], ['F22'])
+        self.assertEqual(process.resumen_anual['annual_tax_f22_export_layouts']['missing_form_codes'], [])
+        self.assertEqual(process.resumen_anual['annual_tax_f22_export_layouts']['warnings_total'], 0)
         artifact_matrices = AnnualTaxArtifactMatrix.objects.filter(proceso_renta_anual=process)
         artifact_items = AnnualTaxArtifactMatrixItem.objects.filter(matrix__proceso_renta_anual=process)
         self.assertEqual(artifact_matrices.count(), 1)
@@ -3442,6 +3598,18 @@ class SiiAPITests(APITestCase):
         self.assertEqual(ddjj_1887_item.source_payload['layout_id'], ddjj_1887_layout.id)
         self.assertEqual(ddjj_1887_item.source_payload['hash_layout'], ddjj_1887_layout.hash_layout)
         self.assertEqual(ddjj_1887_item.warnings, [])
+        f22_layout_item = artifact_items.get(
+            target_kind='F22',
+            target_code='F22-FORMATO',
+            source_kind='f22_export_layout',
+            source_model='AnnualTaxF22ExportLayout',
+            source_object_id=f22_layout.id,
+        )
+        self.assertEqual(f22_layout_item.medio_sii, f22_layout.medio_preferente)
+        self.assertEqual(f22_layout_item.source_hash, f22_layout.hash_layout)
+        self.assertEqual(f22_layout_item.source_payload['layout_id'], f22_layout.id)
+        self.assertFalse(f22_layout_item.source_payload['official_format'])
+        self.assertFalse(f22_layout_item.source_payload['sii_submission'])
         dossiers = AnnualTaxDossier.objects.filter(proceso_renta_anual=process)
         self.assertEqual(dossiers.count(), 1)
         dossier = dossiers.get()
@@ -3459,14 +3627,22 @@ class SiiAPITests(APITestCase):
         self.assertEqual(annual_export.rule_set_id, dossier.rule_set_id)
         self.assertEqual(annual_export.artifact_matrix_id, artifact_matrices.get().id)
         self.assertEqual(annual_export.dossier_id, dossier.id)
+        self.assertIsNotNone(annual_export.official_format_source_id)
         self.assertEqual(annual_export.review_state, 'listo_revision')
         self.assertFalse(annual_export.official_format)
         self.assertFalse(annual_export.sii_submission)
         self.assertFalse(annual_export.final_tax_calculation)
+        self.assertEqual(
+            annual_export.export_payload['official_format_source_id'],
+            annual_export.official_format_source_id,
+        )
+        self.assertEqual(annual_export.export_payload['official_format_source']['source'], 'official_or_expert_review')
         self.assertFalse(annual_export.export_payload['official_format'])
         self.assertFalse(annual_export.export_payload['sii_submission'])
         self.assertFalse(annual_export.export_payload['final_tax_calculation'])
         self.assertFalse(annual_export.export_payload['sii_submission_attempted'])
+        self.assertEqual(annual_export.export_payload['f22_export_layout_id'], f22_layout.id)
+        self.assertEqual(annual_export.export_payload['f22_export_layout_hash'], f22_layout.hash_layout)
         self.assertEqual(process.resumen_anual['annual_tax_exports']['total'], 1)
         export_summary = next(iter(process.resumen_anual['annual_tax_exports']['by_id'].values()))
         self.assertEqual(export_summary['hash_export'], annual_export.hash_export)
@@ -3474,6 +3650,9 @@ class SiiAPITests(APITestCase):
         self.assertEqual(export_summary['source_bundle_id'], process.source_bundle_id)
         self.assertEqual(export_summary['rule_set_id'], dossier.rule_set_id)
         self.assertEqual(export_summary['artifact_matrix_id'], artifact_matrices.get().id)
+        self.assertEqual(export_summary['official_format_source_id'], annual_export.official_format_source_id)
+        self.assertEqual(export_summary['f22_export_layout_id'], f22_layout.id)
+        self.assertEqual(export_summary['f22_export_layout_hash'], f22_layout.hash_layout)
         self.assertEqual(export_summary['target_items_total'], artifact_items.count())
         self.assertGreater(export_summary['ddjj_items_total'], 0)
         self.assertGreater(export_summary['f22_items_total'], 0)
@@ -3514,6 +3693,7 @@ class SiiAPITests(APITestCase):
         real_estate_section_response = self.client.get(reverse('sii-annual-real-estate-section-list'))
         real_estate_item_response = self.client.get(reverse('sii-annual-real-estate-item-list'))
         ddjj_layout_response = self.client.get(reverse('sii-annual-tax-ddjj-layout-list'))
+        f22_layout_response = self.client.get(reverse('sii-annual-tax-f22-export-layout-list'))
         artifact_matrix_response = self.client.get(reverse('sii-annual-tax-artifact-matrix-list'))
         artifact_matrix_item_response = self.client.get(reverse('sii-annual-tax-artifact-matrix-item-list'))
         dossier_response = self.client.get(reverse('sii-annual-tax-dossier-list'))
@@ -3528,6 +3708,7 @@ class SiiAPITests(APITestCase):
         self.assertEqual(real_estate_section_response.status_code, status.HTTP_200_OK)
         self.assertEqual(real_estate_item_response.status_code, status.HTTP_200_OK)
         self.assertEqual(ddjj_layout_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(f22_layout_response.status_code, status.HTTP_200_OK)
         self.assertEqual(artifact_matrix_response.status_code, status.HTTP_200_OK)
         self.assertEqual(artifact_matrix_item_response.status_code, status.HTTP_200_OK)
         self.assertEqual(dossier_response.status_code, status.HTTP_200_OK)
@@ -3542,6 +3723,7 @@ class SiiAPITests(APITestCase):
         self.assertEqual(len(real_estate_section_response.data), 1)
         self.assertEqual(len(real_estate_item_response.data), 1)
         self.assertEqual(len(ddjj_layout_response.data), 2)
+        self.assertEqual(len(f22_layout_response.data), 1)
         self.assertEqual(len(artifact_matrix_response.data), 1)
         self.assertEqual(len(artifact_matrix_item_response.data), artifact_items.count())
         self.assertEqual(len(dossier_response.data), 1)
@@ -3559,6 +3741,7 @@ class SiiAPITests(APITestCase):
         self.assertEqual(len(snapshot.data['annual_real_estate_sections']), 1)
         self.assertEqual(len(snapshot.data['annual_real_estate_items']), 1)
         self.assertEqual(len(snapshot.data['annual_tax_ddjj_layouts']), 2)
+        self.assertEqual(len(snapshot.data['annual_tax_f22_export_layouts']), 1)
         self.assertEqual(len(snapshot.data['annual_tax_artifact_matrices']), 1)
         self.assertEqual(len(snapshot.data['annual_tax_artifact_matrix_items']), artifact_items.count())
         self.assertEqual(len(snapshot.data['annual_tax_dossiers']), 1)

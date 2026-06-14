@@ -18,6 +18,7 @@ from .models import (
     AnnualTaxArtifactMatrix,
     AnnualTaxArtifactMatrixItem,
     AnnualTaxDDJJFormLayout,
+    AnnualTaxF22ExportLayout,
     AnnualTaxDossier,
     AnnualTaxExport,
     AnnualTaxOfficialSource,
@@ -43,6 +44,7 @@ from .serializers import (
     AnnualTaxArtifactMatrixItemSerializer,
     AnnualTaxArtifactMatrixSerializer,
     AnnualTaxDDJJFormLayoutSerializer,
+    AnnualTaxF22ExportLayoutSerializer,
     AnnualTaxDossierSerializer,
     AnnualTaxExportSerializer,
     AnnualGenerateSerializer,
@@ -199,6 +201,10 @@ class SiiSnapshotView(APIView):
             'official_media_source',
             'official_form_source',
             'official_software_source',
+        ).order_by('-anio_tributario', 'form_code')
+        annual_tax_f22_export_layouts = AnnualTaxF22ExportLayout.objects.select_related(
+            'official_certification_source',
+            'official_instructions_source',
         ).order_by('-anio_tributario', 'form_code')
         monthly_tax_facts = scope_queryset_for_access(
             MonthlyTaxFact.objects.select_related(
@@ -498,6 +504,29 @@ class SiiSnapshotView(APIView):
                         'estado': item.estado,
                     }
                     for item in annual_tax_ddjj_layouts
+                ],
+                'annual_tax_f22_export_layouts': [
+                    {
+                        'id': item.id,
+                        'anio_tributario': item.anio_tributario,
+                        'form_code': item.form_code,
+                        'title': item.title,
+                        'allows_local_preview': item.allows_local_preview,
+                        'allows_certified_file': item.allows_certified_file,
+                        'allows_supervised_portal': item.allows_supervised_portal,
+                        'medio_preferente': item.medio_preferente,
+                        'certification_ref': redact_sensitive_reference(item.certification_ref),
+                        'format_ref': redact_sensitive_reference(item.format_ref),
+                        'instructions_ref': redact_sensitive_reference(item.instructions_ref),
+                        'responsible_ref': redact_sensitive_reference(item.responsible_ref),
+                        'official_certification_source': item.official_certification_source_id,
+                        'official_instructions_source': item.official_instructions_source_id,
+                        'warnings': redact_sensitive_payload(item.warnings),
+                        'source_payload': redact_sensitive_payload(item.source_payload),
+                        'hash_layout': item.hash_layout,
+                        'estado': item.estado,
+                    }
+                    for item in annual_tax_f22_export_layouts
                 ],
                 'monthly_tax_facts': [
                     {
@@ -961,6 +990,28 @@ class AnnualTaxDDJJFormLayoutDetailView(AuditCreateUpdateMixin, generics.Retriev
     audit_entity_label = 'AnnualTaxDDJJFormLayout'
 
 
+class AnnualTaxF22ExportLayoutListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualTaxF22ExportLayoutSerializer
+    queryset = AnnualTaxF22ExportLayout.objects.select_related(
+        'official_certification_source',
+        'official_instructions_source',
+    ).all()
+    audit_entity_type = 'annual_tax_f22_export_layout'
+    audit_entity_label = 'AnnualTaxF22ExportLayout'
+
+
+class AnnualTaxF22ExportLayoutDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualTaxF22ExportLayoutSerializer
+    queryset = AnnualTaxF22ExportLayout.objects.select_related(
+        'official_certification_source',
+        'official_instructions_source',
+    ).all()
+    audit_entity_type = 'annual_tax_f22_export_layout'
+    audit_entity_label = 'AnnualTaxF22ExportLayout'
+
+
 class AnnualTaxSourceBundleListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = AnnualTaxSourceBundleSerializer
@@ -1273,6 +1324,7 @@ class AnnualTaxExportListView(ScopedQuerysetMixin, generics.ListAPIView):
         'source_bundle',
         'rule_set',
         'artifact_matrix',
+        'official_format_source',
     ).all()
     company_scope_paths = ('empresa_id',)
 
@@ -1287,6 +1339,7 @@ class AnnualTaxExportDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
         'source_bundle',
         'rule_set',
         'artifact_matrix',
+        'official_format_source',
     ).all()
     company_scope_paths = ('empresa_id',)
 

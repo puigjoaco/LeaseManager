@@ -81,7 +81,7 @@ un export local en presentacion oficial.
 | RAI/SAC | Registros empresariales y saldos. | `AnnualEnterpriseRegisterSet` preparatorio. | Saldos historicos, creditos y movimientos con fuente aprobada. |
 | Bienes raices | Arriendos, propiedades y contribuciones. | `AnnualRealEstateSection` enlaza fuente de contribuciones y valores por propiedad cuando existen; conserva warnings si falta fuente o valor. | Fuente oficial/experta de contribuciones, creditos y codigos F22 para cierre final. |
 | DDJJ | Formularios, certificados y medios. | `AnnualTaxDDJJFormLayout` + `AnnualTaxArtifactMatrix` revisables. | Fuente oficial/experta y revision responsable para promover layout/medio a cierre real. |
-| F22 | Preview, plantilla, export/upload. | `AnnualTaxExport` local con `official_format=false`. | Formato/certificacion F22, casos controlados, responsable y autorizacion. |
+| F22 | Preview, plantilla, export/upload. | `AnnualTaxF22ExportLayout` + `AnnualTaxExport` local con `official_format=false`. | Formato/certificacion F22 oficial/certificable, casos controlados, responsable y autorizacion para promover a cierre real. |
 | Dossier | Reportes y respaldos. | `AnnualTaxDossier` hasheado y revisable. | Checklist tributario anual y aprobacion responsable. |
 
 ## Desbloqueos necesarios
@@ -117,8 +117,11 @@ un export local en presentacion oficial.
    `AnnualRealEstateSection` a `AnnualTaxOfficialSource` de contribuciones o
    revision experta F22/Dossier, mas `values_by_property_id` en el bundle
    anual; mantiene warnings cuando falta fuente o monto por propiedad.
-5. `stage6-f22-official-export-format`: evaluar formato/certificacion F22 solo
-   con material oficial, casos controlados y autorizacion.
+5. `stage6-f22-official-export-format`: materializado como
+   `AnnualTaxF22ExportLayout`; declara formato/certificacion/instrucciones F22
+   revisables, fuente oficial/experta, medio preferente, hash y boundary
+   explicito, alimentando la matriz DDJJ/F22 y el export local sin producir
+   presentacion SII ni calculo tributario final.
 6. `stage6-annual-review-checklist`: materializado como
    `AnnualTaxReviewChecklist` para exigir revision responsable por regimen,
    evidencia no sensible y frontera explicita antes de tratar cualquier
@@ -169,3 +172,11 @@ metadata `real_estate_contributions=true`. Los montos controlados viajan en
 Si falta fuente, el item conserva `contribuciones_source_not_loaded_v1`; si
 falta monto por propiedad, conserva `contribuciones_value_not_loaded_v1`.
 Readiness impide tratar la seccion como cerrable en ambos casos.
+
+`AnnualTaxF22ExportLayout` baja la brecha de formato/certificacion F22 a una
+capa operativa propia: una fila por ano tributario conserva `form_code=F22`,
+medio preferente, refs de certificacion/formato/instrucciones/responsable,
+fuentes oficiales/expertas, warnings, payload no sensible y hash. Esa capa
+alimenta `AnnualTaxArtifactMatrix`, `AnnualTaxDossier`, `AnnualTaxExport` y
+`AnnualTaxReviewChecklist` como preparacion revisable, sin archivo oficial,
+sin upload SII, sin presentacion autonoma y sin decision tributaria final.

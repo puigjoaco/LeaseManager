@@ -28,6 +28,7 @@ from sii.models import (
     AnnualTaxArtifactMatrix,
     AnnualTaxArtifactMatrixItem,
     AnnualTaxDDJJFormLayout,
+    AnnualTaxF22ExportLayout,
     AnnualTaxDossier,
     AnnualTaxExport,
     AnnualTaxOfficialSource,
@@ -45,6 +46,7 @@ from sii.models import (
     EstadoAnnualTaxArtifactMatrix,
     EstadoAnnualTaxArtifactReview,
     EstadoAnnualTaxDDJJLayout,
+    EstadoAnnualTaxF22ExportLayout,
     EstadoAnnualTaxDossier,
     EstadoAnnualTaxExport,
     EstadoAnnualTaxOfficialSource,
@@ -690,6 +692,73 @@ def _collect_annual_tax_ddjj_layout_issues(layouts, processes, active_fiscal_con
     return dict(sorted(counts.items()))
 
 
+def _collect_annual_tax_f22_export_layout_issues(layouts, processes) -> dict[str, int]:
+    counts = Counter()
+    invalid_layouts = _count_invalid(layouts)
+    if invalid_layouts:
+        counts['f22_export_layout_invalid'] = invalid_layouts
+
+    prepared_layouts = layouts.filter(estado=EstadoAnnualTaxF22ExportLayout.PREPARED)
+    prepared_by_year_form = {
+        (layout.anio_tributario, layout.form_code): layout
+        for layout in prepared_layouts
+    }
+    for layout in prepared_layouts:
+        warnings = layout.warnings if isinstance(layout.warnings, list) else []
+        if warnings:
+            counts['f22_export_layout_warning_review_required'] += len(warnings)
+        payload = layout.source_payload if isinstance(layout.source_payload, dict) else {}
+        if (
+            payload.get('official_format') not in (False, None)
+            or payload.get('sii_submission') not in (False, None)
+            or bool(payload.get('sii_submission_attempted'))
+            or payload.get('final_tax_calculation') not in (False, None)
+        ):
+            counts['f22_export_layout_boundary'] += 1
+
+    for process in processes:
+        if process.estado not in ANNUAL_TRACEABLE_STATES:
+            continue
+        layout = prepared_by_year_form.get((process.anio_tributario, 'F22'))
+        missing_forms = [] if layout is not None else ['F22']
+        if missing_forms:
+            counts['process_f22_export_layout_missing'] += 1
+
+        summary = process.resumen_anual if isinstance(process.resumen_anual, dict) else {}
+        layout_summary = summary.get('annual_tax_f22_export_layouts')
+        if not isinstance(layout_summary, dict):
+            counts['process_f22_export_layout_summary_missing'] += 1
+            continue
+
+        summary_forms = sorted(str(code) for code in (layout_summary.get('form_codes') or []))
+        summary_missing = sorted(str(code) for code in (layout_summary.get('missing_form_codes') or []))
+        expected_forms = ['F22'] if layout is not None else []
+        if summary_forms != expected_forms or summary_missing != missing_forms:
+            counts['process_f22_export_layout_summary_mismatch'] += 1
+            continue
+
+        if layout is None:
+            continue
+        by_form_code = layout_summary.get('by_form_code') if isinstance(layout_summary.get('by_form_code'), dict) else {}
+        item_summary = by_form_code.get('F22')
+        if not isinstance(item_summary, dict):
+            counts['process_f22_export_layout_summary_mismatch'] += 1
+            continue
+        warnings = layout.warnings if isinstance(layout.warnings, list) else []
+        if (
+            item_summary.get('id') != layout.id
+            or item_summary.get('hash_layout') != layout.hash_layout
+            or item_summary.get('medio_preferente') != layout.medio_preferente
+            or int(item_summary.get('warnings_total') or 0) != len(warnings)
+            or item_summary.get('official_format') is not False
+            or item_summary.get('sii_submission') is not False
+            or item_summary.get('final_tax_calculation') is not False
+        ):
+            counts['process_f22_export_layout_summary_mismatch'] += 1
+
+    return dict(sorted(counts.items()))
+
+
 def _collect_annual_artifact_matrix_issues(matrices, items, processes, active_fiscal_company_ids: set[int]) -> dict[str, int]:
     counts = Counter()
     invalid_matrices = _count_invalid(matrices)
@@ -906,6 +975,9 @@ def _collect_annual_tax_export_issues(exports, processes, active_fiscal_company_
                         or item_summary.get('source_bundle_id') != export.source_bundle_id
                         or item_summary.get('rule_set_id') != export.rule_set_id
                         or item_summary.get('artifact_matrix_id') != export.artifact_matrix_id
+                        or item_summary.get('official_format_source_id') != export.official_format_source_id
+                        or item_summary.get('f22_export_layout_id') != payload.get('f22_export_layout_id')
+                        or item_summary.get('f22_export_layout_hash') != payload.get('f22_export_layout_hash')
                         or item_summary.get('review_state') != export.review_state
                         or int(item_summary.get('target_items_total') or 0) != export.target_items_total
                         or int(item_summary.get('ddjj_items_total') or 0) != export.ddjj_items_total
@@ -920,6 +992,8 @@ def _collect_annual_tax_export_issues(exports, processes, active_fiscal_company_
 
         for export in process_exports:
             payload = export.export_payload if isinstance(export.export_payload, dict) else {}
+            if not export.official_format_source_id:
+                counts['tax_export_official_format_source_missing'] += 1
             if not has_text(export.responsible_ref):
                 counts['tax_export_responsible_missing'] += 1
             if not has_text(export.export_ref):
@@ -1292,6 +1366,14 @@ def collect_stage6_renta_anual_readiness(
         annual_processes,
         active_fiscal_configs,
     )
+    annual_tax_f22_export_layouts = AnnualTaxF22ExportLayout.objects.select_related(
+        'official_certification_source',
+        'official_instructions_source',
+    )
+    annual_tax_f22_export_layout_issues = _collect_annual_tax_f22_export_layout_issues(
+        annual_tax_f22_export_layouts,
+        annual_processes,
+    )
     annual_tax_artifact_matrices = AnnualTaxArtifactMatrix.objects.select_related(
         'empresa',
         'proceso_renta_anual',
@@ -1327,6 +1409,7 @@ def collect_stage6_renta_anual_readiness(
         'rule_set',
         'artifact_matrix',
         'dossier',
+        'official_format_source',
     )
     annual_tax_export_issues = _collect_annual_tax_export_issues(
         annual_tax_exports,
@@ -1825,6 +1908,40 @@ def collect_stage6_renta_anual_readiness(
             issues.append(_issue(code, message, count=annual_tax_ddjj_layout_issues[key]))
     for key, code, message in [
         (
+            'f22_export_layout_invalid',
+            'stage6.f22_export_layout_invalid',
+            'Existen layouts F22 que no pasan validacion de dominio o referencias oficiales/experta.',
+        ),
+        (
+            'process_f22_export_layout_missing',
+            'stage6.process_f22_export_layout_missing',
+            'ProcesoRentaAnual trazable requiere layout/formato F22 preparado antes del export local.',
+        ),
+        (
+            'process_f22_export_layout_summary_missing',
+            'stage6.process_f22_export_layout_summary_missing',
+            'ProcesoRentaAnual debe conservar resumen de layout F22 en resumen_anual.',
+        ),
+        (
+            'process_f22_export_layout_summary_mismatch',
+            'stage6.process_f22_export_layout_summary_mismatch',
+            'ProcesoRentaAnual conserva resumen de layout F22 desalineado con el layout vigente.',
+        ),
+        (
+            'f22_export_layout_warning_review_required',
+            'stage6.f22_export_layout_warning_review_required',
+            'Existen layouts F22 con warnings que requieren revision antes de cierre.',
+        ),
+        (
+            'f22_export_layout_boundary',
+            'stage6.f22_export_layout_boundary',
+            'Layout F22 intenta marcar formato oficial, presentacion SII o calculo final fuera del boundary v1.',
+        ),
+    ]:
+        if annual_tax_f22_export_layout_issues.get(key):
+            issues.append(_issue(code, message, count=annual_tax_f22_export_layout_issues[key]))
+    for key, code, message in [
+        (
             'artifact_matrix_invalid',
             'stage6.artifact_matrix_invalid',
             'Existen matrices DDJJ/F22 que no pasan validacion de dominio.',
@@ -1981,6 +2098,11 @@ def collect_stage6_renta_anual_readiness(
             'tax_export_ref_missing',
             'stage6.tax_export_ref_missing',
             'AnnualTaxExport preparado requiere export_ref trazable.',
+        ),
+        (
+            'tax_export_official_format_source_missing',
+            'stage6.tax_export_official_format_source_missing',
+            'AnnualTaxExport preparado requiere fuente oficial/experta de formato o certificacion F22 antes de cierre.',
         ),
         (
             'tax_export_review_required',
@@ -2568,6 +2690,14 @@ def collect_stage6_renta_anual_readiness(
                 'layouts_by_year': _count_by(annual_tax_ddjj_layouts, 'anio_tributario'),
                 'layouts_by_form': _count_by(annual_tax_ddjj_layouts, 'form_code'),
                 **annual_tax_ddjj_layout_issues,
+            },
+            'annual_tax_f22_export_layouts': {
+                'layouts_total': annual_tax_f22_export_layouts.count(),
+                'prepared_layouts': annual_tax_f22_export_layouts.filter(estado=EstadoAnnualTaxF22ExportLayout.PREPARED).count(),
+                'layouts_by_state': _count_by(annual_tax_f22_export_layouts, 'estado'),
+                'layouts_by_year': _count_by(annual_tax_f22_export_layouts, 'anio_tributario'),
+                'layouts_by_form': _count_by(annual_tax_f22_export_layouts, 'form_code'),
+                **annual_tax_f22_export_layout_issues,
             },
             'annual_tax_artifact_matrices': {
                 'matrices_total': annual_tax_artifact_matrices.count(),

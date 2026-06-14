@@ -498,12 +498,24 @@ class EstadoAnnualTaxDDJJLayout(models.TextChoices):
     RETIRED = 'retirado', 'Retirado'
 
 
+class EstadoAnnualTaxF22ExportLayout(models.TextChoices):
+    DRAFT = 'borrador', 'Borrador'
+    PREPARED = 'preparado', 'Preparado'
+    RETIRED = 'retirado', 'Retirado'
+
+
 class MedioAnnualTaxDDJJ(models.TextChoices):
     ELECTRONIC_FORM = 'formulario_electronico', 'Formulario electronico'
     FILE_IMPORTER = 'transferencia_archivos_importador', 'Transferencia importador'
     FILE_UPLOAD = 'transferencia_archivos_upload', 'Transferencia upload'
     COMMERCIAL_SOFTWARE = 'software_comercial', 'Software comercial'
     ASSISTANT = 'asistente', 'Asistente'
+
+
+class MedioAnnualTaxF22Export(models.TextChoices):
+    LOCAL_PREVIEW = 'preview_local_controlado', 'Preview local controlado'
+    CERTIFIED_FILE = 'archivo_certificado_sii', 'Archivo certificado SII'
+    SUPERVISED_PORTAL = 'portal_sii_supervisado', 'Portal SII supervisado'
 
 
 class TipoAnnualTaxWorkbook(models.TextChoices):
@@ -573,6 +585,7 @@ class SourceKindAnnualTaxArtifact(models.TextChoices):
     SOURCE_BUNDLE = 'source_bundle', 'Source bundle'
     TAX_MAPPING = 'tax_mapping', 'Tax code mapping'
     DDJJ_LAYOUT = 'ddjj_layout', 'DDJJ layout'
+    F22_EXPORT_LAYOUT = 'f22_export_layout', 'F22 export layout'
     ANNUAL_SUMMARY = 'annual_summary', 'Annual summary'
     ANNUAL_WORKBOOK = 'annual_workbook', 'Annual workbook'
     ENTERPRISE_REGISTER = 'enterprise_register', 'Enterprise register'
@@ -768,6 +781,26 @@ def _annual_tax_ddjj_layout_integrity_payload(layout):
         'official_media_source_id': layout.official_media_source_id,
         'official_form_source_id': layout.official_form_source_id,
         'official_software_source_id': layout.official_software_source_id,
+        'warnings': layout.warnings,
+        'source_payload': layout.source_payload,
+    }
+
+
+def _annual_tax_f22_export_layout_integrity_payload(layout):
+    return {
+        'anio_tributario': layout.anio_tributario,
+        'form_code': layout.form_code,
+        'title': layout.title,
+        'allows_local_preview': layout.allows_local_preview,
+        'allows_certified_file': layout.allows_certified_file,
+        'allows_supervised_portal': layout.allows_supervised_portal,
+        'medio_preferente': layout.medio_preferente,
+        'certification_ref': layout.certification_ref,
+        'format_ref': layout.format_ref,
+        'instructions_ref': layout.instructions_ref,
+        'responsible_ref': layout.responsible_ref,
+        'official_certification_source_id': layout.official_certification_source_id,
+        'official_instructions_source_id': layout.official_instructions_source_id,
         'warnings': layout.warnings,
         'source_payload': layout.source_payload,
     }
@@ -1229,6 +1262,175 @@ class AnnualTaxDDJJFormLayout(OperationalSIITextNormalizationMixin, TimestampedM
                 errors,
                 'official_software_source',
                 {TipoAnnualTaxOfficialSource.SII_DDJJ_SOFTWARE_HOUSES, TipoAnnualTaxOfficialSource.EXPERT_REVIEW},
+            )
+        if errors:
+            raise ValidationError(errors)
+
+
+class AnnualTaxF22ExportLayout(OperationalSIITextNormalizationMixin, TimestampedModel):
+    operational_text_fields = (
+        'form_code',
+        'title',
+        'medio_preferente',
+        'certification_ref',
+        'format_ref',
+        'instructions_ref',
+        'responsible_ref',
+        'hash_layout',
+    )
+
+    anio_tributario = models.PositiveSmallIntegerField()
+    form_code = models.CharField(max_length=16, default='F22')
+    title = models.CharField(max_length=180)
+    allows_local_preview = models.BooleanField(default=True)
+    allows_certified_file = models.BooleanField(default=False)
+    allows_supervised_portal = models.BooleanField(default=False)
+    medio_preferente = models.CharField(max_length=64, choices=MedioAnnualTaxF22Export.choices)
+    certification_ref = models.CharField(max_length=255, blank=True)
+    format_ref = models.CharField(max_length=255, blank=True)
+    instructions_ref = models.CharField(max_length=255, blank=True)
+    responsible_ref = models.CharField(max_length=255, blank=True)
+    official_certification_source = models.ForeignKey(
+        AnnualTaxOfficialSource,
+        on_delete=models.PROTECT,
+        related_name='f22_export_certification_layouts',
+        null=True,
+        blank=True,
+    )
+    official_instructions_source = models.ForeignKey(
+        AnnualTaxOfficialSource,
+        on_delete=models.PROTECT,
+        related_name='f22_export_instruction_layouts',
+        null=True,
+        blank=True,
+    )
+    warnings = models.JSONField(default=list, blank=True)
+    source_payload = models.JSONField(default=dict, blank=True)
+    hash_layout = models.CharField(max_length=64, blank=True)
+    estado = models.CharField(
+        max_length=16,
+        choices=EstadoAnnualTaxF22ExportLayout.choices,
+        default=EstadoAnnualTaxF22ExportLayout.DRAFT,
+    )
+
+    class Meta:
+        ordering = ['-anio_tributario', 'form_code']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['anio_tributario', 'form_code'],
+                name='uniq_annual_tax_f22_export_layout_form',
+            ),
+        ]
+
+    def __str__(self):
+        return f'F22 layout AT{self.anio_tributario}'
+
+    def compute_hash_layout(self):
+        return _payload_hash(_annual_tax_f22_export_layout_integrity_payload(self))
+
+    def _allowed_media(self):
+        media = set()
+        if self.allows_local_preview:
+            media.add(MedioAnnualTaxF22Export.LOCAL_PREVIEW)
+        if self.allows_certified_file:
+            media.add(MedioAnnualTaxF22Export.CERTIFIED_FILE)
+        if self.allows_supervised_portal:
+            media.add(MedioAnnualTaxF22Export.SUPERVISED_PORTAL)
+        return media
+
+    def _add_source_type_error(self, errors, field_name, allowed_types):
+        try:
+            source = getattr(self, field_name)
+        except ObjectDoesNotExist:
+            source = None
+        if source is None:
+            return
+        if source.source_type not in allowed_types:
+            errors[field_name] = 'AnnualTaxOfficialSource no corresponde al tipo de fuente requerido.'
+            return
+        if has_text(source.form_code) and source.form_code != self.form_code:
+            errors[field_name] = 'AnnualTaxOfficialSource no corresponde al formulario F22 del layout.'
+
+    def clean(self):
+        super().clean()
+        self.form_code = str(self.form_code or '').strip().upper()
+        self.hash_layout = _normalize_hash(self.hash_layout)
+        errors = {}
+        if self.anio_tributario < 2000:
+            errors['anio_tributario'] = 'anio_tributario debe ser un ano tributario valido.'
+        if self.form_code != 'F22':
+            errors['form_code'] = 'AnnualTaxF22ExportLayout solo admite form_code F22.'
+        _add_non_sensitive_reference_error(errors, self, 'certification_ref')
+        _add_non_sensitive_reference_error(errors, self, 'format_ref')
+        _add_non_sensitive_reference_error(errors, self, 'instructions_ref')
+        _add_non_sensitive_reference_error(errors, self, 'responsible_ref')
+        _add_non_sensitive_payload_error(errors, 'warnings', self.warnings)
+        _add_non_sensitive_payload_error(errors, 'source_payload', self.source_payload)
+        if self.warnings and not isinstance(self.warnings, list):
+            errors['warnings'] = 'warnings debe ser una lista JSON.'
+        if self.source_payload and not isinstance(self.source_payload, dict):
+            errors['source_payload'] = 'source_payload debe ser un objeto JSON.'
+        elif isinstance(self.source_payload, dict):
+            for key in (
+                'official_format',
+                'sii_submission',
+                'sii_submission_attempted',
+                'final_tax_calculation',
+            ):
+                if bool(self.source_payload.get(key)):
+                    errors['source_payload'] = 'AnnualTaxF22ExportLayout v1 no habilita formato oficial, envio SII ni calculo fiscal final.'
+                    break
+
+        allowed_media = self._allowed_media()
+        if self.medio_preferente and self.medio_preferente not in allowed_media:
+            errors['medio_preferente'] = 'medio_preferente debe estar permitido para F22.'
+
+        if has_text(self.hash_layout) and not _is_sha256(self.hash_layout):
+            errors['hash_layout'] = 'hash_layout debe ser SHA-256 hexadecimal de 64 caracteres.'
+        expected_hash = self.compute_hash_layout()
+        if self.hash_layout and self.hash_layout != expected_hash:
+            errors['hash_layout'] = 'hash_layout debe corresponder al layout F22 normalizado.'
+
+        if self.estado == EstadoAnnualTaxF22ExportLayout.PREPARED:
+            if not allowed_media:
+                errors['medio_preferente'] = 'Layout F22 preparado requiere al menos un medio habilitado.'
+            for field_name in (
+                'title',
+                'medio_preferente',
+                'certification_ref',
+                'format_ref',
+                'instructions_ref',
+                'responsible_ref',
+            ):
+                if not has_text(getattr(self, field_name)):
+                    errors[field_name] = f'Layout F22 preparado requiere {field_name}.'
+            if not self.source_payload:
+                errors['source_payload'] = 'Layout F22 preparado requiere source_payload trazable.'
+            if not has_text(self.hash_layout):
+                errors['hash_layout'] = 'Layout F22 preparado requiere hash_layout.'
+            _add_official_source_link_errors(
+                errors,
+                self,
+                'official_certification_source',
+                anio_tributario=self.anio_tributario,
+                applies_to=DestinoMapeoTributarioAnual.F22,
+            )
+            _add_official_source_link_errors(
+                errors,
+                self,
+                'official_instructions_source',
+                anio_tributario=self.anio_tributario,
+                applies_to=DestinoMapeoTributarioAnual.F22,
+            )
+            self._add_source_type_error(
+                errors,
+                'official_certification_source',
+                {TipoAnnualTaxOfficialSource.SII_F22_CERTIFICATION, TipoAnnualTaxOfficialSource.EXPERT_REVIEW},
+            )
+            self._add_source_type_error(
+                errors,
+                'official_instructions_source',
+                {TipoAnnualTaxOfficialSource.SII_F22_INSTRUCTIONS, TipoAnnualTaxOfficialSource.EXPERT_REVIEW},
             )
         if errors:
             raise ValidationError(errors)
@@ -3157,6 +3359,13 @@ class AnnualTaxExport(OperationalSIITextNormalizationMixin, TimestampedModel):
         on_delete=models.PROTECT,
         related_name='tax_exports',
     )
+    official_format_source = models.ForeignKey(
+        AnnualTaxOfficialSource,
+        on_delete=models.PROTECT,
+        related_name='annual_tax_exports',
+        null=True,
+        blank=True,
+    )
     anio_tributario = models.PositiveSmallIntegerField()
     anio_comercial = models.PositiveSmallIntegerField()
     export_kind = models.CharField(
@@ -3270,6 +3479,37 @@ class AnnualTaxExport(OperationalSIITextNormalizationMixin, TimestampedModel):
                 errors['artifact_matrix'] = 'AnnualTaxExport requiere AnnualTaxArtifactMatrix preparada.'
 
         try:
+            official_format_source = self.official_format_source
+        except ObjectDoesNotExist:
+            official_format_source = None
+        if official_format_source is not None:
+            _add_official_source_link_errors(
+                errors,
+                self,
+                'official_format_source',
+                anio_tributario=self.anio_tributario,
+                applies_to=DestinoMapeoTributarioAnual.F22,
+            )
+            if official_format_source.source_type not in {
+                TipoAnnualTaxOfficialSource.SII_F22_CERTIFICATION,
+                TipoAnnualTaxOfficialSource.EXPERT_REVIEW,
+            }:
+                errors['official_format_source'] = (
+                    'AnnualTaxOfficialSource no corresponde a formato/certificacion F22.'
+                )
+            if has_text(official_format_source.form_code) and official_format_source.form_code != 'F22':
+                errors['official_format_source'] = 'AnnualTaxOfficialSource debe corresponder a F22.'
+            source_metadata = official_format_source.metadata if isinstance(official_format_source.metadata, dict) else {}
+            if (
+                official_format_source.source_type == TipoAnnualTaxOfficialSource.EXPERT_REVIEW
+                and source_metadata.get('f22_export_format') is not True
+                and source_metadata.get('f22_certification') is not True
+            ):
+                errors['official_format_source'] = (
+                    'Revision experta F22 requiere metadata f22_export_format o f22_certification.'
+                )
+
+        try:
             dossier = self.dossier
         except ObjectDoesNotExist:
             dossier = None
@@ -3300,6 +3540,7 @@ class AnnualTaxExport(OperationalSIITextNormalizationMixin, TimestampedModel):
                 ('source_bundle_id', self.source_bundle_id),
                 ('rule_set_id', self.rule_set_id),
                 ('artifact_matrix_id', self.artifact_matrix_id),
+                ('official_format_source_id', self.official_format_source_id),
                 ('anio_tributario', self.anio_tributario),
                 ('anio_comercial', self.anio_comercial),
                 ('target_items_total', self.target_items_total),
