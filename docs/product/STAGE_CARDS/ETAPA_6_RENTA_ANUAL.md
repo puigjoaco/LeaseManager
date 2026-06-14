@@ -94,6 +94,11 @@ matriz DDJJ/F22 en un resumen hasheado con responsable y referencias no
 sensibles. El dossier conserva `final_tax_calculation=false` y
 `sii_submission=false`; sirve para revision experta/oficial antes de cualquier
 export o presentacion, no para que LeaseManager decida la renta final.
+`AnnualTaxExport` materializa el preview/export local controlado: empaqueta el
+dossier y la matriz DDJJ/F22 en un payload hasheado, con refs no sensibles,
+responsable, conteos DDJJ/F22 y flags obligatorios `official_format=false`,
+`sii_submission=false` y `final_tax_calculation=false`. Es una salida revisable
+del motor anual, no un formato oficial SII ni una presentacion.
 
 ## Gate
 
@@ -152,9 +157,17 @@ export o presentacion, no para que LeaseManager decida la renta final.
   `hash_dossier` alineados. Para tratar un proceso anual como trazable debe
   existir un dossier preparado y su resumen debe coincidir con
   `ProcesoRentaAnual.resumen_anual.annual_tax_dossiers`.
-- Un dossier con warnings, estado `requiere_revision` o `bloqueado` bloquea
-  readiness hasta revision tributaria responsable; no se convierte en export ni
-  presentacion SII por conveniencia.
+- Un dossier con warnings o estado `requiere_revision` puede alimentar un
+  export local de revision, pero bloquea readiness hasta revision tributaria
+  responsable; un dossier `bloqueado` no se convierte en export ni presentacion
+  SII por conveniencia.
+- `AnnualTaxExport` preparado requiere proceso anual, source bundle, rule set,
+  matriz DDJJ/F22 y dossier coherentes; refs no sensibles, responsable,
+  `export_ref`, payload exportable, `hash_export`, conteos DDJJ/F22 y resumen
+  en `ProcesoRentaAnual.resumen_anual.annual_tax_exports` alineados.
+- `AnnualTaxExport` bloquea readiness si falta, si esta desalineado, si contiene
+  refs/payloads sensibles, si hay revision pendiente o si intenta declarar
+  formato oficial SII, presentacion SII o calculo fiscal final autonomo.
 - `generate_annual_preparation()` sincroniza bienes raices/arriendos despues
   de RLI/CPT y registros empresariales, antes de emitir DDJJ/F22 locales. La
   readiness bloquea procesos trazables sin seccion inmobiliaria, sin items
@@ -168,6 +181,10 @@ export o presentacion, no para que LeaseManager decida la renta final.
   matriz DDJJ/F22 y antes de emitir DDJJ/F22 locales. La readiness bloquea
   procesos trazables sin dossier, con resumen desalineado, refs faltantes,
   invalidos o con revision pendiente.
+- `generate_annual_preparation()` sincroniza `AnnualTaxExport` despues de crear
+  DDJJ/F22 locales. La readiness bloquea procesos trazables sin export/preview
+  controlado, con resumen desalineado, invalidos, refs faltantes o cualquier
+  intento de presentacion/formato oficial/calculo final.
 - Responsable de revision anual trazado antes de tratar el paquete como
   aprobado.
 - Documentos generados desde datos trazables.
@@ -308,6 +325,9 @@ export o presentacion, no para que LeaseManager decida la renta final.
   responsable, dossier ref y payload anual redactados; el admin es solo lectura
   para preservar que el dossier proviene del motor anual y no de edicion manual
   opaca.
+- La API/snapshot/admin de SII exponen `AnnualTaxExport` con source,
+  responsable, export ref y payload anual redactados; el admin es solo lectura
+  y no existe endpoint para presentar a SII desde esta capa.
 
 ```powershell
 scripts\run-stage6-readiness-gate.ps1 -PythonExe backend\.venv\Scripts\python.exe
@@ -315,7 +335,8 @@ scripts\run-stage6-readiness-gate.ps1 -PythonExe backend\.venv\Scripts\python.ex
 
 ## Salida
 
-El dossier anual no queda aprobable si existen meses sin cierre validado,
-reglas fiscales sin respaldo o responsable de revision ausente. La renta anual
+El dossier y su export local no quedan aprobables si existen meses sin cierre
+validado, reglas fiscales sin respaldo, responsable de revision ausente,
+warnings pendientes o formato/certificacion SII no evidenciado. La renta anual
 final no se declara presentada por el core v1; `SII.PresentacionAnualFinal`
 sigue podada salvo reemision formal del set activo.

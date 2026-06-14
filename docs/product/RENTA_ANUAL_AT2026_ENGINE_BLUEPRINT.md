@@ -159,6 +159,14 @@ contratos:
    readiness bloquea si falta dossier, si el resumen esta desalineado, si falta
    responsable o si existen warnings/revision pendiente.
 9. `stage6-export-gate`: export/preview, sin presentacion final automatica.
+   Implementado como `AnnualTaxExport`: genera un paquete local controlado
+   desde `AnnualTaxDossier`, source bundle, rule set y matriz DDJJ/F22, con
+   payload hasheado, refs no sensibles, conteos DDJJ/F22 y flags obligatorios
+   `official_format=false`, `sii_submission=false` y
+   `final_tax_calculation=false`. API/snapshot/admin redactan refs/payloads y
+   readiness bloquea si falta export, si el resumen esta desalineado, si hay
+   revision pendiente o si intenta declarar formato oficial/presentacion/calculo
+   final.
 
 ## Validaciones necesarias
 
@@ -184,7 +192,10 @@ contratos:
 | Item matriz con warning/bloqueo | fuente anual requiere revision tributaria antes de package/export |
 | Dossier anual faltante | proceso anual trazable sin `AnnualTaxDossier` preparado |
 | Resumen dossier desalineado | hash, conteos, matriz o ids del proceso no coinciden con el dossier vigente |
-| Dossier con revision pendiente | warnings, estado `requiere_revision` o `bloqueado` antes de package/export |
+| Dossier con revision pendiente | warnings o estado `requiere_revision` bloquean cierre/presentacion aunque permitan export local de revision; estado `bloqueado` impide export |
+| Export anual faltante | proceso anual trazable sin `AnnualTaxExport` preparado |
+| Resumen export desalineado | hash, dossier, conteos, flags o ids del proceso no coinciden con el export vigente |
+| Export fuera de boundary | intento de marcar formato oficial SII, presentacion SII o calculo final autonomo |
 | Responsable ausente | DDJJ/F22/dossier avanzado sin `responsable_revision_ref` |
 | Refs sensibles | URLs, tokens, correos, certificados o claves en refs/payloads |
 | Presentacion sin gate | intento de marcar presentado sin formato SII, autorizacion y evidencia |

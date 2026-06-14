@@ -498,6 +498,16 @@ class EstadoAnnualTaxDossier(models.TextChoices):
     RETIRED = 'retirado', 'Retirado'
 
 
+class EstadoAnnualTaxExport(models.TextChoices):
+    DRAFT = 'borrador', 'Borrador'
+    PREPARED = 'preparado', 'Preparado'
+    RETIRED = 'retirado', 'Retirado'
+
+
+class TipoAnnualTaxExport(models.TextChoices):
+    PREVIEW_PACKAGE = 'preview_package', 'Preview package'
+
+
 class TipoAnnualTaxArtifactTarget(models.TextChoices):
     DDJJ = 'DDJJ', 'DDJJ'
     F22 = 'F22', 'F22'
@@ -2238,6 +2248,244 @@ class AnnualTaxDossier(OperationalSIITextNormalizationMixin, TimestampedModel):
                 errors['resumen_dossier'] = 'AnnualTaxDossier preparado requiere resumen_dossier.'
             if not has_text(self.hash_dossier):
                 errors['hash_dossier'] = 'AnnualTaxDossier preparado requiere hash_dossier.'
+        if errors:
+            raise ValidationError(errors)
+
+
+class AnnualTaxExport(OperationalSIITextNormalizationMixin, TimestampedModel):
+    operational_text_fields = (
+        'source_ref',
+        'responsible_ref',
+        'export_ref',
+        'hash_export',
+    )
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.PROTECT,
+        related_name='annual_tax_exports',
+    )
+    proceso_renta_anual = models.ForeignKey(
+        'sii.ProcesoRentaAnual',
+        on_delete=models.PROTECT,
+        related_name='tax_exports',
+    )
+    dossier = models.ForeignKey(
+        AnnualTaxDossier,
+        on_delete=models.PROTECT,
+        related_name='tax_exports',
+    )
+    source_bundle = models.ForeignKey(
+        AnnualTaxSourceBundle,
+        on_delete=models.PROTECT,
+        related_name='tax_exports',
+    )
+    rule_set = models.ForeignKey(
+        TaxYearRuleSet,
+        on_delete=models.PROTECT,
+        related_name='tax_exports',
+    )
+    artifact_matrix = models.ForeignKey(
+        AnnualTaxArtifactMatrix,
+        on_delete=models.PROTECT,
+        related_name='tax_exports',
+    )
+    anio_tributario = models.PositiveSmallIntegerField()
+    anio_comercial = models.PositiveSmallIntegerField()
+    export_kind = models.CharField(
+        max_length=32,
+        choices=TipoAnnualTaxExport.choices,
+        default=TipoAnnualTaxExport.PREVIEW_PACKAGE,
+    )
+    source_ref = models.CharField(max_length=255, blank=True)
+    responsible_ref = models.CharField(max_length=255, blank=True)
+    export_ref = models.CharField(max_length=255, blank=True)
+    review_state = models.CharField(
+        max_length=24,
+        choices=EstadoAnnualTaxArtifactReview.choices,
+        default=EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW,
+    )
+    target_items_total = models.PositiveIntegerField(default=0)
+    ddjj_items_total = models.PositiveIntegerField(default=0)
+    f22_items_total = models.PositiveIntegerField(default=0)
+    warnings_total = models.PositiveIntegerField(default=0)
+    official_format = models.BooleanField(default=False)
+    sii_submission = models.BooleanField(default=False)
+    final_tax_calculation = models.BooleanField(default=False)
+    export_payload = models.JSONField(default=dict, blank=True)
+    hash_export = models.CharField(max_length=64, blank=True)
+    estado = models.CharField(
+        max_length=16,
+        choices=EstadoAnnualTaxExport.choices,
+        default=EstadoAnnualTaxExport.DRAFT,
+    )
+
+    class Meta:
+        ordering = ['empresa_id', '-anio_tributario', 'export_kind', 'id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['proceso_renta_anual', 'export_kind'],
+                name='uniq_annual_tax_export_process_kind',
+            ),
+        ]
+
+    def __str__(self):
+        return f'Export renta {self.empresa_id} AT{self.anio_tributario} {self.export_kind}'
+
+    def clean(self):
+        super().clean()
+        self.hash_export = _normalize_hash(self.hash_export)
+        errors = {}
+        expected_commercial_year = self.anio_tributario - 1
+        if self.anio_comercial != expected_commercial_year:
+            errors['anio_comercial'] = (
+                f'anio_comercial debe ser {expected_commercial_year} para AT{self.anio_tributario}.'
+            )
+        _add_non_sensitive_reference_error(errors, self, 'source_ref')
+        _add_non_sensitive_reference_error(errors, self, 'responsible_ref')
+        _add_non_sensitive_reference_error(errors, self, 'export_ref')
+        _add_non_sensitive_payload_error(errors, 'export_payload', self.export_payload)
+        if has_text(self.hash_export) and not _is_sha256(self.hash_export):
+            errors['hash_export'] = 'hash_export debe ser SHA-256 hexadecimal de 64 caracteres.'
+        if self.ddjj_items_total + self.f22_items_total != self.target_items_total:
+            errors['target_items_total'] = 'target_items_total debe coincidir con la suma de DDJJ y F22.'
+        if self.official_format:
+            errors['official_format'] = 'AnnualTaxExport v1 no declara formato oficial SII.'
+        if self.sii_submission:
+            errors['sii_submission'] = 'AnnualTaxExport v1 no registra presentacion SII.'
+        if self.final_tax_calculation:
+            errors['final_tax_calculation'] = 'AnnualTaxExport v1 no declara calculo fiscal final.'
+
+        try:
+            process = self.proceso_renta_anual
+        except ObjectDoesNotExist:
+            process = None
+        if process is not None:
+            if process.empresa_id != self.empresa_id:
+                errors['proceso_renta_anual'] = 'El proceso anual debe pertenecer a la misma empresa del export.'
+            elif process.anio_tributario != self.anio_tributario:
+                errors['proceso_renta_anual'] = 'El proceso anual debe corresponder al mismo anio_tributario.'
+            if process.source_bundle_id and process.source_bundle_id != self.source_bundle_id:
+                errors['source_bundle'] = 'El export debe usar el mismo AnnualTaxSourceBundle del proceso anual.'
+
+        try:
+            source_bundle = self.source_bundle
+        except ObjectDoesNotExist:
+            source_bundle = None
+        if source_bundle is not None:
+            if source_bundle.empresa_id != self.empresa_id:
+                errors['source_bundle'] = 'AnnualTaxSourceBundle debe pertenecer a la misma empresa del export.'
+            elif source_bundle.anio_tributario != self.anio_tributario:
+                errors['source_bundle'] = 'AnnualTaxSourceBundle debe corresponder al mismo anio_tributario.'
+            elif source_bundle.estado != EstadoAnnualTaxSourceBundle.FROZEN:
+                errors['source_bundle'] = 'AnnualTaxExport requiere AnnualTaxSourceBundle congelado.'
+
+        try:
+            rule_set = self.rule_set
+        except ObjectDoesNotExist:
+            rule_set = None
+        if rule_set is not None:
+            if rule_set.anio_tributario != self.anio_tributario:
+                errors['rule_set'] = 'TaxYearRuleSet debe corresponder al mismo anio_tributario del export.'
+            elif rule_set.estado != EstadoReglaTributariaAnual.APPROVED:
+                errors['rule_set'] = 'AnnualTaxExport requiere TaxYearRuleSet aprobado.'
+
+        try:
+            artifact_matrix = self.artifact_matrix
+        except ObjectDoesNotExist:
+            artifact_matrix = None
+        if artifact_matrix is not None:
+            if artifact_matrix.empresa_id != self.empresa_id:
+                errors['artifact_matrix'] = 'AnnualTaxArtifactMatrix debe pertenecer a la misma empresa del export.'
+            elif artifact_matrix.proceso_renta_anual_id != self.proceso_renta_anual_id:
+                errors['artifact_matrix'] = 'AnnualTaxArtifactMatrix debe corresponder al mismo proceso anual.'
+            elif artifact_matrix.estado != EstadoAnnualTaxArtifactMatrix.PREPARED:
+                errors['artifact_matrix'] = 'AnnualTaxExport requiere AnnualTaxArtifactMatrix preparada.'
+
+        try:
+            dossier = self.dossier
+        except ObjectDoesNotExist:
+            dossier = None
+        if dossier is not None:
+            if dossier.empresa_id != self.empresa_id:
+                errors['dossier'] = 'AnnualTaxDossier debe pertenecer a la misma empresa del export.'
+            elif dossier.proceso_renta_anual_id != self.proceso_renta_anual_id:
+                errors['dossier'] = 'AnnualTaxDossier debe corresponder al mismo proceso anual.'
+            elif dossier.anio_tributario != self.anio_tributario:
+                errors['dossier'] = 'AnnualTaxDossier debe corresponder al mismo anio_tributario.'
+            elif dossier.source_bundle_id != self.source_bundle_id:
+                errors['source_bundle'] = 'AnnualTaxExport debe usar la misma fuente congelada del dossier.'
+            elif dossier.rule_set_id != self.rule_set_id:
+                errors['rule_set'] = 'AnnualTaxExport debe usar el mismo TaxYearRuleSet del dossier.'
+            elif dossier.artifact_matrix_id != self.artifact_matrix_id:
+                errors['artifact_matrix'] = 'AnnualTaxExport debe usar la misma matriz DDJJ/F22 del dossier.'
+            elif dossier.estado != EstadoAnnualTaxDossier.PREPARED:
+                errors['dossier'] = 'AnnualTaxExport requiere AnnualTaxDossier preparado.'
+            elif dossier.review_state == EstadoAnnualTaxArtifactReview.BLOCKED:
+                errors['dossier'] = 'AnnualTaxExport no puede generarse desde un dossier bloqueado.'
+
+        if isinstance(self.export_payload, dict):
+            identity_errors = []
+            for key, expected in (
+                ('empresa_id', self.empresa_id),
+                ('proceso_renta_anual_id', self.proceso_renta_anual_id),
+                ('dossier_id', self.dossier_id),
+                ('source_bundle_id', self.source_bundle_id),
+                ('rule_set_id', self.rule_set_id),
+                ('artifact_matrix_id', self.artifact_matrix_id),
+                ('anio_tributario', self.anio_tributario),
+                ('anio_comercial', self.anio_comercial),
+                ('target_items_total', self.target_items_total),
+                ('ddjj_items_total', self.ddjj_items_total),
+                ('f22_items_total', self.f22_items_total),
+                ('warnings_total', self.warnings_total),
+            ):
+                value = self.export_payload.get(key)
+                if value is None:
+                    continue
+                try:
+                    matches = int(value) == int(expected)
+                except (TypeError, ValueError):
+                    matches = False
+                if not matches:
+                    identity_errors.append(key)
+            if identity_errors:
+                errors['export_payload'] = (
+                    'export_payload debe coincidir con empresa, proceso, fuente, regla, matriz, dossier, anio y totales.'
+                )
+            for key, expected in (
+                ('export_kind', self.export_kind),
+                ('review_state', self.review_state),
+                ('official_format', self.official_format),
+                ('sii_submission', self.sii_submission),
+                ('final_tax_calculation', self.final_tax_calculation),
+            ):
+                if key in self.export_payload and self.export_payload.get(key) != expected:
+                    errors['export_payload'] = 'export_payload debe coincidir con estado, tipo y flags de gate.'
+            if self.export_payload.get('sii_submission_attempted'):
+                errors['export_payload'] = 'AnnualTaxExport v1 no registra intentos de presentacion SII.'
+            expected_hash = _payload_hash(self.export_payload)
+            if self.hash_export and self.hash_export != expected_hash:
+                errors['hash_export'] = 'hash_export debe corresponder al export_payload.'
+        elif self.export_payload:
+            errors['export_payload'] = 'export_payload debe ser un objeto JSON.'
+
+        if self.estado == EstadoAnnualTaxExport.PREPARED:
+            _add_active_fiscal_config_error(errors, self, 'AnnualTaxExport')
+            if not has_text(self.source_ref):
+                errors['source_ref'] = 'AnnualTaxExport preparado requiere source_ref no sensible.'
+            if not has_text(self.responsible_ref):
+                errors['responsible_ref'] = 'AnnualTaxExport preparado requiere responsible_ref no sensible.'
+            if not has_text(self.export_ref):
+                errors['export_ref'] = 'AnnualTaxExport preparado requiere export_ref no sensible.'
+            if self.review_state == EstadoAnnualTaxArtifactReview.BLOCKED:
+                errors['review_state'] = 'AnnualTaxExport preparado no puede quedar bloqueado.'
+            if not self.export_payload:
+                errors['export_payload'] = 'AnnualTaxExport preparado requiere export_payload.'
+            if not has_text(self.hash_export):
+                errors['hash_export'] = 'AnnualTaxExport preparado requiere hash_export.'
+            if self.target_items_total <= 0:
+                errors['target_items_total'] = 'AnnualTaxExport preparado requiere items DDJJ/F22 trazables.'
         if errors:
             raise ValidationError(errors)
 
