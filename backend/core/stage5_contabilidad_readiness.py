@@ -221,6 +221,22 @@ def _count_approved_closes_without_company_liquidation(approved_closes) -> int:
     return missing
 
 
+def _count_approved_closes_without_approval_context(approved_closes) -> int:
+    missing = 0
+    for close in approved_closes:
+        context = (close.resumen_obligaciones or {}).get('liquidacion_mensual')
+        if not isinstance(context, dict):
+            missing += 1
+            continue
+        if (
+            not context.get('id')
+            or not has_text(context.get('responsable_ref'))
+            or not has_text(context.get('evidencia_base_ref'))
+        ):
+            missing += 1
+    return missing
+
+
 def _count_required_admin_fee_line_missing(liquidations) -> int:
     missing = 0
     for liquidation in liquidations:
@@ -410,6 +426,7 @@ def collect_stage5_contabilidad_readiness(
     invalid_liquidations = _count_invalid(liquidations)
     invalid_liquidation_lines = _count_invalid(liquidation_lines)
     approved_closes_without_company_liquidation = _count_approved_closes_without_company_liquidation(approved_closes)
+    approved_closes_without_approval_context = _count_approved_closes_without_approval_context(approved_closes)
     required_admin_fee_line_missing = _count_required_admin_fee_line_missing(prepared_or_approved_liquidations)
     final_balance_line_issues = _count_final_balance_line_issues(prepared_or_approved_liquidations)
     prepared_economic_lines_without_event = _count_prepared_economic_lines_without_event(liquidation_lines)
@@ -739,6 +756,14 @@ def collect_stage5_contabilidad_readiness(
                 count=approved_closes_without_company_liquidation,
             )
         )
+    if approved_closes_without_approval_context:
+        issues.append(
+            _issue(
+                'stage5.close_approval_context_missing',
+                'Existen cierres aprobados sin responsable/evidencia de liquidacion en el resumen del cierre.',
+                count=approved_closes_without_approval_context,
+            )
+        )
     if invalid_liquidations:
         issues.append(
             _issue(
@@ -939,6 +964,7 @@ def collect_stage5_contabilidad_readiness(
                 'reopened_closes': reopened_closes.count(),
                 'monthly_close_reopen_policies_active': monthly_close_reopen_policies.count(),
                 'approved_closes_without_reopen_policy': approved_closes_without_reopen_policy,
+                'approved_closes_without_approval_context': approved_closes_without_approval_context,
                 'reopen_effects_total': reopen_effects.count(),
                 'reopened_closes_without_effect': reopened_closes_without_effect,
                 'reopen_effects_without_posted_event': reopen_effects_without_posted_event,

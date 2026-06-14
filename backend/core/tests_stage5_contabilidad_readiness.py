@@ -50,6 +50,7 @@ from contabilidad.models import (
 )
 from contabilidad.services import (
     MONTHLY_CLOSE_REOPEN_POLICY_TYPE,
+    build_monthly_close_liquidation_context,
     create_internal_transfer_events,
     ensure_default_regime,
 )
@@ -345,7 +346,12 @@ class Stage5ContabilidadReadinessTests(TestCase):
                 },
             },
         )
-        self._create_company_liquidation(empresa, close)
+        liquidation = self._create_company_liquidation(empresa, close)
+        close.resumen_obligaciones = {
+            **close.resumen_obligaciones,
+            'liquidacion_mensual': build_monthly_close_liquidation_context(liquidation),
+        }
+        close.save(update_fields=['resumen_obligaciones', 'updated_at'])
         return close
 
     def _create_company_liquidation(self, empresa, close, *, admin_fee=True):
@@ -484,6 +490,23 @@ class Stage5ContabilidadReadinessTests(TestCase):
         self.assertIn('stage5.liquidation_missing_for_approved_close', issue_codes)
         self.assertIn('stage5.liquidation_invalid', issue_codes)
         self.assertEqual(result['sections']['liquidations']['approved_closes_without_company_liquidation'], 1)
+
+    def test_approved_close_without_approval_context_is_blocking(self):
+        self._create_valid_local_matrix()
+        close = CierreMensualContable.objects.get(anio=2026, mes=1)
+        close.resumen_obligaciones = {
+            key: value
+            for key, value in close.resumen_obligaciones.items()
+            if key != 'liquidacion_mensual'
+        }
+        close.save(update_fields=['resumen_obligaciones', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage5_contabilidad'])
+        self.assertIn('stage5.close_approval_context_missing', issue_codes)
+        self.assertEqual(result['sections']['monthly_close']['approved_closes_without_approval_context'], 1)
 
     def test_liquidation_admin_fee_line_required_when_applicable(self):
         self._create_valid_local_matrix()

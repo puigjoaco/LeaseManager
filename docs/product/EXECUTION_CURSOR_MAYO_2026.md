@@ -22,17 +22,17 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto tras cerrar el paquete Etapa 4 SII - responsable de revision para F29 mensual. |
-| Fuente exacta | `main` debe quedar limpio tras el merge del paquete; PRD vigente, stage cards 4/5/6/7 y matriz de trazabilidad fijan contabilidad/tributacion asistida con responsable trazado antes de estados avanzados. |
+| Frente activo | Sin paquete tactico abierto tras cerrar Etapa 5 - contexto responsable/evidencial en aprobacion de cierre mensual. |
+| Fuente exacta | `main` debe quedar limpio tras el merge del paquete; PRD vigente y stage card Etapa 5 fijan contabilidad asistida con aprobacion responsable, sin decision contable autonoma. |
 | Brecha activa | Ninguna brecha tactica abierta en este cursor. |
-| Motivo de prioridad | Evitar que reanudaciones o compactaciones reabran el paquete F29 ya implementado: F29 mensual avanzado conserva responsable no sensible y no existe accion ciega de estado sin responsable. |
+| Motivo de prioridad | Evitar que reanudaciones reabran el paquete ya implementado: cierres mensuales aprobados conservan responsable/evidencia no sensible de la liquidacion en resumen y auditoria. |
 | Worktree | N/A tras limpieza del paquete. |
 | Rama | `main` tras merge y limpieza. |
-| Estado | Paquete Etapa 4 F29 responsable implementado, validado localmente y documentado; no declarar cierre de Etapa 4 sin fuente `snapshot_controlado` o `real_autorizado`, ambiente SII/regla fiscal autorizada y evidencia final. |
-| Gate esperado | Para el siguiente paquete, repetir protocolo: diagnosticar desde repo limpio, elegir el siguiente frente seguro por trazabilidad, usar worktree `codex/...`, validar proporcionalmente, actualizar evidencia/trazabilidad si aplica y cerrar con PR/CI/merge/limpieza. |
-| Estado al cerrar paquete | F29 mensual en estados aprobados, observados o rectificados exige `borrador_ref` y `responsable_revision_ref` no sensibles en dominio/API/backoffice/readiness; snapshots/admin/API redactan refs sensibles. |
-| Bloqueos relacionados | Etapa 4/6 no cierran sin ambiente SII real/controlado, validacion oficial/experta, fuente `snapshot_controlado` o `real_autorizado` y evidencia final. Es condicion de cierre, no freno para preparar siguientes paquetes locales. |
-| Politica de reanudacion | No reabrir el paquete F29 ni redactar goals. Si `main` esta limpio, seleccionar el siguiente frente seguro desde AGENTS, PRD, matriz, stage cards y evidencia. No pedir `.env`, certificados SII ni datos reales salvo solicitud concreta del usuario. |
+| Estado | Paquete Etapa 5 approval context implementado, validado localmente y documentado; no declarar cierre de Etapa 5 sin Conciliacion cerrada, fuente `snapshot_controlado` o `real_autorizado`, ledger/reportes controlados y responsables finales. |
+| Gate esperado | Para el siguiente paquete, repetir protocolo: diagnosticar desde repo limpio, elegir siguiente frente seguro por trazabilidad, usar worktree `codex/...`, validar proporcionalmente, actualizar evidencia/trazabilidad si aplica y cerrar con PR/CI/merge/limpieza. |
+| Estado al cerrar paquete | `approve_monthly_close()` conserva contexto de `LiquidacionMensual` en `resumen_obligaciones`; la API audita `approved` y `state_changed` con transicion y contexto redactable; readiness detecta cierres heredados sin responsable/evidencia de aprobacion. |
+| Bloqueos relacionados | Etapa 5 no cierra sin Conciliacion cerrada, fuente `snapshot_controlado` o `real_autorizado`, ledger/reportes controlados y responsables finales. Es condicion de cierre, no freno para preparar siguientes paquetes locales. |
+| Politica de reanudacion | No reabrir este paquete ni redactar goals. Si `main` esta limpio, seleccionar el siguiente frente seguro desde AGENTS, PRD, matriz, stage cards y evidencia. No abrir ni usar el worktree externo con PDFs tributarios reales sin solicitud concreta del usuario. |
 | Siguiente accion | Tras merge y limpieza, continuar con el siguiente frente local seguro segun orden y trazabilidad vigentes. |
 
 ## Actualizacion

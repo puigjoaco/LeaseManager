@@ -49,6 +49,14 @@ sensibles. La UI reemplaza la accion ciega de estado F29 por un formulario de
 revision con responsable, reforzando que LeaseManager prepara formularios
 revisables y no presenta ni aprueba tributacion mensual de forma autonoma.
 
+Nota 2026-06-13: Etapa 5 conserva contexto de aprobacion responsable en cierres
+mensuales. `approve_monthly_close()` ya no deja el cierre con solo id/estado de
+liquidacion: el resumen y los eventos `approved`/`state_changed` conservan
+responsable y evidencia base no sensibles de la `LiquidacionMensual` que
+soporta la aprobacion. `audit_stage5_contabilidad_readiness` bloquea snapshots
+heredados donde el cierre aprobado perdio ese contexto, manteniendo el paquete
+mensual apto para revision humana o IA supervisada.
+
 Nota 2026-06-13: Reporting/Etapa 7 cubre en API los bloqueos de
 `ProcesoRentaAnual.borrador_f22_ref` faltante o sensible para procesos anuales
 finales. `_assert_annual_tax_traceability()` devuelve
