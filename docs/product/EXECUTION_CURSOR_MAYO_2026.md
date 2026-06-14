@@ -22,15 +22,15 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Cerrar `stage6-rule-source-link`. |
-| Fuente exacta | Rama tactica `codex/stage6-rule-source-link` basada en `main` `e7812000` posterior a PR #831. |
-| Brecha activa | `stage6-rule-source-link`: enlazar `TaxYearRuleSet` y `TaxCodeMapping` con `AnnualTaxOfficialSource` revisada/aprobada para que reglas y mappings locales DJ1847/RLI/CPT/DDJJ/F22 tengan respaldo oficial/experto trazable. |
-| Motivo de prioridad | El registro de fuentes ya existe. Falta que reglas aprobadas y mappings activos no puedan quedar como texto libre sin fuente AT compatible, manteniendo Renta Anual como preparacion supervisada y no como declaracion autonoma. |
-| Worktree | `D:/Proyectos/LeaseManager-stage6-rule-source-link` durante el paquete; tras merge debe eliminarse. |
-| Rama | `codex/stage6-rule-source-link` durante el paquete; `main` tras merge. |
-| Estado | Validacion local completa: modelo/API/snapshot/admin/readiness/tests enlazan reglas y mappings a `AnnualTaxOfficialSource`; falta PR, CI, merge y limpieza. |
+| Frente activo | Cerrar `stage6-demo-official-sources`. |
+| Fuente exacta | Rama tactica `codex/stage6-demo-official-sources` basada en `main` `84db9c1b` posterior a PR #832. |
+| Brecha activa | `stage6-demo-official-sources`: alinear `bootstrap_demo_tax_annual_flow` con el gate vigente para que reglas y mappings demo de Renta Anual se creen con `AnnualTaxOfficialSource` aprobada y compatible. |
+| Motivo de prioridad | PR #832 endurecio correctamente reglas/mappings aprobados. El bootstrap demo aun podia generar parametria anual sin fuente oficial/experta, dejando datos locales contradictorios con readiness y con el boundary de preparacion supervisada. |
+| Worktree | `D:/Proyectos/LeaseManager-stage6-demo-official-sources` durante el paquete; tras merge debe eliminarse. |
+| Rama | `codex/stage6-demo-official-sources` durante el paquete; `main` tras merge. |
+| Estado | Validacion local completa: comando demo, prueba focal, suite impactada, gate Stage 6, frontend y acceptance pasaron; falta PR, CI, merge y limpieza. |
 | Gate esperado | Mantener `classification=parcial`; no cerrar presentacion anual sin fuente autorizada, formato/certificacion SII vigente, validacion fiscal/oficial, responsable y evidencia no sensible. |
-| Estado al cerrar paquete | `stage6-rule-source-link` cerrado. Reglas y mappings anuales quedan respaldados por fuente oficial/experta compatible, sin habilitar presentacion SII ni calculo final autonomo. |
+| Estado al cerrar paquete | `stage6-demo-official-sources` cerrado. El flujo demo anual queda idempotente y compatible con `AnnualTaxOfficialSource`, sin habilitar presentacion SII ni calculo final autonomo. |
 | Bloqueos relacionados | Presentacion F22/DDJJ final sigue bloqueada sin formato/certificacion SII vigente, responsable, autorizacion explicita y evidencia no sensible. Reglas tributarias finales, contribuciones y mapping RLI/CPT/DJ/F22 requieren fuente oficial/experta. |
 | Politica de reanudacion | No reabrir EDIG ni goal prompts. Si no hay worktree sucio, continuar por el siguiente frente util que no requiera datos reales, secretos, presentacion SII ni decision tributaria final autonoma. |
 | Siguiente accion | Abrir PR, esperar CI, mergear y limpiar. Luego escoger el siguiente frente Stage 6/7 no sensible segun trazabilidad vigente. |
