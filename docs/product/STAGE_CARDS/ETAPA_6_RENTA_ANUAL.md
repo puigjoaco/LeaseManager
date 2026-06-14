@@ -16,6 +16,20 @@ responsable trazado y gate aplicable.
 - Validaciones tributarias.
 - Checklist de revision experta/oficial.
 
+## Referencia EDIG AT2026
+
+`docs/product/RENTA_ANUAL_EDIG_AT2026_MAPPING.md` registra la investigacion
+local del software EDIG AT2026 como referencia funcional no normativa. El
+aprendizaje aceptado para LeaseManager es que renta anual se automatiza mediante
+una capa tributaria intermedia: cierres, ledger, F29/PPM, patrimonio, socios,
+arriendos, contribuciones y certificados se transforman primero en RLI, CPT,
+RAI, SAC, DDJJ y respaldos; recien despues se mapean a F22/export.
+
+EDIG no autoriza reglas fiscales propias, formatos SII finales ni presentacion
+automatica. Cualquier ejecucion de EDIG solo puede ocurrir en la VM/sandbox
+descrita en `docs/operations/EDIG_AT2026_SANDBOX_RUNBOOK.md`, con datos
+ficticios, red controlada y sin credenciales reales.
+
 ## Gate
 
 - Cierres mensuales completos.
@@ -104,6 +118,10 @@ responsable trazado y gate aplicable.
   SQLite efimero bajo `local-evidence/`, no conecta SII, no lee `.env`, no usa
   certificados y reserva `-RequireReady` para fuentes autorizadas con refs
   trazables de Etapa 5, Etapa 4 SII, regla fiscal, certificados y responsable.
+- El mapeo anual automatizable debe declarar explicitamente su fuente: dato
+  LeaseManager, cierre, ledger, F29/PPM, certificado, regla AT, DDJJ o decision
+  responsable. Ningun codigo F22/DDJJ queda automatizado solo por inferencia de
+  EDIG o por coincidencia visual de plantilla.
 
 ```powershell
 scripts\run-stage6-readiness-gate.ps1 -PythonExe backend\.venv\Scripts\python.exe

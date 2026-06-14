@@ -14,6 +14,15 @@ decide ni presenta renta/tributacion final de forma autonoma. La aprobacion o
 presentacion externa exige gate aplicable, responsable trazado y validacion
 experta/oficial cuando corresponda.
 
+Nota 2026-06-13: La investigacion local de EDIG AT2026 queda mapeada como
+referencia funcional no normativa en
+`docs/product/RENTA_ANUAL_EDIG_AT2026_MAPPING.md`, con runbook de sandbox en
+`docs/operations/EDIG_AT2026_SANDBOX_RUNBOOK.md` y script read-only
+`scripts/analyze-edig-at2026.ps1`. La decision tecnica para Etapa 6 es unir
+contabilidad y renta mediante una capa intermedia anual RLI/CPT/RAI/SAC/DDJJ,
+no por traspaso directo de asientos a F22 ni por IA autonoma. EDIG queda
+ignorado por Git y no abre gate SII.
+
 Nota 2026-06-13: Etapa 6/7 convierten el boundary asistido en enforcement
 local para artefactos anuales. `ProcesoRentaAnual`, DDJJ y F22 en estados
 aprobados, observados, rectificados o presentados requieren
