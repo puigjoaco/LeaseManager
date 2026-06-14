@@ -90,9 +90,10 @@ tener fuente SII/experta, responsable y evidencia no sensible.
 | `TaxYearRuleSet` | Versionar reglas por AT/regimen | fuente oficial/experta enlazada, hashes, vigencia | reglas aprobadas/condicionadas | no se aprueba sin `AnnualTaxOfficialSource` revisada/aprobada |
 | `AnnualTaxProfile` | Fijar empresa/regimen/responsable | empresa, configuracion fiscal, representante | perfil anual | configuracion fiscal activa |
 | `MonthlyTaxFact` | Normalizar hechos mensuales | F29, cierre mensual, liquidaciones, pagos | base mensual anualizable con hash | cierre aprobado y refs no sensibles |
+| `AnnualTaxTrialBalance` | Preparar balance anual de ocho columnas | `BalanceComprobacion` aprobado, fuente oficial/experta y rule set | lineas por cuenta con clasificador, sumas, saldos, inventario, resultado y hash | balance de diciembre aprobado, refs no sensibles y revision de warnings |
 | `AnnualTaxNormalizer` | Transformar fuentes a registros intermedios | source bundle + rule set | RLI, CPT, RAI, SAC, DDJJ base | no calcula sin rule set vigente |
-| `AnnualTaxWorkbook` RLI | Determinar lineas RLI trazadas | `TaxCodeMapping` + `MonthlyTaxFact` | lineas RLI, hashes, warnings | origen y fuente por linea |
-| `AnnualTaxWorkbook` CPT | Determinar capital propio tributario preparatorio | `TaxCodeMapping` + `MonthlyTaxFact` | lineas CPT, hashes y warnings | no cerrar con warnings |
+| `AnnualTaxWorkbook` RLI | Determinar lineas RLI trazadas | `TaxCodeMapping`, `MonthlyTaxFact` y `AnnualTaxTrialBalance` cuando aplica | lineas RLI, hashes, warnings | origen y fuente por linea |
+| `AnnualTaxWorkbook` CPT | Determinar capital propio tributario preparatorio | `TaxCodeMapping`, `MonthlyTaxFact` y `AnnualTaxTrialBalance` cuando aplica | lineas CPT, hashes y warnings | no cerrar con warnings |
 | `AnnualEnterpriseRegisterSet` | Construir RAI/SAC/retiros/dividendos | RLI/CPT/socios/movimientos | registros empresariales | saldos iniciales y movimientos trazados |
 | `AnnualRealEstateSection` / `AnnualRealEstateItem` | Normalizar bienes raices/arriendos | propiedades, contratos, pagos, distribuciones y contribuciones | seccion anual, items por propiedad y respaldo | fuente SII/experta para codigos y contribuciones |
 | `AnnualTaxArtifactMatrix` / `AnnualTaxArtifactMatrixItem` | Conectar fuentes anuales con DDJJ/F22 revisables | source bundle, rule set, config fiscal, resumen anual, RLI/CPT, registros y bienes raices | matriz por destino, medio, fuente, responsable, warnings y hash | items DDJJ/F22 activos y sin warnings pendientes |
@@ -110,6 +111,7 @@ contratos:
 | --- | --- | --- |
 | Fuente anual | `anio_tributario`, `anio_comercial`, `empresa`, `source_kind`, `source_label`, `authorization_ref`, `hash_fuentes` | probar origen y alcance |
 | Regla AT | `anio_tributario`, `regimen`, `version`, `fuente_ref`, `official_source`, `estado`, `hash_normativo` | evitar reglas implicitas |
+| Balance anual | `codigo_cuenta`, `clasificador_dj1847`, ocho columnas CLP, `formula_ref`, `evidencia_ref`, `source_payload`, `hash_linea` | separar preparacion contable anual de decision tributaria final |
 | Linea normalizada | `codigo_interno`, `origen`, `monto`, `signo`, `formula_ref`, `evidencia_ref`, `official_source`, `warnings` | trazabilidad de cada monto |
 | Registro empresarial | `tipo_registro`, `saldo_inicial`, `movimientos`, `saldo_final`, `fuente_saldo` | RAI/SAC no puede inventar saldos |
 | Paquete DDJJ | `formulario`, `medio_sii`, `periodo`, `registros`, `responsable_revision_ref`, `paquete_ref` | DDJJ revisable antes de F22 |
@@ -134,14 +136,22 @@ contratos:
    opcional, resumen mensual no sensible, `hash_hecho`, API/snapshot/admin
    redactados y readiness bloqueante si un proceso anual trazable no conserva
    los doce meses normalizados en su resumen.
-4. `stage6-rli-cpt-skeleton`: estructura RLI/CPT con lineas trazadas y
+4. `stage6-annual-trial-balance`: balance anual de ocho columnas previo a
+   RLI/CPT/DJ1847. Implementado como `AnnualTaxTrialBalance` y
+   `AnnualTaxTrialBalanceLine`: toma `BalanceComprobacion` aprobado de
+   diciembre, fuente oficial/experta y rule set anual, genera lineas por cuenta
+   con clasificador, montos, refs no sensibles y hashes; API/snapshot/admin
+   redactan refs/payloads y readiness bloquea procesos sin balance, resumen
+   alineado, lineas activas o revision de warnings.
+5. `stage6-rli-cpt-skeleton`: estructura RLI/CPT con lineas trazadas y
    warnings, sin afirmar calculo fiscal final. Implementado como
    `AnnualTaxWorkbook` y `AnnualTaxWorkbookLine`: genera workbooks RLI y CPT
-   desde `TaxCodeMapping` activo y `MonthlyTaxFact`, conserva hash por linea y
-   por workbook, expone API/snapshot/admin redactados y bloquea readiness si
-   faltan workbooks, faltan lineas activas, hay warnings pendientes o el
-   resumen anual queda desalineado.
-5. `stage6-enterprise-registers`: estructura RAI/SAC/retiros/dividendos con
+   desde `TaxCodeMapping` activo, `MonthlyTaxFact` y `AnnualTaxTrialBalance`
+   cuando aplica, conserva hash por linea y por workbook, expone
+   API/snapshot/admin redactados y bloquea readiness si faltan workbooks,
+   faltan lineas activas, hay warnings pendientes o el resumen anual queda
+   desalineado.
+6. `stage6-enterprise-registers`: estructura RAI/SAC/retiros/dividendos con
    saldos iniciales y finales trazables. Implementado como
    `AnnualEnterpriseRegisterSet` y `AnnualEnterpriseRegisterMovement`: genera
    registros RAI/SAC desde lineas RLI/CPT y retiros/dividendos desde
@@ -149,7 +159,7 @@ contratos:
    eventos propios, conserva hashes por movimiento/registro, expone
    API/snapshot/admin redactados y bloquea readiness si faltan registros,
    movimientos, resumen alineado o si existen warnings pendientes.
-6. `stage6-real-estate-section`: seccion anual de bienes raices/arriendos y
+7. `stage6-real-estate-section`: seccion anual de bienes raices/arriendos y
    contribuciones. Implementado como `AnnualRealEstateSection` y
    `AnnualRealEstateItem`: genera items por propiedad desde `Propiedad`,
    `DistribucionCobroMensual` y `ContratoPropiedad`, distribuye arriendos por
@@ -157,7 +167,7 @@ contratos:
    conserva contribuciones como `not_loaded_v1`, expone API/snapshot/admin
    redactados y bloquea readiness si falta seccion, items activos, resumen
    alineado o hay warnings pendientes.
-7. `stage6-ddjj-f22-artifact-matrix`: matriz DDJJ/F22 por fuente, medio,
+8. `stage6-ddjj-f22-artifact-matrix`: matriz DDJJ/F22 por fuente, medio,
    responsable y estado. Implementado como `AnnualTaxArtifactMatrix` y
    `AnnualTaxArtifactMatrixItem`: genera items DDJJ/F22 desde configuracion
    fiscal, `TaxCodeMapping`, `ProcesoRentaAnual`, RLI/CPT, registros
@@ -165,14 +175,14 @@ contratos:
    responsable, payload no sensible, hash y `final_tax_calculation=false`.
    API/snapshot/admin redactan refs/payloads y readiness bloquea si falta
    matriz, items DDJJ/F22, resumen alineado o revision de warnings.
-8. `stage6-dossier-review`: dossier anual revisable. Implementado como
+9. `stage6-dossier-review`: dossier anual revisable. Implementado como
    `AnnualTaxDossier`: consolida source bundle, hechos mensuales, RLI/CPT,
    registros empresariales, bienes raices y matriz DDJJ/F22 en un resumen
    hasheado con responsable, refs no sensibles, `final_tax_calculation=false`
    y `sii_submission=false`. API/snapshot/admin redactan refs/payloads y
    readiness bloquea si falta dossier, si el resumen esta desalineado, si falta
    responsable o si existen warnings/revision pendiente.
-9. `stage6-export-gate`: export/preview, sin presentacion final automatica.
+10. `stage6-export-gate`: export/preview, sin presentacion final automatica.
    Implementado como `AnnualTaxExport`: genera un paquete local controlado
    desde `AnnualTaxDossier`, source bundle, rule set y matriz DDJJ/F22, con
    payload hasheado, refs no sensibles, conteos DDJJ/F22 y flags obligatorios
@@ -181,29 +191,29 @@ contratos:
    readiness bloquea si falta export, si el resumen esta desalineado, si hay
    revision pendiente o si intenta declarar formato oficial/presentacion/calculo
    final.
-10. `stage6-edig-coverage-matrix`: matriz de cobertura segura, sin dependencia
+11. `stage6-edig-coverage-matrix`: matriz de cobertura segura, sin dependencia
     runtime de EDIG. Implementado como
     `build-edig-at2026-leasemanager-coverage.ps1`: toma los inventarios
     sanitizados de `local-evidence/`, resume cobertura por area y separa
     claramente componentes ya implementados de brechas externas/oficiales.
-11. `stage6-official-source-gaps`: matriz de brechas oficiales AT2026.
+12. `stage6-official-source-gaps`: matriz de brechas oficiales AT2026.
     Implementado como `RENTA_ANUAL_OFFICIAL_SOURCE_GAPS_AT2026.md` y
     `build-stage6-official-source-gap-matrix.ps1`: clasifica DTE, F29, DDJJ,
     DJ1847/RLI/CPT, F22, bienes raices/contribuciones y automatizacion por
     navegador entre preparacion local permitida, fuente oficial/experta
     requerida y presentacion externa bloqueada, sin ejecutar EDIG, sin llamar
     SII y sin producir archivos oficiales.
-12. `stage6-official-tax-source-registry`: registro operacional de fuentes
+13. `stage6-official-tax-source-registry`: registro operacional de fuentes
     oficiales/experta. Implementado como `AnnualTaxOfficialSource`: modelo,
     migracion, API/snapshot/admin redactados y readiness bloqueante si una
     fuente AT registrada es invalida, usa URL no segura, carece de hash/fecha/
     responsable o conserva refs/payloads sensibles.
-13. `stage6-rule-source-link`: respaldo obligatorio de reglas y mappings con
+14. `stage6-rule-source-link`: respaldo obligatorio de reglas y mappings con
     fuentes oficiales/experta. Implementado como enlaces `official_source` desde
     `TaxYearRuleSet` y `TaxCodeMapping`, validacion de AT/destino/regimen y
     readiness bloqueante si una regla aprobada o mapping activo no tiene fuente
     revisada/aprobada compatible.
-14. `stage6-demo-official-sources`: baseline anual demo compatible con fuentes.
+15. `stage6-demo-official-sources`: baseline anual demo compatible con fuentes.
     Implementado en `bootstrap_demo_tax_annual_flow`: crea/repara fuentes
     expertas demo aprobadas para el rule set anual y para mappings
     RLI/CPT/RAI/SAC/DDJJ/F22, de forma idempotente y sin declarar fuente SII

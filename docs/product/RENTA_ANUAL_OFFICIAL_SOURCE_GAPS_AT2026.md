@@ -77,7 +77,7 @@ un export local en presentacion oficial.
 | --- | --- | --- | --- |
 | Contribuyente/regimen | Maestros, productos y regimenes por AT. | `Empresa`, `ConfiguracionFiscalEmpresa`, capacidades SII y responsables. | Fuente oficial/experta de regimen aplicable y estado de revision por empresa. |
 | F29/PPM | F29 mensual como insumo anual. | Obligaciones mensuales y hechos anuales trazables. | Evidencia controlada de F29/PPM declarado si se usa como credito/fuente final. |
-| Balance/RLI/CPT | Capa de balance, RLI, CPT y parametros. | `AnnualTaxWorkbook` RLI/CPT preparatorio. | DJ1847/DJ1926/F22 bajadas a reglas y mapping plan de cuentas. |
+| Balance/RLI/CPT | Capa de balance, RLI, CPT y parametros. | `AnnualTaxTrialBalance` + `AnnualTaxWorkbook` RLI/CPT preparatorio. | Fuente DJ1847/DJ1926/F22 revisada por responsable para promover mappings desde preparacion a cierre. |
 | RAI/SAC | Registros empresariales y saldos. | `AnnualEnterpriseRegisterSet` preparatorio. | Saldos historicos, creditos y movimientos con fuente aprobada. |
 | Bienes raices | Arriendos, propiedades y contribuciones. | `AnnualRealEstateSection` con warnings y `not_loaded_v1`. | Fuente oficial/experta de contribuciones, creditos y codigos F22. |
 | DDJJ | Formularios, certificados y medios. | `AnnualTaxArtifactMatrix` revisable. | Instrucciones/layout/medio por formulario aplicable a LeaseManager. |
@@ -105,8 +105,10 @@ un export local en presentacion oficial.
 1. `stage6-official-tax-source-registry`: modelo/documento para registrar
    fuente oficial AT2026 por documento, hash, fecha, formulario/codigo/regimen,
    alcance, responsable y estado de revision.
-2. `stage6-dj1847-balance-cpt-mapping`: convertir plan de cuentas y balance de
-   ocho columnas en fuente trazable para RLI/CPT, sin cerrar calculo final.
+2. `stage6-dj1847-balance-cpt-mapping`: materializado como
+   `AnnualTaxTrialBalance`/lineas y conexion de workbooks RLI/CPT a metricas
+   del balance de ocho columnas. Sigue siendo preparacion revisable; no cierra
+   calculo final ni presentacion.
 3. `stage6-ddjj-official-media-layouts`: declarar formularios DDJJ aplicables,
    medio SII, vencimiento, layout/certificado y campos propios.
 4. `stage6-real-estate-official-source`: cargar contribuciones/codigos con
@@ -141,3 +143,9 @@ aplica, referencia no sensible, hash, fecha de recuperacion, responsable y
 alcance. El registro no guarda documentos SII, credenciales, sesiones ni
 valores tributarios finales; solo prueba que una regla o mapping tiene respaldo
 trazable.
+
+`AnnualTaxTrialBalance` baja la brecha DJ1847/RLI/CPT a una capa operativa
+propia: toma balance contable aprobado, clasificador por cuenta y fuente
+oficial/experta revisada para preparar montos trazables. No convierte el
+balance en declaracion de renta; cualquier warning de clasificacion, fuente o
+criterio mantiene el cierre bajo revision responsable.

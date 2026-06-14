@@ -8,7 +8,9 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q
 
 from contabilidad.models import (
+    BalanceComprobacion,
     CierreMensualContable,
+    CuentaContable,
     EstadoCierreMensual,
     EstadoLiquidacionMensual,
     EstadoPreparacionTributaria,
@@ -29,8 +31,11 @@ from .models import (
     AnnualTaxArtifactMatrixItem,
     AnnualTaxDossier,
     AnnualTaxExport,
+    AnnualTaxOfficialSource,
     AnnualTaxReviewChecklist,
     AnnualTaxSourceBundle,
+    AnnualTaxTrialBalance,
+    AnnualTaxTrialBalanceLine,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
     CapacidadSII,
@@ -43,7 +48,9 @@ from .models import (
     EstadoAnnualTaxArtifactReview,
     EstadoAnnualTaxDossier,
     EstadoAnnualTaxExport,
+    EstadoAnnualTaxOfficialSource,
     EstadoAnnualTaxReviewChecklist,
+    EstadoAnnualTaxTrialBalance,
     EstadoAnnualTaxWorkbook,
     EstadoDTE,
     EstadoGateSII,
@@ -63,6 +70,7 @@ from .models import (
     TipoAnnualTaxArtifactTarget,
     TipoAnnualTaxExport,
     TipoAnnualEnterpriseRegister,
+    TipoAnnualTaxOfficialSource,
     TipoAnnualTaxWorkbook,
     TipoDTE,
 )
@@ -511,6 +519,25 @@ MONTHLY_FACT_SOURCE_METRICS = {
     'monthly_tax_facts.liquidation_lines_total_amount': 'liquidation_lines_total_amount',
 }
 
+TRIAL_BALANCE_SOURCE_METRICS = {
+    'annual_trial_balance.sumas_debe_clp': 'sumas_debe_clp',
+    'annual_trial_balance.sumas_haber_clp': 'sumas_haber_clp',
+    'annual_trial_balance.saldo_deudor_clp': 'saldo_deudor_clp',
+    'annual_trial_balance.saldo_acreedor_clp': 'saldo_acreedor_clp',
+    'annual_trial_balance.inventario_activo_clp': 'inventario_activo_clp',
+    'annual_trial_balance.inventario_pasivo_clp': 'inventario_pasivo_clp',
+    'annual_trial_balance.resultado_perdida_clp': 'resultado_perdida_clp',
+    'annual_trial_balance.resultado_ganancia_clp': 'resultado_ganancia_clp',
+}
+
+TRIAL_BALANCE_ROW_KEYS = (
+    'lineas_balance_8_columnas',
+    'eight_column_lines',
+    'trial_balance_lines',
+    'lines',
+    'cuentas',
+)
+
 
 def _decimal_from_monthly_payload(payload, key):
     if not isinstance(payload, dict):
@@ -521,13 +548,112 @@ def _decimal_from_monthly_payload(payload, key):
         return Decimal('0.00')
 
 
-def _line_amount_from_mapping(mapping, monthly_facts):
+def _decimal_from_row(payload, *keys):
+    if not isinstance(payload, dict):
+        return Decimal('0.00')
+    for key in keys:
+        if key not in payload:
+            continue
+        try:
+            return Decimal(str(payload.get(key) or '0.00'))
+        except Exception:
+            return Decimal('0.00')
+    return Decimal('0.00')
+
+
+def _balance_rows_from_summary(summary):
+    if not isinstance(summary, dict):
+        return []
+    for key in TRIAL_BALANCE_ROW_KEYS:
+        rows = summary.get(key)
+        if isinstance(rows, list):
+            return [row for row in rows if isinstance(row, dict)]
+    return []
+
+
+def _text_from_row(payload, *keys):
+    if not isinstance(payload, dict):
+        return ''
+    for key in keys:
+        value = str(payload.get(key) or '').strip()
+        if value:
+            return value
+    return ''
+
+
+def _trial_balance_official_source(rule_set):
+    ready_states = {
+        EstadoAnnualTaxOfficialSource.REVIEWED,
+        EstadoAnnualTaxOfficialSource.APPROVED,
+    }
+    regime_code = getattr(rule_set.regimen_tributario, 'codigo_regimen', '')
+    candidates = AnnualTaxOfficialSource.objects.filter(
+        anio_tributario=rule_set.anio_tributario,
+        estado__in=ready_states,
+        source_type__in=[
+            TipoAnnualTaxOfficialSource.SII_DJ1847_INSTRUCTIONS,
+            TipoAnnualTaxOfficialSource.EXPERT_REVIEW,
+        ],
+    ).filter(
+        Q(regime_code='') | Q(regime_code=regime_code)
+    ).order_by('source_type', 'source_key', 'id')
+    source = candidates.first()
+    if source:
+        return source
+    if rule_set.official_source_id and rule_set.official_source.estado in ready_states:
+        return rule_set.official_source
+    return None
+
+
+def _line_amount_from_mapping(mapping, monthly_facts, trial_balance=None):
     metadata = mapping.metadata if isinstance(mapping.metadata, dict) else {}
     source_metric = str(metadata.get('source_metric') or '').strip()
     warnings = []
+    if source_metric in TRIAL_BALANCE_SOURCE_METRICS:
+        amount_field = TRIAL_BALANCE_SOURCE_METRICS[source_metric]
+        classifier = str(metadata.get('trial_balance_classifier') or '').strip()
+        if trial_balance is None:
+            warnings.append('annual_tax_trial_balance_missing')
+            return Decimal('0.00'), source_metric, warnings, {
+                'source': 'annual_tax_trial_balance',
+                'source_metric': source_metric,
+                'amount_field': amount_field,
+                'trial_balance_classifier': classifier,
+            }
+        if not classifier:
+            warnings.append('trial_balance_classifier_missing')
+            return Decimal('0.00'), source_metric, warnings, {
+                'source': 'annual_tax_trial_balance',
+                'source_metric': source_metric,
+                'amount_field': amount_field,
+                'trial_balance_id': trial_balance.id,
+                'trial_balance_hash': trial_balance.hash_balance,
+            }
+        lines = list(
+            trial_balance.lines.filter(
+                estado=EstadoRegistro.ACTIVE,
+                clasificador_dj1847=classifier,
+            ).order_by('codigo_cuenta', 'id')
+        )
+        amount = _sum_decimal(getattr(line, amount_field) for line in lines)
+        if not lines:
+            warnings.append('trial_balance_classifier_without_lines')
+        return amount, source_metric, warnings, {
+            'source': 'annual_tax_trial_balance',
+            'source_metric': source_metric,
+            'amount_field': amount_field,
+            'trial_balance_id': trial_balance.id,
+            'trial_balance_hash': trial_balance.hash_balance,
+            'trial_balance_classifier': classifier,
+            'trial_balance_line_ids': [line.id for line in lines],
+        }
+
     if source_metric not in MONTHLY_FACT_SOURCE_METRICS:
         warnings.append('source_metric_missing_or_unsupported')
-        return Decimal('0.00'), source_metric, warnings
+        return Decimal('0.00'), source_metric, warnings, {
+            'source': 'unknown',
+            'source_metric': source_metric,
+        }
 
     payload_key = MONTHLY_FACT_SOURCE_METRICS[source_metric]
     amount = Decimal('0.00')
@@ -537,11 +663,183 @@ def _line_amount_from_mapping(mapping, monthly_facts):
         months.append(fact.mes)
     if sorted(set(months)) != list(range(1, 13)):
         warnings.append('monthly_tax_facts_not_complete')
-    return amount, source_metric, warnings
+    return amount, source_metric, warnings, {
+        'source': 'monthly_tax_facts',
+        'source_metric': source_metric,
+        'monthly_tax_fact_ids': [fact.id for fact in monthly_facts],
+        'months': months,
+    }
 
 
 def _line_hash_payload(line_payload):
     return hashlib.sha256(_canonical_source_payload(line_payload).encode('utf-8')).hexdigest()
+
+
+def sync_annual_tax_trial_balance(process, rule_set, source_bundle):
+    fiscal_year = process.anio_tributario - 1
+    periodo_cierre = f'{fiscal_year}-12'
+    source_balance = (
+        BalanceComprobacion.objects.filter(
+            empresa=process.empresa,
+            periodo=periodo_cierre,
+            estado_snapshot=EstadoCierreMensual.APPROVED,
+        )
+        .order_by('-updated_at', '-id')
+        .first()
+    )
+    if source_balance is None:
+        AnnualTaxTrialBalance.objects.filter(
+            proceso_renta_anual=process,
+            estado=EstadoAnnualTaxTrialBalance.PREPARED,
+        ).update(estado=EstadoAnnualTaxTrialBalance.RETIRED)
+        return None
+
+    official_source = _trial_balance_official_source(rule_set)
+    if official_source is None:
+        AnnualTaxTrialBalance.objects.filter(
+            proceso_renta_anual=process,
+            estado=EstadoAnnualTaxTrialBalance.PREPARED,
+        ).update(estado=EstadoAnnualTaxTrialBalance.RETIRED)
+        return None
+
+    trial_balance, _ = AnnualTaxTrialBalance.objects.update_or_create(
+        proceso_renta_anual=process,
+        defaults={
+            'empresa': process.empresa,
+            'source_bundle': source_bundle,
+            'rule_set': rule_set,
+            'official_source': official_source,
+            'source_balance': source_balance,
+            'anio_tributario': process.anio_tributario,
+            'anio_comercial': fiscal_year,
+            'periodo_cierre': periodo_cierre,
+            'source_ref': f'annual-tax-trial-balance-{process.empresa_id}-at{process.anio_tributario}',
+            'responsible_ref': 'system-annual-tax-trial-balance-normalizer',
+            'estado': EstadoAnnualTaxTrialBalance.DRAFT,
+        },
+    )
+
+    active_line_ids = []
+    summary = source_balance.resumen if isinstance(source_balance.resumen, dict) else {}
+    rows = _balance_rows_from_summary(summary)
+    accounts_by_code = {
+        account.codigo: account
+        for account in CuentaContable.objects.filter(
+            empresa=process.empresa,
+            estado=EstadoRegistro.ACTIVE,
+        ).order_by('codigo')
+    }
+    missing_account_rows = 0
+    for index, row in enumerate(rows, start=1):
+        account_code = _text_from_row(row, 'codigo_cuenta', 'cuenta_codigo', 'codigo', 'account_code')
+        account = accounts_by_code.get(account_code)
+        if account is None:
+            missing_account_rows += 1
+            continue
+        classifier = _text_from_row(
+            row,
+            'clasificador_dj1847',
+            'codigo_dj1847',
+            'dj1847_classifier',
+            'tax_classifier',
+            'clasificador',
+        )
+        warnings = []
+        if not classifier:
+            classifier = 'dj1847-classifier-pending'
+            warnings.append('dj1847_classifier_missing')
+        line_source_payload = {
+            'source': 'balance_comprobacion',
+            'source_balance_id': source_balance.id,
+            'source_balance_periodo': source_balance.periodo,
+            'row_index': index,
+            'codigo_cuenta': account.codigo,
+            'clasificador_dj1847': classifier,
+        }
+        line_payload = {
+            'trial_balance_id': trial_balance.id,
+            'cuenta_contable_id': account.id,
+            'codigo_cuenta': account.codigo,
+            'nombre_cuenta': account.nombre,
+            'clasificador_dj1847': classifier,
+            'sumas_debe_clp': str(_decimal_from_row(row, 'sumas_debe_clp', 'debe', 'debitos')),
+            'sumas_haber_clp': str(_decimal_from_row(row, 'sumas_haber_clp', 'haber', 'creditos')),
+            'saldo_deudor_clp': str(_decimal_from_row(row, 'saldo_deudor_clp', 'saldo_deudor')),
+            'saldo_acreedor_clp': str(_decimal_from_row(row, 'saldo_acreedor_clp', 'saldo_acreedor')),
+            'inventario_activo_clp': str(_decimal_from_row(row, 'inventario_activo_clp', 'activo')),
+            'inventario_pasivo_clp': str(_decimal_from_row(row, 'inventario_pasivo_clp', 'pasivo')),
+            'resultado_perdida_clp': str(_decimal_from_row(row, 'resultado_perdida_clp', 'perdida')),
+            'resultado_ganancia_clp': str(_decimal_from_row(row, 'resultado_ganancia_clp', 'ganancia')),
+            'formula_ref': _text_from_row(row, 'formula_ref') or f'dj1847-balance-line-at{process.anio_tributario}',
+            'evidencia_ref': _text_from_row(row, 'evidencia_ref') or f'balance-comprobacion-{source_balance.periodo}-{source_balance.id}',
+            'warnings': warnings,
+            'source_payload': line_source_payload,
+        }
+        line, _ = AnnualTaxTrialBalanceLine.objects.update_or_create(
+            trial_balance=trial_balance,
+            codigo_cuenta=account.codigo,
+            defaults={
+                'cuenta_contable': account,
+                'nombre_cuenta': account.nombre,
+                'clasificador_dj1847': classifier,
+                'sumas_debe_clp': Decimal(line_payload['sumas_debe_clp']),
+                'sumas_haber_clp': Decimal(line_payload['sumas_haber_clp']),
+                'saldo_deudor_clp': Decimal(line_payload['saldo_deudor_clp']),
+                'saldo_acreedor_clp': Decimal(line_payload['saldo_acreedor_clp']),
+                'inventario_activo_clp': Decimal(line_payload['inventario_activo_clp']),
+                'inventario_pasivo_clp': Decimal(line_payload['inventario_pasivo_clp']),
+                'resultado_perdida_clp': Decimal(line_payload['resultado_perdida_clp']),
+                'resultado_ganancia_clp': Decimal(line_payload['resultado_ganancia_clp']),
+                'formula_ref': line_payload['formula_ref'],
+                'evidencia_ref': line_payload['evidencia_ref'],
+                'warnings': warnings,
+                'source_payload': line_source_payload,
+                'hash_linea': _line_hash_payload(line_payload),
+                'estado': EstadoRegistro.ACTIVE,
+            },
+        )
+        try:
+            line.full_clean()
+        except ValidationError as error:
+            reason = _first_validation_error(error)
+            raise ValueError(f'AnnualTaxTrialBalanceLine no cumple validacion de dominio: {reason}') from error
+        line.save()
+        active_line_ids.append(line.id)
+
+    trial_balance.lines.exclude(id__in=active_line_ids).update(estado=EstadoRegistro.INACTIVE)
+    active_lines = list(trial_balance.lines.filter(estado=EstadoRegistro.ACTIVE).order_by('codigo_cuenta', 'id'))
+    line_warning_count = sum(len(line.warnings or []) for line in active_lines if isinstance(line.warnings, list))
+    warning_count = line_warning_count + missing_account_rows
+    balance_summary = {
+        'empresa_id': process.empresa_id,
+        'proceso_renta_anual_id': process.id,
+        'source_bundle_id': source_bundle.id,
+        'rule_set_id': rule_set.id,
+        'official_source_id': official_source.id,
+        'source_balance_id': source_balance.id,
+        'anio_tributario': process.anio_tributario,
+        'anio_comercial': fiscal_year,
+        'periodo_cierre': periodo_cierre,
+        'lines_total': len(active_lines),
+        'warnings_total': warning_count,
+        'line_warnings_total': line_warning_count,
+        'missing_account_rows': missing_account_rows,
+        'line_hashes': [line.hash_linea for line in active_lines],
+        'source': 'BalanceComprobacion + AnnualTaxOfficialSource',
+        'final_tax_calculation': False,
+    }
+    trial_balance.lines_total = len(active_lines)
+    trial_balance.warnings_total = warning_count
+    trial_balance.resumen_balance = balance_summary
+    trial_balance.hash_balance = _source_bundle_hash(balance_summary)
+    trial_balance.estado = EstadoAnnualTaxTrialBalance.PREPARED
+    try:
+        trial_balance.full_clean()
+    except ValidationError as error:
+        reason = _first_validation_error(error)
+        raise ValueError(f'AnnualTaxTrialBalance no cumple validacion de dominio: {reason}') from error
+    trial_balance.save()
+    return trial_balance
 
 
 def sync_monthly_tax_facts(empresa, fiscal_year):
@@ -670,6 +968,35 @@ def sync_monthly_tax_facts(empresa, fiscal_year):
         estado=EstadoMonthlyTaxFact.NORMALIZED,
     ).exclude(pk__in=[fact.pk for fact in normalized_facts]).update(estado=EstadoMonthlyTaxFact.RETIRED)
     return normalized_facts
+
+
+def summarize_annual_tax_trial_balances(process):
+    trial_balances = AnnualTaxTrialBalance.objects.filter(
+        proceso_renta_anual=process,
+        estado=EstadoAnnualTaxTrialBalance.PREPARED,
+    ).order_by('id')
+    by_id = {}
+    for trial_balance in trial_balances:
+        active_lines = trial_balance.lines.filter(estado=EstadoRegistro.ACTIVE).order_by('codigo_cuenta', 'id')
+        warning_count = 0
+        for line in active_lines:
+            warnings = line.warnings if isinstance(line.warnings, list) else []
+            warning_count += len(warnings)
+        warnings_total = max(trial_balance.warnings_total, warning_count)
+        by_id[str(trial_balance.id)] = {
+            'id': trial_balance.id,
+            'hash_balance': trial_balance.hash_balance,
+            'source_balance_id': trial_balance.source_balance_id,
+            'official_source_id': trial_balance.official_source_id,
+            'periodo_cierre': trial_balance.periodo_cierre,
+            'lines_total': active_lines.count(),
+            'warnings_total': warnings_total,
+        }
+    return {
+        'total': trial_balances.count(),
+        'ids': sorted(by_id.keys()),
+        'by_id': by_id,
+    }
 
 
 def summarize_annual_tax_workbooks(process):
@@ -891,6 +1218,10 @@ def sync_annual_tax_workbooks(process, rule_set, source_bundle):
             estado=EstadoMonthlyTaxFact.NORMALIZED,
         ).order_by('mes')
     )
+    trial_balance = AnnualTaxTrialBalance.objects.filter(
+        proceso_renta_anual=process,
+        estado=EstadoAnnualTaxTrialBalance.PREPARED,
+    ).order_by('-updated_at', '-id').first()
     workbooks = []
     for workbook_type in (TipoAnnualTaxWorkbook.RLI, TipoAnnualTaxWorkbook.CPT):
         mappings = list(
@@ -916,14 +1247,22 @@ def sync_annual_tax_workbooks(process, rule_set, source_bundle):
         )
         active_line_ids = []
         for mapping in mappings:
-            amount, source_metric, warnings = _line_amount_from_mapping(mapping, monthly_facts)
+            amount, source_metric, warnings, source_detail = _line_amount_from_mapping(
+                mapping,
+                monthly_facts,
+                trial_balance,
+            )
+            uses_trial_balance = (
+                source_detail.get('source') == 'annual_tax_trial_balance'
+                or source_metric in TRIAL_BALANCE_SOURCE_METRICS
+            )
             line_source_payload = {
-                'source': 'monthly_tax_facts',
-                'source_metric': source_metric,
-                'monthly_tax_fact_ids': [fact.id for fact in monthly_facts],
-                'months': [fact.mes for fact in monthly_facts],
+                **source_detail,
                 'mapping_id': mapping.id,
                 'rule_set_id': rule_set.id,
+                'annual_tax_trial_balance_required': uses_trial_balance,
+                'annual_tax_trial_balance_id': trial_balance.id if uses_trial_balance and trial_balance else None,
+                'annual_tax_trial_balance_hash': trial_balance.hash_balance if uses_trial_balance and trial_balance else '',
             }
             line_payload = {
                 'workbook_id': workbook.id,
@@ -977,7 +1316,9 @@ def sync_annual_tax_workbooks(process, rule_set, source_bundle):
             'lines_total': len(active_lines),
             'warnings_total': warning_count,
             'line_hashes': [line.hash_linea for line in active_lines],
-            'source': 'TaxCodeMapping + MonthlyTaxFact',
+            'annual_tax_trial_balance_id': trial_balance.id if trial_balance else None,
+            'annual_tax_trial_balance_hash': trial_balance.hash_balance if trial_balance else '',
+            'source': 'TaxCodeMapping + MonthlyTaxFact + AnnualTaxTrialBalance',
             'final_tax_calculation': False,
         }
         workbook.resumen_workbook = workbook_summary
@@ -2477,6 +2818,7 @@ def build_annual_summary(empresa, fiscal_year, rule_set, source_bundle, process=
         },
     }
     if process is not None:
+        summary['annual_tax_trial_balances'] = summarize_annual_tax_trial_balances(process)
         summary['annual_tax_workbooks'] = summarize_annual_tax_workbooks(process)
         summary['annual_enterprise_registers'] = summarize_annual_enterprise_registers(process)
         summary['annual_real_estate_sections'] = summarize_annual_real_estate_sections(process)
@@ -2500,6 +2842,7 @@ def generate_annual_preparation(empresa, anio_tributario):
     process.resumen_anual = summary
     process.estado = EstadoPreparacionTributaria.PREPARED
     process.save()
+    sync_annual_tax_trial_balance(process, rule_set, source_bundle)
     sync_annual_tax_workbooks(process, rule_set, source_bundle)
     sync_annual_enterprise_registers(process, rule_set, source_bundle)
     sync_annual_real_estate_section(process, rule_set, source_bundle)
