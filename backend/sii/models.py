@@ -467,6 +467,19 @@ class EstadoAnnualTaxWorkbook(models.TextChoices):
     RETIRED = 'retirado', 'Retirado'
 
 
+class TipoAnnualEnterpriseRegister(models.TextChoices):
+    RAI = 'RAI', 'RAI'
+    SAC = 'SAC', 'SAC'
+    RETIROS = 'RETIROS', 'Retiros'
+    DIVIDENDOS = 'DIVIDENDOS', 'Dividendos'
+
+
+class EstadoAnnualEnterpriseRegister(models.TextChoices):
+    DRAFT = 'borrador', 'Borrador'
+    PREPARED = 'preparado', 'Preparado'
+    RETIRED = 'retirado', 'Retirado'
+
+
 class SignoAnnualTaxLine(models.TextChoices):
     ADD = 'suma', 'Suma'
     SUBTRACT = 'resta', 'Resta'
@@ -503,6 +516,21 @@ def _line_integrity_payload(line):
         'evidencia_ref': line.evidencia_ref,
         'warnings': line.warnings,
         'source_payload': line.source_payload,
+    }
+
+
+def _enterprise_movement_integrity_payload(movement):
+    return {
+        'register_set_id': movement.register_set_id,
+        'source_workbook_line_id': movement.source_workbook_line_id,
+        'codigo_interno': movement.codigo_interno,
+        'origen': movement.origen,
+        'signo': movement.signo,
+        'monto_clp': str(movement.monto_clp),
+        'formula_ref': movement.formula_ref,
+        'evidencia_ref': movement.evidencia_ref,
+        'warnings': movement.warnings,
+        'source_payload': movement.source_payload,
     }
 
 
@@ -1115,6 +1143,258 @@ class AnnualTaxWorkbookLine(OperationalSIITextNormalizationMixin, TimestampedMod
                 errors['source_payload'] = 'Linea activa requiere source_payload trazable.'
             if not has_text(self.hash_linea):
                 errors['hash_linea'] = 'Linea activa requiere hash_linea.'
+        if errors:
+            raise ValidationError(errors)
+
+
+class AnnualEnterpriseRegisterSet(OperationalSIITextNormalizationMixin, TimestampedModel):
+    operational_text_fields = (
+        'source_ref',
+        'responsible_ref',
+        'hash_registro',
+    )
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.PROTECT,
+        related_name='annual_enterprise_registers',
+    )
+    proceso_renta_anual = models.ForeignKey(
+        'sii.ProcesoRentaAnual',
+        on_delete=models.PROTECT,
+        related_name='enterprise_registers',
+    )
+    source_bundle = models.ForeignKey(
+        AnnualTaxSourceBundle,
+        on_delete=models.PROTECT,
+        related_name='enterprise_registers',
+    )
+    rule_set = models.ForeignKey(
+        TaxYearRuleSet,
+        on_delete=models.PROTECT,
+        related_name='enterprise_registers',
+    )
+    anio_tributario = models.PositiveSmallIntegerField()
+    anio_comercial = models.PositiveSmallIntegerField()
+    tipo_registro = models.CharField(max_length=16, choices=TipoAnnualEnterpriseRegister.choices)
+    source_ref = models.CharField(max_length=255, blank=True)
+    responsible_ref = models.CharField(max_length=255, blank=True)
+    saldo_inicial_clp = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    movimientos_total_clp = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    saldo_final_clp = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    resumen_registro = models.JSONField(default=dict, blank=True)
+    hash_registro = models.CharField(max_length=64, blank=True)
+    estado = models.CharField(
+        max_length=16,
+        choices=EstadoAnnualEnterpriseRegister.choices,
+        default=EstadoAnnualEnterpriseRegister.DRAFT,
+    )
+
+    class Meta:
+        ordering = ['empresa_id', '-anio_tributario', 'tipo_registro']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['proceso_renta_anual', 'tipo_registro'],
+                name='uniq_annual_enterprise_register_process_tipo',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.tipo_registro} {self.empresa_id} AT{self.anio_tributario}'
+
+    def clean(self):
+        super().clean()
+        self.hash_registro = _normalize_hash(self.hash_registro)
+        errors = {}
+        expected_commercial_year = self.anio_tributario - 1
+        if self.anio_comercial != expected_commercial_year:
+            errors['anio_comercial'] = (
+                f'anio_comercial debe ser {expected_commercial_year} para AT{self.anio_tributario}.'
+            )
+        _add_non_sensitive_reference_error(errors, self, 'source_ref')
+        _add_non_sensitive_reference_error(errors, self, 'responsible_ref')
+        _add_non_sensitive_payload_error(errors, 'resumen_registro', self.resumen_registro)
+        if has_text(self.hash_registro) and not _is_sha256(self.hash_registro):
+            errors['hash_registro'] = 'hash_registro debe ser SHA-256 hexadecimal de 64 caracteres.'
+        if self.saldo_final_clp != self.saldo_inicial_clp + self.movimientos_total_clp:
+            errors['saldo_final_clp'] = 'saldo_final_clp debe ser saldo_inicial_clp + movimientos_total_clp.'
+
+        try:
+            process = self.proceso_renta_anual
+        except ObjectDoesNotExist:
+            process = None
+        if process is not None:
+            if process.empresa_id != self.empresa_id:
+                errors['proceso_renta_anual'] = 'El proceso anual debe pertenecer a la misma empresa del registro.'
+            elif process.anio_tributario != self.anio_tributario:
+                errors['proceso_renta_anual'] = 'El proceso anual debe corresponder al mismo anio_tributario.'
+            if process.source_bundle_id and process.source_bundle_id != self.source_bundle_id:
+                errors['source_bundle'] = 'El registro debe usar el mismo AnnualTaxSourceBundle del proceso anual.'
+
+        try:
+            source_bundle = self.source_bundle
+        except ObjectDoesNotExist:
+            source_bundle = None
+        if source_bundle is not None:
+            if source_bundle.empresa_id != self.empresa_id:
+                errors['source_bundle'] = 'AnnualTaxSourceBundle debe pertenecer a la misma empresa del registro.'
+            elif source_bundle.anio_tributario != self.anio_tributario:
+                errors['source_bundle'] = 'AnnualTaxSourceBundle debe corresponder al mismo anio_tributario.'
+            elif source_bundle.estado != EstadoAnnualTaxSourceBundle.FROZEN:
+                errors['source_bundle'] = 'AnnualEnterpriseRegisterSet requiere AnnualTaxSourceBundle congelado.'
+
+        try:
+            rule_set = self.rule_set
+        except ObjectDoesNotExist:
+            rule_set = None
+        if rule_set is not None:
+            if rule_set.anio_tributario != self.anio_tributario:
+                errors['rule_set'] = 'TaxYearRuleSet debe corresponder al mismo anio_tributario del registro.'
+            elif rule_set.estado != EstadoReglaTributariaAnual.APPROVED:
+                errors['rule_set'] = 'AnnualEnterpriseRegisterSet requiere TaxYearRuleSet aprobado.'
+
+        if isinstance(self.resumen_registro, dict):
+            identity_errors = []
+            for key, expected in (
+                ('empresa_id', self.empresa_id),
+                ('proceso_renta_anual_id', self.proceso_renta_anual_id),
+                ('source_bundle_id', self.source_bundle_id),
+                ('rule_set_id', self.rule_set_id),
+                ('anio_tributario', self.anio_tributario),
+                ('anio_comercial', self.anio_comercial),
+                ('tipo_registro', self.tipo_registro),
+                ('saldo_inicial_clp', str(self.saldo_inicial_clp)),
+                ('movimientos_total_clp', str(self.movimientos_total_clp)),
+                ('saldo_final_clp', str(self.saldo_final_clp)),
+            ):
+                value = self.resumen_registro.get(key)
+                if value is None:
+                    continue
+                if key in {'tipo_registro', 'saldo_inicial_clp', 'movimientos_total_clp', 'saldo_final_clp'}:
+                    matches = str(value) == str(expected)
+                else:
+                    try:
+                        matches = int(value) == int(expected)
+                    except (TypeError, ValueError):
+                        matches = False
+                if not matches:
+                    identity_errors.append(key)
+            if identity_errors:
+                errors['resumen_registro'] = (
+                    'resumen_registro debe coincidir con empresa, proceso, fuente, regla, anio, tipo y saldos.'
+                )
+            expected_hash = _payload_hash(self.resumen_registro)
+            if self.hash_registro and self.hash_registro != expected_hash:
+                errors['hash_registro'] = 'hash_registro debe corresponder al resumen_registro.'
+        elif self.resumen_registro:
+            errors['resumen_registro'] = 'resumen_registro debe ser un objeto JSON.'
+
+        if self.estado == EstadoAnnualEnterpriseRegister.PREPARED:
+            _add_active_fiscal_config_error(errors, self, 'AnnualEnterpriseRegisterSet')
+            if not has_text(self.source_ref):
+                errors['source_ref'] = 'AnnualEnterpriseRegisterSet preparado requiere source_ref no sensible.'
+            if not has_text(self.responsible_ref):
+                errors['responsible_ref'] = 'AnnualEnterpriseRegisterSet preparado requiere responsible_ref no sensible.'
+            if not self.resumen_registro:
+                errors['resumen_registro'] = 'AnnualEnterpriseRegisterSet preparado requiere resumen_registro.'
+            if not has_text(self.hash_registro):
+                errors['hash_registro'] = 'AnnualEnterpriseRegisterSet preparado requiere hash_registro.'
+        if errors:
+            raise ValidationError(errors)
+
+
+class AnnualEnterpriseRegisterMovement(OperationalSIITextNormalizationMixin, TimestampedModel):
+    operational_text_fields = (
+        'codigo_interno',
+        'origen',
+        'formula_ref',
+        'evidencia_ref',
+        'hash_movimiento',
+    )
+
+    register_set = models.ForeignKey(
+        AnnualEnterpriseRegisterSet,
+        on_delete=models.CASCADE,
+        related_name='movements',
+    )
+    source_workbook_line = models.ForeignKey(
+        AnnualTaxWorkbookLine,
+        on_delete=models.PROTECT,
+        related_name='enterprise_register_movements',
+        null=True,
+        blank=True,
+    )
+    codigo_interno = models.CharField(max_length=64)
+    origen = models.CharField(max_length=64)
+    signo = models.CharField(max_length=16, choices=SignoAnnualTaxLine.choices, default=SignoAnnualTaxLine.INFO)
+    monto_clp = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    formula_ref = models.CharField(max_length=255, blank=True)
+    evidencia_ref = models.CharField(max_length=255, blank=True)
+    warnings = models.JSONField(default=list, blank=True)
+    source_payload = models.JSONField(default=dict, blank=True)
+    hash_movimiento = models.CharField(max_length=64, blank=True)
+    estado = models.CharField(max_length=16, choices=EstadoRegistro.choices, default=EstadoRegistro.ACTIVE)
+
+    class Meta:
+        ordering = ['register_set_id', 'codigo_interno', 'origen']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['register_set', 'codigo_interno', 'origen'],
+                name='uniq_enterprise_register_movement_origin',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.register_set_id} {self.codigo_interno}'
+
+    def clean(self):
+        super().clean()
+        self.hash_movimiento = _normalize_hash(self.hash_movimiento)
+        errors = {}
+        _add_non_sensitive_reference_error(errors, self, 'formula_ref')
+        _add_non_sensitive_reference_error(errors, self, 'evidencia_ref')
+        _add_non_sensitive_payload_error(errors, 'warnings', self.warnings)
+        _add_non_sensitive_payload_error(errors, 'source_payload', self.source_payload)
+        if self.warnings and not isinstance(self.warnings, list):
+            errors['warnings'] = 'warnings debe ser una lista JSON.'
+        if self.source_payload and not isinstance(self.source_payload, dict):
+            errors['source_payload'] = 'source_payload debe ser un objeto JSON.'
+        if has_text(self.hash_movimiento) and not _is_sha256(self.hash_movimiento):
+            errors['hash_movimiento'] = 'hash_movimiento debe ser SHA-256 hexadecimal de 64 caracteres.'
+
+        try:
+            register_set = self.register_set
+        except ObjectDoesNotExist:
+            register_set = None
+        try:
+            source_workbook_line = self.source_workbook_line
+        except ObjectDoesNotExist:
+            source_workbook_line = None
+
+        if register_set is not None and source_workbook_line is not None:
+            workbook = source_workbook_line.workbook
+            if workbook.proceso_renta_anual_id != register_set.proceso_renta_anual_id:
+                errors['source_workbook_line'] = 'El movimiento debe usar una linea RLI/CPT del mismo proceso anual.'
+            elif workbook.rule_set_id != register_set.rule_set_id:
+                errors['source_workbook_line'] = 'El movimiento debe usar una linea RLI/CPT del mismo TaxYearRuleSet.'
+            elif workbook.empresa_id != register_set.empresa_id:
+                errors['source_workbook_line'] = 'El movimiento debe usar una linea RLI/CPT de la misma empresa.'
+
+        expected_hash = _payload_hash(_enterprise_movement_integrity_payload(self))
+        if self.hash_movimiento and self.hash_movimiento != expected_hash:
+            errors['hash_movimiento'] = 'hash_movimiento debe corresponder al movimiento normalizado.'
+
+        if self.estado == EstadoRegistro.ACTIVE:
+            if not has_text(self.origen):
+                errors['origen'] = 'Movimiento activo requiere origen trazable.'
+            if not has_text(self.formula_ref):
+                errors['formula_ref'] = 'Movimiento activo requiere formula_ref no sensible.'
+            if not has_text(self.evidencia_ref):
+                errors['evidencia_ref'] = 'Movimiento activo requiere evidencia_ref no sensible.'
+            if not self.source_payload:
+                errors['source_payload'] = 'Movimiento activo requiere source_payload trazable.'
+            if not has_text(self.hash_movimiento):
+                errors['hash_movimiento'] = 'Movimiento activo requiere hash_movimiento.'
         if errors:
             raise ValidationError(errors)
 

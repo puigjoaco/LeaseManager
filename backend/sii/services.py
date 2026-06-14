@@ -1,9 +1,11 @@
 import hashlib
 import json
+from datetime import date
 from decimal import Decimal
 
 from django.utils import timezone
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 
 from contabilidad.models import (
     CierreMensualContable,
@@ -19,12 +21,16 @@ from cobranza.models import DistribucionCobroMensual
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 
 from .models import (
+    AnnualEnterpriseRegisterMovement,
+    AnnualEnterpriseRegisterSet,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
     CapacidadSII,
     DDJJPreparacionAnual,
+    DestinoMapeoTributarioAnual,
     DTEEmitido,
+    EstadoAnnualEnterpriseRegister,
     EstadoAnnualTaxWorkbook,
     EstadoDTE,
     EstadoGateSII,
@@ -40,9 +46,11 @@ from .models import (
     SignoAnnualTaxLine,
     TaxCodeMapping,
     TaxYearRuleSet,
+    TipoAnnualEnterpriseRegister,
     TipoAnnualTaxWorkbook,
     TipoDTE,
 )
+from patrimonio.models import ParticipacionPatrimonial
 
 
 DTE_EXTERNAL_STATES = {
@@ -662,6 +670,34 @@ def summarize_annual_tax_workbooks(process):
     }
 
 
+def summarize_annual_enterprise_registers(process):
+    registers = AnnualEnterpriseRegisterSet.objects.filter(
+        proceso_renta_anual=process,
+        estado=EstadoAnnualEnterpriseRegister.PREPARED,
+    ).order_by('tipo_registro')
+    by_type = {}
+    for register in registers:
+        active_movements = register.movements.filter(estado=EstadoRegistro.ACTIVE).order_by('codigo_interno', 'origen')
+        warning_count = 0
+        for movement in active_movements:
+            warnings = movement.warnings if isinstance(movement.warnings, list) else []
+            warning_count += len(warnings)
+        by_type[register.tipo_registro] = {
+            'id': register.id,
+            'hash_registro': register.hash_registro,
+            'saldo_inicial_clp': str(register.saldo_inicial_clp),
+            'movimientos_total_clp': str(register.movimientos_total_clp),
+            'saldo_final_clp': str(register.saldo_final_clp),
+            'movements_total': active_movements.count(),
+            'warnings_total': warning_count,
+        }
+    return {
+        'total': registers.count(),
+        'types': sorted(by_type.keys()),
+        'by_type': by_type,
+    }
+
+
 def sync_annual_tax_workbooks(process, rule_set, source_bundle):
     fiscal_year = process.anio_tributario - 1
     monthly_facts = list(
@@ -776,6 +812,299 @@ def sync_annual_tax_workbooks(process, rule_set, source_bundle):
         estado=EstadoAnnualTaxWorkbook.PREPARED,
     ).exclude(id__in=[workbook.id for workbook in workbooks]).update(estado=EstadoAnnualTaxWorkbook.RETIRED)
     return workbooks
+
+
+def _enterprise_register_mapping(rule_set, destino):
+    return (
+        TaxCodeMapping.objects.filter(
+            rule_set=rule_set,
+            destino=destino,
+            estado=EstadoRegistro.ACTIVE,
+        )
+        .order_by('codigo_interno', 'codigo_destino')
+        .first()
+    )
+
+
+def _workbook_lines_for_register(process, workbook_type):
+    return list(
+        AnnualTaxWorkbookLine.objects.filter(
+            workbook__proceso_renta_anual=process,
+            workbook__tipo=workbook_type,
+            workbook__estado=EstadoAnnualTaxWorkbook.PREPARED,
+            estado=EstadoRegistro.ACTIVE,
+        )
+        .select_related('workbook', 'mapping')
+        .order_by('codigo_interno', 'codigo_destino')
+    )
+
+
+def _active_participations_for_enterprise_register(empresa, fiscal_year):
+    period_start = date(fiscal_year, 1, 1)
+    period_end = date(fiscal_year, 12, 31)
+    return list(
+        ParticipacionPatrimonial.objects.filter(
+            empresa_owner=empresa,
+            activo=True,
+            vigente_desde__lte=period_end,
+        )
+        .filter(Q(vigente_hasta__isnull=True) | Q(vigente_hasta__gte=period_start))
+        .order_by('id')
+    )
+
+
+def _save_enterprise_movement(
+    register,
+    *,
+    source_workbook_line=None,
+    codigo_interno,
+    origen,
+    monto,
+    formula_ref,
+    evidencia_ref,
+    warnings=None,
+    source_payload=None,
+):
+    warnings = warnings or []
+    source_payload = source_payload or {}
+    movement_payload = {
+        'register_set_id': register.id,
+        'source_workbook_line_id': getattr(source_workbook_line, 'id', None),
+        'codigo_interno': codigo_interno,
+        'origen': origen,
+        'signo': SignoAnnualTaxLine.INFO,
+        'monto_clp': str(monto),
+        'formula_ref': formula_ref,
+        'evidencia_ref': evidencia_ref,
+        'warnings': warnings,
+        'source_payload': source_payload,
+    }
+    movement, _ = AnnualEnterpriseRegisterMovement.objects.update_or_create(
+        register_set=register,
+        codigo_interno=codigo_interno,
+        origen=origen,
+        defaults={
+            'source_workbook_line': source_workbook_line,
+            'signo': SignoAnnualTaxLine.INFO,
+            'monto_clp': monto,
+            'formula_ref': formula_ref,
+            'evidencia_ref': evidencia_ref,
+            'warnings': warnings,
+            'source_payload': source_payload,
+            'hash_movimiento': _source_bundle_hash(movement_payload),
+            'estado': EstadoRegistro.ACTIVE,
+        },
+    )
+    try:
+        movement.full_clean()
+    except ValidationError as error:
+        reason = _first_validation_error(error)
+        raise ValueError(f'AnnualEnterpriseRegisterMovement no cumple validacion de dominio: {reason}') from error
+    movement.save()
+    return movement
+
+
+def _sync_workbook_backed_enterprise_register(register, register_type, source_lines, target_mapping):
+    active_movement_ids = []
+    if not source_lines:
+        warnings = ['source_workbook_lines_missing']
+        if target_mapping is None:
+            warnings.append('tax_code_mapping_missing')
+        movement = _save_enterprise_movement(
+            register,
+            codigo_interno=f'{register_type.lower()}.missing-source',
+            origen='annual_tax_workbook_missing',
+            monto=Decimal('0.00'),
+            formula_ref=getattr(target_mapping, 'formula_ref', '') or f'{register_type.lower()}-formula-pending',
+            evidencia_ref=getattr(target_mapping, 'evidencia_ref', '') or f'{register_type.lower()}-evidence-pending',
+            warnings=warnings,
+            source_payload={
+                'source': 'annual_tax_workbook',
+                'register_type': register_type,
+                'mapping_id': getattr(target_mapping, 'id', None),
+                'final_tax_calculation': False,
+            },
+        )
+        return [movement.id]
+
+    for source_line in source_lines:
+        warnings = []
+        if target_mapping is None:
+            warnings.append('tax_code_mapping_missing')
+        code_suffix = source_line.codigo_destino.lower().replace('_', '-').replace('.', '-')
+        movement = _save_enterprise_movement(
+            register,
+            source_workbook_line=source_line,
+            codigo_interno=f'{register_type.lower()}.{source_line.id}',
+            origen=f'annual_tax_workbook:{source_line.workbook.tipo}:{code_suffix}'[:64],
+            monto=source_line.monto_clp,
+            formula_ref=getattr(target_mapping, 'formula_ref', '') or source_line.formula_ref,
+            evidencia_ref=getattr(target_mapping, 'evidencia_ref', '') or source_line.evidencia_ref,
+            warnings=warnings,
+            source_payload={
+                'source': 'annual_tax_workbook_line',
+                'register_type': register_type,
+                'source_workbook_id': source_line.workbook_id,
+                'source_workbook_hash': source_line.workbook.hash_workbook,
+                'source_line_id': source_line.id,
+                'source_line_hash': source_line.hash_linea,
+                'target_mapping_id': getattr(target_mapping, 'id', None),
+                'final_tax_calculation': False,
+            },
+        )
+        active_movement_ids.append(movement.id)
+    return active_movement_ids
+
+
+def _sync_participation_enterprise_register(register, register_type, participations):
+    active_movement_ids = []
+    if not participations:
+        movement = _save_enterprise_movement(
+            register,
+            codigo_interno=f'{register_type.lower()}.missing-participations',
+            origen='participacion_patrimonial_missing',
+            monto=Decimal('0.00'),
+            formula_ref=f'{register_type.lower()}-ownership-formula-pending',
+            evidencia_ref=f'{register_type.lower()}-ownership-evidence-pending',
+            warnings=['participation_source_missing'],
+            source_payload={
+                'source': 'participacion_patrimonial',
+                'register_type': register_type,
+                'final_tax_calculation': False,
+            },
+        )
+        return [movement.id]
+
+    for participation in participations:
+        participant_type = 'empresa' if participation.participante_empresa_id else 'socio'
+        participant_id = participation.participante_empresa_id or participation.participante_socio_id
+        movement = _save_enterprise_movement(
+            register,
+            codigo_interno=f'{register_type.lower()}.participacion.{participation.id}',
+            origen='participacion_patrimonial',
+            monto=Decimal('0.00'),
+            formula_ref=f'{register_type.lower()}-ownership-structure',
+            evidencia_ref=f'participacion-patrimonial-{participation.id}',
+            warnings=[],
+            source_payload={
+                'source': 'participacion_patrimonial',
+                'participacion_id': participation.id,
+                'participant_type': participant_type,
+                'participant_id': participant_id,
+                'porcentaje': str(participation.porcentaje),
+                'vigente_desde': participation.vigente_desde.isoformat() if participation.vigente_desde else None,
+                'vigente_hasta': participation.vigente_hasta.isoformat() if participation.vigente_hasta else None,
+                'final_tax_calculation': False,
+            },
+        )
+        active_movement_ids.append(movement.id)
+    return active_movement_ids
+
+
+def sync_annual_enterprise_registers(process, rule_set, source_bundle):
+    fiscal_year = process.anio_tributario - 1
+    register_specs = (
+        (
+            TipoAnnualEnterpriseRegister.RAI,
+            _workbook_lines_for_register(process, TipoAnnualTaxWorkbook.RLI),
+            _enterprise_register_mapping(rule_set, DestinoMapeoTributarioAnual.RAI),
+        ),
+        (
+            TipoAnnualEnterpriseRegister.SAC,
+            _workbook_lines_for_register(process, TipoAnnualTaxWorkbook.CPT),
+            _enterprise_register_mapping(rule_set, DestinoMapeoTributarioAnual.SAC),
+        ),
+    )
+    participations = _active_participations_for_enterprise_register(process.empresa, fiscal_year)
+    registers = []
+    for register_type, source_lines, target_mapping in register_specs:
+        register, _ = AnnualEnterpriseRegisterSet.objects.update_or_create(
+            proceso_renta_anual=process,
+            tipo_registro=register_type,
+            defaults={
+                'empresa': process.empresa,
+                'source_bundle': source_bundle,
+                'rule_set': rule_set,
+                'anio_tributario': process.anio_tributario,
+                'anio_comercial': fiscal_year,
+                'source_ref': f'annual-enterprise-register-{process.empresa_id}-at{process.anio_tributario}-{register_type.lower()}',
+                'responsible_ref': 'system-annual-enterprise-register-normalizer',
+                'estado': EstadoAnnualEnterpriseRegister.DRAFT,
+            },
+        )
+        active_movement_ids = _sync_workbook_backed_enterprise_register(
+            register,
+            register_type,
+            source_lines,
+            target_mapping,
+        )
+        register.movements.exclude(id__in=active_movement_ids).update(estado=EstadoRegistro.INACTIVE)
+        _finalize_enterprise_register(register, fiscal_year, source='AnnualTaxWorkbook + TaxCodeMapping')
+        registers.append(register)
+
+    for register_type in (TipoAnnualEnterpriseRegister.RETIROS, TipoAnnualEnterpriseRegister.DIVIDENDOS):
+        register, _ = AnnualEnterpriseRegisterSet.objects.update_or_create(
+            proceso_renta_anual=process,
+            tipo_registro=register_type,
+            defaults={
+                'empresa': process.empresa,
+                'source_bundle': source_bundle,
+                'rule_set': rule_set,
+                'anio_tributario': process.anio_tributario,
+                'anio_comercial': fiscal_year,
+                'source_ref': f'annual-enterprise-register-{process.empresa_id}-at{process.anio_tributario}-{register_type.lower()}',
+                'responsible_ref': 'system-annual-enterprise-register-normalizer',
+                'estado': EstadoAnnualEnterpriseRegister.DRAFT,
+            },
+        )
+        active_movement_ids = _sync_participation_enterprise_register(register, register_type, participations)
+        register.movements.exclude(id__in=active_movement_ids).update(estado=EstadoRegistro.INACTIVE)
+        _finalize_enterprise_register(register, fiscal_year, source='ParticipacionPatrimonial')
+        registers.append(register)
+
+    AnnualEnterpriseRegisterSet.objects.filter(
+        proceso_renta_anual=process,
+        estado=EstadoAnnualEnterpriseRegister.PREPARED,
+    ).exclude(id__in=[register.id for register in registers]).update(estado=EstadoAnnualEnterpriseRegister.RETIRED)
+    return registers
+
+
+def _finalize_enterprise_register(register, fiscal_year, *, source):
+    active_movements = list(register.movements.filter(estado=EstadoRegistro.ACTIVE).order_by('codigo_interno', 'origen'))
+    warning_count = sum(
+        len(movement.warnings or [])
+        for movement in active_movements
+        if isinstance(movement.warnings, list)
+    )
+    movement_total = _sum_decimal(movement.monto_clp for movement in active_movements)
+    register.saldo_inicial_clp = Decimal('0.00')
+    register.movimientos_total_clp = movement_total
+    register.saldo_final_clp = register.saldo_inicial_clp + register.movimientos_total_clp
+    register.resumen_registro = {
+        'empresa_id': register.empresa_id,
+        'proceso_renta_anual_id': register.proceso_renta_anual_id,
+        'source_bundle_id': register.source_bundle_id,
+        'rule_set_id': register.rule_set_id,
+        'anio_tributario': register.anio_tributario,
+        'anio_comercial': fiscal_year,
+        'tipo_registro': register.tipo_registro,
+        'saldo_inicial_clp': str(register.saldo_inicial_clp),
+        'movimientos_total_clp': str(register.movimientos_total_clp),
+        'saldo_final_clp': str(register.saldo_final_clp),
+        'movements_total': len(active_movements),
+        'warnings_total': warning_count,
+        'movement_hashes': [movement.hash_movimiento for movement in active_movements],
+        'source': source,
+        'final_tax_calculation': False,
+    }
+    register.hash_registro = _source_bundle_hash(register.resumen_registro)
+    register.estado = EstadoAnnualEnterpriseRegister.PREPARED
+    try:
+        register.full_clean()
+    except ValidationError as error:
+        reason = _first_validation_error(error)
+        raise ValueError(f'AnnualEnterpriseRegisterSet no cumple validacion de dominio: {reason}') from error
+    register.save()
 
 
 def freeze_annual_tax_source_bundle(
@@ -907,6 +1236,7 @@ def build_annual_summary(empresa, fiscal_year, rule_set, source_bundle, process=
     }
     if process is not None:
         summary['annual_tax_workbooks'] = summarize_annual_tax_workbooks(process)
+        summary['annual_enterprise_registers'] = summarize_annual_enterprise_registers(process)
     return summary
 
 
@@ -924,6 +1254,7 @@ def generate_annual_preparation(empresa, anio_tributario):
     process.estado = EstadoPreparacionTributaria.PREPARED
     process.save()
     sync_annual_tax_workbooks(process, rule_set, source_bundle)
+    sync_annual_enterprise_registers(process, rule_set, source_bundle)
     summary = build_annual_summary(empresa, fiscal_year, rule_set, source_bundle, process=process)
     process.resumen_anual = summary
     process.save(update_fields=['resumen_anual', 'updated_at'])

@@ -8,6 +8,8 @@ from cobranza.models import PagoMensual
 from patrimonio.models import Empresa
 
 from .models import (
+    AnnualEnterpriseRegisterMovement,
+    AnnualEnterpriseRegisterSet,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -305,6 +307,116 @@ class AnnualTaxWorkbookLineSerializer(RedactSensitiveSiiFieldsMixin, serializers
             'warnings',
             'source_payload',
             'hash_linea',
+            'estado',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = fields
+
+
+class AnnualEnterpriseRegisterSetSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('source_ref', 'responsible_ref')
+    redacted_payload_fields = ('resumen_registro',)
+
+    class Meta:
+        model = AnnualEnterpriseRegisterSet
+        fields = (
+            'id',
+            'empresa',
+            'proceso_renta_anual',
+            'source_bundle',
+            'rule_set',
+            'anio_tributario',
+            'anio_comercial',
+            'tipo_registro',
+            'source_ref',
+            'responsible_ref',
+            'saldo_inicial_clp',
+            'movimientos_total_clp',
+            'saldo_final_clp',
+            'resumen_registro',
+            'hash_registro',
+            'estado',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = fields
+
+
+class AnnualEnterpriseRegisterMovementSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('formula_ref', 'evidencia_ref')
+    redacted_payload_fields = ('warnings', 'source_payload')
+
+    class Meta:
+        model = AnnualEnterpriseRegisterMovement
+        fields = (
+            'id',
+            'register_set',
+            'source_workbook_line',
+            'codigo_interno',
+            'origen',
+            'signo',
+            'monto_clp',
+            'formula_ref',
+            'evidencia_ref',
+            'warnings',
+            'source_payload',
+            'hash_movimiento',
+            'estado',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = fields
+
+
+class AnnualEnterpriseRegisterSetSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('source_ref', 'responsible_ref')
+    redacted_payload_fields = ('resumen_registro',)
+
+    class Meta:
+        model = AnnualEnterpriseRegisterSet
+        fields = (
+            'id',
+            'empresa',
+            'proceso_renta_anual',
+            'source_bundle',
+            'rule_set',
+            'anio_tributario',
+            'anio_comercial',
+            'tipo_registro',
+            'source_ref',
+            'responsible_ref',
+            'saldo_inicial_clp',
+            'movimientos_total_clp',
+            'saldo_final_clp',
+            'resumen_registro',
+            'hash_registro',
+            'estado',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = fields
+
+
+class AnnualEnterpriseRegisterMovementSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('formula_ref', 'evidencia_ref')
+    redacted_payload_fields = ('warnings', 'source_payload')
+
+    class Meta:
+        model = AnnualEnterpriseRegisterMovement
+        fields = (
+            'id',
+            'register_set',
+            'source_workbook_line',
+            'codigo_interno',
+            'origen',
+            'signo',
+            'monto_clp',
+            'formula_ref',
+            'evidencia_ref',
+            'warnings',
+            'source_payload',
+            'hash_movimiento',
             'estado',
             'created_at',
             'updated_at',

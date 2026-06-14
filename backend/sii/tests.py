@@ -22,6 +22,8 @@ from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Soci
 from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoContractual
 
 from .admin import (
+    AnnualEnterpriseRegisterMovementAdmin,
+    AnnualEnterpriseRegisterSetAdmin,
     AnnualTaxSourceBundleAdmin,
     AnnualTaxWorkbookAdmin,
     AnnualTaxWorkbookLineAdmin,
@@ -36,6 +38,8 @@ from .admin import (
     TaxYearRuleSetAdmin,
 )
 from .models import (
+    AnnualEnterpriseRegisterMovement,
+    AnnualEnterpriseRegisterSet,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -2863,21 +2867,40 @@ class SiiAPITests(APITestCase):
         self.assertEqual(process.resumen_anual['annual_tax_workbooks']['types'], ['CPT', 'RLI'])
         self.assertEqual(process.resumen_anual['annual_tax_workbooks']['by_type']['RLI']['warnings_total'], 0)
         self.assertEqual(process.resumen_anual['annual_tax_workbooks']['by_type']['CPT']['warnings_total'], 0)
+        enterprise_registers = AnnualEnterpriseRegisterSet.objects.filter(proceso_renta_anual=process).order_by('tipo_registro')
+        enterprise_movements = AnnualEnterpriseRegisterMovement.objects.filter(register_set__proceso_renta_anual=process)
+        self.assertEqual(enterprise_registers.count(), 4)
+        self.assertGreaterEqual(enterprise_movements.count(), 6)
+        self.assertEqual(process.resumen_anual['annual_enterprise_registers']['total'], 4)
+        self.assertEqual(
+            process.resumen_anual['annual_enterprise_registers']['types'],
+            ['DIVIDENDOS', 'RAI', 'RETIROS', 'SAC'],
+        )
+        self.assertEqual(process.resumen_anual['annual_enterprise_registers']['by_type']['RAI']['warnings_total'], 0)
+        self.assertEqual(process.resumen_anual['annual_enterprise_registers']['by_type']['SAC']['warnings_total'], 0)
 
         monthly_facts_response = self.client.get(reverse('sii-monthly-tax-fact-list'))
         self.assertEqual(monthly_facts_response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(monthly_facts_response.data), 12)
         workbook_response = self.client.get(reverse('sii-annual-tax-workbook-list'))
         workbook_line_response = self.client.get(reverse('sii-annual-tax-workbook-line-list'))
+        enterprise_register_response = self.client.get(reverse('sii-annual-enterprise-register-list'))
+        enterprise_movement_response = self.client.get(reverse('sii-annual-enterprise-register-movement-list'))
         self.assertEqual(workbook_response.status_code, status.HTTP_200_OK)
         self.assertEqual(workbook_line_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(enterprise_register_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(enterprise_movement_response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(workbook_response.data), 2)
         self.assertEqual(len(workbook_line_response.data), 2)
+        self.assertEqual(len(enterprise_register_response.data), 4)
+        self.assertGreaterEqual(len(enterprise_movement_response.data), 6)
         snapshot = self.client.get(reverse('sii-snapshot'))
         self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
         self.assertEqual(len(snapshot.data['monthly_tax_facts']), 12)
         self.assertEqual(len(snapshot.data['annual_tax_workbooks']), 2)
         self.assertEqual(len(snapshot.data['annual_tax_workbook_lines']), 2)
+        self.assertEqual(len(snapshot.data['annual_enterprise_registers']), 4)
+        self.assertGreaterEqual(len(snapshot.data['annual_enterprise_register_movements']), 6)
 
     def test_monthly_tax_fact_admin_and_api_redact_sensitive_payloads(self):
         empresa, _ = self._setup_paid_payment()
@@ -2991,6 +3014,86 @@ class SiiAPITests(APITestCase):
         self.assertNotIn('line-secret', serialized_payload)
         self.assertNotIn('secret-workbook-value', serialized_payload)
         self.assertNotIn('secret-line-value', serialized_payload)
+
+    def test_enterprise_register_admin_and_api_redact_sensitive_payloads(self):
+        empresa, _ = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887', '1879'])
+        self._activate_annual_capabilities(empresa)
+        self._create_twelve_approved_closes(empresa, fiscal_year=2026)
+        generated = self.client.post(
+            reverse('sii-anual-generate'),
+            {'empresa_id': empresa.id, 'anio_tributario': 2027},
+            format='json',
+        )
+        self.assertEqual(generated.status_code, status.HTTP_201_CREATED)
+        register = AnnualEnterpriseRegisterSet.objects.get(
+            empresa=empresa,
+            anio_tributario=2027,
+            tipo_registro='RAI',
+        )
+        movement = AnnualEnterpriseRegisterMovement.objects.filter(
+            register_set__empresa=empresa,
+            register_set__anio_tributario=2027,
+        ).first()
+        self.assertIsNotNone(movement)
+        AnnualEnterpriseRegisterSet.objects.filter(pk=register.pk).update(
+            source_ref='https://sii.example.test/rai?token=secret',
+            responsible_ref='Bearer register-secret',
+            resumen_registro={'api_key': 'secret-register-value'},
+        )
+        AnnualEnterpriseRegisterMovement.objects.filter(pk=movement.pk).update(
+            formula_ref='https://sii.example.test/register-formula?token=secret',
+            evidencia_ref='Bearer movement-secret',
+            warnings=['https://sii.example.test/register-warning?token=secret'],
+            source_payload={'api_key': 'secret-movement-value'},
+        )
+        register.refresh_from_db()
+        movement.refresh_from_db()
+        register_admin = AnnualEnterpriseRegisterSetAdmin(AnnualEnterpriseRegisterSet, AdminSite())
+        movement_admin = AnnualEnterpriseRegisterMovementAdmin(AnnualEnterpriseRegisterMovement, AdminSite())
+
+        self.assertEqual(register_admin.source_ref_redacted(register), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(register_admin.responsible_ref_redacted(register), REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('secret-register-value', json.dumps(register_admin.resumen_registro_redacted(register)))
+        self.assertEqual(movement_admin.formula_ref_redacted(movement), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(movement_admin.evidencia_ref_redacted(movement), REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('secret-movement-value', json.dumps(movement_admin.source_payload_redacted(movement)))
+
+        register_response = self.client.get(reverse('sii-annual-enterprise-register-list'))
+        movement_response = self.client.get(reverse('sii-annual-enterprise-register-movement-list'))
+        snapshot = self.client.get(reverse('sii-snapshot'))
+        serialized_payload = json.dumps(
+            {
+                'registers': register_response.data,
+                'movements': movement_response.data,
+                'snapshot': snapshot.data,
+            },
+            default=str,
+        )
+        self.assertEqual(register_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(movement_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
+        register_data = next(item for item in register_response.data if item['id'] == register.id)
+        movement_data = next(item for item in movement_response.data if item['id'] == movement.id)
+        snapshot_register_data = next(
+            item for item in snapshot.data['annual_enterprise_registers'] if item['id'] == register.id
+        )
+        snapshot_movement_data = next(
+            item for item in snapshot.data['annual_enterprise_register_movements'] if item['id'] == movement.id
+        )
+        self.assertEqual(register_data['source_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(register_data['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_register_data['source_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_register_data['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(movement_data['formula_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(movement_data['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_movement_data['formula_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_movement_data['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('token=secret', serialized_payload)
+        self.assertNotIn('register-secret', serialized_payload)
+        self.assertNotIn('movement-secret', serialized_payload)
+        self.assertNotIn('secret-register-value', serialized_payload)
+        self.assertNotIn('secret-movement-value', serialized_payload)
 
     def test_generate_annual_preparation_rejects_source_changes_after_bundle_freeze(self):
         empresa, _ = self._setup_paid_payment()

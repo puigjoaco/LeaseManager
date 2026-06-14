@@ -1,6 +1,10 @@
 from django.urls import path
 
 from .views import (
+    AnnualEnterpriseRegisterMovementDetailView,
+    AnnualEnterpriseRegisterMovementListView,
+    AnnualEnterpriseRegisterSetDetailView,
+    AnnualEnterpriseRegisterSetListView,
     AnnualGenerateView,
     AnnualTaxSourceBundleDetailView,
     AnnualTaxSourceBundleListCreateView,
@@ -48,6 +52,10 @@ urlpatterns = [
     path('anual/workbooks/<int:pk>/', AnnualTaxWorkbookDetailView.as_view(), name='sii-annual-tax-workbook-detail'),
     path('anual/workbook-lines/', AnnualTaxWorkbookLineListView.as_view(), name='sii-annual-tax-workbook-line-list'),
     path('anual/workbook-lines/<int:pk>/', AnnualTaxWorkbookLineDetailView.as_view(), name='sii-annual-tax-workbook-line-detail'),
+    path('anual/enterprise-registers/', AnnualEnterpriseRegisterSetListView.as_view(), name='sii-annual-enterprise-register-list'),
+    path('anual/enterprise-registers/<int:pk>/', AnnualEnterpriseRegisterSetDetailView.as_view(), name='sii-annual-enterprise-register-detail'),
+    path('anual/enterprise-register-movements/', AnnualEnterpriseRegisterMovementListView.as_view(), name='sii-annual-enterprise-register-movement-list'),
+    path('anual/enterprise-register-movements/<int:pk>/', AnnualEnterpriseRegisterMovementDetailView.as_view(), name='sii-annual-enterprise-register-movement-detail'),
     path('dtes/', DTEEmitidoListView.as_view(), name='sii-dte-list'),
     path('dtes/<int:pk>/', DTEEmitidoDetailView.as_view(), name='sii-dte-detail'),
     path('dtes/generar/', DTEGenerateView.as_view(), name='sii-dte-generate'),
