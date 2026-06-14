@@ -98,6 +98,17 @@ items DDJJ/F22, con resumen desalineado, items invalidos, warnings pendientes o
 estado bloqueado. Mantiene `final_tax_calculation=false` y no habilita
 presentacion SII autonoma.
 
+Nota 2026-06-14: Etapa 6 materializa el dossier anual revisable mediante
+`AnnualTaxDossier`. `generate_annual_preparation()` lo sincroniza despues de
+la matriz DDJJ/F22 y antes de DDJJ/F22 locales, consolidando source bundle,
+hechos mensuales, RLI/CPT, registros empresariales, bienes raices y matriz
+DDJJ/F22 en un resumen hasheado con responsable, `dossier_ref`, conteos y
+estado de revision. API/snapshot/admin redactan refs/payloads y readiness
+bloquea procesos trazables sin dossier, con resumen desalineado, invalidos, sin
+refs responsables o con revision pendiente. Mantiene
+`final_tax_calculation=false` y `sii_submission=false`: LeaseManager prepara
+evidencia para revision, no decide ni presenta renta final de forma autonoma.
+
 Nota 2026-06-13: Etapa 6/7 convierten el boundary asistido en enforcement
 local para artefactos anuales. `ProcesoRentaAnual`, DDJJ y F22 en estados
 aprobados, observados, rectificados o presentados requieren

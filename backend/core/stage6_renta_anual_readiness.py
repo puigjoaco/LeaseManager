@@ -27,6 +27,7 @@ from sii.models import (
     AnnualRealEstateSection,
     AnnualTaxArtifactMatrix,
     AnnualTaxArtifactMatrixItem,
+    AnnualTaxDossier,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -37,6 +38,7 @@ from sii.models import (
     EstadoAnnualRealEstateSection,
     EstadoAnnualTaxArtifactMatrix,
     EstadoAnnualTaxArtifactReview,
+    EstadoAnnualTaxDossier,
     EstadoAnnualTaxSourceBundle,
     EstadoAnnualTaxWorkbook,
     EstadoReglaTributariaAnual,
@@ -596,6 +598,77 @@ def _collect_annual_artifact_matrix_issues(matrices, items, processes, active_fi
     return dict(sorted(counts.items()))
 
 
+def _collect_annual_tax_dossier_issues(dossiers, processes, active_fiscal_company_ids: set[int]) -> dict[str, int]:
+    counts = Counter()
+    invalid_dossiers = _count_invalid(dossiers)
+    if invalid_dossiers:
+        counts['tax_dossier_invalid'] = invalid_dossiers
+    without_fiscal_config = _count_without_active_fiscal_config(dossiers, active_fiscal_company_ids)
+    if without_fiscal_config:
+        counts['tax_dossier_fiscal_config_missing'] = without_fiscal_config
+
+    prepared_dossiers = dossiers.filter(estado=EstadoAnnualTaxDossier.PREPARED)
+    dossiers_by_process = {}
+    for dossier in prepared_dossiers:
+        dossiers_by_process.setdefault(dossier.proceso_renta_anual_id, []).append(dossier)
+
+    for process in processes:
+        if process.estado not in ANNUAL_TRACEABLE_STATES:
+            continue
+        process_dossiers = dossiers_by_process.get(process.id, [])
+        if not process_dossiers:
+            counts['process_tax_dossier_missing'] += 1
+
+        summary = process.resumen_anual if isinstance(process.resumen_anual, dict) else {}
+        dossier_summary = summary.get('annual_tax_dossiers')
+        if not isinstance(dossier_summary, dict):
+            counts['process_tax_dossier_summary_missing'] += 1
+        else:
+            by_id = dossier_summary.get('by_id') if isinstance(dossier_summary.get('by_id'), dict) else {}
+            try:
+                summary_total = int(dossier_summary.get('total') or 0)
+            except (TypeError, ValueError):
+                summary_total = -1
+            summary_ids = set(str(value) for value in (dossier_summary.get('ids') or []))
+            dossier_ids = set(str(dossier.id) for dossier in process_dossiers)
+            if summary_total != len(process_dossiers) or summary_ids != dossier_ids:
+                counts['process_tax_dossier_summary_mismatch'] += 1
+            else:
+                for dossier in process_dossiers:
+                    item_summary = by_id.get(str(dossier.id))
+                    if not isinstance(item_summary, dict):
+                        counts['process_tax_dossier_summary_mismatch'] += 1
+                        break
+                    resumen = dossier.resumen_dossier if isinstance(dossier.resumen_dossier, dict) else {}
+                    if (
+                        item_summary.get('id') != dossier.id
+                        or item_summary.get('hash_dossier') != dossier.hash_dossier
+                        or item_summary.get('artifact_matrix_id') != dossier.artifact_matrix_id
+                        or item_summary.get('artifact_matrix_hash') != resumen.get('artifact_matrix_hash')
+                        or item_summary.get('review_state') != dossier.review_state
+                        or int(item_summary.get('monthly_facts_total') or 0) != dossier.monthly_facts_total
+                        or int(item_summary.get('workbooks_total') or 0) != dossier.workbooks_total
+                        or int(item_summary.get('enterprise_registers_total') or 0) != dossier.enterprise_registers_total
+                        or int(item_summary.get('real_estate_sections_total') or 0) != dossier.real_estate_sections_total
+                        or int(item_summary.get('artifact_matrix_items_total') or 0) != dossier.artifact_matrix_items_total
+                        or int(item_summary.get('warnings_total') or 0) != dossier.warnings_total
+                    ):
+                        counts['process_tax_dossier_summary_mismatch'] += 1
+                        break
+
+        for dossier in process_dossiers:
+            if not has_text(dossier.responsible_ref):
+                counts['tax_dossier_responsible_missing'] += 1
+            if not has_text(dossier.dossier_ref):
+                counts['tax_dossier_ref_missing'] += 1
+            if dossier.review_state == EstadoAnnualTaxArtifactReview.REQUIRES_REVIEW:
+                counts['tax_dossier_review_required'] += 1
+            if dossier.review_state == EstadoAnnualTaxArtifactReview.BLOCKED:
+                counts['tax_dossier_blocked'] += 1
+
+    return dict(sorted(counts.items()))
+
+
 def _collect_tax_year_rule_issues(processes, active_fiscal_configs) -> dict[str, int]:
     counts = Counter()
     fiscal_config_by_company_id = {
@@ -804,6 +877,18 @@ def collect_stage6_renta_anual_readiness(
     annual_artifact_matrix_issues = _collect_annual_artifact_matrix_issues(
         annual_tax_artifact_matrices,
         annual_tax_artifact_matrix_items,
+        annual_processes,
+        active_fiscal_company_ids,
+    )
+    annual_tax_dossiers = AnnualTaxDossier.objects.select_related(
+        'empresa',
+        'proceso_renta_anual',
+        'source_bundle',
+        'rule_set',
+        'artifact_matrix',
+    )
+    annual_tax_dossier_issues = _collect_annual_tax_dossier_issues(
+        annual_tax_dossiers,
         annual_processes,
         active_fiscal_company_ids,
     )
@@ -1250,6 +1335,55 @@ def collect_stage6_renta_anual_readiness(
     ]:
         if annual_artifact_matrix_issues.get(key):
             issues.append(_issue(code, message, count=annual_artifact_matrix_issues[key]))
+    for key, code, message in [
+        (
+            'tax_dossier_invalid',
+            'stage6.tax_dossier_invalid',
+            'Existen dossiers anuales que no pasan validacion de dominio o referencias.',
+        ),
+        (
+            'tax_dossier_fiscal_config_missing',
+            'stage6.tax_dossier_fiscal_config_missing',
+            'Existen dossiers anuales para empresas sin ConfiguracionFiscalEmpresa activa propia.',
+        ),
+        (
+            'process_tax_dossier_missing',
+            'stage6.process_tax_dossier_missing',
+            'ProcesoRentaAnual trazable requiere dossier anual revisable preparado.',
+        ),
+        (
+            'process_tax_dossier_summary_missing',
+            'stage6.process_tax_dossier_summary_missing',
+            'ProcesoRentaAnual debe conservar resumen de dossier anual en resumen_anual.',
+        ),
+        (
+            'process_tax_dossier_summary_mismatch',
+            'stage6.process_tax_dossier_summary_mismatch',
+            'ProcesoRentaAnual conserva resumen de dossier anual desalineado con el dossier vigente.',
+        ),
+        (
+            'tax_dossier_responsible_missing',
+            'stage6.tax_dossier_responsible_missing',
+            'AnnualTaxDossier preparado requiere responsable de revision trazable.',
+        ),
+        (
+            'tax_dossier_ref_missing',
+            'stage6.tax_dossier_ref_missing',
+            'AnnualTaxDossier preparado requiere dossier_ref trazable.',
+        ),
+        (
+            'tax_dossier_review_required',
+            'stage6.tax_dossier_review_required',
+            'AnnualTaxDossier conserva warnings o revision tributaria pendiente.',
+        ),
+        (
+            'tax_dossier_blocked',
+            'stage6.tax_dossier_blocked',
+            'AnnualTaxDossier esta bloqueado por artefactos anuales pendientes.',
+        ),
+    ]:
+        if annual_tax_dossier_issues.get(key):
+            issues.append(_issue(code, message, count=annual_tax_dossier_issues[key]))
     if approved_closes.count() < 12:
         issues.append(
             _issue(
@@ -1673,6 +1807,13 @@ def collect_stage6_renta_anual_readiness(
                 'items_by_target': _count_by(annual_tax_artifact_matrix_items, 'target_kind'),
                 'items_by_review_state': _count_by(annual_tax_artifact_matrix_items, 'review_state'),
                 **annual_artifact_matrix_issues,
+            },
+            'annual_tax_dossiers': {
+                'dossiers_total': annual_tax_dossiers.count(),
+                'prepared_dossiers': annual_tax_dossiers.filter(estado=EstadoAnnualTaxDossier.PREPARED).count(),
+                'dossiers_by_state': _count_by(annual_tax_dossiers, 'estado'),
+                'dossiers_by_review_state': _count_by(annual_tax_dossiers, 'review_state'),
+                **annual_tax_dossier_issues,
             },
             'annual_documents': {
                 'ddjj_total': ddjj_preparations.count(),

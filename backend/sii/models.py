@@ -492,6 +492,12 @@ class EstadoAnnualTaxArtifactMatrix(models.TextChoices):
     RETIRED = 'retirado', 'Retirado'
 
 
+class EstadoAnnualTaxDossier(models.TextChoices):
+    DRAFT = 'borrador', 'Borrador'
+    PREPARED = 'preparado', 'Preparado'
+    RETIRED = 'retirado', 'Retirado'
+
+
 class TipoAnnualTaxArtifactTarget(models.TextChoices):
     DDJJ = 'DDJJ', 'DDJJ'
     F22 = 'F22', 'F22'
@@ -2045,6 +2051,193 @@ class AnnualTaxArtifactMatrixItem(OperationalSIITextNormalizationMixin, Timestam
                 errors['hash_item'] = 'Item activo requiere hash_item.'
             if self.review_state == EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW and self.warnings:
                 errors['review_state'] = 'Items con warnings no pueden quedar listo_revision.'
+        if errors:
+            raise ValidationError(errors)
+
+
+class AnnualTaxDossier(OperationalSIITextNormalizationMixin, TimestampedModel):
+    operational_text_fields = (
+        'source_ref',
+        'responsible_ref',
+        'dossier_ref',
+        'hash_dossier',
+    )
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.PROTECT,
+        related_name='annual_tax_dossiers',
+    )
+    proceso_renta_anual = models.ForeignKey(
+        'sii.ProcesoRentaAnual',
+        on_delete=models.PROTECT,
+        related_name='tax_dossiers',
+    )
+    source_bundle = models.ForeignKey(
+        AnnualTaxSourceBundle,
+        on_delete=models.PROTECT,
+        related_name='tax_dossiers',
+    )
+    rule_set = models.ForeignKey(
+        TaxYearRuleSet,
+        on_delete=models.PROTECT,
+        related_name='tax_dossiers',
+    )
+    artifact_matrix = models.ForeignKey(
+        AnnualTaxArtifactMatrix,
+        on_delete=models.PROTECT,
+        related_name='tax_dossiers',
+    )
+    anio_tributario = models.PositiveSmallIntegerField()
+    anio_comercial = models.PositiveSmallIntegerField()
+    source_ref = models.CharField(max_length=255, blank=True)
+    responsible_ref = models.CharField(max_length=255, blank=True)
+    dossier_ref = models.CharField(max_length=255, blank=True)
+    review_state = models.CharField(
+        max_length=24,
+        choices=EstadoAnnualTaxArtifactReview.choices,
+        default=EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW,
+    )
+    monthly_facts_total = models.PositiveIntegerField(default=0)
+    workbooks_total = models.PositiveIntegerField(default=0)
+    enterprise_registers_total = models.PositiveIntegerField(default=0)
+    real_estate_sections_total = models.PositiveIntegerField(default=0)
+    artifact_matrix_items_total = models.PositiveIntegerField(default=0)
+    warnings_total = models.PositiveIntegerField(default=0)
+    resumen_dossier = models.JSONField(default=dict, blank=True)
+    hash_dossier = models.CharField(max_length=64, blank=True)
+    estado = models.CharField(
+        max_length=16,
+        choices=EstadoAnnualTaxDossier.choices,
+        default=EstadoAnnualTaxDossier.DRAFT,
+    )
+
+    class Meta:
+        ordering = ['empresa_id', '-anio_tributario', 'id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['proceso_renta_anual'],
+                name='uniq_annual_tax_dossier_process',
+            ),
+        ]
+
+    def __str__(self):
+        return f'Dossier renta {self.empresa_id} AT{self.anio_tributario}'
+
+    def clean(self):
+        super().clean()
+        self.hash_dossier = _normalize_hash(self.hash_dossier)
+        errors = {}
+        expected_commercial_year = self.anio_tributario - 1
+        if self.anio_comercial != expected_commercial_year:
+            errors['anio_comercial'] = (
+                f'anio_comercial debe ser {expected_commercial_year} para AT{self.anio_tributario}.'
+            )
+        _add_non_sensitive_reference_error(errors, self, 'source_ref')
+        _add_non_sensitive_reference_error(errors, self, 'responsible_ref')
+        _add_non_sensitive_reference_error(errors, self, 'dossier_ref')
+        _add_non_sensitive_payload_error(errors, 'resumen_dossier', self.resumen_dossier)
+        if has_text(self.hash_dossier) and not _is_sha256(self.hash_dossier):
+            errors['hash_dossier'] = 'hash_dossier debe ser SHA-256 hexadecimal de 64 caracteres.'
+
+        try:
+            process = self.proceso_renta_anual
+        except ObjectDoesNotExist:
+            process = None
+        if process is not None:
+            if process.empresa_id != self.empresa_id:
+                errors['proceso_renta_anual'] = 'El proceso anual debe pertenecer a la misma empresa del dossier.'
+            elif process.anio_tributario != self.anio_tributario:
+                errors['proceso_renta_anual'] = 'El proceso anual debe corresponder al mismo anio_tributario.'
+            if process.source_bundle_id and process.source_bundle_id != self.source_bundle_id:
+                errors['source_bundle'] = 'El dossier debe usar el mismo AnnualTaxSourceBundle del proceso anual.'
+
+        try:
+            source_bundle = self.source_bundle
+        except ObjectDoesNotExist:
+            source_bundle = None
+        if source_bundle is not None:
+            if source_bundle.empresa_id != self.empresa_id:
+                errors['source_bundle'] = 'AnnualTaxSourceBundle debe pertenecer a la misma empresa del dossier.'
+            elif source_bundle.anio_tributario != self.anio_tributario:
+                errors['source_bundle'] = 'AnnualTaxSourceBundle debe corresponder al mismo anio_tributario.'
+            elif source_bundle.estado != EstadoAnnualTaxSourceBundle.FROZEN:
+                errors['source_bundle'] = 'AnnualTaxDossier requiere AnnualTaxSourceBundle congelado.'
+
+        try:
+            rule_set = self.rule_set
+        except ObjectDoesNotExist:
+            rule_set = None
+        if rule_set is not None:
+            if rule_set.anio_tributario != self.anio_tributario:
+                errors['rule_set'] = 'TaxYearRuleSet debe corresponder al mismo anio_tributario del dossier.'
+            elif rule_set.estado != EstadoReglaTributariaAnual.APPROVED:
+                errors['rule_set'] = 'AnnualTaxDossier requiere TaxYearRuleSet aprobado.'
+
+        try:
+            artifact_matrix = self.artifact_matrix
+        except ObjectDoesNotExist:
+            artifact_matrix = None
+        if artifact_matrix is not None:
+            if artifact_matrix.empresa_id != self.empresa_id:
+                errors['artifact_matrix'] = 'AnnualTaxArtifactMatrix debe pertenecer a la misma empresa del dossier.'
+            elif artifact_matrix.proceso_renta_anual_id != self.proceso_renta_anual_id:
+                errors['artifact_matrix'] = 'AnnualTaxArtifactMatrix debe corresponder al mismo proceso anual.'
+            elif artifact_matrix.estado != EstadoAnnualTaxArtifactMatrix.PREPARED:
+                errors['artifact_matrix'] = 'AnnualTaxDossier requiere AnnualTaxArtifactMatrix preparada.'
+
+        if isinstance(self.resumen_dossier, dict):
+            identity_errors = []
+            for key, expected in (
+                ('empresa_id', self.empresa_id),
+                ('proceso_renta_anual_id', self.proceso_renta_anual_id),
+                ('source_bundle_id', self.source_bundle_id),
+                ('rule_set_id', self.rule_set_id),
+                ('artifact_matrix_id', self.artifact_matrix_id),
+                ('anio_tributario', self.anio_tributario),
+                ('anio_comercial', self.anio_comercial),
+                ('monthly_facts_total', self.monthly_facts_total),
+                ('workbooks_total', self.workbooks_total),
+                ('enterprise_registers_total', self.enterprise_registers_total),
+                ('real_estate_sections_total', self.real_estate_sections_total),
+                ('artifact_matrix_items_total', self.artifact_matrix_items_total),
+                ('warnings_total', self.warnings_total),
+            ):
+                value = self.resumen_dossier.get(key)
+                if value is None:
+                    continue
+                try:
+                    matches = int(value) == int(expected)
+                except (TypeError, ValueError):
+                    matches = False
+                if not matches:
+                    identity_errors.append(key)
+            if identity_errors:
+                errors['resumen_dossier'] = (
+                    'resumen_dossier debe coincidir con empresa, proceso, fuente, regla, matriz, anio y totales.'
+                )
+            if self.resumen_dossier.get('review_state') and self.resumen_dossier.get('review_state') != self.review_state:
+                errors['resumen_dossier'] = 'resumen_dossier debe coincidir con review_state.'
+            expected_hash = _payload_hash(self.resumen_dossier)
+            if self.hash_dossier and self.hash_dossier != expected_hash:
+                errors['hash_dossier'] = 'hash_dossier debe corresponder al resumen_dossier.'
+        elif self.resumen_dossier:
+            errors['resumen_dossier'] = 'resumen_dossier debe ser un objeto JSON.'
+
+        if self.estado == EstadoAnnualTaxDossier.PREPARED:
+            _add_active_fiscal_config_error(errors, self, 'AnnualTaxDossier')
+            if not has_text(self.source_ref):
+                errors['source_ref'] = 'AnnualTaxDossier preparado requiere source_ref no sensible.'
+            if not has_text(self.responsible_ref):
+                errors['responsible_ref'] = 'AnnualTaxDossier preparado requiere responsible_ref no sensible.'
+            if not has_text(self.dossier_ref):
+                errors['dossier_ref'] = 'AnnualTaxDossier preparado requiere dossier_ref no sensible.'
+            if self.review_state == EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW and self.warnings_total:
+                errors['review_state'] = 'Dossier con warnings no puede quedar listo_revision.'
+            if not self.resumen_dossier:
+                errors['resumen_dossier'] = 'AnnualTaxDossier preparado requiere resumen_dossier.'
+            if not has_text(self.hash_dossier):
+                errors['hash_dossier'] = 'AnnualTaxDossier preparado requiere hash_dossier.'
         if errors:
             raise ValidationError(errors)
 

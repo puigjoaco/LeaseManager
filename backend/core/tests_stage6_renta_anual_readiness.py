@@ -41,6 +41,7 @@ from sii.models import (
     AnnualRealEstateSection,
     AnnualTaxArtifactMatrix,
     AnnualTaxArtifactMatrixItem,
+    AnnualTaxDossier,
     AmbienteSII,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
@@ -65,10 +66,12 @@ from sii.services import (
     summarize_annual_enterprise_registers,
     summarize_annual_real_estate_sections,
     summarize_annual_tax_artifact_matrices,
+    summarize_annual_tax_dossiers,
     summarize_annual_tax_workbooks,
     sync_annual_enterprise_registers,
     sync_annual_real_estate_section,
     sync_annual_tax_artifact_matrix,
+    sync_annual_tax_dossier,
     sync_annual_tax_workbooks,
     sync_monthly_tax_facts,
 )
@@ -365,6 +368,10 @@ class Stage6RentaAnualReadinessTests(TestCase):
         process.save(update_fields=['resumen_anual', 'updated_at'])
         sync_annual_tax_artifact_matrix(process, rule_set, source_bundle, config)
         summary['annual_tax_artifact_matrices'] = summarize_annual_tax_artifact_matrices(process)
+        process.resumen_anual = summary
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+        sync_annual_tax_dossier(process, rule_set, source_bundle)
+        summary['annual_tax_dossiers'] = summarize_annual_tax_dossiers(process)
         process.resumen_anual = summary
         process.save(update_fields=['resumen_anual', 'updated_at'])
         DDJJPreparacionAnual.objects.create(
@@ -799,6 +806,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
 
     def test_annual_process_without_artifact_matrix_is_blocking(self):
         self._create_valid_local_matrix()
+        AnnualTaxDossier.objects.all().delete()
         AnnualTaxArtifactMatrix.objects.all().delete()
 
         result = self._collect_with_final_refs()
@@ -904,6 +912,104 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertNotIn('token=secret', serialized_result)
         self.assertNotIn('api_key', serialized_result)
         self.assertNotIn('access_token', serialized_result)
+
+    def test_annual_process_without_tax_dossier_is_blocking(self):
+        self._create_valid_local_matrix()
+        AnnualTaxDossier.objects.all().delete()
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.process_tax_dossier_missing', issue_codes)
+        self.assertEqual(result['sections']['annual_tax_dossiers']['dossiers_total'], 0)
+
+    def test_tax_dossier_review_required_is_blocking(self):
+        self._create_valid_local_matrix()
+        item = AnnualTaxArtifactMatrixItem.objects.select_related('matrix').get(target_kind='F22', target_code='F22-PREVIEW')
+        item.warnings = ['dossier_requires_expert_review']
+        item.review_state = EstadoAnnualTaxArtifactReview.REQUIRES_REVIEW
+        item.hash_item = hashlib.sha256(
+            json.dumps(
+                {
+                    'matrix_id': item.matrix_id,
+                    'target_kind': item.target_kind,
+                    'target_code': item.target_code,
+                    'medio_sii': item.medio_sii,
+                    'source_kind': item.source_kind,
+                    'source_model': item.source_model,
+                    'source_object_id': item.source_object_id,
+                    'source_hash': item.source_hash,
+                    'review_state': item.review_state,
+                    'formula_ref': item.formula_ref,
+                    'evidencia_ref': item.evidencia_ref,
+                    'responsible_ref': item.responsible_ref,
+                    'warnings': item.warnings,
+                    'source_payload': item.source_payload,
+                },
+                sort_keys=True,
+                separators=(',', ':'),
+                ensure_ascii=True,
+                default=str,
+            ).encode('utf-8')
+        ).hexdigest()
+        item.save(update_fields=['warnings', 'review_state', 'hash_item', 'updated_at'])
+        process = ProcesoRentaAnual.objects.get()
+        source_bundle = AnnualTaxSourceBundle.objects.get()
+        rule_set = TaxYearRuleSet.objects.get()
+        sync_annual_tax_dossier(process, rule_set, source_bundle)
+        process.resumen_anual = {
+            **process.resumen_anual,
+            'annual_tax_dossiers': summarize_annual_tax_dossiers(process),
+        }
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.tax_dossier_review_required', issue_codes)
+
+    def test_tax_dossier_summary_hash_mismatch_is_blocking(self):
+        self._create_valid_local_matrix()
+        process = ProcesoRentaAnual.objects.get()
+        summary = dict(process.resumen_anual)
+        dossier_summary = dict(summary['annual_tax_dossiers'])
+        by_id = dict(dossier_summary['by_id'])
+        dossier_id = next(iter(by_id.keys()))
+        item_summary = dict(by_id[dossier_id])
+        item_summary['hash_dossier'] = 'f' * 64
+        by_id[dossier_id] = item_summary
+        dossier_summary['by_id'] = by_id
+        summary['annual_tax_dossiers'] = dossier_summary
+        process.resumen_anual = summary
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.process_tax_dossier_summary_mismatch', issue_codes)
+
+    def test_invalid_tax_dossier_is_blocking_without_leak(self):
+        self._create_valid_local_matrix()
+        AnnualTaxDossier.objects.update(
+            source_ref='https://sii.example.test/dossier?token=secret',
+            responsible_ref='Bearer tax-dossier-secret',
+            dossier_ref='https://sii.example.test/dossier-file?token=secret',
+            resumen_dossier={'api_key': 'secret-tax-dossier'},
+            hash_dossier='not-a-sha',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+        serialized_result = json.dumps(result)
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.tax_dossier_invalid', issue_codes)
+        self.assertNotIn('token=secret', serialized_result)
+        self.assertNotIn('api_key', serialized_result)
+        self.assertNotIn('tax-dossier-secret', serialized_result)
 
     def test_valid_local_matrix_and_non_sensitive_refs_cannot_close_readiness(self):
         self._create_valid_local_matrix()

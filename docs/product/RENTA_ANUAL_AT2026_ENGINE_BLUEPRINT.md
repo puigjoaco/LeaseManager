@@ -151,8 +151,13 @@ contratos:
    responsable, payload no sensible, hash y `final_tax_calculation=false`.
    API/snapshot/admin redactan refs/payloads y readiness bloquea si falta
    matriz, items DDJJ/F22, resumen alineado o revision de warnings.
-8. `stage6-dossier-review`: dossier anual revisable con bloqueo si falta
-   responsable.
+8. `stage6-dossier-review`: dossier anual revisable. Implementado como
+   `AnnualTaxDossier`: consolida source bundle, hechos mensuales, RLI/CPT,
+   registros empresariales, bienes raices y matriz DDJJ/F22 en un resumen
+   hasheado con responsable, refs no sensibles, `final_tax_calculation=false`
+   y `sii_submission=false`. API/snapshot/admin redactan refs/payloads y
+   readiness bloquea si falta dossier, si el resumen esta desalineado, si falta
+   responsable o si existen warnings/revision pendiente.
 9. `stage6-export-gate`: export/preview, sin presentacion final automatica.
 
 ## Validaciones necesarias
@@ -177,6 +182,9 @@ contratos:
 | Item DDJJ/F22 faltante | matriz preparada sin items activos, sin items F22 o sin items DDJJ |
 | Resumen matriz DDJJ/F22 desalineado | hash, conteos o ids del proceso no coinciden con la matriz vigente |
 | Item matriz con warning/bloqueo | fuente anual requiere revision tributaria antes de package/export |
+| Dossier anual faltante | proceso anual trazable sin `AnnualTaxDossier` preparado |
+| Resumen dossier desalineado | hash, conteos, matriz o ids del proceso no coinciden con el dossier vigente |
+| Dossier con revision pendiente | warnings, estado `requiere_revision` o `bloqueado` antes de package/export |
 | Responsable ausente | DDJJ/F22/dossier avanzado sin `responsable_revision_ref` |
 | Refs sensibles | URLs, tokens, correos, certificados o claves en refs/payloads |
 | Presentacion sin gate | intento de marcar presentado sin formato SII, autorizacion y evidencia |

@@ -27,6 +27,7 @@ from .models import (
     AnnualRealEstateSection,
     AnnualTaxArtifactMatrix,
     AnnualTaxArtifactMatrixItem,
+    AnnualTaxDossier,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -38,6 +39,7 @@ from .models import (
     EstadoAnnualRealEstateSection,
     EstadoAnnualTaxArtifactMatrix,
     EstadoAnnualTaxArtifactReview,
+    EstadoAnnualTaxDossier,
     EstadoAnnualTaxWorkbook,
     EstadoDTE,
     EstadoGateSII,
@@ -780,6 +782,36 @@ def summarize_annual_tax_artifact_matrices(process):
         }
     return {
         'total': matrices.count(),
+        'ids': sorted(by_id.keys()),
+        'by_id': by_id,
+    }
+
+
+def summarize_annual_tax_dossiers(process):
+    dossiers = AnnualTaxDossier.objects.filter(
+        proceso_renta_anual=process,
+        estado=EstadoAnnualTaxDossier.PREPARED,
+    ).order_by('id')
+    by_id = {}
+    for dossier in dossiers:
+        summary = dossier.resumen_dossier if isinstance(dossier.resumen_dossier, dict) else {}
+        by_id[str(dossier.id)] = {
+            'id': dossier.id,
+            'hash_dossier': dossier.hash_dossier,
+            'artifact_matrix_id': dossier.artifact_matrix_id,
+            'artifact_matrix_hash': summary.get('artifact_matrix_hash'),
+            'review_state': dossier.review_state,
+            'monthly_facts_total': dossier.monthly_facts_total,
+            'workbooks_total': dossier.workbooks_total,
+            'enterprise_registers_total': dossier.enterprise_registers_total,
+            'real_estate_sections_total': dossier.real_estate_sections_total,
+            'artifact_matrix_items_total': dossier.artifact_matrix_items_total,
+            'warnings_total': dossier.warnings_total,
+            'source_bundle_id': dossier.source_bundle_id,
+            'rule_set_id': dossier.rule_set_id,
+        }
+    return {
+        'total': dossiers.count(),
         'ids': sorted(by_id.keys()),
         'by_id': by_id,
     }
@@ -1777,6 +1809,151 @@ def sync_annual_tax_artifact_matrix(process, rule_set, source_bundle, config):
     return matrix
 
 
+def _annual_tax_dossier_review_state(matrix):
+    active_items = matrix.items.filter(estado=EstadoRegistro.ACTIVE)
+    if active_items.filter(review_state=EstadoAnnualTaxArtifactReview.BLOCKED).exists():
+        return EstadoAnnualTaxArtifactReview.BLOCKED
+    if active_items.exclude(review_state=EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW).exists():
+        return EstadoAnnualTaxArtifactReview.REQUIRES_REVIEW
+    for item in active_items:
+        warnings = item.warnings if isinstance(item.warnings, list) else []
+        if warnings:
+            return EstadoAnnualTaxArtifactReview.REQUIRES_REVIEW
+    return EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW
+
+
+def _annual_tax_dossier_summary(process, rule_set, source_bundle, matrix):
+    process_summary = process.resumen_anual if isinstance(process.resumen_anual, dict) else {}
+    matrix_summary = summarize_annual_tax_artifact_matrices(process)
+    monthly_summary = process_summary.get('annual_tax_monthly_facts', {})
+    workbook_summary = process_summary.get('annual_tax_workbooks', {})
+    register_summary = process_summary.get('annual_enterprise_registers', {})
+    real_estate_summary = process_summary.get('annual_real_estate_sections', {})
+    active_items = matrix.items.filter(estado=EstadoRegistro.ACTIVE).order_by(
+        'target_kind',
+        'target_code',
+        'source_kind',
+        'source_model',
+        'source_object_id',
+    )
+    warnings_total = 0
+    review_state_counts = {}
+    item_refs = []
+    for item in active_items:
+        warnings = item.warnings if isinstance(item.warnings, list) else []
+        warnings_total += len(warnings)
+        review_state_counts[item.review_state] = review_state_counts.get(item.review_state, 0) + 1
+        item_refs.append(
+            {
+                'id': item.id,
+                'target_kind': item.target_kind,
+                'target_code': item.target_code,
+                'source_kind': item.source_kind,
+                'source_model': item.source_model,
+                'source_object_id': item.source_object_id,
+                'source_hash': item.source_hash,
+                'hash_item': item.hash_item,
+                'review_state': item.review_state,
+            }
+        )
+    try:
+        monthly_facts_total = int(monthly_summary.get('total') or 0)
+    except (AttributeError, TypeError, ValueError):
+        monthly_facts_total = 0
+    try:
+        workbooks_total = int(workbook_summary.get('total') or 0)
+    except (AttributeError, TypeError, ValueError):
+        workbooks_total = 0
+    try:
+        enterprise_registers_total = int(register_summary.get('total') or 0)
+    except (AttributeError, TypeError, ValueError):
+        enterprise_registers_total = 0
+    try:
+        real_estate_sections_total = int(real_estate_summary.get('total') or 0)
+    except (AttributeError, TypeError, ValueError):
+        real_estate_sections_total = 0
+    artifact_matrix_items_total = active_items.count()
+    review_state = _annual_tax_dossier_review_state(matrix)
+    return {
+        'empresa_id': process.empresa_id,
+        'proceso_renta_anual_id': process.id,
+        'source_bundle_id': source_bundle.id,
+        'rule_set_id': rule_set.id,
+        'artifact_matrix_id': matrix.id,
+        'anio_tributario': process.anio_tributario,
+        'anio_comercial': process.anio_tributario - 1,
+        'source_bundle_hash': source_bundle.hash_fuentes,
+        'rule_set_hash': rule_set.hash_normativo,
+        'artifact_matrix_hash': matrix.hash_matriz,
+        'monthly_facts_total': monthly_facts_total,
+        'workbooks_total': workbooks_total,
+        'enterprise_registers_total': enterprise_registers_total,
+        'real_estate_sections_total': real_estate_sections_total,
+        'artifact_matrix_items_total': artifact_matrix_items_total,
+        'components': {
+            'annual_tax_source_bundle': process_summary.get('annual_tax_source_bundle', {}),
+            'annual_tax_monthly_facts': monthly_summary,
+            'annual_tax_workbooks': workbook_summary,
+            'annual_enterprise_registers': register_summary,
+            'annual_real_estate_sections': real_estate_summary,
+            'annual_tax_artifact_matrices': matrix_summary,
+        },
+        'matrix_items_total': artifact_matrix_items_total,
+        'ddjj_items_total': matrix.ddjj_items_total,
+        'f22_items_total': matrix.f22_items_total,
+        'warnings_total': warnings_total,
+        'review_state': review_state,
+        'review_state_counts': dict(sorted(review_state_counts.items())),
+        'item_refs': item_refs,
+        'final_tax_calculation': False,
+        'sii_submission': False,
+    }
+
+
+def sync_annual_tax_dossier(process, rule_set, source_bundle):
+    matrix = AnnualTaxArtifactMatrix.objects.get(
+        proceso_renta_anual=process,
+        estado=EstadoAnnualTaxArtifactMatrix.PREPARED,
+    )
+    summary = _annual_tax_dossier_summary(process, rule_set, source_bundle, matrix)
+    dossier, _ = AnnualTaxDossier.objects.update_or_create(
+        proceso_renta_anual=process,
+        defaults={
+            'empresa': process.empresa,
+            'source_bundle': source_bundle,
+            'rule_set': rule_set,
+            'artifact_matrix': matrix,
+            'anio_tributario': process.anio_tributario,
+            'anio_comercial': process.anio_tributario - 1,
+            'source_ref': f'annual-tax-dossier-source-{process.empresa_id}-at{process.anio_tributario}',
+            'responsible_ref': 'annual-tax-review-owner',
+            'dossier_ref': f'annual-tax-dossier-{process.empresa_id}-{process.anio_tributario}-review-package-v1',
+            'review_state': summary['review_state'],
+            'monthly_facts_total': summary['monthly_facts_total'],
+            'workbooks_total': summary['workbooks_total'],
+            'enterprise_registers_total': summary['enterprise_registers_total'],
+            'real_estate_sections_total': summary['real_estate_sections_total'],
+            'artifact_matrix_items_total': summary['artifact_matrix_items_total'],
+            'warnings_total': summary['warnings_total'],
+            'resumen_dossier': summary,
+            'hash_dossier': _source_bundle_hash(summary),
+            'estado': EstadoAnnualTaxDossier.PREPARED,
+        },
+    )
+    try:
+        dossier.full_clean()
+    except ValidationError as error:
+        reason = _first_validation_error(error)
+        raise ValueError(f'AnnualTaxDossier no cumple validacion de dominio: {reason}') from error
+    dossier.save()
+    AnnualTaxDossier.objects.filter(
+        empresa=process.empresa,
+        anio_tributario=process.anio_tributario,
+        estado=EstadoAnnualTaxDossier.PREPARED,
+    ).exclude(pk=dossier.pk).update(estado=EstadoAnnualTaxDossier.RETIRED)
+    return dossier
+
+
 def freeze_annual_tax_source_bundle(
     empresa,
     anio_tributario,
@@ -1910,6 +2087,7 @@ def build_annual_summary(empresa, fiscal_year, rule_set, source_bundle, process=
         summary['annual_enterprise_registers'] = summarize_annual_enterprise_registers(process)
         summary['annual_real_estate_sections'] = summarize_annual_real_estate_sections(process)
         summary['annual_tax_artifact_matrices'] = summarize_annual_tax_artifact_matrices(process)
+        summary['annual_tax_dossiers'] = summarize_annual_tax_dossiers(process)
     return summary
 
 
@@ -1933,6 +2111,10 @@ def generate_annual_preparation(empresa, anio_tributario):
     process.resumen_anual = summary
     process.save(update_fields=['resumen_anual', 'updated_at'])
     sync_annual_tax_artifact_matrix(process, rule_set, source_bundle, config)
+    summary = build_annual_summary(empresa, fiscal_year, rule_set, source_bundle, process=process)
+    process.resumen_anual = summary
+    process.save(update_fields=['resumen_anual', 'updated_at'])
+    sync_annual_tax_dossier(process, rule_set, source_bundle)
     summary = build_annual_summary(empresa, fiscal_year, rule_set, source_bundle, process=process)
     process.resumen_anual = summary
     process.save(update_fields=['resumen_anual', 'updated_at'])

@@ -28,6 +28,7 @@ from .admin import (
     AnnualRealEstateSectionAdmin,
     AnnualTaxArtifactMatrixAdmin,
     AnnualTaxArtifactMatrixItemAdmin,
+    AnnualTaxDossierAdmin,
     AnnualTaxSourceBundleAdmin,
     AnnualTaxWorkbookAdmin,
     AnnualTaxWorkbookLineAdmin,
@@ -48,6 +49,7 @@ from .models import (
     AnnualRealEstateSection,
     AnnualTaxArtifactMatrix,
     AnnualTaxArtifactMatrixItem,
+    AnnualTaxDossier,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -2905,6 +2907,16 @@ class SiiAPITests(APITestCase):
         self.assertGreater(matrix_summary['ddjj_items_total'], 0)
         self.assertGreater(matrix_summary['f22_items_total'], 0)
         self.assertEqual(matrix_summary['warnings_total'], 0)
+        dossiers = AnnualTaxDossier.objects.filter(proceso_renta_anual=process)
+        self.assertEqual(dossiers.count(), 1)
+        dossier = dossiers.get()
+        self.assertEqual(process.resumen_anual['annual_tax_dossiers']['total'], 1)
+        dossier_summary = next(iter(process.resumen_anual['annual_tax_dossiers']['by_id'].values()))
+        self.assertEqual(dossier_summary['hash_dossier'], dossier.hash_dossier)
+        self.assertEqual(dossier_summary['artifact_matrix_id'], artifact_matrices.get().id)
+        self.assertEqual(dossier_summary['artifact_matrix_items_total'], artifact_items.count())
+        self.assertEqual(dossier_summary['warnings_total'], 0)
+        self.assertEqual(dossier.review_state, 'listo_revision')
 
         monthly_facts_response = self.client.get(reverse('sii-monthly-tax-fact-list'))
         self.assertEqual(monthly_facts_response.status_code, status.HTTP_200_OK)
@@ -2917,6 +2929,7 @@ class SiiAPITests(APITestCase):
         real_estate_item_response = self.client.get(reverse('sii-annual-real-estate-item-list'))
         artifact_matrix_response = self.client.get(reverse('sii-annual-tax-artifact-matrix-list'))
         artifact_matrix_item_response = self.client.get(reverse('sii-annual-tax-artifact-matrix-item-list'))
+        dossier_response = self.client.get(reverse('sii-annual-tax-dossier-list'))
         self.assertEqual(workbook_response.status_code, status.HTTP_200_OK)
         self.assertEqual(workbook_line_response.status_code, status.HTTP_200_OK)
         self.assertEqual(enterprise_register_response.status_code, status.HTTP_200_OK)
@@ -2925,6 +2938,7 @@ class SiiAPITests(APITestCase):
         self.assertEqual(real_estate_item_response.status_code, status.HTTP_200_OK)
         self.assertEqual(artifact_matrix_response.status_code, status.HTTP_200_OK)
         self.assertEqual(artifact_matrix_item_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(dossier_response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(workbook_response.data), 2)
         self.assertEqual(len(workbook_line_response.data), 2)
         self.assertEqual(len(enterprise_register_response.data), 4)
@@ -2933,6 +2947,7 @@ class SiiAPITests(APITestCase):
         self.assertEqual(len(real_estate_item_response.data), 1)
         self.assertEqual(len(artifact_matrix_response.data), 1)
         self.assertEqual(len(artifact_matrix_item_response.data), artifact_items.count())
+        self.assertEqual(len(dossier_response.data), 1)
         snapshot = self.client.get(reverse('sii-snapshot'))
         self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
         self.assertEqual(len(snapshot.data['monthly_tax_facts']), 12)
@@ -2944,6 +2959,7 @@ class SiiAPITests(APITestCase):
         self.assertEqual(len(snapshot.data['annual_real_estate_items']), 1)
         self.assertEqual(len(snapshot.data['annual_tax_artifact_matrices']), 1)
         self.assertEqual(len(snapshot.data['annual_tax_artifact_matrix_items']), artifact_items.count())
+        self.assertEqual(len(snapshot.data['annual_tax_dossiers']), 1)
 
     def test_real_estate_item_preserves_frozen_snapshot_after_property_master_changes(self):
         empresa, _ = self._setup_paid_payment()
@@ -3318,6 +3334,57 @@ class SiiAPITests(APITestCase):
         self.assertNotIn('artifact-item-secret', serialized_payload)
         self.assertNotIn('secret-artifact-matrix-value', serialized_payload)
         self.assertNotIn('secret-artifact-item-value', serialized_payload)
+
+    def test_tax_dossier_admin_and_api_redact_sensitive_payloads(self):
+        empresa, _ = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887', '1879'])
+        self._activate_annual_capabilities(empresa)
+        self._create_twelve_approved_closes(empresa, fiscal_year=2026)
+        generated = self.client.post(
+            reverse('sii-anual-generate'),
+            {'empresa_id': empresa.id, 'anio_tributario': 2027},
+            format='json',
+        )
+        self.assertEqual(generated.status_code, status.HTTP_201_CREATED)
+        dossier = AnnualTaxDossier.objects.get(empresa=empresa, anio_tributario=2027)
+        AnnualTaxDossier.objects.filter(pk=dossier.pk).update(
+            source_ref='https://sii.example.test/dossier?token=secret',
+            responsible_ref='Bearer dossier-secret',
+            dossier_ref='https://sii.example.test/dossier-file?token=secret',
+            resumen_dossier={'api_key': 'secret-dossier-value'},
+        )
+        dossier.refresh_from_db()
+        dossier_admin = AnnualTaxDossierAdmin(AnnualTaxDossier, AdminSite())
+
+        self.assertEqual(dossier_admin.source_ref_redacted(dossier), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(dossier_admin.responsible_ref_redacted(dossier), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(dossier_admin.dossier_ref_redacted(dossier), REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('secret-dossier-value', json.dumps(dossier_admin.resumen_dossier_redacted(dossier)))
+
+        dossier_response = self.client.get(reverse('sii-annual-tax-dossier-list'))
+        snapshot = self.client.get(reverse('sii-snapshot'))
+        serialized_payload = json.dumps(
+            {
+                'dossiers': dossier_response.data,
+                'snapshot': snapshot.data,
+            },
+            default=str,
+        )
+        self.assertEqual(dossier_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
+        dossier_data = next(entry for entry in dossier_response.data if entry['id'] == dossier.id)
+        snapshot_dossier_data = next(
+            entry for entry in snapshot.data['annual_tax_dossiers'] if entry['id'] == dossier.id
+        )
+        self.assertEqual(dossier_data['source_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(dossier_data['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(dossier_data['dossier_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_dossier_data['source_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_dossier_data['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_dossier_data['dossier_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('token=secret', serialized_payload)
+        self.assertNotIn('dossier-secret', serialized_payload)
+        self.assertNotIn('secret-dossier-value', serialized_payload)
 
     def test_generate_annual_preparation_rejects_source_changes_after_bundle_freeze(self):
         empresa, _ = self._setup_paid_payment()
