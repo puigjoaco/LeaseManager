@@ -227,7 +227,29 @@ class Stage6RentaAnualReadinessTests(TestCase):
             storage_ref='local-evidence/stage6/certificado-renta-anual.pdf',
         )
 
+    def _create_official_source(self, *, anio_tributario=2026, applies_to='', regime_code=''):
+        target_key = applies_to.lower() if applies_to else 'ruleset'
+        return AnnualTaxOfficialSource.objects.create(
+            anio_tributario=anio_tributario,
+            source_key=f'expert-{target_key}-at{anio_tributario}',
+            source_type=TipoAnnualTaxOfficialSource.EXPERT_REVIEW,
+            title=f'Revision experta {target_key} AT{anio_tributario}',
+            source_ref=f'expert-{target_key}-source-ref-at{anio_tributario}',
+            source_hash='f' * 64,
+            retrieved_on=date(2026, 6, 14),
+            responsible_ref='tax-source-reviewer-controlled',
+            estado=EstadoAnnualTaxOfficialSource.APPROVED,
+            applies_to=applies_to,
+            regime_code=regime_code,
+            scope_note='Fuente experta controlada para pruebas locales Stage 6.',
+            metadata={'source': 'stage6-controlled'},
+        )
+
     def _create_approved_tax_year_ruleset(self, config, anio_tributario=2026):
+        rule_source = self._create_official_source(
+            anio_tributario=anio_tributario,
+            regime_code=config.regimen_tributario.codigo_regimen,
+        )
         rule_set = TaxYearRuleSet.objects.create(
             anio_tributario=anio_tributario,
             regimen_tributario=config.regimen_tributario,
@@ -236,6 +258,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
             fuente_ref='tax-rule-source-at2026-controlled',
             hash_normativo='a' * 64,
             responsable_aprobacion_ref='tax-rule-reviewer-controlled',
+            official_source=rule_source,
             metadata={'source': 'stage6-controlled'},
         )
         for destino, codigo_interno, codigo_destino, source_metric in (
@@ -267,6 +290,11 @@ class Stage6RentaAnualReadinessTests(TestCase):
             metadata = {'source': 'stage6-controlled'}
             if source_metric:
                 metadata['source_metric'] = source_metric
+            mapping_source = self._create_official_source(
+                anio_tributario=anio_tributario,
+                applies_to=destino,
+                regime_code=config.regimen_tributario.codigo_regimen,
+            )
             TaxCodeMapping.objects.create(
                 rule_set=rule_set,
                 destino=destino,
@@ -274,6 +302,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
                 codigo_destino=codigo_destino,
                 formula_ref=f'formula-ref-{codigo_destino.lower()}-controlled',
                 evidencia_ref=f'evidence-ref-{codigo_destino.lower()}-controlled',
+                official_source=mapping_source,
                 metadata=metadata,
             )
         return rule_set
@@ -1280,6 +1309,20 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertIn('stage6.tax_code_mapping_missing', issue_codes)
         self.assertEqual(result['sections']['tax_year_rules']['tax_code_mapping_missing'], 1)
 
+    def test_approved_tax_rules_without_official_source_are_blocking(self):
+        self._create_valid_local_matrix()
+        TaxYearRuleSet.objects.update(official_source=None)
+        TaxCodeMapping.objects.update(official_source=None)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.tax_year_ruleset_official_source_missing', issue_codes)
+        self.assertIn('stage6.tax_code_mapping_official_source_missing', issue_codes)
+        self.assertEqual(result['sections']['tax_year_rules']['tax_year_ruleset_official_source_missing'], 1)
+        self.assertEqual(result['sections']['tax_year_rules']['tax_code_mapping_official_source_missing'], 4)
+
     def test_invalid_tax_year_rules_are_blocking_without_sensitive_leak(self):
         self._create_valid_local_matrix()
         TaxYearRuleSet.objects.update(
@@ -1325,7 +1368,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage6_renta_anual'])
         self.assertIn('stage6.official_source_invalid', issue_codes)
         self.assertEqual(result['sections']['annual_tax_official_sources']['official_source_invalid'], 1)
-        self.assertEqual(result['sections']['annual_tax_official_sources']['sources_total'], 1)
+        self.assertEqual(result['sections']['annual_tax_official_sources']['sources_total'], 6)
         self.assertNotIn('token=secret', serialized_result)
         self.assertNotIn('source-secret', serialized_result)
 

@@ -87,7 +87,7 @@ tener fuente SII/experta, responsable y evidencia no sensible.
 | --- | --- | --- | --- | --- |
 | `AnnualTaxOfficialSource` | Registrar fuente SII/experta por AT | URL publica SII o ref experta, hash, fecha, responsable, alcance | fuente revisada/aprobada trazable | refs no sensibles y dominio SII seguro cuando aplica |
 | `AnnualTaxSourceBundle` | Congelar fuentes anuales no sensibles | cierres, ledger, F29/PPM, contratos, propiedades, socios, certificados | snapshot anual trazable | 12 cierres aprobados y refs no sensibles |
-| `TaxYearRuleSet` | Versionar reglas por AT/regimen | fuente oficial/experta, hashes, vigencia | reglas aprobadas/condicionadas | no se activa sin fuente aprobada |
+| `TaxYearRuleSet` | Versionar reglas por AT/regimen | fuente oficial/experta enlazada, hashes, vigencia | reglas aprobadas/condicionadas | no se aprueba sin `AnnualTaxOfficialSource` revisada/aprobada |
 | `AnnualTaxProfile` | Fijar empresa/regimen/responsable | empresa, configuracion fiscal, representante | perfil anual | configuracion fiscal activa |
 | `MonthlyTaxFact` | Normalizar hechos mensuales | F29, cierre mensual, liquidaciones, pagos | base mensual anualizable con hash | cierre aprobado y refs no sensibles |
 | `AnnualTaxNormalizer` | Transformar fuentes a registros intermedios | source bundle + rule set | RLI, CPT, RAI, SAC, DDJJ base | no calcula sin rule set vigente |
@@ -109,8 +109,8 @@ contratos:
 | Contrato | Campos minimos | Razon |
 | --- | --- | --- |
 | Fuente anual | `anio_tributario`, `anio_comercial`, `empresa`, `source_kind`, `source_label`, `authorization_ref`, `hash_fuentes` | probar origen y alcance |
-| Regla AT | `anio_tributario`, `regimen`, `version`, `fuente_ref`, `estado`, `hash_normativo` | evitar reglas implicitas |
-| Linea normalizada | `codigo_interno`, `origen`, `monto`, `signo`, `formula_ref`, `evidencia_ref`, `warnings` | trazabilidad de cada monto |
+| Regla AT | `anio_tributario`, `regimen`, `version`, `fuente_ref`, `official_source`, `estado`, `hash_normativo` | evitar reglas implicitas |
+| Linea normalizada | `codigo_interno`, `origen`, `monto`, `signo`, `formula_ref`, `evidencia_ref`, `official_source`, `warnings` | trazabilidad de cada monto |
 | Registro empresarial | `tipo_registro`, `saldo_inicial`, `movimientos`, `saldo_final`, `fuente_saldo` | RAI/SAC no puede inventar saldos |
 | Paquete DDJJ | `formulario`, `medio_sii`, `periodo`, `registros`, `responsable_revision_ref`, `paquete_ref` | DDJJ revisable antes de F22 |
 | Draft F22 | `codigo_f22`, `valor`, `fuente_linea`, `estado_revision`, `borrador_ref` | F22 como salida explicable |
@@ -198,6 +198,11 @@ contratos:
     migracion, API/snapshot/admin redactados y readiness bloqueante si una
     fuente AT registrada es invalida, usa URL no segura, carece de hash/fecha/
     responsable o conserva refs/payloads sensibles.
+13. `stage6-rule-source-link`: respaldo obligatorio de reglas y mappings con
+    fuentes oficiales/experta. Implementado como enlaces `official_source` desde
+    `TaxYearRuleSet` y `TaxCodeMapping`, validacion de AT/destino/regimen y
+    readiness bloqueante si una regla aprobada o mapping activo no tiene fuente
+    revisada/aprobada compatible.
 
 ## Cobertura actual contra EDIG AT2026
 

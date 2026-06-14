@@ -76,6 +76,14 @@ sensible, hash SHA-256, fecha de recuperacion y responsable; API/snapshot/admin
 redactan refs, notas y metadata heredadas, y readiness reporta
 `stage6.official_source_invalid` si una fuente registrada no pasa dominio.
 
+Nota 2026-06-14: Etapa 6 enlaza reglas y mappings anuales con
+`AnnualTaxOfficialSource`. `TaxYearRuleSet` aprobado y `TaxCodeMapping` activo
+bajo regla aprobada requieren fuente revisada/aprobada del mismo ano tributario
+y compatible con regimen/destino cuando la fuente declare esos alcances. La
+readiness reporta faltas o incompatibilidades con codigos especificos, cerrando
+la brecha entre matriz oficial AT2026 y reglas locales sin automatizar
+presentacion SII ni criterio tributario final.
+
 Nota 2026-06-14: Etapa 6 materializa el skeleton RLI/CPT mediante
 `AnnualTaxWorkbook` y `AnnualTaxWorkbookLine`. La preparacion anual genera
 workbooks RLI y CPT desde `TaxCodeMapping` + `MonthlyTaxFact`, con hashes por

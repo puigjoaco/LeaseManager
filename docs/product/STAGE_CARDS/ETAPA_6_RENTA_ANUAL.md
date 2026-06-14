@@ -129,9 +129,14 @@ sin exponer valores.
 - Cierres mensuales completos.
 - Reglas tributarias validadas.
 - `TaxYearRuleSet` aprobado para el ano tributario y regimen fiscal de la
-  empresa, con `hash_normativo`, fuente y responsable no sensibles.
+  empresa, con `hash_normativo`, fuente y responsable no sensibles, y enlace a
+  `AnnualTaxOfficialSource` revisada/aprobada del mismo AT y regimen
+  compatible cuando la fuente declare regimen.
 - `TaxCodeMapping` activo y trazable para el rule set antes de preparar
-  ProcesoRentaAnual/DDJJ/F22.
+  ProcesoRentaAnual/DDJJ/F22; si pertenece a un rule set aprobado debe enlazar
+  una `AnnualTaxOfficialSource` revisada/aprobada del mismo AT, destino
+  RLI/CPT/RAI/SAC/DDJJ/F22 compatible cuando aplique y regimen compatible
+  cuando la fuente declare regimen.
 - `AnnualTaxSourceBundle` congelado por empresa/ano tributario antes de
   preparar ProcesoRentaAnual/DDJJ/F22; debe tener doce cierres aprobados,
   obligaciones mensuales trazables, refs no sensibles y `hash_fuentes`

@@ -108,6 +108,7 @@ class TaxYearRuleSetAdmin(admin.ModelAdmin):
         'fuente_ref_redacted',
         'hash_normativo',
         'responsable_aprobacion_ref_redacted',
+        'official_source',
         'descripcion',
         'metadata_redacted',
         'created_at',
@@ -121,6 +122,7 @@ class TaxYearRuleSetAdmin(admin.ModelAdmin):
         'estado',
         'fuente_ref_redacted',
         'responsable_aprobacion_ref_redacted',
+        'official_source',
     )
     list_filter = ('anio_tributario', 'estado', 'regimen_tributario')
     search_fields = ('version', 'regimen_tributario__codigo_regimen')
@@ -156,6 +158,7 @@ class TaxCodeMappingAdmin(admin.ModelAdmin):
         'codigo_destino',
         'formula_ref_redacted',
         'evidencia_ref_redacted',
+        'official_source',
         'estado',
         'metadata_redacted',
         'created_at',
@@ -170,6 +173,7 @@ class TaxCodeMappingAdmin(admin.ModelAdmin):
         'estado',
         'formula_ref_redacted',
         'evidencia_ref_redacted',
+        'official_source',
     )
     list_filter = ('destino', 'estado', 'rule_set__anio_tributario')
     search_fields = ('codigo_interno', 'codigo_destino', 'rule_set__version')
