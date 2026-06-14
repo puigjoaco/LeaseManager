@@ -202,8 +202,8 @@ sin exponer valores.
   mapping DJ1847/RLI/CPT, contribucion o formato F22 a estado cerrable.
 - `AnnualTaxOfficialSource` revisada/aprobada requiere `source_url` publica SII
   segura si la fuente es SII, `source_ref`, `source_hash`, `retrieved_on` y
-  `responsible_ref` no sensibles. Fuentes invalidas o con URLs/refs/payloads
-  sensibles bloquean readiness.
+  `responsible_ref` no sensibles; `retrieved_on` no puede ser futuro. Fuentes
+  invalidas o con URLs/refs/payloads sensibles bloquean readiness.
 - Una certificacion tecnica F22, F29 o DDJJ acredita formato/recepcion en el
   alcance descrito por SII; no reemplaza validacion tributaria del contenido ni
   revision responsable.

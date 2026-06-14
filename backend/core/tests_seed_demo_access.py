@@ -5,6 +5,7 @@ from unittest.mock import patch
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
+from django.utils import timezone
 
 from core.management.commands.bootstrap_demo_control_activity import (
     Command as ControlActivityCommand,
@@ -452,6 +453,7 @@ class SeedDemoAccessCommandTests(TestCase):
         self.assertIsNotNone(rule_set.official_source_id)
         self.assertEqual(rule_set.official_source.estado, EstadoAnnualTaxOfficialSource.APPROVED)
         self.assertEqual(rule_set.official_source.regime_code, config.regimen_tributario.codigo_regimen)
+        self.assertLessEqual(rule_set.official_source.retrieved_on, timezone.localdate())
 
         mappings = list(TaxCodeMapping.objects.filter(rule_set=rule_set).select_related('official_source'))
         self.assertEqual(len(mappings), 6)
@@ -461,6 +463,7 @@ class SeedDemoAccessCommandTests(TestCase):
                 self.assertEqual(mapping.official_source.estado, EstadoAnnualTaxOfficialSource.APPROVED)
                 self.assertEqual(mapping.official_source.applies_to, mapping.destino)
                 self.assertEqual(mapping.official_source.regime_code, config.regimen_tributario.codigo_regimen)
+                self.assertLessEqual(mapping.official_source.retrieved_on, timezone.localdate())
                 mapping.full_clean()
 
         self.assertEqual(AnnualTaxOfficialSource.objects.filter(source_key__startswith='demo-').count(), 7)
