@@ -295,7 +295,7 @@ class SiiSnapshotView(APIView):
             access,
             company_paths=('empresa_id',),
         )
-        tax_year_rule_sets = TaxYearRuleSet.objects.select_related('regimen_tributario').order_by(
+        tax_year_rule_sets = TaxYearRuleSet.objects.select_related('regimen_tributario', 'official_source').order_by(
             '-anio_tributario',
             'regimen_tributario_id',
             'version',
@@ -303,6 +303,7 @@ class SiiSnapshotView(APIView):
         tax_code_mappings = TaxCodeMapping.objects.select_related(
             'rule_set',
             'rule_set__regimen_tributario',
+            'official_source',
         ).order_by('rule_set_id', 'destino', 'codigo_interno', 'codigo_destino')
 
         return Response(
@@ -692,6 +693,8 @@ class SiiSnapshotView(APIView):
                         'fuente_ref': redact_sensitive_reference(item.fuente_ref),
                         'hash_normativo': item.hash_normativo,
                         'responsable_aprobacion_ref': redact_sensitive_reference(item.responsable_aprobacion_ref),
+                        'official_source': item.official_source_id,
+                        'official_source_key': item.official_source.source_key if item.official_source_id else '',
                         'metadata': redact_sensitive_payload(item.metadata),
                     }
                     for item in tax_year_rule_sets
@@ -705,6 +708,8 @@ class SiiSnapshotView(APIView):
                         'codigo_destino': item.codigo_destino,
                         'formula_ref': redact_sensitive_reference(item.formula_ref),
                         'evidencia_ref': redact_sensitive_reference(item.evidencia_ref),
+                        'official_source': item.official_source_id,
+                        'official_source_key': item.official_source.source_key if item.official_source_id else '',
                         'estado': item.estado,
                         'metadata': redact_sensitive_payload(item.metadata),
                     }
@@ -735,7 +740,7 @@ class CapacidadTributariaSIIDetailView(ScopedQuerysetMixin, AuditCreateUpdateMix
 class TaxYearRuleSetListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = TaxYearRuleSetSerializer
-    queryset = TaxYearRuleSet.objects.select_related('regimen_tributario').all()
+    queryset = TaxYearRuleSet.objects.select_related('regimen_tributario', 'official_source').all()
     audit_entity_type = 'tax_year_ruleset'
     audit_entity_label = 'TaxYearRuleSet'
 
@@ -743,7 +748,7 @@ class TaxYearRuleSetListCreateView(AuditCreateUpdateMixin, generics.ListCreateAP
 class TaxYearRuleSetDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = TaxYearRuleSetSerializer
-    queryset = TaxYearRuleSet.objects.select_related('regimen_tributario').all()
+    queryset = TaxYearRuleSet.objects.select_related('regimen_tributario', 'official_source').all()
     audit_entity_type = 'tax_year_ruleset'
     audit_entity_label = 'TaxYearRuleSet'
 
@@ -751,7 +756,7 @@ class TaxYearRuleSetDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAP
 class TaxCodeMappingListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = TaxCodeMappingSerializer
-    queryset = TaxCodeMapping.objects.select_related('rule_set', 'rule_set__regimen_tributario').all()
+    queryset = TaxCodeMapping.objects.select_related('rule_set', 'rule_set__regimen_tributario', 'official_source').all()
     audit_entity_type = 'tax_code_mapping'
     audit_entity_label = 'TaxCodeMapping'
 
@@ -759,7 +764,7 @@ class TaxCodeMappingListCreateView(AuditCreateUpdateMixin, generics.ListCreateAP
 class TaxCodeMappingDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = TaxCodeMappingSerializer
-    queryset = TaxCodeMapping.objects.select_related('rule_set', 'rule_set__regimen_tributario').all()
+    queryset = TaxCodeMapping.objects.select_related('rule_set', 'rule_set__regimen_tributario', 'official_source').all()
     audit_entity_type = 'tax_code_mapping'
     audit_entity_label = 'TaxCodeMapping'
 

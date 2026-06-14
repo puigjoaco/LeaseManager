@@ -456,6 +456,12 @@ class EstadoAnnualTaxOfficialSource(models.TextChoices):
     RETIRED = 'retirada', 'Retirada'
 
 
+ANNUAL_TAX_OFFICIAL_SOURCE_READY_STATES = {
+    EstadoAnnualTaxOfficialSource.REVIEWED,
+    EstadoAnnualTaxOfficialSource.APPROVED,
+}
+
+
 class EstadoAnnualTaxSourceBundle(models.TextChoices):
     DRAFT = 'borrador', 'Borrador'
     FROZEN = 'congelado', 'Congelado'
@@ -593,6 +599,40 @@ def _canonical_json_payload(value):
     return json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=True, default=str)
 
 
+def _add_official_source_link_errors(
+    errors,
+    obj,
+    field_name,
+    *,
+    anio_tributario,
+    applies_to='',
+    regime_code='',
+):
+    try:
+        source = getattr(obj, field_name)
+    except ObjectDoesNotExist:
+        source = None
+    if source is None:
+        errors[field_name] = 'Requiere AnnualTaxOfficialSource revisada/aprobada.'
+        return
+    try:
+        source.full_clean()
+    except ValidationError:
+        errors[field_name] = 'AnnualTaxOfficialSource vinculada no pasa validacion de dominio.'
+        return
+    if source.anio_tributario != anio_tributario:
+        errors[field_name] = 'AnnualTaxOfficialSource debe corresponder al mismo ano tributario.'
+        return
+    if source.estado not in ANNUAL_TAX_OFFICIAL_SOURCE_READY_STATES:
+        errors[field_name] = 'AnnualTaxOfficialSource debe estar revisada o aprobada.'
+        return
+    if has_text(applies_to) and has_text(source.applies_to) and source.applies_to != applies_to:
+        errors[field_name] = 'AnnualTaxOfficialSource no corresponde al destino tributario del mapeo.'
+        return
+    if has_text(regime_code) and has_text(source.regime_code) and source.regime_code != regime_code:
+        errors[field_name] = 'AnnualTaxOfficialSource no corresponde al regimen tributario.'
+
+
 def _payload_hash(value):
     return hashlib.sha256(_canonical_json_payload(value).encode('utf-8')).hexdigest()
 
@@ -694,6 +734,13 @@ class TaxYearRuleSet(OperationalSIITextNormalizationMixin, TimestampedModel):
     fuente_ref = models.CharField(max_length=255, blank=True)
     hash_normativo = models.CharField(max_length=64, blank=True)
     responsable_aprobacion_ref = models.CharField(max_length=255, blank=True)
+    official_source = models.ForeignKey(
+        'AnnualTaxOfficialSource',
+        on_delete=models.PROTECT,
+        related_name='rule_sets',
+        null=True,
+        blank=True,
+    )
     descripcion = models.TextField(blank=True)
     metadata = models.JSONField(default=dict, blank=True)
 
@@ -733,6 +780,13 @@ class TaxYearRuleSet(OperationalSIITextNormalizationMixin, TimestampedModel):
                 errors['regimen_tributario'] = 'TaxYearRuleSet aprobado requiere regimen tributario.'
             elif regimen_tributario.estado != EstadoRegistro.ACTIVE:
                 errors['regimen_tributario'] = 'TaxYearRuleSet aprobado requiere regimen tributario activo.'
+            _add_official_source_link_errors(
+                errors,
+                self,
+                'official_source',
+                anio_tributario=self.anio_tributario,
+                regime_code=getattr(regimen_tributario, 'codigo_regimen', ''),
+            )
         if has_text(self.hash_normativo) and not _is_sha256(self.hash_normativo):
             errors['hash_normativo'] = 'hash_normativo debe ser SHA-256 hexadecimal de 64 caracteres.'
         _add_non_sensitive_reference_error(errors, self, 'fuente_ref')
@@ -760,6 +814,13 @@ class TaxCodeMapping(OperationalSIITextNormalizationMixin, TimestampedModel):
     codigo_destino = models.CharField(max_length=64)
     formula_ref = models.CharField(max_length=255, blank=True)
     evidencia_ref = models.CharField(max_length=255, blank=True)
+    official_source = models.ForeignKey(
+        'AnnualTaxOfficialSource',
+        on_delete=models.PROTECT,
+        related_name='code_mappings',
+        null=True,
+        blank=True,
+    )
     estado = models.CharField(max_length=16, choices=EstadoRegistro.choices, default=EstadoRegistro.ACTIVE)
     metadata = models.JSONField(default=dict, blank=True)
 
@@ -789,6 +850,19 @@ class TaxCodeMapping(OperationalSIITextNormalizationMixin, TimestampedModel):
                 errors['formula_ref'] = 'Mapeo activo de rule set aprobado requiere formula_ref no sensible.'
             if not has_text(self.evidencia_ref):
                 errors['evidencia_ref'] = 'Mapeo activo de rule set aprobado requiere evidencia_ref no sensible.'
+            regime_code = ''
+            try:
+                regime_code = rule_set.regimen_tributario.codigo_regimen
+            except ObjectDoesNotExist:
+                regime_code = ''
+            _add_official_source_link_errors(
+                errors,
+                self,
+                'official_source',
+                anio_tributario=rule_set.anio_tributario,
+                applies_to=self.destino,
+                regime_code=regime_code,
+            )
         _add_non_sensitive_reference_error(errors, self, 'formula_ref')
         _add_non_sensitive_reference_error(errors, self, 'evidencia_ref')
         _add_non_sensitive_payload_error(errors, 'metadata', self.metadata)

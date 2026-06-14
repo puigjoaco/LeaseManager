@@ -1,5 +1,6 @@
 import hashlib
 import json
+from datetime import date
 from unittest.mock import patch
 
 from django.contrib.admin.sites import AdminSite
@@ -231,6 +232,26 @@ class SiiAPITests(APITestCase):
             'regla_fiscal_ref': f'regla-{prefix}-validada',
         }
 
+    def _ensure_official_source(self, *, anio_tributario=2027, key='ruleset', applies_to='', regime_code='EmpresaContabilidadCompletaV1'):
+        source, _ = AnnualTaxOfficialSource.objects.get_or_create(
+            anio_tributario=anio_tributario,
+            source_key=f'expert-{key}-at{anio_tributario}',
+            defaults={
+                'source_type': TipoAnnualTaxOfficialSource.EXPERT_REVIEW,
+                'title': f'Revision experta {key} AT{anio_tributario}',
+                'source_ref': f'expert-{key}-source-ref-at{anio_tributario}',
+                'source_hash': 'e' * 64,
+                'retrieved_on': date(2026, 6, 14),
+                'responsible_ref': f'tax-source-reviewer-at{anio_tributario}',
+                'estado': EstadoAnnualTaxOfficialSource.APPROVED,
+                'applies_to': applies_to,
+                'regime_code': regime_code,
+                'scope_note': 'Fuente experta controlada para pruebas locales.',
+                'metadata': {'source': 'sii-test-controlled'},
+            },
+        )
+        return source
+
     def _activate_fiscal_config(self, empresa, ddjj_habilitadas=None, *, with_tax_year_ruleset=True, anio_tributario=2027):
         regime, _ = RegimenTributarioEmpresa.objects.get_or_create(
             codigo_regimen='EmpresaContabilidadCompletaV1',
@@ -258,6 +279,11 @@ class SiiAPITests(APITestCase):
             estado=EstadoReglaTributariaAnual.APPROVED,
         ).first()
         if rule_set is None:
+            rule_source = self._ensure_official_source(
+                anio_tributario=anio_tributario,
+                key='ruleset',
+                regime_code=regime.codigo_regimen,
+            )
             rule_set, _ = TaxYearRuleSet.objects.get_or_create(
                 anio_tributario=anio_tributario,
                 regimen_tributario=regime,
@@ -267,20 +293,35 @@ class SiiAPITests(APITestCase):
                     'fuente_ref': f'tax-rule-source-at{anio_tributario}-controlled',
                     'hash_normativo': 'b' * 64,
                     'responsable_aprobacion_ref': f'tax-rule-reviewer-at{anio_tributario}-controlled',
+                    'official_source': rule_source,
                     'metadata': {'source': 'sii-test-controlled'},
                 },
             )
+        elif not rule_set.official_source_id:
+            rule_set.official_source = self._ensure_official_source(
+                anio_tributario=anio_tributario,
+                key='ruleset',
+                regime_code=regime.codigo_regimen,
+            )
+            rule_set.save(update_fields=['official_source', 'updated_at'])
         if rule_set.estado != EstadoReglaTributariaAnual.APPROVED:
             rule_set.estado = EstadoReglaTributariaAnual.APPROVED
             rule_set.fuente_ref = f'tax-rule-source-at{anio_tributario}-controlled'
             rule_set.hash_normativo = 'b' * 64
             rule_set.responsable_aprobacion_ref = f'tax-rule-reviewer-at{anio_tributario}-controlled'
+            if not rule_set.official_source_id:
+                rule_set.official_source = self._ensure_official_source(
+                    anio_tributario=anio_tributario,
+                    key='ruleset',
+                    regime_code=regime.codigo_regimen,
+                )
             rule_set.save(
                 update_fields=[
                     'estado',
                     'fuente_ref',
                     'hash_normativo',
                     'responsable_aprobacion_ref',
+                    'official_source',
                     'updated_at',
                 ]
             )
@@ -296,7 +337,13 @@ class SiiAPITests(APITestCase):
                 DestinoMapeoTributarioAnual.RLI: 'monthly_tax_facts.rent_distributions_total_devengado',
                 DestinoMapeoTributarioAnual.CPT: 'monthly_tax_facts.obligations_total_amount',
             }.get(destino, '')
-            TaxCodeMapping.objects.get_or_create(
+            mapping_source = self._ensure_official_source(
+                anio_tributario=anio_tributario,
+                key=f'mapping-{destino.lower()}',
+                applies_to=destino,
+                regime_code=regime.codigo_regimen,
+            )
+            mapping, _ = TaxCodeMapping.objects.get_or_create(
                 rule_set=rule_set,
                 destino=destino,
                 codigo_interno=f'lease.{destino.lower()}.controlled',
@@ -304,12 +351,16 @@ class SiiAPITests(APITestCase):
                 defaults={
                     'formula_ref': f'formula-ref-{destino.lower()}-controlled',
                     'evidencia_ref': f'evidence-ref-{destino.lower()}-controlled',
+                    'official_source': mapping_source,
                     'metadata': {
                         'source': 'sii-test-controlled',
                         **({'source_metric': source_metric} if source_metric else {}),
                     },
                 },
             )
+            if not mapping.official_source_id:
+                mapping.official_source = mapping_source
+                mapping.save(update_fields=['official_source', 'updated_at'])
         return rule_set
 
     def _annual_source_summary(self, fiscal_year=2026):
@@ -440,6 +491,17 @@ class SiiAPITests(APITestCase):
     def test_tax_year_ruleset_and_mapping_require_traceable_non_sensitive_refs(self):
         empresa = self._create_active_empresa(nombre='TaxRuleCo', rut='56565656-5')
         config = self._activate_fiscal_config(empresa)
+        rule_source = self._ensure_official_source(
+            anio_tributario=2026,
+            key='ruleset-validation',
+            regime_code=config.regimen_tributario.codigo_regimen,
+        )
+        mapping_source = self._ensure_official_source(
+            anio_tributario=2026,
+            key='mapping-f22-validation',
+            applies_to=DestinoMapeoTributarioAnual.F22,
+            regime_code=config.regimen_tributario.codigo_regimen,
+        )
         rule_set = TaxYearRuleSet(
             anio_tributario=2026,
             regimen_tributario=config.regimen_tributario,
@@ -448,6 +510,7 @@ class SiiAPITests(APITestCase):
             fuente_ref='https://sii.example.test/rule?token=secret',
             hash_normativo='bad-hash',
             responsable_aprobacion_ref='tax-reviewer-controlled',
+            official_source=rule_source,
         )
 
         with self.assertRaises(ValidationError) as rule_error:
@@ -469,6 +532,7 @@ class SiiAPITests(APITestCase):
             codigo_destino='F22-001',
             formula_ref='',
             evidencia_ref='https://sii.example.test/evidence?token=secret',
+            official_source=mapping_source,
         )
 
         with self.assertRaises(ValidationError) as mapping_error:
@@ -512,6 +576,17 @@ class SiiAPITests(APITestCase):
     def test_tax_year_ruleset_api_creates_mapping_and_redacts_snapshot_refs(self):
         empresa = self._create_active_empresa(nombre='TaxRuleApiCo', rut='58585858-5')
         config = self._activate_fiscal_config(empresa)
+        rule_source = self._ensure_official_source(
+            anio_tributario=2026,
+            key='ruleset-api',
+            regime_code=config.regimen_tributario.codigo_regimen,
+        )
+        mapping_source = self._ensure_official_source(
+            anio_tributario=2026,
+            key='mapping-f22-api',
+            applies_to=DestinoMapeoTributarioAnual.F22,
+            regime_code=config.regimen_tributario.codigo_regimen,
+        )
 
         rule_response = self.client.post(
             reverse('sii-tax-year-ruleset-list'),
@@ -523,6 +598,7 @@ class SiiAPITests(APITestCase):
                 'fuente_ref': 'tax-rule-source-api-controlled',
                 'hash_normativo': 'c' * 64,
                 'responsable_aprobacion_ref': 'tax-rule-api-reviewer-controlled',
+                'official_source': rule_source.id,
                 'metadata': {'source': 'api-controlled'},
             },
             format='json',
@@ -538,12 +614,14 @@ class SiiAPITests(APITestCase):
                 'codigo_destino': 'F22-CONTROL',
                 'formula_ref': 'formula-ref-api-controlled',
                 'evidencia_ref': 'evidence-ref-api-controlled',
+                'official_source': mapping_source.id,
                 'metadata': {'source': 'api-controlled'},
             },
             format='json',
         )
         self.assertEqual(mapping_response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(mapping_response.data['formula_ref'], 'formula-ref-api-controlled')
+        self.assertEqual(mapping_response.data['official_source'], mapping_source.id)
 
         TaxYearRuleSet.objects.filter(pk=rule_response.data['id']).update(
             fuente_ref='https://sii.example.test/rule?token=secret',
@@ -564,8 +642,16 @@ class SiiAPITests(APITestCase):
             REDACTED_SENSITIVE_REFERENCE,
         )
         self.assertEqual(
+            next(item for item in snapshot.data['tax_year_rule_sets'] if item['id'] == rule_response.data['id'])['official_source_key'],
+            rule_source.source_key,
+        )
+        self.assertEqual(
             next(item for item in snapshot.data['tax_code_mappings'] if item['id'] == mapping_response.data['id'])['formula_ref'],
             REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertEqual(
+            next(item for item in snapshot.data['tax_code_mappings'] if item['id'] == mapping_response.data['id'])['official_source_key'],
+            mapping_source.source_key,
         )
         self.assertNotIn('token=secret', serialized_snapshot)
         self.assertNotIn('reviewer-secret', serialized_snapshot)

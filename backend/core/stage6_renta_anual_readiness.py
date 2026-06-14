@@ -770,28 +770,75 @@ def _collect_tax_year_rule_issues(processes, active_fiscal_configs) -> dict[str,
         config.empresa_id: config
         for config in active_fiscal_configs
     }
+    ready_source_states = {
+        EstadoAnnualTaxOfficialSource.REVIEWED,
+        EstadoAnnualTaxOfficialSource.APPROVED,
+    }
+    rule_sets = list(TaxYearRuleSet.objects.select_related('regimen_tributario', 'official_source'))
+    mappings = list(
+        TaxCodeMapping.objects.select_related(
+            'rule_set',
+            'rule_set__regimen_tributario',
+            'official_source',
+        )
+    )
     for process in processes:
         if process.estado not in ANNUAL_TRACEABLE_STATES:
             continue
         fiscal_config = fiscal_config_by_company_id.get(process.empresa_id)
         if fiscal_config is None:
             continue
-        approved_rule_sets = TaxYearRuleSet.objects.filter(
-            anio_tributario=process.anio_tributario,
-            regimen_tributario_id=fiscal_config.regimen_tributario_id,
-            estado=EstadoReglaTributariaAnual.APPROVED,
-        )
-        if not approved_rule_sets.exists():
+        approved_rule_sets = [
+            rule_set for rule_set in rule_sets
+            if (
+                rule_set.anio_tributario == process.anio_tributario
+                and rule_set.regimen_tributario_id == fiscal_config.regimen_tributario_id
+                and rule_set.estado == EstadoReglaTributariaAnual.APPROVED
+            )
+        ]
+        if not approved_rule_sets:
             counts['tax_year_ruleset_missing'] += 1
             continue
         for rule_set in approved_rule_sets:
-            if not rule_set.code_mappings.filter(estado=EstadoRegistro.ACTIVE).exists():
+            if not any(mapping.rule_set_id == rule_set.id and mapping.estado == EstadoRegistro.ACTIVE for mapping in mappings):
                 counts['tax_code_mapping_missing'] += 1
 
-    invalid_rule_sets = _count_invalid(TaxYearRuleSet.objects.all())
+    for rule_set in rule_sets:
+        if rule_set.estado != EstadoReglaTributariaAnual.APPROVED:
+            continue
+        if not rule_set.official_source_id:
+            counts['tax_year_ruleset_official_source_missing'] += 1
+            continue
+        source = rule_set.official_source
+        if source.estado not in ready_source_states:
+            counts['tax_year_ruleset_official_source_not_ready'] += 1
+        if source.anio_tributario != rule_set.anio_tributario:
+            counts['tax_year_ruleset_official_source_year_mismatch'] += 1
+        regime_code = getattr(rule_set.regimen_tributario, 'codigo_regimen', '')
+        if has_text(source.regime_code) and source.regime_code != regime_code:
+            counts['tax_year_ruleset_official_source_regime_mismatch'] += 1
+
+    for mapping in mappings:
+        if mapping.estado != EstadoRegistro.ACTIVE or mapping.rule_set.estado != EstadoReglaTributariaAnual.APPROVED:
+            continue
+        if not mapping.official_source_id:
+            counts['tax_code_mapping_official_source_missing'] += 1
+            continue
+        source = mapping.official_source
+        if source.estado not in ready_source_states:
+            counts['tax_code_mapping_official_source_not_ready'] += 1
+        if source.anio_tributario != mapping.rule_set.anio_tributario:
+            counts['tax_code_mapping_official_source_year_mismatch'] += 1
+        if has_text(source.applies_to) and source.applies_to != mapping.destino:
+            counts['tax_code_mapping_official_source_target_mismatch'] += 1
+        regime_code = getattr(mapping.rule_set.regimen_tributario, 'codigo_regimen', '')
+        if has_text(source.regime_code) and source.regime_code != regime_code:
+            counts['tax_code_mapping_official_source_regime_mismatch'] += 1
+
+    invalid_rule_sets = _count_invalid(rule_sets)
     if invalid_rule_sets:
         counts['tax_year_ruleset_invalid'] = invalid_rule_sets
-    invalid_mappings = _count_invalid(TaxCodeMapping.objects.select_related('rule_set'))
+    invalid_mappings = _count_invalid(mappings)
     if invalid_mappings:
         counts['tax_code_mapping_invalid'] = invalid_mappings
     return dict(sorted(counts.items()))
@@ -1634,9 +1681,54 @@ def collect_stage6_renta_anual_readiness(
             'Existen TaxYearRuleSet que no pasan validacion de dominio o referencias.',
         ),
         (
+            'tax_year_ruleset_official_source_missing',
+            'stage6.tax_year_ruleset_official_source_missing',
+            'Existen TaxYearRuleSet aprobados sin AnnualTaxOfficialSource revisada/aprobada.',
+        ),
+        (
+            'tax_year_ruleset_official_source_not_ready',
+            'stage6.tax_year_ruleset_official_source_not_ready',
+            'Existen TaxYearRuleSet aprobados vinculados a fuentes AT no revisadas/aprobadas.',
+        ),
+        (
+            'tax_year_ruleset_official_source_year_mismatch',
+            'stage6.tax_year_ruleset_official_source_year_mismatch',
+            'Existen TaxYearRuleSet aprobados con fuente AT de otro ano tributario.',
+        ),
+        (
+            'tax_year_ruleset_official_source_regime_mismatch',
+            'stage6.tax_year_ruleset_official_source_regime_mismatch',
+            'Existen TaxYearRuleSet aprobados con fuente AT de otro regimen tributario.',
+        ),
+        (
             'tax_code_mapping_invalid',
             'stage6.tax_code_mapping_invalid',
             'Existen TaxCodeMapping que no pasan validacion de dominio o referencias.',
+        ),
+        (
+            'tax_code_mapping_official_source_missing',
+            'stage6.tax_code_mapping_official_source_missing',
+            'Existen TaxCodeMapping activos de reglas aprobadas sin AnnualTaxOfficialSource revisada/aprobada.',
+        ),
+        (
+            'tax_code_mapping_official_source_not_ready',
+            'stage6.tax_code_mapping_official_source_not_ready',
+            'Existen TaxCodeMapping activos vinculados a fuentes AT no revisadas/aprobadas.',
+        ),
+        (
+            'tax_code_mapping_official_source_year_mismatch',
+            'stage6.tax_code_mapping_official_source_year_mismatch',
+            'Existen TaxCodeMapping activos con fuente AT de otro ano tributario.',
+        ),
+        (
+            'tax_code_mapping_official_source_target_mismatch',
+            'stage6.tax_code_mapping_official_source_target_mismatch',
+            'Existen TaxCodeMapping activos con fuente AT de otro destino tributario.',
+        ),
+        (
+            'tax_code_mapping_official_source_regime_mismatch',
+            'stage6.tax_code_mapping_official_source_regime_mismatch',
+            'Existen TaxCodeMapping activos con fuente AT de otro regimen tributario.',
         ),
     ]:
         if tax_year_rule_issues.get(key):
