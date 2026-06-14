@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Cerrar `stage6-official-source-gaps`. |
-| Fuente exacta | Rama tactica `codex/stage6-official-source-gaps` basada en `main` `48d93ac9` posterior a PR #829. |
-| Brecha activa | `stage6-official-source-gaps`: consolidar fuentes SII y brechas oficiales AT2026 para separar preparacion local de formato/certificacion/presentacion o criterio tributario final. |
-| Motivo de prioridad | El usuario definio que contabilidad/renta no deben quedar como automatizacion autonoma del business manager. El motor anual ya llega hasta export local; falta fijar una matriz oficial que indique que se puede automatizar mecanicamente y que requiere fuente SII/experta o supervision. |
-| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-official-source-gaps` durante el paquete; tras merge debe eliminarse. |
-| Rama | `codex/stage6-official-source-gaps` durante el paquete; `main` tras merge. |
-| Estado | En progreso: se agrega `RENTA_ANUAL_OFFICIAL_SOURCE_GAPS_AT2026.md` y `build-stage6-official-source-gap-matrix.ps1` para clasificar DTE, F29, DDJJ, DJ1847/RLI/CPT, F22, bienes raices/contribuciones y automatizacion por navegador entre integracion tecnica posible, preparacion local, fuente oficial/experta requerida y presentacion bloqueada. |
+| Frente activo | Cerrar `stage6-official-tax-source-registry`. |
+| Fuente exacta | Rama tactica `codex/stage6-official-tax-source-registry` basada en `main` `61787799` posterior a PR #830. |
+| Brecha activa | `stage6-official-tax-source-registry`: materializar en backend el registro de fuentes oficiales/experta AT2026 que respalda reglas, mappings, DDJJ/F22 y dossier sin usar documentos/credenciales reales. |
+| Motivo de prioridad | La matriz oficial ya separa preparacion local de cierre tributario. Falta un registro operacional que permita asociar fuentes SII/experta a reglas y mappings de forma versionada, hasheada, revisable y redactada. |
+| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-official-tax-source-registry` durante el paquete; tras merge debe eliminarse. |
+| Rama | `codex/stage6-official-tax-source-registry` durante el paquete; `main` tras merge. |
+| Estado | Validado localmente: `AnnualTaxOfficialSource` agrega modelo, migracion, API/snapshot/admin redactados y readiness bloqueante para fuentes AT invalidas o sensibles. |
 | Gate esperado | Mantener `classification=parcial`; no cerrar presentacion anual sin fuente autorizada, formato/certificacion SII vigente, validacion fiscal/oficial, responsable y evidencia no sensible. |
-| Estado al cerrar paquete | `stage6-official-source-gaps` cerrado. Queda documentado que DTE es integracion tecnica separada, mientras F29/DDJJ/F22/DJ1847/bienes raices quedan como preparacion local hasta fuente SII/experta, certificacion/formato, responsable y autorizacion. |
+| Estado al cerrar paquete | `stage6-official-tax-source-registry` cerrado. Queda disponible un registro local de fuentes oficiales/experta para apoyar siguientes paquetes DJ1847/RLI/CPT/DDJJ/F22 sin convertirlos en presentacion SII ni calculo final autonomo. |
 | Bloqueos relacionados | Presentacion F22/DDJJ final sigue bloqueada sin formato/certificacion SII vigente, responsable, autorizacion explicita y evidencia no sensible. Reglas tributarias finales, contribuciones y mapping RLI/CPT/DJ/F22 requieren fuente oficial/experta. |
 | Politica de reanudacion | No reabrir EDIG ni goal prompts. Si no hay worktree sucio, continuar por el siguiente frente util que no requiera datos reales, secretos, presentacion SII ni decision tributaria final autonoma. |
-| Siguiente accion | Validar script/documentacion, registrar evidencia, abrir PR, mergear y limpiar. Luego escoger entre mapping local DJ1847/RLI/CPT con fuente oficial/experta o un frente Stage 7/operativo no sensible. |
+| Siguiente accion | Abrir PR, esperar CI, mergear y limpiar. Luego escoger entre mapping local DJ1847/RLI/CPT respaldado en `AnnualTaxOfficialSource` o un frente Stage 7/operativo no sensible. |
 
 ## Actualizacion
 

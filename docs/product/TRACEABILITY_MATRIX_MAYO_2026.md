@@ -69,6 +69,13 @@ local revisable hasta contar con fuente SII/experta, certificacion/formato,
 responsable y autorizacion explicita. `build-stage6-official-source-gap-matrix.ps1`
 genera una salida local ignorada para no volver a debatir ese boundary.
 
+Nota 2026-06-14: Etapa 6 materializa `AnnualTaxOfficialSource` como registro
+operacional de fuentes SII/experta por ano tributario. Las fuentes revisadas o
+aprobadas requieren URL publica SII segura cuando aplica, referencia no
+sensible, hash SHA-256, fecha de recuperacion y responsable; API/snapshot/admin
+redactan refs, notas y metadata heredadas, y readiness reporta
+`stage6.official_source_invalid` si una fuente registrada no pasa dominio.
+
 Nota 2026-06-14: Etapa 6 materializa el skeleton RLI/CPT mediante
 `AnnualTaxWorkbook` y `AnnualTaxWorkbookLine`. La preparacion anual genera
 workbooks RLI y CPT desde `TaxCodeMapping` + `MonthlyTaxFact`, con hashes por

@@ -131,3 +131,11 @@ La salida sirve como evidencia operativa para decidir el proximo paquete sin
 volver a debatir si LeaseManager debe "hacer la renta" de forma autonoma: no
 debe. Debe preparar la informacion y dejar el cierre final bajo revision y
 gate.
+
+`AnnualTaxOfficialSource` es el registro vivo para bajar esta matriz al
+sistema: cada fuente oficial/experta que se use en reglas, mappings, DDJJ, F22
+o dossier debe quedar con ano tributario, tipo, URL publica SII segura si
+aplica, referencia no sensible, hash, fecha de recuperacion, responsable y
+alcance. El registro no guarda documentos SII, credenciales, sesiones ni
+valores tributarios finales; solo prueba que una regla o mapping tiene respaldo
+trazable.

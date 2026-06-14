@@ -11,6 +11,7 @@ from .models import (
     AnnualTaxArtifactMatrixItem,
     AnnualTaxDossier,
     AnnualTaxExport,
+    AnnualTaxOfficialSource,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -23,6 +24,7 @@ from .models import (
     ProcesoRentaAnual,
     TaxCodeMapping,
     TaxYearRuleSet,
+    is_safe_public_sii_source_url,
 )
 
 
@@ -32,6 +34,13 @@ def _redacted_attr(obj, field_name):
 
 def _redacted_payload_attr(obj, field_name):
     return redact_sensitive_payload(getattr(obj, field_name, None))
+
+
+def _public_sii_url_attr(obj, field_name):
+    value = getattr(obj, field_name, '') or ''
+    if is_safe_public_sii_source_url(value):
+        return value
+    return redact_sensitive_reference(value)
 
 
 @admin.register(CapacidadTributariaSII)
@@ -172,6 +181,70 @@ class TaxCodeMappingAdmin(admin.ModelAdmin):
     @admin.display(description='evidencia_ref')
     def evidencia_ref_redacted(self, obj):
         return _redacted_attr(obj, 'evidencia_ref')
+
+    @admin.display(description='metadata')
+    def metadata_redacted(self, obj):
+        return _redacted_payload_attr(obj, 'metadata')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(AnnualTaxOfficialSource)
+class AnnualTaxOfficialSourceAdmin(admin.ModelAdmin):
+    fields = (
+        'anio_tributario',
+        'source_key',
+        'source_type',
+        'title',
+        'source_url_safe',
+        'source_ref_redacted',
+        'source_hash',
+        'retrieved_on',
+        'responsible_ref_redacted',
+        'estado',
+        'applies_to',
+        'form_code',
+        'regime_code',
+        'scope_note_redacted',
+        'metadata_redacted',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = fields
+    list_display = (
+        'anio_tributario',
+        'source_key',
+        'source_type',
+        'estado',
+        'applies_to',
+        'form_code',
+        'responsible_ref_redacted',
+    )
+    list_filter = ('anio_tributario', 'source_type', 'estado', 'applies_to')
+    search_fields = ('source_key', 'title', 'form_code', 'regime_code')
+
+    @admin.display(description='source_url')
+    def source_url_safe(self, obj):
+        return _public_sii_url_attr(obj, 'source_url')
+
+    @admin.display(description='source_ref')
+    def source_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'source_ref')
+
+    @admin.display(description='responsible_ref')
+    def responsible_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'responsible_ref')
+
+    @admin.display(description='scope_note')
+    def scope_note_redacted(self, obj):
+        return _redacted_attr(obj, 'scope_note')
 
     @admin.display(description='metadata')
     def metadata_redacted(self, obj):
