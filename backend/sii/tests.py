@@ -28,6 +28,7 @@ from .admin import (
     DTEEmitidoAdmin,
     F22PreparacionAnualAdmin,
     F29PreparacionMensualAdmin,
+    MonthlyTaxFactAdmin,
     ProcesoRentaAnualAdmin,
     TaxCodeMappingAdmin,
     TaxYearRuleSetAdmin,
@@ -40,9 +41,11 @@ from .models import (
     DTEEmitido,
     EstadoGateSII,
     EstadoAnnualTaxSourceBundle,
+    EstadoMonthlyTaxFact,
     EstadoReglaTributariaAnual,
     F22PreparacionAnual,
     F29PreparacionMensual,
+    MonthlyTaxFact,
     ProcesoRentaAnual,
     SourceKindRentaAnual,
     TaxCodeMapping,
@@ -2831,6 +2834,68 @@ class SiiAPITests(APITestCase):
             process.resumen_anual['annual_tax_source_bundle']['hash_fuentes'],
             process.source_bundle.hash_fuentes,
         )
+        monthly_facts = MonthlyTaxFact.objects.filter(
+            empresa=empresa,
+            anio=2026,
+            estado=EstadoMonthlyTaxFact.NORMALIZED,
+        )
+        self.assertEqual(monthly_facts.count(), 12)
+        self.assertEqual(process.resumen_anual['annual_tax_monthly_facts']['total'], 12)
+        self.assertEqual(process.resumen_anual['annual_tax_monthly_facts']['months'], list(range(1, 13)))
+        self.assertEqual(process.resumen_anual['annual_tax_monthly_facts']['obligations_total'], 12)
+        self.assertEqual(process.resumen_anual['annual_tax_monthly_facts']['rent_distributions_total'], 1)
+
+        monthly_facts_response = self.client.get(reverse('sii-monthly-tax-fact-list'))
+        self.assertEqual(monthly_facts_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(monthly_facts_response.data), 12)
+        snapshot = self.client.get(reverse('sii-snapshot'))
+        self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(snapshot.data['monthly_tax_facts']), 12)
+
+    def test_monthly_tax_fact_admin_and_api_redact_sensitive_payloads(self):
+        empresa, _ = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887', '1879'])
+        self._activate_annual_capabilities(empresa)
+        self._create_twelve_approved_closes(empresa, fiscal_year=2026)
+        generated = self.client.post(
+            reverse('sii-anual-generate'),
+            {'empresa_id': empresa.id, 'anio_tributario': 2027},
+            format='json',
+        )
+        self.assertEqual(generated.status_code, status.HTTP_201_CREATED)
+        fact = MonthlyTaxFact.objects.get(empresa=empresa, anio=2026, mes=1)
+        MonthlyTaxFact.objects.filter(pk=fact.pk).update(
+            source_ref='https://sii.example.test/monthly?token=secret',
+            responsible_ref='Bearer monthly-secret',
+            resumen_hecho={'api_key': 'secret-monthly-value'},
+        )
+        fact.refresh_from_db()
+        fact_admin = MonthlyTaxFactAdmin(MonthlyTaxFact, AdminSite())
+
+        self.assertEqual(fact_admin.source_ref_redacted(fact), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(fact_admin.responsible_ref_redacted(fact), REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('secret-monthly-value', json.dumps(fact_admin.resumen_hecho_redacted(fact)))
+
+        monthly_facts_response = self.client.get(reverse('sii-monthly-tax-fact-list'))
+        snapshot = self.client.get(reverse('sii-snapshot'))
+        serialized_payload = json.dumps(
+            {
+                'monthly_facts': monthly_facts_response.data,
+                'snapshot': snapshot.data,
+            },
+            default=str,
+        )
+        self.assertEqual(monthly_facts_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
+        monthly_fact_data = next(item for item in monthly_facts_response.data if item['id'] == fact.id)
+        snapshot_fact_data = next(item for item in snapshot.data['monthly_tax_facts'] if item['id'] == fact.id)
+        self.assertEqual(monthly_fact_data['source_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(monthly_fact_data['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_fact_data['source_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_fact_data['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('token=secret', serialized_payload)
+        self.assertNotIn('monthly-secret', serialized_payload)
+        self.assertNotIn('secret-monthly-value', serialized_payload)
 
     def test_generate_annual_preparation_rejects_source_changes_after_bundle_freeze(self):
         empresa, _ = self._setup_paid_payment()

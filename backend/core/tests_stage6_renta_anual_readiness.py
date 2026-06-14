@@ -44,10 +44,12 @@ from sii.models import (
     EstadoReglaTributariaAnual,
     EstadoGateSII,
     F22PreparacionAnual,
+    MonthlyTaxFact,
     ProcesoRentaAnual,
     TaxCodeMapping,
     TaxYearRuleSet,
 )
+from sii.services import sync_monthly_tax_facts
 
 
 VALID_DOCUMENT_SHA256 = 'd' * 64
@@ -253,6 +255,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
         f22_capability = self._open_capability(empresa, CapacidadSII.F22_PREPARACION, 'f22')
         self._create_twelve_approved_closes(empresa)
         source_bundle = self._create_annual_source_bundle(empresa)
+        monthly_facts = sync_monthly_tax_facts(empresa, 2025)
         summary = self._annual_summary()
         summary['annual_tax_source_bundle'] = {
             'id': source_bundle.id,
@@ -263,6 +266,22 @@ class Stage6RentaAnualReadinessTests(TestCase):
             'approved_closes_total': source_bundle.resumen_fuentes['approved_closes_total'],
             'obligations_total': source_bundle.resumen_fuentes['obligations_total'],
             'f29_preparations_total': source_bundle.resumen_fuentes['f29_preparations_total'],
+        }
+        summary['annual_tax_monthly_facts'] = {
+            'total': len(monthly_facts),
+            'months': sorted(fact.mes for fact in monthly_facts),
+            'obligations_total': sum(
+                int((fact.resumen_hecho or {}).get('obligations_total') or 0)
+                for fact in monthly_facts
+            ),
+            'rent_distributions_total': sum(
+                int((fact.resumen_hecho or {}).get('rent_distributions_total') or 0)
+                for fact in monthly_facts
+            ),
+            'liquidation_lines_total': sum(
+                int((fact.resumen_hecho or {}).get('liquidation_lines_total') or 0)
+                for fact in monthly_facts
+            ),
         }
         process = ProcesoRentaAnual.objects.create(
             empresa=empresa,
@@ -457,6 +476,53 @@ class Stage6RentaAnualReadinessTests(TestCase):
 
         self.assertFalse(result['ready_for_stage6_renta_anual'])
         self.assertIn('stage6.process_source_bundle_summary_mismatch', issue_codes)
+
+    def test_annual_process_without_monthly_tax_facts_is_blocking(self):
+        self._create_valid_local_matrix()
+        MonthlyTaxFact.objects.all().delete()
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.monthly_tax_fact_missing', issue_codes)
+        self.assertIn('stage6.process_monthly_tax_facts_missing', issue_codes)
+        self.assertEqual(result['sections']['monthly_tax_facts']['process_monthly_tax_facts_missing'], 1)
+
+    def test_invalid_monthly_tax_fact_is_blocking_without_sensitive_leak(self):
+        self._create_valid_local_matrix()
+        MonthlyTaxFact.objects.filter(mes=1).update(
+            source_ref='https://sii.example.test/monthly?token=secret',
+            hash_hecho='bad-hash',
+            resumen_hecho={'api_key': 'secret-monthly-value'},
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+        serialized_result = json.dumps(result)
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.monthly_tax_fact_invalid', issue_codes)
+        self.assertNotIn('token=secret', serialized_result)
+        self.assertNotIn('secret-monthly-value', serialized_result)
+
+    def test_monthly_tax_fact_summary_mismatch_is_blocking(self):
+        self._create_valid_local_matrix()
+        process = ProcesoRentaAnual.objects.get()
+        process.resumen_anual = {
+            **process.resumen_anual,
+            'annual_tax_monthly_facts': {
+                **process.resumen_anual['annual_tax_monthly_facts'],
+                'months': list(range(1, 12)),
+            },
+        }
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.process_monthly_tax_fact_summary_mismatch', issue_codes)
 
     def test_annual_process_without_approved_tax_year_ruleset_is_blocking(self):
         self._create_valid_local_matrix()

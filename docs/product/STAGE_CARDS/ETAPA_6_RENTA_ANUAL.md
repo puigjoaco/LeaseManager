@@ -56,6 +56,12 @@ no sensibles desde cierres mensuales, obligaciones PPM/F29 y configuracion
 fiscal, conserva hash SHA-256 del payload anual normalizado y se enlaza al
 `ProcesoRentaAnual` para que DDJJ/F22 partan desde un dossier revisable, no
 desde inferencia libre ni automatizacion tributaria autonoma.
+`MonthlyTaxFact` materializa la capa mensual anualizable: por cada empresa,
+ano comercial y mes normaliza el cierre aprobado, obligaciones mensuales,
+F29 si existe, distribuciones de arriendo y liquidacion de empresa, con
+`hash_hecho` del resumen mensual, refs no sensibles y exposicion redactada en
+API/snapshot/admin. Esto mantiene la union contabilidad -> renta como
+transformacion trazable, no como salto directo desde asientos a F22.
 
 ## Gate
 
@@ -69,6 +75,10 @@ desde inferencia libre ni automatizacion tributaria autonoma.
   preparar ProcesoRentaAnual/DDJJ/F22; debe tener doce cierres aprobados,
   obligaciones mensuales trazables, refs no sensibles y `hash_fuentes`
   coherente con `resumen_fuentes`.
+- `MonthlyTaxFact` normalizado por empresa/ano/mes antes de tratar un proceso
+  anual como trazable. Deben existir doce meses normalizados para el ano
+  comercial y `ProcesoRentaAnual.resumen_anual.annual_tax_monthly_facts` debe
+  coincidir con esos hechos.
 - Responsable de revision anual trazado antes de tratar el paquete como
   aprobado.
 - Documentos generados desde datos trazables.
@@ -166,6 +176,10 @@ desde inferencia libre ni automatizacion tributaria autonoma.
   proceso anual conserva id/hash del bundle, y
   `audit_stage6_renta_anual_readiness` bloquea procesos heredados sin bundle,
   con bundle no congelado, desalineado o con metadata/hash distinta.
+- `generate_annual_preparation()` sincroniza `MonthlyTaxFact` desde los cierres
+  aprobados antes de construir el resumen anual. La readiness bloquea hechos
+  mensuales invalidos, faltantes, sin configuracion fiscal activa o procesos
+  cuyo resumen mensual quede desalineado.
 - La API/snapshot/admin de SII exponen `TaxYearRuleSet` y `TaxCodeMapping` con
   referencias/payloads redactados y auditoria de creacion/actualizacion; el
   bootstrap demo anual crea parametria demo controlada, no oficial, antes de
@@ -173,6 +187,9 @@ desde inferencia libre ni automatizacion tributaria autonoma.
 - La API/snapshot/admin de SII exponen `AnnualTaxSourceBundle` con refs y
   payloads redactados; el admin no busca referencias crudas potencialmente
   sensibles.
+- La API/snapshot/admin de SII exponen `MonthlyTaxFact` con `source_ref`,
+  `responsible_ref` y `resumen_hecho` redactados; el admin es solo lectura para
+  evitar ediciones manuales de hechos derivados.
 
 ```powershell
 scripts\run-stage6-readiness-gate.ps1 -PythonExe backend\.venv\Scripts\python.exe

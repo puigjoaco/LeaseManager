@@ -75,7 +75,7 @@ certeza fiscal mediante navegacion automatica ni por inferencia de IA.
 | `AnnualTaxSourceBundle` | Congelar fuentes anuales no sensibles | cierres, ledger, F29/PPM, contratos, propiedades, socios, certificados | snapshot anual trazable | 12 cierres aprobados y refs no sensibles |
 | `TaxYearRuleSet` | Versionar reglas por AT/regimen | fuente oficial/experta, hashes, vigencia | reglas aprobadas/condicionadas | no se activa sin fuente aprobada |
 | `AnnualTaxProfile` | Fijar empresa/regimen/responsable | empresa, configuracion fiscal, representante | perfil anual | configuracion fiscal activa |
-| `MonthlyTaxFact` | Normalizar hechos mensuales | F29, cierre mensual, liquidaciones, pagos | base mensual anualizable | periodo cerrado |
+| `MonthlyTaxFact` | Normalizar hechos mensuales | F29, cierre mensual, liquidaciones, pagos | base mensual anualizable con hash | cierre aprobado y refs no sensibles |
 | `AnnualTaxNormalizer` | Transformar fuentes a registros intermedios | source bundle + rule set | RLI, CPT, RAI, SAC, DDJJ base | no calcula sin rule set vigente |
 | `RliWorkbook` | Determinar lineas RLI trazadas | ingresos/gastos/ajustes | lineas RLI, warnings | ajustes con fuente |
 | `CptWorkbook` | Determinar capital propio tributario | balance, activos, pasivos, patrimonio | lineas CPT y razonabilidad | plan de cuentas clasificado |
@@ -114,7 +114,11 @@ contratos:
    `ProcesoRentaAnual` y readiness bloqueante si falta bundle congelado o si
    su metadata queda desalineada.
 3. `stage6-monthly-tax-facts`: crear hechos mensuales anualizables desde F29,
-   pagos, liquidaciones y cierres.
+   pagos, liquidaciones y cierres. Implementado como `MonthlyTaxFact`: una
+   fila por empresa/ano/mes con cierre aprobado, F29 opcional, liquidacion
+   opcional, resumen mensual no sensible, `hash_hecho`, API/snapshot/admin
+   redactados y readiness bloqueante si un proceso anual trazable no conserva
+   los doce meses normalizados en su resumen.
 4. `stage6-rli-cpt-skeleton`: estructura RLI/CPT con lineas trazadas y
    warnings, sin afirmar calculo fiscal final.
 5. `stage6-enterprise-registers`: estructura RAI/SAC/retiros/dividendos con
@@ -132,6 +136,7 @@ contratos:
 | Validacion | Debe bloquear |
 | --- | --- |
 | Fuente anual incompleta | menos de 12 cierres aprobados, F29 faltante si aplica, ledger no cerrado |
+| Hechos mensuales incompletos | proceso anual sin 12 `MonthlyTaxFact` normalizados o resumen anual desalineado |
 | Regla AT ausente | cualquier calculo marcado como listo sin `TaxYearRuleSet` aprobado |
 | Linea sin origen | RLI/CPT/DDJJ/F22 con monto sin fuente |
 | Saldos empresariales opacos | RAI/SAC sin saldo inicial o sin movimiento trazado |

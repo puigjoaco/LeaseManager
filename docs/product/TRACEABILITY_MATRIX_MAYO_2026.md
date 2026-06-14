@@ -53,6 +53,14 @@ si existe certificacion/formato/web service vigente; F29/DDJJ/F22 quedan como
 preparacion, preview, dossier o export supervisado hasta evidencia oficial,
 responsable y autorizacion.
 
+Nota 2026-06-14: Etapa 6 materializa `MonthlyTaxFact` como puente mensual
+contabilidad -> renta. `generate_annual_preparation()` sincroniza una fila
+normalizada por empresa/ano/mes desde cierre aprobado, obligaciones F29/PPM,
+F29 si existe, distribuciones de arriendo y liquidacion de empresa, con hash
+del resumen mensual y refs no sensibles. La readiness bloquea procesos anuales
+trazables sin doce hechos mensuales normalizados o con resumen mensual
+desalineado, manteniendo el camino anual en capas antes de RLI/CPT/F22.
+
 Nota 2026-06-13: Etapa 6/7 convierten el boundary asistido en enforcement
 local para artefactos anuales. `ProcesoRentaAnual`, DDJJ y F22 en estados
 aprobados, observados, rectificados o presentados requieren

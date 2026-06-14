@@ -1,5 +1,6 @@
 import hashlib
 import json
+from decimal import Decimal
 
 from django.utils import timezone
 from django.core.exceptions import ValidationError
@@ -7,10 +8,14 @@ from django.core.exceptions import ValidationError
 from contabilidad.models import (
     CierreMensualContable,
     EstadoCierreMensual,
+    EstadoLiquidacionMensual,
     EstadoPreparacionTributaria,
     EstadoRegistro,
+    LineaLiquidacionMensual,
     ObligacionTributariaMensual,
+    TipoOwnerLiquidacion,
 )
+from cobranza.models import DistribucionCobroMensual
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 
 from .models import (
@@ -20,9 +25,11 @@ from .models import (
     DTEEmitido,
     EstadoDTE,
     EstadoGateSII,
+    EstadoMonthlyTaxFact,
     EstadoReglaTributariaAnual,
     F22PreparacionAnual,
     F29PreparacionMensual,
+    MonthlyTaxFact,
     ProcesoRentaAnual,
     SII_AUTOMATED_REGIME_CODE,
     EstadoAnnualTaxSourceBundle,
@@ -377,6 +384,16 @@ def build_annual_tax_source_summary(empresa, fiscal_year, config, rule_set):
         empresa=empresa,
         anio=fiscal_year,
     ).order_by('mes')
+    rent_distributions = DistribucionCobroMensual.objects.filter(
+        beneficiario_empresa_owner=empresa,
+        pago_mensual__anio=fiscal_year,
+    ).select_related('pago_mensual')
+    liquidation_lines = LineaLiquidacionMensual.objects.filter(
+        liquidacion__owner_tipo=TipoOwnerLiquidacion.COMPANY,
+        liquidacion__empresa=empresa,
+        liquidacion__anio=fiscal_year,
+        liquidacion__estado__in=[EstadoLiquidacionMensual.PREPARED, EstadoLiquidacionMensual.APPROVED],
+    ).select_related('liquidacion')
     obligation_months = sorted(set(obligations.values_list('mes', flat=True)))
     obligation_total = sum((item.monto_calculado for item in obligations), 0)
     f29_traceable_states = {
@@ -403,6 +420,14 @@ def build_annual_tax_source_summary(empresa, fiscal_year, config, rule_set):
                 .values_list('mes', flat=True)
             )
         ),
+        'rent_distribution_months': sorted(set(rent_distributions.values_list('pago_mensual__mes', flat=True))),
+        'rent_distributions_total': rent_distributions.count(),
+        'rent_distributions_total_devengado': str(
+            sum((item.monto_devengado_clp for item in rent_distributions), 0)
+        ),
+        'liquidation_line_months': sorted(set(liquidation_lines.values_list('liquidacion__mes', flat=True))),
+        'liquidation_lines_total': liquidation_lines.count(),
+        'liquidation_lines_total_amount': str(sum((item.monto_clp for item in liquidation_lines), 0)),
         'tax_year_rule_set': {
             'id': rule_set.id,
             'anio_tributario': rule_set.anio_tributario,
@@ -413,6 +438,159 @@ def build_annual_tax_source_summary(empresa, fiscal_year, config, rule_set):
             'mapeos_activos_por_destino': _tax_mapping_counts_by_target(rule_set),
         },
     }
+
+
+def _f29_total_from_summary(summary):
+    if not isinstance(summary, dict):
+        return Decimal('0.00')
+    obligations = summary.get('obligaciones')
+    if not isinstance(obligations, list):
+        return Decimal('0.00')
+    total = Decimal('0.00')
+    for item in obligations:
+        if not isinstance(item, dict):
+            continue
+        raw_amount = item.get('monto_calculado') or '0.00'
+        try:
+            total += Decimal(str(raw_amount))
+        except Exception:
+            continue
+    return total
+
+
+def _sum_decimal(values):
+    total = Decimal('0.00')
+    for value in values:
+        total += Decimal(str(value or '0.00'))
+    return total
+
+
+def sync_monthly_tax_facts(empresa, fiscal_year):
+    closes = CierreMensualContable.objects.filter(
+        empresa=empresa,
+        anio=fiscal_year,
+        estado=EstadoCierreMensual.APPROVED,
+    ).order_by('mes', 'id')
+    normalized_facts = []
+
+    for close in closes:
+        obligations = list(
+            ObligacionTributariaMensual.objects.filter(
+                empresa=empresa,
+                anio=fiscal_year,
+                mes=close.mes,
+            ).order_by('obligacion_tipo', 'id')
+        )
+        f29 = F29PreparacionMensual.objects.filter(
+            empresa=empresa,
+            anio=fiscal_year,
+            mes=close.mes,
+        ).order_by('-id').first()
+        distributions = list(
+            DistribucionCobroMensual.objects.filter(
+                beneficiario_empresa_owner=empresa,
+                pago_mensual__anio=fiscal_year,
+                pago_mensual__mes=close.mes,
+            ).select_related('pago_mensual').order_by('id')
+        )
+        liquidation_lines = list(
+            LineaLiquidacionMensual.objects.filter(
+                liquidacion__owner_tipo=TipoOwnerLiquidacion.COMPANY,
+                liquidacion__empresa=empresa,
+                liquidacion__anio=fiscal_year,
+                liquidacion__mes=close.mes,
+                liquidacion__estado__in=[EstadoLiquidacionMensual.PREPARED, EstadoLiquidacionMensual.APPROVED],
+            ).select_related('liquidacion').order_by('id')
+        )
+        liquidation = liquidation_lines[0].liquidacion if liquidation_lines else None
+        close_summary = close.resumen_obligaciones if isinstance(close.resumen_obligaciones, dict) else {}
+        f29_summary = f29.resumen_formulario if f29 and isinstance(f29.resumen_formulario, dict) else {}
+        payload = {
+            'empresa_id': empresa.id,
+            'anio': fiscal_year,
+            'mes': close.mes,
+            'cierre_mensual_id': close.pk,
+            'cierre_estado': close.estado,
+            'cierre_resumen_keys': sorted(close_summary.keys()),
+            'obligations_total': len(obligations),
+            'obligations_total_amount': str(_sum_decimal(obligation.monto_calculado for obligation in obligations)),
+            'obligations': [
+                {
+                    'id': obligation.pk,
+                    'tipo': obligation.obligacion_tipo,
+                    'base_imponible': str(obligation.base_imponible),
+                    'monto_calculado': str(obligation.monto_calculado),
+                    'estado_preparacion': obligation.estado_preparacion,
+                }
+                for obligation in obligations
+            ],
+            'f29_preparacion': {
+                'id': f29.pk,
+                'estado_preparacion': f29.estado_preparacion,
+                'has_borrador_ref': bool(f29.borrador_ref),
+                'resumen_formulario_keys': sorted(f29_summary.keys()),
+                'total_obligaciones_formulario': str(_f29_total_from_summary(f29_summary)),
+            } if f29 else None,
+            'rent_distributions_total': len(distributions),
+            'rent_distributions_total_devengado': str(
+                _sum_decimal(distribution.monto_devengado_clp for distribution in distributions)
+            ),
+            'rent_distributions': [
+                {
+                    'id': distribution.pk,
+                    'pago_mensual_id': distribution.pago_mensual_id,
+                    'monto_devengado_clp': str(distribution.monto_devengado_clp),
+                    'monto_conciliado_clp': str(distribution.monto_conciliado_clp),
+                    'monto_facturable_clp': str(distribution.monto_facturable_clp),
+                    'requiere_dte': distribution.requiere_dte,
+                    'origen_atribucion': distribution.origen_atribucion,
+                }
+                for distribution in distributions
+            ],
+            'liquidation_lines_total': len(liquidation_lines),
+            'liquidation_lines_total_amount': str(
+                _sum_decimal(line.monto_clp for line in liquidation_lines)
+            ),
+            'liquidation_lines': [
+                {
+                    'id': line.pk,
+                    'liquidacion_id': line.liquidacion_id,
+                    'tipo_linea': line.tipo_linea,
+                    'monto_clp': str(line.monto_clp),
+                    'has_evidencia_ref': bool(line.evidencia_ref),
+                }
+                for line in liquidation_lines
+            ],
+        }
+        fact, _ = MonthlyTaxFact.objects.update_or_create(
+            empresa=empresa,
+            anio=fiscal_year,
+            mes=close.mes,
+            defaults={
+                'cierre_mensual': close,
+                'f29_preparacion': f29,
+                'liquidacion_mensual': liquidation,
+                'source_ref': f'monthly-tax-fact-{empresa.id}-{fiscal_year}-{close.mes:02d}',
+                'responsible_ref': 'system-monthly-tax-normalizer',
+                'resumen_hecho': payload,
+                'hash_hecho': _source_bundle_hash(payload),
+                'estado': EstadoMonthlyTaxFact.NORMALIZED,
+            },
+        )
+        try:
+            fact.full_clean()
+        except ValidationError as error:
+            reason = _first_validation_error(error)
+            raise ValueError(f'MonthlyTaxFact no cumple validacion de dominio: {reason}') from error
+        fact.save()
+        normalized_facts.append(fact)
+
+    MonthlyTaxFact.objects.filter(
+        empresa=empresa,
+        anio=fiscal_year,
+        estado=EstadoMonthlyTaxFact.NORMALIZED,
+    ).exclude(pk__in=[fact.pk for fact in normalized_facts]).update(estado=EstadoMonthlyTaxFact.RETIRED)
+    return normalized_facts
 
 
 def freeze_annual_tax_source_bundle(
@@ -446,6 +624,7 @@ def freeze_annual_tax_source_bundle(
         except ValidationError as error:
             reason = _first_validation_error(error)
             raise ValueError(f'AnnualTaxSourceBundle congelado existente no es valido: {reason}') from error
+        sync_monthly_tax_facts(bundle.empresa, bundle.anio_comercial)
         return bundle
 
     bundle = AnnualTaxSourceBundle(
@@ -466,6 +645,7 @@ def freeze_annual_tax_source_bundle(
         reason = _first_validation_error(error)
         raise ValueError(f'AnnualTaxSourceBundle no cumple validacion de dominio: {reason}') from error
     bundle.save()
+    sync_monthly_tax_facts(bundle.empresa, bundle.anio_comercial)
     return bundle
 
 
@@ -483,6 +663,24 @@ def build_annual_summary(empresa, fiscal_year, rule_set, source_bundle):
     obligations = ObligacionTributariaMensual.objects.filter(empresa=empresa, anio=fiscal_year)
     total_obligations = obligations.count()
     total_monto = sum((item.monto_calculado for item in obligations), 0)
+    monthly_facts = MonthlyTaxFact.objects.filter(
+        empresa=empresa,
+        anio=fiscal_year,
+        estado=EstadoMonthlyTaxFact.NORMALIZED,
+    ).order_by('mes')
+    monthly_fact_months = sorted(set(monthly_facts.values_list('mes', flat=True)))
+    monthly_fact_totals = {
+        'obligations_total': 0,
+        'rent_distributions_total': 0,
+        'liquidation_lines_total': 0,
+    }
+    for fact in monthly_facts:
+        payload = fact.resumen_hecho if isinstance(fact.resumen_hecho, dict) else {}
+        for key in monthly_fact_totals:
+            try:
+                monthly_fact_totals[key] += int(payload.get(key) or 0)
+            except (TypeError, ValueError):
+                continue
     return {
         'fiscal_year': fiscal_year,
         'obligaciones': [
@@ -515,6 +713,11 @@ def build_annual_summary(empresa, fiscal_year, rule_set, source_bundle):
             'approved_closes_total': source_bundle.resumen_fuentes.get('approved_closes_total', 0),
             'obligations_total': source_bundle.resumen_fuentes.get('obligations_total', 0),
             'f29_preparations_total': source_bundle.resumen_fuentes.get('f29_preparations_total', 0),
+        },
+        'annual_tax_monthly_facts': {
+            'total': monthly_facts.count(),
+            'months': monthly_fact_months,
+            **monthly_fact_totals,
         },
     }
 

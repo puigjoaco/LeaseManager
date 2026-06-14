@@ -6,7 +6,15 @@ from django.db import models
 from django.db.models import Q
 
 from cobranza.models import DistribucionCobroMensual, PagoMensual
-from contabilidad.models import CierreMensualContable, EstadoPreparacionTributaria, EstadoRegistro, RegimenTributarioEmpresa
+from contabilidad.models import (
+    CierreMensualContable,
+    EstadoCierreMensual,
+    EstadoLiquidacionMensual,
+    EstadoPreparacionTributaria,
+    EstadoRegistro,
+    LiquidacionMensual,
+    RegimenTributarioEmpresa,
+)
 from contratos.models import Contrato
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 from patrimonio.models import Empresa
@@ -442,6 +450,12 @@ class SourceKindRentaAnual(models.TextChoices):
     AUTHORIZED_REAL = 'real_autorizado', 'Real autorizado'
 
 
+class EstadoMonthlyTaxFact(models.TextChoices):
+    DRAFT = 'borrador', 'Borrador'
+    NORMALIZED = 'normalizado', 'Normalizado'
+    RETIRED = 'retirado', 'Retirado'
+
+
 def _normalize_hash(value):
     return str(value or '').strip().lower()
 
@@ -688,6 +702,143 @@ class AnnualTaxSourceBundle(OperationalSIITextNormalizationMixin, TimestampedMod
                     'resumen_fuentes',
                     'AnnualTaxSourceBundle congelado requiere obligaciones mensuales trazables para los doce meses.',
                 )
+        if errors:
+            raise ValidationError(errors)
+
+
+class MonthlyTaxFact(OperationalSIITextNormalizationMixin, TimestampedModel):
+    operational_text_fields = (
+        'source_ref',
+        'responsible_ref',
+        'hash_hecho',
+    )
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.PROTECT,
+        related_name='monthly_tax_facts',
+    )
+    anio = models.PositiveSmallIntegerField()
+    mes = models.PositiveSmallIntegerField()
+    cierre_mensual = models.ForeignKey(
+        CierreMensualContable,
+        on_delete=models.PROTECT,
+        related_name='monthly_tax_facts',
+    )
+    f29_preparacion = models.ForeignKey(
+        F29PreparacionMensual,
+        on_delete=models.PROTECT,
+        related_name='monthly_tax_facts',
+        null=True,
+        blank=True,
+    )
+    liquidacion_mensual = models.ForeignKey(
+        LiquidacionMensual,
+        on_delete=models.PROTECT,
+        related_name='monthly_tax_facts',
+        null=True,
+        blank=True,
+    )
+    source_ref = models.CharField(max_length=255, blank=True)
+    responsible_ref = models.CharField(max_length=255, blank=True)
+    resumen_hecho = models.JSONField(default=dict, blank=True)
+    hash_hecho = models.CharField(max_length=64, blank=True)
+    estado = models.CharField(
+        max_length=16,
+        choices=EstadoMonthlyTaxFact.choices,
+        default=EstadoMonthlyTaxFact.DRAFT,
+    )
+
+    class Meta:
+        ordering = ['empresa_id', '-anio', 'mes']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['empresa', 'anio', 'mes'],
+                name='uniq_monthly_tax_fact_por_empresa_periodo',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.empresa_id} {self.anio}-{self.mes:02d}'
+
+    def clean(self):
+        super().clean()
+        self.hash_hecho = _normalize_hash(self.hash_hecho)
+        errors = {}
+        if self.mes < 1 or self.mes > 12:
+            errors['mes'] = 'mes debe estar entre 1 y 12.'
+        _add_non_sensitive_reference_error(errors, self, 'source_ref')
+        _add_non_sensitive_reference_error(errors, self, 'responsible_ref')
+        _add_non_sensitive_payload_error(errors, 'resumen_hecho', self.resumen_hecho)
+
+        if self.cierre_mensual_id:
+            if self.cierre_mensual.empresa_id != self.empresa_id:
+                errors['cierre_mensual'] = 'El cierre mensual debe pertenecer a la misma empresa del hecho mensual.'
+            elif self.cierre_mensual.anio != self.anio or self.cierre_mensual.mes != self.mes:
+                errors['cierre_mensual'] = 'El cierre mensual debe coincidir con el periodo del hecho mensual.'
+            elif self.estado == EstadoMonthlyTaxFact.NORMALIZED and self.cierre_mensual.estado != EstadoCierreMensual.APPROVED:
+                errors['cierre_mensual'] = 'El hecho mensual normalizado requiere cierre mensual aprobado.'
+
+        if self.f29_preparacion_id:
+            if self.f29_preparacion.empresa_id != self.empresa_id:
+                errors['f29_preparacion'] = 'El F29 debe pertenecer a la misma empresa del hecho mensual.'
+            elif self.f29_preparacion.anio != self.anio or self.f29_preparacion.mes != self.mes:
+                errors['f29_preparacion'] = 'El F29 debe coincidir con el periodo del hecho mensual.'
+            elif self.estado == EstadoMonthlyTaxFact.NORMALIZED and self.f29_preparacion.estado_preparacion not in {
+                EstadoPreparacionTributaria.PREPARED,
+                EstadoPreparacionTributaria.APPROVED,
+                EstadoPreparacionTributaria.OBSERVED,
+                EstadoPreparacionTributaria.RECTIFIED,
+            }:
+                errors['f29_preparacion'] = 'El hecho mensual normalizado requiere F29 trazable si existe F29 asociado.'
+
+        if self.liquidacion_mensual_id:
+            if self.liquidacion_mensual.empresa_id != self.empresa_id:
+                errors['liquidacion_mensual'] = 'La liquidacion mensual debe pertenecer a la misma empresa.'
+            elif self.liquidacion_mensual.anio != self.anio or self.liquidacion_mensual.mes != self.mes:
+                errors['liquidacion_mensual'] = 'La liquidacion mensual debe coincidir con el periodo del hecho.'
+            elif self.estado == EstadoMonthlyTaxFact.NORMALIZED and self.liquidacion_mensual.estado not in {
+                EstadoLiquidacionMensual.PREPARED,
+                EstadoLiquidacionMensual.APPROVED,
+            }:
+                errors['liquidacion_mensual'] = 'El hecho mensual normalizado requiere liquidacion preparada o aprobada.'
+
+        if self.resumen_hecho and not isinstance(self.resumen_hecho, dict):
+            errors['resumen_hecho'] = 'resumen_hecho debe ser un objeto JSON.'
+        elif isinstance(self.resumen_hecho, dict):
+            identity_errors = []
+            for key, expected in (
+                ('empresa_id', self.empresa_id),
+                ('anio', self.anio),
+                ('mes', self.mes),
+            ):
+                value = self.resumen_hecho.get(key)
+                if value is None:
+                    continue
+                try:
+                    matches = int(value) == int(expected)
+                except (TypeError, ValueError):
+                    matches = False
+                if not matches:
+                    identity_errors.append(key)
+            if identity_errors:
+                errors['resumen_hecho'] = 'resumen_hecho debe coincidir con empresa, anio y mes.'
+            expected_hash = _payload_hash(self.resumen_hecho)
+            if self.hash_hecho and self.hash_hecho != expected_hash:
+                errors['hash_hecho'] = 'hash_hecho debe corresponder al resumen_hecho mensual.'
+
+        if self.estado == EstadoMonthlyTaxFact.NORMALIZED:
+            _add_active_fiscal_config_error(errors, self, 'MonthlyTaxFact')
+            if not has_text(self.source_ref):
+                errors['source_ref'] = 'MonthlyTaxFact normalizado requiere source_ref no sensible.'
+            if not has_text(self.responsible_ref):
+                errors['responsible_ref'] = 'MonthlyTaxFact normalizado requiere responsible_ref no sensible.'
+            if not self.resumen_hecho:
+                errors['resumen_hecho'] = 'MonthlyTaxFact normalizado requiere resumen_hecho.'
+            if not has_text(self.hash_hecho):
+                errors['hash_hecho'] = 'MonthlyTaxFact normalizado requiere hash_hecho.'
+        if has_text(self.hash_hecho) and not _is_sha256(self.hash_hecho):
+            errors['hash_hecho'] = 'hash_hecho debe ser SHA-256 hexadecimal de 64 caracteres.'
         if errors:
             raise ValidationError(errors)
 
