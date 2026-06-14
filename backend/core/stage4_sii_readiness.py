@@ -163,8 +163,12 @@ def _collect_f29_issues(f29_drafts) -> dict[str, int]:
             counts['capability_not_ready'] += 1
         if draft.estado_preparacion in TAX_REF_REQUIRED_STATES and not has_text(draft.borrador_ref):
             counts['approved_ref_missing'] += 1
+        if draft.estado_preparacion in TAX_REF_REQUIRED_STATES and not has_text(draft.responsable_revision_ref):
+            counts['responsible_ref_missing'] += 1
         if has_text(draft.borrador_ref) and not is_non_sensitive_reference(draft.borrador_ref):
             counts['sensitive_ref'] += 1
+        if has_text(draft.responsable_revision_ref) and not is_non_sensitive_reference(draft.responsable_revision_ref):
+            counts['sensitive_responsible_ref'] += 1
         if contains_sensitive_reference(draft.resumen_formulario or {}, include_sensitive_keys=True):
             counts['sensitive_payload'] += 1
         if contains_sensitive_reference(draft.observaciones or ''):
@@ -562,6 +566,22 @@ def collect_stage4_sii_readiness(
                 'stage4.f29_sensitive_ref',
                 'Existen borradores F29 con borrador_ref sensible.',
                 count=f29_issues['sensitive_ref'],
+            )
+        )
+    if f29_issues.get('responsible_ref_missing'):
+        issues.append(
+            _issue(
+                'stage4.f29_responsible_ref_missing',
+                'F29 aprobado, observado o rectificado requiere responsable_revision_ref trazable.',
+                count=f29_issues['responsible_ref_missing'],
+            )
+        )
+    if f29_issues.get('sensitive_responsible_ref'):
+        issues.append(
+            _issue(
+                'stage4.f29_responsible_ref_sensitive',
+                'Existen borradores F29 con responsable_revision_ref sensible.',
+                count=f29_issues['sensitive_responsible_ref'],
             )
         )
     if f29_issues.get('sensitive_payload'):

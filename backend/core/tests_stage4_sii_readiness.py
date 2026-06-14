@@ -243,6 +243,7 @@ class Stage4SiiReadinessTests(TestCase):
             estado_preparacion=EstadoPreparacionTributaria.APPROVED,
             resumen_formulario={'obligaciones': [{'tipo': 'PPM'}]},
             borrador_ref='f29-stage4-controlled',
+            responsable_revision_ref='tax-reviewer-f29-stage4-controlled',
         )
         return empresa
 
@@ -444,6 +445,7 @@ class Stage4SiiReadinessTests(TestCase):
             estado_preparacion=EstadoPreparacionTributaria.APPROVED,
             resumen_formulario={'obligaciones': [{'tipo': 'PPM'}]},
             borrador_ref='f29-stage4-sin-config',
+            responsable_revision_ref='tax-reviewer-f29-stage4-sin-config',
         )
 
         result = self._collect_with_final_refs()
@@ -563,6 +565,7 @@ class Stage4SiiReadinessTests(TestCase):
         F29PreparacionMensual.objects.update(
             estado_preparacion=EstadoPreparacionTributaria.APPROVED,
             borrador_ref='',
+            responsable_revision_ref='tax-reviewer-f29-local',
         )
 
         result = self._collect_with_final_refs()
@@ -571,9 +574,24 @@ class Stage4SiiReadinessTests(TestCase):
         F29PreparacionMensual.objects.update(
             estado_preparacion=EstadoPreparacionTributaria.PRESENTED,
             borrador_ref='f29-presented-local',
+            responsable_revision_ref='tax-reviewer-f29-local',
         )
         result = self._collect_with_final_refs()
         self.assertIn('stage4.f29_presented_boundary', {issue['code'] for issue in result['issues']})
+
+    def test_f29_approved_without_responsible_ref_is_blocking(self):
+        self._create_valid_local_matrix()
+        F29PreparacionMensual.objects.update(
+            estado_preparacion=EstadoPreparacionTributaria.APPROVED,
+            borrador_ref='f29-approved-local',
+            responsable_revision_ref='',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertIn('stage4.f29_responsible_ref_missing', issue_codes)
+        self.assertEqual(result['sections']['f29']['responsible_ref_missing'], 1)
 
     def test_annual_artifacts_without_ready_capability_are_blocking(self):
         empresa = self._create_valid_local_matrix()
@@ -703,7 +721,10 @@ class Stage4SiiReadinessTests(TestCase):
             ultimo_resultado={'api_key': None},
         )
         DTEEmitido.objects.update(sii_track_id='https://sii.example.test/track?token=secret')
-        F29PreparacionMensual.objects.update(borrador_ref='https://sii.example.test/f29?token=secret')
+        F29PreparacionMensual.objects.update(
+            borrador_ref='https://sii.example.test/f29?token=secret',
+            responsable_revision_ref='https://sii.example.test/reviewer?token=secret',
+        )
 
         result = self._collect_with_final_refs()
         issue_codes = {issue['code'] for issue in result['issues']}
@@ -712,9 +733,11 @@ class Stage4SiiReadinessTests(TestCase):
         self.assertIn('stage4.capability_sensitive_reference', issue_codes)
         self.assertIn('stage4.dte_sensitive_tracking_ref', issue_codes)
         self.assertIn('stage4.f29_sensitive_ref', issue_codes)
+        self.assertIn('stage4.f29_responsible_ref_sensitive', issue_codes)
         self.assertEqual(result['sections']['capabilities']['open_sensitive_refs'], 3)
         self.assertEqual(result['sections']['dte']['sensitive_tracking_ref'], 1)
         self.assertEqual(result['sections']['f29']['sensitive_ref'], 1)
+        self.assertEqual(result['sections']['f29']['sensitive_responsible_ref'], 1)
         self.assertNotIn('api_key', json.dumps(result))
 
     def test_sensitive_tax_payload_keys_do_not_close_readiness(self):

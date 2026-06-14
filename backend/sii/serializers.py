@@ -163,7 +163,7 @@ class DTEStatusSerializer(serializers.Serializer):
 
 
 class F29PreparacionMensualSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
-    redacted_reference_fields = ('borrador_ref',)
+    redacted_reference_fields = ('borrador_ref', 'responsable_revision_ref')
     redacted_payload_fields = ('resumen_formulario',)
     redacted_text_fields = ('observaciones',)
 
@@ -179,6 +179,7 @@ class F29PreparacionMensualSerializer(RedactSensitiveSiiFieldsMixin, serializers
             'estado_preparacion',
             'resumen_formulario',
             'borrador_ref',
+            'responsable_revision_ref',
             'observaciones',
             'created_at',
             'updated_at',
@@ -202,6 +203,7 @@ class F29GenerateSerializer(serializers.Serializer):
 class F29StatusSerializer(serializers.Serializer):
     estado_preparacion = serializers.ChoiceField(choices=F29PreparacionMensual._meta.get_field('estado_preparacion').choices)
     borrador_ref = serializers.CharField(required=False, allow_blank=True)
+    responsable_revision_ref = serializers.CharField(required=False, allow_blank=True)
     observaciones = serializers.CharField(required=False, allow_blank=True)
 
 

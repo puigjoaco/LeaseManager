@@ -19,7 +19,7 @@ type CapacidadSiiItem = {
   estado_gate: string
 }
 type DteEmitidoItem = { id: number; empresa: number; contrato: number; pago_mensual: number; monto_neto_clp: string; estado_dte: string; sii_track_id: string }
-type F29PreparacionItem = { id: number; empresa: number; capacidad_tributaria: number; anio: number; mes: number; estado_preparacion: string; borrador_ref: string }
+type F29PreparacionItem = { id: number; empresa: number; capacidad_tributaria: number; anio: number; mes: number; estado_preparacion: string; borrador_ref: string; responsable_revision_ref: string; observaciones: string }
 type ProcesoRentaAnualItem = { id: number; empresa: number; anio_tributario: number; estado: string; fecha_preparacion: string | null; responsable_revision_ref: string }
 type DdjjPreparacionItem = { id: number; empresa: number; anio_tributario: number; estado_preparacion: string; paquete_ref: string; responsable_revision_ref: string; observaciones: string }
 type F22PreparacionItem = { id: number; empresa: number; anio_tributario: number; estado_preparacion: string; borrador_ref: string; responsable_revision_ref: string; observaciones: string }
@@ -52,6 +52,14 @@ type AnnualDraft = {
   anio_tributario: string
 }
 
+type F29ReviewDraft = {
+  item_id: string
+  estado_preparacion: string
+  borrador_ref: string
+  responsable_revision_ref: string
+  observaciones: string
+}
+
 type AnnualReviewKind = 'ddjj' | 'f22'
 
 type AnnualReviewDraft = {
@@ -76,6 +84,14 @@ const initialAnnualReviewDraft: AnnualReviewDraft = {
   item_id: '',
   estado_preparacion: 'aprobado_para_presentacion',
   ref_value: '',
+  responsable_revision_ref: '',
+  observaciones: '',
+}
+
+const initialF29ReviewDraft: F29ReviewDraft = {
+  item_id: '',
+  estado_preparacion: 'aprobado_para_presentacion',
+  borrador_ref: '',
   responsable_revision_ref: '',
   observaciones: '',
 }
@@ -146,7 +162,15 @@ export function SiiWorkspace({
     const estadoPago = item.estado_pago ?? ''
     return tieneDistribucionFacturable && ['pagado', 'pagado_via_repactacion', 'pagado_por_acuerdo_termino'].includes(estadoPago)
   })
+  const [f29ReviewDraft, setF29ReviewDraft] = useState<F29ReviewDraft>(initialF29ReviewDraft)
   const [annualReviewDraft, setAnnualReviewDraft] = useState<AnnualReviewDraft>(initialAnnualReviewDraft)
+  const selectedF29Review = filteredF29s.find((item) => String(item.id) === f29ReviewDraft.item_id)
+  const f29ReviewNeedsResponsable = f29ReviewDraft.estado_preparacion !== 'preparado'
+  const canSubmitF29Review = Boolean(selectedF29Review)
+    && (!f29ReviewNeedsResponsable || (
+      f29ReviewDraft.borrador_ref.trim().length > 0
+      && f29ReviewDraft.responsable_revision_ref.trim().length > 0
+    ))
   const annualReviewOptions = useMemo<AnnualReviewOption[]>(() => {
     const rows = annualReviewDraft.artifact_kind === 'ddjj' ? filteredDdjjs : filteredF22s
     return rows.map((item) => {
@@ -171,6 +195,30 @@ export function SiiWorkspace({
 
   function setAnnualReviewKind(value: AnnualReviewKind) {
     setAnnualReviewDraft({ ...initialAnnualReviewDraft, artifact_kind: value })
+  }
+
+  function loadF29Review(item: F29PreparacionItem) {
+    setF29ReviewDraft({
+      item_id: String(item.id),
+      estado_preparacion: item.estado_preparacion === 'preparado' ? 'aprobado_para_presentacion' : item.estado_preparacion,
+      borrador_ref: item.borrador_ref || '',
+      responsable_revision_ref: item.responsable_revision_ref || '',
+      observaciones: item.observaciones || '',
+    })
+  }
+
+  async function handleF29ReviewSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canEditSii || !canSubmitF29Review) return
+    const ok = await handleSiiStatusUpdate(`/api/v1/sii/f29/${f29ReviewDraft.item_id}/estado/`, {
+      estado_preparacion: f29ReviewDraft.estado_preparacion,
+      borrador_ref: f29ReviewDraft.borrador_ref.trim(),
+      responsable_revision_ref: f29ReviewDraft.responsable_revision_ref.trim(),
+      observaciones: f29ReviewDraft.observaciones.trim(),
+    }, 'Revisión F29 actualizada correctamente.')
+    if (ok) {
+      setF29ReviewDraft(initialF29ReviewDraft)
+    }
   }
 
   function setAnnualReviewItem(value: string) {
@@ -279,6 +327,35 @@ export function SiiWorkspace({
         </section>
 
         <section className="panel">
+          <div className="section-heading"><div><h2>Revisión F29</h2><p>Estado mensual con borrador, responsable y observación.</p></div></div>
+          <form className="entity-form" onSubmit={handleF29ReviewSubmit}>
+            <select value={f29ReviewDraft.item_id} onChange={(event) => {
+              const selected = filteredF29s.find((item) => String(item.id) === event.target.value)
+              if (selected) {
+                loadF29Review(selected)
+              } else {
+                setF29ReviewDraft(initialF29ReviewDraft)
+              }
+            }}>
+              <option value="">Selecciona F29</option>
+              {filteredF29s.map((item) => (
+                <option key={item.id} value={item.id}>{empresaById.get(item.empresa)?.razon_social || item.empresa} · {item.mes}/{item.anio} · {item.estado_preparacion}</option>
+              ))}
+            </select>
+            <select value={f29ReviewDraft.estado_preparacion} onChange={(event) => setF29ReviewDraft((current) => ({ ...current, estado_preparacion: event.target.value }))}>
+              <option value="preparado">Preparado</option>
+              <option value="aprobado_para_presentacion">Aprobado para presentación</option>
+              <option value="observado">Observado</option>
+              <option value="rectificado">Rectificado</option>
+            </select>
+            <input placeholder="Borrador F29 ref" value={f29ReviewDraft.borrador_ref} onChange={(event) => setF29ReviewDraft((current) => ({ ...current, borrador_ref: event.target.value }))} />
+            <input placeholder="Responsable revisión ref" value={f29ReviewDraft.responsable_revision_ref} onChange={(event) => setF29ReviewDraft((current) => ({ ...current, responsable_revision_ref: event.target.value }))} />
+            <input placeholder="Observación no sensible" value={f29ReviewDraft.observaciones} onChange={(event) => setF29ReviewDraft((current) => ({ ...current, observaciones: event.target.value }))} />
+            <button type="submit" className="button-primary" disabled={isSubmitting || !canSubmitF29Review}>Guardar revisión F29</button>
+          </form>
+        </section>
+
+        <section className="panel">
           <div className="section-heading"><div><h2>Preparación anual</h2><p>Genera proceso anual, DDJJ y F22.</p></div></div>
           <form className="entity-form" onSubmit={handleGenerateAnnual}>
             <select value={annualDraft.empresa_id} onChange={(event) => setAnnualDraft((current) => ({ ...current, empresa_id: event.target.value }))}>
@@ -336,7 +413,9 @@ export function SiiWorkspace({
         { label: 'Período', render: (row) => `${row.mes}/${row.anio}` },
         { label: 'Capacidad', render: (row) => capacidadSiiById.get(row.capacidad_tributaria)?.capacidad_key || row.capacidad_tributaria },
         { label: 'Estado', render: (row) => <Badge label={row.estado_preparacion} tone={toneFor(row.estado_preparacion)} /> },
-        { label: 'Acción', render: (row) => !canEditSii ? 'Solo lectura' : <button type="button" className="button-ghost inline-action" onClick={() => void handleSiiStatusUpdate(`/api/v1/sii/f29/${row.id}/estado/`, { estado_preparacion: 'preparado', borrador_ref: row.borrador_ref || 'F29-LOCAL' }, 'Estado F29 actualizado correctamente.')} disabled={isSubmitting}>Actualizar estado</button> },
+        { label: 'Responsable', render: (row) => row.responsable_revision_ref || 'Sin responsable' },
+        { label: 'Observación', render: (row) => row.observaciones || 'Sin observación' },
+        { label: 'Acción', render: (row) => !canEditSii ? 'Solo lectura' : <button type="button" className="button-ghost inline-action" onClick={() => loadF29Review(row)} disabled={isSubmitting}>Cargar revisión</button> },
       ]} />
       <TableBlock title="Proceso renta anual" subtitle="Proceso consolidado por empresa y año tributario." rows={filteredProcesosAnuales} empty="No hay procesos anuales para este filtro." isLoading={isLoading} loadingLabel="Cargando SII..." columns={[
         { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },

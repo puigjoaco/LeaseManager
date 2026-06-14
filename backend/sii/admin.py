@@ -128,12 +128,13 @@ class F29PreparacionMensualAdmin(admin.ModelAdmin):
         'estado_preparacion',
         'resumen_formulario_redacted',
         'borrador_ref_redacted',
+        'responsable_revision_ref_redacted',
         'observaciones_redacted',
         'created_at',
         'updated_at',
     )
     readonly_fields = fields
-    list_display = ('empresa', 'anio', 'mes', 'estado_preparacion', 'borrador_ref_redacted')
+    list_display = ('empresa', 'anio', 'mes', 'estado_preparacion', 'borrador_ref_redacted', 'responsable_revision_ref_redacted')
     list_filter = ('estado_preparacion', 'anio', 'mes')
     search_fields = ('empresa__razon_social',)
 
@@ -144,6 +145,10 @@ class F29PreparacionMensualAdmin(admin.ModelAdmin):
     @admin.display(description='borrador_ref')
     def borrador_ref_redacted(self, obj):
         return _redacted_attr(obj, 'borrador_ref')
+
+    @admin.display(description='responsable_revision_ref')
+    def responsable_revision_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'responsable_revision_ref')
 
     @admin.display(description='observaciones')
     def observaciones_redacted(self, obj):
