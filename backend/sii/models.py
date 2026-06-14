@@ -1,8 +1,9 @@
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import models
+from django.db.models import Q
 
 from cobranza.models import DistribucionCobroMensual, PagoMensual
-from contabilidad.models import CierreMensualContable, EstadoPreparacionTributaria, EstadoRegistro
+from contabilidad.models import CierreMensualContable, EstadoPreparacionTributaria, EstadoRegistro, RegimenTributarioEmpresa
 from contratos.models import Contrato
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 from patrimonio.models import Empresa
@@ -69,8 +70,6 @@ TAX_REFERENCE_REQUIRED_STATES = {
     EstadoPreparacionTributaria.OBSERVED,
     EstadoPreparacionTributaria.RECTIFIED,
 }
-
-
 def _add_error(errors, field_name, message):
     existing = errors.get(field_name)
     if existing:
@@ -405,6 +404,158 @@ class F29PreparacionMensual(OperationalSIITextNormalizationMixin, TimestampedMod
         _add_non_sensitive_payload_error(errors, 'resumen_formulario', self.resumen_formulario)
         if self.cierre_mensual.empresa_id != self.empresa_id or self.cierre_mensual.anio != self.anio or self.cierre_mensual.mes != self.mes:
             errors['cierre_mensual'] = 'El cierre mensual debe coincidir con la empresa y periodo del F29.'
+        if errors:
+            raise ValidationError(errors)
+
+
+class EstadoReglaTributariaAnual(models.TextChoices):
+    DRAFT = 'borrador', 'Borrador'
+    APPROVED = 'aprobada', 'Aprobada'
+    CONDITIONED = 'condicionada', 'Condicionada'
+    RETIRED = 'retirada', 'Retirada'
+
+
+class DestinoMapeoTributarioAnual(models.TextChoices):
+    RLI = 'RLI', 'RLI'
+    CPT = 'CPT', 'CPT'
+    RAI = 'RAI', 'RAI'
+    SAC = 'SAC', 'SAC'
+    DDJJ = 'DDJJ', 'DDJJ'
+    F22 = 'F22', 'F22'
+    DOSSIER = 'DOSSIER', 'Dossier'
+
+
+def _normalize_hash(value):
+    return str(value or '').strip().lower()
+
+
+def _is_sha256(value):
+    normalized = _normalize_hash(value)
+    return len(normalized) == 64 and all(character in '0123456789abcdef' for character in normalized)
+
+
+class TaxYearRuleSet(OperationalSIITextNormalizationMixin, TimestampedModel):
+    operational_text_fields = (
+        'version',
+        'fuente_ref',
+        'hash_normativo',
+        'responsable_aprobacion_ref',
+        'descripcion',
+    )
+
+    anio_tributario = models.PositiveSmallIntegerField()
+    regimen_tributario = models.ForeignKey(
+        RegimenTributarioEmpresa,
+        on_delete=models.PROTECT,
+        related_name='tax_year_rule_sets',
+    )
+    version = models.CharField(max_length=32)
+    estado = models.CharField(
+        max_length=16,
+        choices=EstadoReglaTributariaAnual.choices,
+        default=EstadoReglaTributariaAnual.DRAFT,
+    )
+    fuente_ref = models.CharField(max_length=255, blank=True)
+    hash_normativo = models.CharField(max_length=64, blank=True)
+    responsable_aprobacion_ref = models.CharField(max_length=255, blank=True)
+    descripcion = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ['-anio_tributario', 'regimen_tributario_id', 'version']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['anio_tributario', 'regimen_tributario', 'version'],
+                name='uniq_tax_year_ruleset_version',
+            ),
+            models.UniqueConstraint(
+                fields=['anio_tributario', 'regimen_tributario'],
+                condition=Q(estado=EstadoReglaTributariaAnual.APPROVED),
+                name='uniq_tax_year_ruleset_approved',
+            ),
+        ]
+
+    def __str__(self):
+        return f'AT{self.anio_tributario} {self.regimen_tributario.codigo_regimen} {self.version}'
+
+    def clean(self):
+        super().clean()
+        self.hash_normativo = _normalize_hash(self.hash_normativo)
+        errors = {}
+        try:
+            regimen_tributario = self.regimen_tributario
+        except ObjectDoesNotExist:
+            regimen_tributario = None
+        if self.estado == EstadoReglaTributariaAnual.APPROVED:
+            if not has_text(self.fuente_ref):
+                errors['fuente_ref'] = 'TaxYearRuleSet aprobado requiere fuente_ref no sensible.'
+            if not has_text(self.hash_normativo):
+                errors['hash_normativo'] = 'TaxYearRuleSet aprobado requiere hash_normativo.'
+            if not has_text(self.responsable_aprobacion_ref):
+                errors['responsable_aprobacion_ref'] = 'TaxYearRuleSet aprobado requiere responsable_aprobacion_ref.'
+            if regimen_tributario is None:
+                errors['regimen_tributario'] = 'TaxYearRuleSet aprobado requiere regimen tributario.'
+            elif regimen_tributario.estado != EstadoRegistro.ACTIVE:
+                errors['regimen_tributario'] = 'TaxYearRuleSet aprobado requiere regimen tributario activo.'
+        if has_text(self.hash_normativo) and not _is_sha256(self.hash_normativo):
+            errors['hash_normativo'] = 'hash_normativo debe ser SHA-256 hexadecimal de 64 caracteres.'
+        _add_non_sensitive_reference_error(errors, self, 'fuente_ref')
+        _add_non_sensitive_reference_error(errors, self, 'responsable_aprobacion_ref')
+        _add_non_sensitive_payload_error(errors, 'metadata', self.metadata)
+        if errors:
+            raise ValidationError(errors)
+
+
+class TaxCodeMapping(OperationalSIITextNormalizationMixin, TimestampedModel):
+    operational_text_fields = (
+        'codigo_interno',
+        'codigo_destino',
+        'formula_ref',
+        'evidencia_ref',
+    )
+
+    rule_set = models.ForeignKey(
+        TaxYearRuleSet,
+        on_delete=models.CASCADE,
+        related_name='code_mappings',
+    )
+    destino = models.CharField(max_length=16, choices=DestinoMapeoTributarioAnual.choices)
+    codigo_interno = models.CharField(max_length=64)
+    codigo_destino = models.CharField(max_length=64)
+    formula_ref = models.CharField(max_length=255, blank=True)
+    evidencia_ref = models.CharField(max_length=255, blank=True)
+    estado = models.CharField(max_length=16, choices=EstadoRegistro.choices, default=EstadoRegistro.ACTIVE)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ['rule_set_id', 'destino', 'codigo_interno', 'codigo_destino']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['rule_set', 'destino', 'codigo_interno', 'codigo_destino'],
+                name='uniq_tax_code_mapping_target',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.rule_set_id} {self.destino}:{self.codigo_interno}->{self.codigo_destino}'
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        try:
+            rule_set = self.rule_set
+        except ObjectDoesNotExist:
+            rule_set = None
+        if rule_set is None:
+            errors['rule_set'] = 'Mapeo tributario requiere TaxYearRuleSet.'
+        elif self.estado == EstadoRegistro.ACTIVE and rule_set.estado == EstadoReglaTributariaAnual.APPROVED:
+            if not has_text(self.formula_ref):
+                errors['formula_ref'] = 'Mapeo activo de rule set aprobado requiere formula_ref no sensible.'
+            if not has_text(self.evidencia_ref):
+                errors['evidencia_ref'] = 'Mapeo activo de rule set aprobado requiere evidencia_ref no sensible.'
+        _add_non_sensitive_reference_error(errors, self, 'formula_ref')
+        _add_non_sensitive_reference_error(errors, self, 'evidencia_ref')
+        _add_non_sensitive_payload_error(errors, 'metadata', self.metadata)
         if errors:
             raise ValidationError(errors)
 

@@ -37,9 +37,13 @@ from sii.models import (
     CapacidadSII,
     CapacidadTributariaSII,
     DDJJPreparacionAnual,
+    DestinoMapeoTributarioAnual,
+    EstadoReglaTributariaAnual,
     EstadoGateSII,
     F22PreparacionAnual,
     ProcesoRentaAnual,
+    TaxCodeMapping,
+    TaxYearRuleSet,
 )
 
 
@@ -187,9 +191,32 @@ class Stage6RentaAnualReadinessTests(TestCase):
             storage_ref='local-evidence/stage6/certificado-renta-anual.pdf',
         )
 
+    def _create_approved_tax_year_ruleset(self, config, anio_tributario=2026):
+        rule_set = TaxYearRuleSet.objects.create(
+            anio_tributario=anio_tributario,
+            regimen_tributario=config.regimen_tributario,
+            version='AT2026-controlled-v1',
+            estado=EstadoReglaTributariaAnual.APPROVED,
+            fuente_ref='tax-rule-source-at2026-controlled',
+            hash_normativo='a' * 64,
+            responsable_aprobacion_ref='tax-rule-reviewer-controlled',
+            metadata={'source': 'stage6-controlled'},
+        )
+        TaxCodeMapping.objects.create(
+            rule_set=rule_set,
+            destino=DestinoMapeoTributarioAnual.RLI,
+            codigo_interno='lease.revenue.net',
+            codigo_destino='RLI-ING-001',
+            formula_ref='formula-ref-rli-ing-001-controlled',
+            evidencia_ref='evidence-ref-rli-ing-001-controlled',
+            metadata={'source': 'stage6-controlled'},
+        )
+        return rule_set
+
     def _create_valid_local_matrix(self):
         empresa = self._create_active_empresa()
-        self._activate_fiscal_config(empresa)
+        config = self._activate_fiscal_config(empresa)
+        self._create_approved_tax_year_ruleset(config)
         ddjj_capability = self._open_capability(empresa, CapacidadSII.DDJJ_PREPARACION, 'ddjj')
         f22_capability = self._open_capability(empresa, CapacidadSII.F22_PREPARACION, 'f22')
         self._create_twelve_approved_closes(empresa)
@@ -340,6 +367,48 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage6_renta_anual'])
         self.assertFalse(result['source_kind_authorized_for_close'])
         self.assertIn('stage6.source_kind_not_authorized', issue_codes)
+
+    def test_annual_process_without_approved_tax_year_ruleset_is_blocking(self):
+        self._create_valid_local_matrix()
+        TaxYearRuleSet.objects.update(estado=EstadoReglaTributariaAnual.DRAFT)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.tax_year_ruleset_missing', issue_codes)
+        self.assertEqual(result['sections']['tax_year_rules']['tax_year_ruleset_missing'], 1)
+
+    def test_approved_tax_year_ruleset_without_mapping_is_blocking(self):
+        self._create_valid_local_matrix()
+        TaxCodeMapping.objects.all().delete()
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.tax_code_mapping_missing', issue_codes)
+        self.assertEqual(result['sections']['tax_year_rules']['tax_code_mapping_missing'], 1)
+
+    def test_invalid_tax_year_rules_are_blocking_without_sensitive_leak(self):
+        self._create_valid_local_matrix()
+        TaxYearRuleSet.objects.update(
+            fuente_ref='https://sii.example.test/rule?token=secret',
+            hash_normativo='bad-hash',
+        )
+        TaxCodeMapping.objects.update(
+            formula_ref='https://sii.example.test/formula?token=secret',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+        serialized_result = json.dumps(result)
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.tax_year_ruleset_invalid', issue_codes)
+        self.assertIn('stage6.tax_code_mapping_invalid', issue_codes)
+        self.assertNotIn('sii.example.test', serialized_result)
+        self.assertNotIn('token=secret', serialized_result)
 
     def test_authorized_source_requires_source_trace_refs(self):
         self._create_valid_local_matrix()

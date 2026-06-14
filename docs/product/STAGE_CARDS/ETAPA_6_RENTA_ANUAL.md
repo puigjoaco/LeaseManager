@@ -47,11 +47,19 @@ anual propio, pero no habilita copiar schema EDIG ni declarar reglas fiscales.
 componentes propios de LeaseManager: source bundle anual, rule set por AT,
 normalizador, workbooks RLI/CPT, registros RAI/SAC, seccion bienes raices,
 paquetes DDJJ, draft F22, dossier y export gate.
+`TaxYearRuleSet` y `TaxCodeMapping` materializan la primera parte de esa capa
+propia: reglas versionadas por ano tributario/regimen y mapeos trazables hacia
+RLI/CPT/RAI/SAC/DDJJ/F22/Dossier, sin copiar reglas EDIG ni declarar formulas
+fiscales finales.
 
 ## Gate
 
 - Cierres mensuales completos.
 - Reglas tributarias validadas.
+- `TaxYearRuleSet` aprobado para el ano tributario y regimen fiscal de la
+  empresa, con `hash_normativo`, fuente y responsable no sensibles.
+- `TaxCodeMapping` activo y trazable para el rule set antes de preparar
+  ProcesoRentaAnual/DDJJ/F22.
 - Responsable de revision anual trazado antes de tratar el paquete como
   aprobado.
 - Documentos generados desde datos trazables.
@@ -140,6 +148,14 @@ paquetes DDJJ, draft F22, dossier y export gate.
   LeaseManager, cierre, ledger, F29/PPM, certificado, regla AT, DDJJ o decision
   responsable. Ningun codigo F22/DDJJ queda automatizado solo por inferencia de
   EDIG o por coincidencia visual de plantilla.
+- `generate_annual_preparation()` rechaza preparar ProcesoRentaAnual/DDJJ/F22
+  si falta `TaxYearRuleSet` aprobado o si sus `TaxCodeMapping` activos no pasan
+  validacion de dominio. El resumen anual conserva solo metadata no sensible de
+  la regla aplicada: AT, regimen, version, hash y conteos por destino.
+- La API/snapshot/admin de SII exponen `TaxYearRuleSet` y `TaxCodeMapping` con
+  referencias/payloads redactados y auditoria de creacion/actualizacion; el
+  bootstrap demo anual crea parametria demo controlada, no oficial, antes de
+  generar artefactos anuales locales.
 
 ```powershell
 scripts\run-stage6-readiness-gate.ps1 -PythonExe backend\.venv\Scripts\python.exe

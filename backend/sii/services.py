@@ -1,7 +1,7 @@
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 
-from contabilidad.models import EstadoPreparacionTributaria, ObligacionTributariaMensual
+from contabilidad.models import EstadoPreparacionTributaria, EstadoRegistro, ObligacionTributariaMensual
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 
 from .models import (
@@ -10,10 +10,13 @@ from .models import (
     DTEEmitido,
     EstadoDTE,
     EstadoGateSII,
+    EstadoReglaTributariaAnual,
     F22PreparacionAnual,
     F29PreparacionMensual,
     ProcesoRentaAnual,
     SII_AUTOMATED_REGIME_CODE,
+    TaxCodeMapping,
+    TaxYearRuleSet,
     TipoDTE,
 )
 
@@ -301,16 +304,56 @@ def get_active_annual_capability(empresa, capability_key):
     return ensure_sii_capability_ready(capability, capability_key)
 
 
+def _tax_mapping_counts_by_target(rule_set):
+    counts = {}
+    for mapping in rule_set.code_mappings.filter(estado=EstadoRegistro.ACTIVE).order_by('destino'):
+        counts[mapping.destino] = counts.get(mapping.destino, 0) + 1
+    return counts
+
+
+def get_approved_tax_year_rule_set(config, anio_tributario):
+    rule_set = (
+        TaxYearRuleSet.objects.filter(
+            anio_tributario=anio_tributario,
+            regimen_tributario=config.regimen_tributario,
+            estado=EstadoReglaTributariaAnual.APPROVED,
+        )
+        .select_related('regimen_tributario')
+        .first()
+    )
+    if not rule_set:
+        raise ValueError('La preparacion anual requiere TaxYearRuleSet aprobado para el año tributario y regimen fiscal.')
+    try:
+        rule_set.full_clean()
+    except ValidationError as error:
+        reason = _first_validation_error(error)
+        raise ValueError(f'TaxYearRuleSet aprobado no cumple validacion de dominio: {reason}') from error
+
+    active_mappings = list(
+        TaxCodeMapping.objects.filter(rule_set=rule_set, estado=EstadoRegistro.ACTIVE).select_related('rule_set')
+    )
+    if not active_mappings:
+        raise ValueError('TaxYearRuleSet aprobado requiere al menos un TaxCodeMapping activo y trazable.')
+    for mapping in active_mappings:
+        try:
+            mapping.full_clean()
+        except ValidationError as error:
+            reason = _first_validation_error(error)
+            raise ValueError(f'TaxCodeMapping activo no cumple validacion de dominio: {reason}') from error
+    return rule_set
+
+
 def validate_annual_readiness(empresa, anio_tributario):
     config = validate_company_fiscal_readiness(empresa)
     fiscal_year = anio_tributario - 1
     approved_closes = empresa.cierres_mensuales_contables.filter(anio=fiscal_year, estado='aprobado').count()
     if approved_closes != 12:
         raise ValueError('La preparacion anual requiere doce cierres mensuales aprobados del año comercial.')
-    return config, fiscal_year
+    rule_set = get_approved_tax_year_rule_set(config, anio_tributario)
+    return config, fiscal_year, rule_set
 
 
-def build_annual_summary(empresa, fiscal_year):
+def build_annual_summary(empresa, fiscal_year, rule_set):
     obligations = ObligacionTributariaMensual.objects.filter(empresa=empresa, anio=fiscal_year)
     total_obligations = obligations.count()
     total_monto = sum((item.monto_calculado for item in obligations), 0)
@@ -328,12 +371,21 @@ def build_annual_summary(empresa, fiscal_year):
         ],
         'total_obligaciones': total_obligations,
         'total_monto_calculado': str(total_monto),
+        'tax_year_rule_set': {
+            'id': rule_set.id,
+            'anio_tributario': rule_set.anio_tributario,
+            'regimen_tributario': rule_set.regimen_tributario.codigo_regimen,
+            'version': rule_set.version,
+            'estado': rule_set.estado,
+            'hash_normativo': rule_set.hash_normativo,
+            'mapeos_activos_por_destino': _tax_mapping_counts_by_target(rule_set),
+        },
     }
 
 
 def generate_annual_preparation(empresa, anio_tributario):
-    config, fiscal_year = validate_annual_readiness(empresa, anio_tributario)
-    summary = build_annual_summary(empresa, fiscal_year)
+    config, fiscal_year, rule_set = validate_annual_readiness(empresa, anio_tributario)
+    summary = build_annual_summary(empresa, fiscal_year, rule_set)
     process, _ = ProcesoRentaAnual.objects.get_or_create(
         empresa=empresa,
         anio_tributario=anio_tributario,

@@ -104,7 +104,10 @@ contratos:
 ## Orden de implementacion recomendado
 
 1. `stage6-tax-year-ruleset`: tablas propias de `TaxYearRuleSet` y
-   `TaxCodeMapping`, sin formulas finales.
+   `TaxCodeMapping`, sin formulas finales. Implementado como primera capa
+   tecnica: modelos, migracion, API/snapshot/admin, bootstrap demo, guard de
+   generacion anual y readiness bloqueante si falta regla aprobada o mapping
+   trazable.
 2. `stage6-source-bundle`: congelar fuentes anuales desde cierres/F29/ledger
    controlados.
 3. `stage6-monthly-tax-facts`: crear hechos mensuales anualizables desde F29,

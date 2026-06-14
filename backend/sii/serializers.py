@@ -14,6 +14,8 @@ from .models import (
     F22PreparacionAnual,
     F29PreparacionMensual,
     ProcesoRentaAnual,
+    TaxCodeMapping,
+    TaxYearRuleSet,
     TipoDTE,
 )
 
@@ -87,6 +89,71 @@ class CapacidadTributariaSIISerializer(RedactSensitiveSiiFieldsMixin, serializer
 
     def validate(self, attrs):
         candidate = build_validation_candidate(self.instance, CapacidadTributariaSII)
+        for field, value in attrs.items():
+            setattr(candidate, field, value)
+        try:
+            candidate.full_clean()
+        except DjangoValidationError as error:
+            raise_drf_validation_error(error)
+        return attrs
+
+
+class TaxYearRuleSetSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('fuente_ref', 'responsable_aprobacion_ref')
+    redacted_payload_fields = ('metadata',)
+
+    class Meta:
+        model = TaxYearRuleSet
+        fields = (
+            'id',
+            'anio_tributario',
+            'regimen_tributario',
+            'version',
+            'estado',
+            'fuente_ref',
+            'hash_normativo',
+            'responsable_aprobacion_ref',
+            'descripcion',
+            'metadata',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'created_at', 'updated_at')
+
+    def validate(self, attrs):
+        candidate = build_validation_candidate(self.instance, TaxYearRuleSet)
+        for field, value in attrs.items():
+            setattr(candidate, field, value)
+        try:
+            candidate.full_clean()
+        except DjangoValidationError as error:
+            raise_drf_validation_error(error)
+        return attrs
+
+
+class TaxCodeMappingSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('formula_ref', 'evidencia_ref')
+    redacted_payload_fields = ('metadata',)
+
+    class Meta:
+        model = TaxCodeMapping
+        fields = (
+            'id',
+            'rule_set',
+            'destino',
+            'codigo_interno',
+            'codigo_destino',
+            'formula_ref',
+            'evidencia_ref',
+            'estado',
+            'metadata',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'created_at', 'updated_at')
+
+    def validate(self, attrs):
+        candidate = build_validation_candidate(self.instance, TaxCodeMapping)
         for field, value in attrs.items():
             setattr(candidate, field, value)
         try:

@@ -5,12 +5,12 @@ from rest_framework.views import APIView
 
 from audit.services import create_audit_event
 from core.permissions import ControlModulePermission
-from core.reference_validation import redact_sensitive_reference
+from core.reference_validation import redact_sensitive_payload, redact_sensitive_reference
 from core.scope_access import ScopedQuerysetMixin, get_scope_access, scope_queryset_for_access, scope_queryset_for_user
 from cobranza.models import PagoMensual
 from patrimonio.models import Empresa
 
-from .models import CapacidadTributariaSII, DTEEmitido, F29PreparacionMensual
+from .models import CapacidadTributariaSII, DTEEmitido, F29PreparacionMensual, TaxCodeMapping, TaxYearRuleSet
 from .serializers import (
     AnnualGenerateSerializer,
     AnnualStatusSerializer,
@@ -24,6 +24,8 @@ from .serializers import (
     F29PreparacionMensualSerializer,
     F29StatusSerializer,
     ProcesoRentaAnualSerializer,
+    TaxCodeMappingSerializer,
+    TaxYearRuleSetSerializer,
 )
 from .services import (
     generate_annual_preparation,
@@ -146,6 +148,15 @@ class SiiSnapshotView(APIView):
             access,
             company_paths=('empresa_id',),
         )
+        tax_year_rule_sets = TaxYearRuleSet.objects.select_related('regimen_tributario').order_by(
+            '-anio_tributario',
+            'regimen_tributario_id',
+            'version',
+        )
+        tax_code_mappings = TaxCodeMapping.objects.select_related(
+            'rule_set',
+            'rule_set__regimen_tributario',
+        ).order_by('rule_set_id', 'destino', 'codigo_interno', 'codigo_destino')
 
         return Response(
             {
@@ -243,6 +254,35 @@ class SiiSnapshotView(APIView):
                     }
                     for item in f22s
                 ],
+                'tax_year_rule_sets': [
+                    {
+                        'id': item.id,
+                        'anio_tributario': item.anio_tributario,
+                        'regimen_tributario': item.regimen_tributario_id,
+                        'regimen_codigo': item.regimen_tributario.codigo_regimen,
+                        'version': item.version,
+                        'estado': item.estado,
+                        'fuente_ref': redact_sensitive_reference(item.fuente_ref),
+                        'hash_normativo': item.hash_normativo,
+                        'responsable_aprobacion_ref': redact_sensitive_reference(item.responsable_aprobacion_ref),
+                        'metadata': redact_sensitive_payload(item.metadata),
+                    }
+                    for item in tax_year_rule_sets
+                ],
+                'tax_code_mappings': [
+                    {
+                        'id': item.id,
+                        'rule_set': item.rule_set_id,
+                        'destino': item.destino,
+                        'codigo_interno': item.codigo_interno,
+                        'codigo_destino': item.codigo_destino,
+                        'formula_ref': redact_sensitive_reference(item.formula_ref),
+                        'evidencia_ref': redact_sensitive_reference(item.evidencia_ref),
+                        'estado': item.estado,
+                        'metadata': redact_sensitive_payload(item.metadata),
+                    }
+                    for item in tax_code_mappings
+                ],
             }
         )
 
@@ -263,6 +303,38 @@ class CapacidadTributariaSIIDetailView(ScopedQuerysetMixin, AuditCreateUpdateMix
     company_scope_paths = ('empresa_id',)
     audit_entity_type = 'capacidad_sii'
     audit_entity_label = 'capacidad SII'
+
+
+class TaxYearRuleSetListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = TaxYearRuleSetSerializer
+    queryset = TaxYearRuleSet.objects.select_related('regimen_tributario').all()
+    audit_entity_type = 'tax_year_ruleset'
+    audit_entity_label = 'TaxYearRuleSet'
+
+
+class TaxYearRuleSetDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = TaxYearRuleSetSerializer
+    queryset = TaxYearRuleSet.objects.select_related('regimen_tributario').all()
+    audit_entity_type = 'tax_year_ruleset'
+    audit_entity_label = 'TaxYearRuleSet'
+
+
+class TaxCodeMappingListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = TaxCodeMappingSerializer
+    queryset = TaxCodeMapping.objects.select_related('rule_set', 'rule_set__regimen_tributario').all()
+    audit_entity_type = 'tax_code_mapping'
+    audit_entity_label = 'TaxCodeMapping'
+
+
+class TaxCodeMappingDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = TaxCodeMappingSerializer
+    queryset = TaxCodeMapping.objects.select_related('rule_set', 'rule_set__regimen_tributario').all()
+    audit_entity_type = 'tax_code_mapping'
+    audit_entity_label = 'TaxCodeMapping'
 
 
 class DTEEmitidoListView(ScopedQuerysetMixin, generics.ListAPIView):
