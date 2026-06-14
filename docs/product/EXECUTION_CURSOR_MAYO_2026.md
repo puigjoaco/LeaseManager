@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Sin paquete tactico abierto tras cerrar Etapa 5 - auditoria `state_changed` en reapertura de cierre mensual. |
-| Fuente exacta | Stage Card Etapa 5: las mutaciones API de Contabilidad que actualizan entidades con estado deben persistir `updated` y, cuando corresponda, `state_changed` en la misma transaccion con `campo_estado`, `estado_anterior` y `estado_nuevo`. |
-| Brecha activa | Ninguna brecha tactica abierta en este cursor tras implementar auditoria de reapertura. |
-| Motivo de prioridad | La reapertura excepcional queda trazada como cambio de estado, con efecto contable y evidencia no sensible, sin convertir Contabilidad en decision autonoma. |
-| Worktree | N/A tras merge y limpieza del paquete. |
-| Rama | `main` tras merge y limpieza. |
-| Estado | Paquete Etapa 5 reopen state audit implementado, validado localmente y documentado; no declarar cierre de Etapa 5 sin Conciliacion cerrada, fuente `snapshot_controlado` o `real_autorizado`, ledger/reportes controlados y responsables finales. |
-| Gate esperado | Para el siguiente paquete, repetir protocolo: diagnosticar desde repo limpio, elegir siguiente frente seguro por trazabilidad, usar worktree `codex/...`, validar proporcionalmente, actualizar evidencia/trazabilidad si aplica y cerrar con PR/CI/merge/limpieza. |
-| Estado al cerrar paquete | `CierreMensualReopenView` audita `reopened` y `state_changed` con metadata `aprobado` -> `reabierto` y contexto redactable del efecto; si falla auditoria, se revierte la reapertura. Readiness detecta cierres reabiertos heredados sin `state_changed` trazable. |
-| Bloqueos relacionados | Etapa 5 no cierra sin Conciliacion cerrada, fuente `snapshot_controlado` o `real_autorizado`, ledger/reportes controlados y responsables finales. Es condicion de cierre, no freno para preparar siguientes paquetes locales. |
-| Politica de reanudacion | No reabrir este paquete ni redactar goals. Si `main` esta limpio, seleccionar el siguiente frente seguro desde AGENTS, PRD, matriz, stage cards y evidencia. No abrir ni usar el worktree externo con PDFs tributarios reales sin solicitud concreta del usuario. |
-| Siguiente accion | Tras merge y limpieza, continuar con el siguiente frente local seguro segun orden y trazabilidad vigentes. |
+| Frente activo | Mapeo EDIG AT2026 para motor de renta anual LeaseManager. |
+| Fuente exacta | Solicitud del usuario: implementar el plan de mapeo EDIG AT2026 -> LeaseManager para entender contabilidad, RLI/CPT/RAI/SAC, DDJJ, F22, validaciones y upload/export SII sin copiar codigo propietario ni versionar EDIG. |
+| Brecha activa | Etapa 6 tenia boundary asistido, pero faltaba una matriz implementable que explicara como unir contabilidad y renta mediante capa tributaria intermedia y como investigar EDIG con sandbox seguro. |
+| Motivo de prioridad | Reduce ambiguedad estrategica de Renta Anual y evita dos errores: F22 directo desde asientos o IA autonoma sin regla/gate. |
+| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-edig-tax-mapping`. |
+| Rama | `codex/edig-tax-mapping`. |
+| Estado | Paquete documental/operativo en curso: matriz EDIG->LeaseManager, runbook de sandbox, script de inventario read-only y proteccion Git de EDIG. No ejecutar EDIG en el root activo. |
+| Gate esperado | Validar que EDIG sigue ignorado/no trackeado, script parsea y ejecuta inventario estatico sin ejecutar binarios, salida queda en `local-evidence/`, higiene repo y `git diff --check`. |
+| Estado al cerrar paquete | Dejar Etapa 6 alineada con normalizador anual RLI/CPT/RAI/SAC/DDJJ/F22 versionado por ano tributario, con EDIG como referencia no normativa y sin cierre de gate SII. |
+| Bloqueos relacionados | Presentacion F22/DDJJ final sigue bloqueada sin formato/certificacion SII vigente, responsable, autorizacion explicita y evidencia no sensible. Ejecucion EDIG solo en VM/sandbox con datos ficticios. |
+| Politica de reanudacion | No usar PDFs tributarios reales del worktree externo ni ejecutar EDIG fuera de sandbox. Si el paquete queda interrumpido, continuar en `codex/edig-tax-mapping` y no reabrir conversaciones de goal. |
+| Siguiente accion | Ejecutar validaciones locales del paquete, abrir PR y esperar CI si aplica. |
 
 ## Actualizacion
 
