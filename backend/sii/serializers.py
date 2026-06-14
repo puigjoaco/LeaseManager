@@ -15,6 +15,7 @@ from .models import (
     EstadoAnnualTaxSourceBundle,
     F22PreparacionAnual,
     F29PreparacionMensual,
+    MonthlyTaxFact,
     ProcesoRentaAnual,
     TaxCodeMapping,
     TaxYearRuleSet,
@@ -205,6 +206,48 @@ class AnnualTaxSourceBundleSerializer(RedactSensitiveSiiFieldsMixin, serializers
                 {'estado': 'AnnualTaxSourceBundle congelado no se modifica desde el endpoint generico.'}
             )
         candidate = build_validation_candidate(self.instance, AnnualTaxSourceBundle)
+        for field, value in attrs.items():
+            setattr(candidate, field, value)
+        try:
+            candidate.full_clean()
+        except DjangoValidationError as error:
+            raise_drf_validation_error(error)
+        return attrs
+
+
+class MonthlyTaxFactSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('source_ref', 'responsible_ref')
+    redacted_payload_fields = ('resumen_hecho',)
+
+    class Meta:
+        model = MonthlyTaxFact
+        fields = (
+            'id',
+            'empresa',
+            'anio',
+            'mes',
+            'cierre_mensual',
+            'f29_preparacion',
+            'liquidacion_mensual',
+            'source_ref',
+            'responsible_ref',
+            'resumen_hecho',
+            'hash_hecho',
+            'estado',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'created_at', 'updated_at')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if user and getattr(user, 'is_authenticated', False):
+            self.fields['empresa'].queryset = scope_queryset_for_user(Empresa.objects.all(), user, company_paths=('id',))
+
+    def validate(self, attrs):
+        candidate = build_validation_candidate(self.instance, MonthlyTaxFact)
         for field, value in attrs.items():
             setattr(candidate, field, value)
         try:

@@ -9,6 +9,7 @@ from .models import (
     DTEEmitido,
     F22PreparacionAnual,
     F29PreparacionMensual,
+    MonthlyTaxFact,
     ProcesoRentaAnual,
     TaxCodeMapping,
     TaxYearRuleSet,
@@ -220,6 +221,58 @@ class AnnualTaxSourceBundleAdmin(admin.ModelAdmin):
     @admin.display(description='resumen_fuentes')
     def resumen_fuentes_redacted(self, obj):
         return _redacted_payload_attr(obj, 'resumen_fuentes')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(MonthlyTaxFact)
+class MonthlyTaxFactAdmin(admin.ModelAdmin):
+    fields = (
+        'empresa',
+        'anio',
+        'mes',
+        'cierre_mensual',
+        'f29_preparacion',
+        'liquidacion_mensual',
+        'source_ref_redacted',
+        'responsible_ref_redacted',
+        'resumen_hecho_redacted',
+        'hash_hecho',
+        'estado',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = fields
+    list_display = (
+        'empresa',
+        'anio',
+        'mes',
+        'cierre_mensual',
+        'f29_preparacion',
+        'liquidacion_mensual',
+        'estado',
+    )
+    list_filter = ('anio', 'mes', 'estado')
+    search_fields = ('empresa__razon_social', 'source_ref', 'responsible_ref')
+
+    @admin.display(description='source_ref')
+    def source_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'source_ref')
+
+    @admin.display(description='responsible_ref')
+    def responsible_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'responsible_ref')
+
+    @admin.display(description='resumen_hecho')
+    def resumen_hecho_redacted(self, obj):
+        return _redacted_payload_attr(obj, 'resumen_hecho')
 
     def has_add_permission(self, request):
         return False

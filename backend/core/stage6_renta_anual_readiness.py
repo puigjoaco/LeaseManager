@@ -28,7 +28,9 @@ from sii.models import (
     EstadoAnnualTaxSourceBundle,
     EstadoReglaTributariaAnual,
     EstadoGateSII,
+    EstadoMonthlyTaxFact,
     F22PreparacionAnual,
+    MonthlyTaxFact,
     ProcesoRentaAnual,
     TaxCodeMapping,
     TaxYearRuleSet,
@@ -221,6 +223,51 @@ def _collect_source_bundle_issues(source_bundles, active_fiscal_company_ids: set
     return dict(sorted(counts.items()))
 
 
+def _collect_monthly_tax_fact_issues(monthly_tax_facts, processes, active_fiscal_company_ids: set[int]) -> dict[str, int]:
+    counts = Counter()
+    expected_months = set(range(1, 13))
+    invalid_facts = _count_invalid(monthly_tax_facts)
+    if invalid_facts:
+        counts['monthly_tax_fact_invalid'] = invalid_facts
+    without_fiscal_config = _count_without_active_fiscal_config(monthly_tax_facts, active_fiscal_company_ids)
+    if without_fiscal_config:
+        counts['monthly_tax_fact_fiscal_config_missing'] = without_fiscal_config
+
+    normalized_facts = monthly_tax_facts.filter(estado=EstadoMonthlyTaxFact.NORMALIZED)
+    fact_months_by_company_year = {}
+    for empresa_id, anio, mes in normalized_facts.values_list('empresa_id', 'anio', 'mes'):
+        fact_months_by_company_year.setdefault((empresa_id, anio), set()).add(mes)
+
+    for process in processes:
+        if process.estado not in ANNUAL_TRACEABLE_STATES:
+            continue
+        fiscal_year = process.anio_tributario - 1
+        months = fact_months_by_company_year.get((process.empresa_id, fiscal_year), set())
+        if not months:
+            counts['process_monthly_tax_facts_missing'] += 1
+        elif months != expected_months:
+            counts['process_monthly_tax_fact_months_missing'] += 1
+
+        summary = process.resumen_anual if isinstance(process.resumen_anual, dict) else {}
+        fact_summary = summary.get('annual_tax_monthly_facts')
+        if not isinstance(fact_summary, dict):
+            counts['process_monthly_tax_fact_summary_missing'] += 1
+            continue
+        summary_months = fact_summary.get('months') or []
+        try:
+            normalized_summary_months = {int(month) for month in summary_months}
+        except (TypeError, ValueError):
+            normalized_summary_months = set()
+        try:
+            summary_total = int(fact_summary.get('total') or 0)
+        except (TypeError, ValueError):
+            summary_total = -1
+        if normalized_summary_months != months or summary_total != len(months):
+            counts['process_monthly_tax_fact_summary_mismatch'] += 1
+
+    return dict(sorted(counts.items()))
+
+
 def _collect_tax_year_rule_issues(processes, active_fiscal_configs) -> dict[str, int]:
     counts = Counter()
     fiscal_config_by_company_id = {
@@ -354,6 +401,17 @@ def collect_stage6_renta_anual_readiness(
     tax_year_rule_issues = _collect_tax_year_rule_issues(annual_processes, active_fiscal_configs)
     source_bundles = AnnualTaxSourceBundle.objects.select_related('empresa')
     source_bundle_issues = _collect_source_bundle_issues(source_bundles, active_fiscal_company_ids)
+    monthly_tax_facts = MonthlyTaxFact.objects.select_related(
+        'empresa',
+        'cierre_mensual',
+        'f29_preparacion',
+        'liquidacion_mensual',
+    )
+    monthly_tax_fact_issues = _collect_monthly_tax_fact_issues(
+        monthly_tax_facts,
+        annual_processes,
+        active_fiscal_company_ids,
+    )
 
     ddjj_preparations = DDJJPreparacionAnual.objects.select_related(
         'empresa',
@@ -533,6 +591,13 @@ def collect_stage6_renta_anual_readiness(
                 'Etapa 6 requiere AnnualTaxSourceBundle congelado antes de preparar Renta anual.',
             )
         )
+    if monthly_tax_facts.filter(estado=EstadoMonthlyTaxFact.NORMALIZED).count() == 0:
+        issues.append(
+            _issue(
+                'stage6.monthly_tax_fact_missing',
+                'Etapa 6 requiere hechos tributarios mensuales normalizados antes de preparar Renta anual.',
+            )
+        )
     if annual_processes_without_fiscal_config:
         issues.append(
             _issue(
@@ -555,6 +620,40 @@ def collect_stage6_renta_anual_readiness(
     ]:
         if source_bundle_issues.get(key):
             issues.append(_issue(code, message, count=source_bundle_issues[key]))
+    for key, code, message in [
+        (
+            'monthly_tax_fact_invalid',
+            'stage6.monthly_tax_fact_invalid',
+            'Existen MonthlyTaxFact que no pasan validacion de dominio o contienen trazas no permitidas.',
+        ),
+        (
+            'monthly_tax_fact_fiscal_config_missing',
+            'stage6.monthly_tax_fact_fiscal_config_missing',
+            'Existen MonthlyTaxFact para empresas sin ConfiguracionFiscalEmpresa activa propia.',
+        ),
+        (
+            'process_monthly_tax_facts_missing',
+            'stage6.process_monthly_tax_facts_missing',
+            'ProcesoRentaAnual trazable requiere hechos tributarios mensuales normalizados.',
+        ),
+        (
+            'process_monthly_tax_fact_months_missing',
+            'stage6.process_monthly_tax_fact_months_missing',
+            'ProcesoRentaAnual trazable requiere MonthlyTaxFact normalizado para los doce meses.',
+        ),
+        (
+            'process_monthly_tax_fact_summary_missing',
+            'stage6.process_monthly_tax_fact_summary_missing',
+            'ProcesoRentaAnual debe conservar resumen de MonthlyTaxFact en resumen_anual.',
+        ),
+        (
+            'process_monthly_tax_fact_summary_mismatch',
+            'stage6.process_monthly_tax_fact_summary_mismatch',
+            'ProcesoRentaAnual conserva resumen de MonthlyTaxFact desalineado con hechos mensuales vigentes.',
+        ),
+    ]:
+        if monthly_tax_fact_issues.get(key):
+            issues.append(_issue(code, message, count=monthly_tax_fact_issues[key]))
     if approved_closes.count() < 12:
         issues.append(
             _issue(
@@ -935,6 +1034,13 @@ def collect_stage6_renta_anual_readiness(
                 'bundles_by_state': _count_by(source_bundles, 'estado'),
                 'bundles_by_source_kind': _count_by(source_bundles, 'source_kind'),
                 **source_bundle_issues,
+            },
+            'monthly_tax_facts': {
+                'facts_total': monthly_tax_facts.count(),
+                'normalized_facts': monthly_tax_facts.filter(estado=EstadoMonthlyTaxFact.NORMALIZED).count(),
+                'facts_by_state': _count_by(monthly_tax_facts, 'estado'),
+                'facts_by_year': _count_by(monthly_tax_facts, 'anio'),
+                **monthly_tax_fact_issues,
             },
             'annual_documents': {
                 'ddjj_total': ddjj_preparations.count(),

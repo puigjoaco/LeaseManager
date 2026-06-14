@@ -10,7 +10,15 @@ from core.scope_access import ScopedQuerysetMixin, get_scope_access, scope_query
 from cobranza.models import PagoMensual
 from patrimonio.models import Empresa
 
-from .models import AnnualTaxSourceBundle, CapacidadTributariaSII, DTEEmitido, F29PreparacionMensual, TaxCodeMapping, TaxYearRuleSet
+from .models import (
+    AnnualTaxSourceBundle,
+    CapacidadTributariaSII,
+    DTEEmitido,
+    F29PreparacionMensual,
+    MonthlyTaxFact,
+    TaxCodeMapping,
+    TaxYearRuleSet,
+)
 from .serializers import (
     AnnualGenerateSerializer,
     AnnualStatusSerializer,
@@ -24,6 +32,7 @@ from .serializers import (
     F29GenerateSerializer,
     F29PreparacionMensualSerializer,
     F29StatusSerializer,
+    MonthlyTaxFactSerializer,
     ProcesoRentaAnualSerializer,
     TaxCodeMappingSerializer,
     TaxYearRuleSetSerializer,
@@ -154,6 +163,16 @@ class SiiSnapshotView(APIView):
             access,
             company_paths=('empresa_id',),
         )
+        monthly_tax_facts = scope_queryset_for_access(
+            MonthlyTaxFact.objects.select_related(
+                'empresa',
+                'cierre_mensual',
+                'f29_preparacion',
+                'liquidacion_mensual',
+            ).order_by('-anio', 'empresa_id', 'mes'),
+            access,
+            company_paths=('empresa_id',),
+        )
         tax_year_rule_sets = TaxYearRuleSet.objects.select_related('regimen_tributario').order_by(
             '-anio_tributario',
             'regimen_tributario_id',
@@ -252,6 +271,23 @@ class SiiSnapshotView(APIView):
                         'estado': item.estado,
                     }
                     for item in source_bundles
+                ],
+                'monthly_tax_facts': [
+                    {
+                        'id': item.id,
+                        'empresa': item.empresa_id,
+                        'anio': item.anio,
+                        'mes': item.mes,
+                        'cierre_mensual': item.cierre_mensual_id,
+                        'f29_preparacion': item.f29_preparacion_id,
+                        'liquidacion_mensual': item.liquidacion_mensual_id,
+                        'source_ref': redact_sensitive_reference(item.source_ref),
+                        'responsible_ref': redact_sensitive_reference(item.responsible_ref),
+                        'resumen_hecho': redact_sensitive_payload(item.resumen_hecho),
+                        'hash_hecho': item.hash_hecho,
+                        'estado': item.estado,
+                    }
+                    for item in monthly_tax_facts
                 ],
                 'ddjjs': [
                     {
@@ -376,6 +412,30 @@ class AnnualTaxSourceBundleDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixi
     company_scope_paths = ('empresa_id',)
     audit_entity_type = 'annual_tax_source_bundle'
     audit_entity_label = 'AnnualTaxSourceBundle'
+
+
+class MonthlyTaxFactListView(ScopedQuerysetMixin, generics.ListAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = MonthlyTaxFactSerializer
+    queryset = MonthlyTaxFact.objects.select_related(
+        'empresa',
+        'cierre_mensual',
+        'f29_preparacion',
+        'liquidacion_mensual',
+    ).all()
+    company_scope_paths = ('empresa_id',)
+
+
+class MonthlyTaxFactDetailView(ScopedQuerysetMixin, generics.RetrieveAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = MonthlyTaxFactSerializer
+    queryset = MonthlyTaxFact.objects.select_related(
+        'empresa',
+        'cierre_mensual',
+        'f29_preparacion',
+        'liquidacion_mensual',
+    ).all()
+    company_scope_paths = ('empresa_id',)
 
 
 class DTEEmitidoListView(ScopedQuerysetMixin, generics.ListAPIView):
