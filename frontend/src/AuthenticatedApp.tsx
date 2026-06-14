@@ -293,6 +293,8 @@ function readStoredControlSnapshot() {
       asientosContables: AsientoContable[]
       obligacionesMensuales: ObligacionMensual[]
       cierresMensuales: CierreMensual[]
+      liquidacionesMensuales: LiquidacionMensual[]
+      lineasLiquidacion: LineaLiquidacionMensual[]
       lastLoadedAt: string | null
     }
   }
@@ -315,6 +317,8 @@ function readStoredControlSnapshot() {
       asientosContables: AsientoContable[]
       obligacionesMensuales: ObligacionMensual[]
       cierresMensuales: CierreMensual[]
+      liquidacionesMensuales: LiquidacionMensual[]
+      lineasLiquidacion: LineaLiquidacionMensual[]
       lastLoadedAt: string | null
     }
   } catch {
@@ -336,6 +340,8 @@ function storeControlSnapshot(
     asientosContables: AsientoContable[]
     obligacionesMensuales: ObligacionMensual[]
     cierresMensuales: CierreMensual[]
+    liquidacionesMensuales: LiquidacionMensual[]
+    lineasLiquidacion: LineaLiquidacionMensual[]
     lastLoadedAt: string | null
   } | null,
 ) {
@@ -389,6 +395,8 @@ function applyControlBootstrapSnapshot(
     setAsientosContables: (value: AsientoContable[]) => void
     setObligacionesMensuales: (value: ObligacionMensual[]) => void
     setCierresMensuales: (value: CierreMensual[]) => void
+    setLiquidacionesMensuales: (value: LiquidacionMensual[]) => void
+    setLineasLiquidacion: (value: LineaLiquidacionMensual[]) => void
     setIsControlCoreLoaded: (value: boolean) => void
     setIsControlCatalogLoaded: (value: boolean) => void
     setIsControlActivityLoaded: (value: boolean) => void
@@ -407,6 +415,8 @@ function applyControlBootstrapSnapshot(
   setters.setAsientosContables(bootstrap.asientos_contables)
   setters.setObligacionesMensuales(bootstrap.obligaciones_mensuales)
   setters.setCierresMensuales(bootstrap.cierres_mensuales)
+  setters.setLiquidacionesMensuales(bootstrap.liquidaciones_mensuales)
+  setters.setLineasLiquidacion(bootstrap.lineas_liquidacion)
   setters.setIsControlCoreLoaded(true)
   setters.setIsControlCatalogLoaded(
     bootstrap.cuentas_contables.length > 0
@@ -417,7 +427,9 @@ function applyControlBootstrapSnapshot(
     bootstrap.eventos_contables.length > 0
     || bootstrap.asientos_contables.length > 0
     || bootstrap.obligaciones_mensuales.length > 0
-    || bootstrap.cierres_mensuales.length > 0,
+    || bootstrap.cierres_mensuales.length > 0
+    || bootstrap.liquidaciones_mensuales.length > 0
+    || bootstrap.lineas_liquidacion.length > 0,
   )
   setters.setLastLoadedAt(loadedAt)
   storeControlSnapshot(user, {
@@ -431,6 +443,8 @@ function applyControlBootstrapSnapshot(
     asientosContables: bootstrap.asientos_contables,
     obligacionesMensuales: bootstrap.obligaciones_mensuales,
     cierresMensuales: bootstrap.cierres_mensuales,
+    liquidacionesMensuales: bootstrap.liquidaciones_mensuales,
+    lineasLiquidacion: bootstrap.lineas_liquidacion,
     lastLoadedAt: loadedAt,
   })
 }
@@ -1133,6 +1147,35 @@ type CierreMensual = {
   resumen_obligaciones: Record<string, unknown>
 }
 
+type LiquidacionMensual = {
+  id: number
+  owner_tipo: string
+  empresa: number | null
+  comunidad: number | null
+  socio: number | null
+  cierre_contable: number | null
+  anio: number
+  mes: number
+  estado: string
+  comision_administracion_aplica: boolean
+  saldo_final_clp: string
+  saldo_final_explicacion: string
+  saldo_final_evidencia_ref: string
+  evidencia_base_ref: string
+  responsable_ref: string
+}
+
+type LineaLiquidacionMensual = {
+  id: number
+  liquidacion: number
+  tipo_linea: string
+  descripcion: string
+  monto_clp: string
+  evidencia_ref: string
+  beneficiario_socio: number | null
+  evento_contable: number | null
+}
+
 type ExpedienteDocumental = {
   id: number
   entidad_tipo: string
@@ -1389,6 +1432,8 @@ type ControlSnapshot = {
   asientos_contables: AsientoContable[]
   obligaciones_mensuales: ObligacionMensual[]
   cierres_mensuales: CierreMensual[]
+  liquidaciones_mensuales: LiquidacionMensual[]
+  lineas_liquidacion: LineaLiquidacionMensual[]
 }
 
 type CapacidadSii = {
@@ -1636,6 +1681,8 @@ function App() {
   const [asientosContables, setAsientosContables] = useState<AsientoContable[]>(initialControlSnapshot?.asientosContables || [])
   const [obligacionesMensuales, setObligacionesMensuales] = useState<ObligacionMensual[]>(initialControlSnapshot?.obligacionesMensuales || [])
   const [cierresMensuales, setCierresMensuales] = useState<CierreMensual[]>(initialControlSnapshot?.cierresMensuales || [])
+  const [liquidacionesMensuales, setLiquidacionesMensuales] = useState<LiquidacionMensual[]>(initialControlSnapshot?.liquidacionesMensuales || [])
+  const [lineasLiquidacion, setLineasLiquidacion] = useState<LineaLiquidacionMensual[]>(initialControlSnapshot?.lineasLiquidacion || [])
   const [auditEvents, setAuditEvents] = useState<AuditEventItem[]>([])
   const [manualResolutions, setManualResolutions] = useState<ManualResolutionItem[]>([])
   const [capacidadesSii, setCapacidadesSii] = useState<CapacidadSii[]>([])
@@ -2058,6 +2105,36 @@ function App() {
     anio: '2026',
     mes: '5',
   })
+  const [liquidacionDraft, setLiquidacionDraft] = useState({
+    empresa: '',
+    cierre_contable: '',
+    anio: '2026',
+    mes: '5',
+    estado: 'preparada',
+    comision_administracion_aplica: false,
+    saldo_final_clp: '0.00',
+    saldo_final_explicacion: '',
+    saldo_final_evidencia_ref: '',
+    evidencia_base_ref: '',
+    responsable_ref: '',
+  })
+  const [lineaLiquidacionDraft, setLineaLiquidacionDraft] = useState({
+    liquidacion: '',
+    tipo_linea: 'ingreso_arriendo',
+    descripcion: '',
+    monto_clp: '',
+    evidencia_ref: '',
+    beneficiario_socio: '',
+    evento_contable: '',
+  })
+  const [reopenCierreDraft, setReopenCierreDraft] = useState({
+    cierre_id: '',
+    tipo_efecto: 'reverso',
+    monto_efecto: '',
+    motivo: '',
+    efecto_esperado: '',
+    evidencia_ref: '',
+  })
   const [capacidadSiiDraft, setCapacidadSiiDraft] = useState({
     empresa: '',
     capacidad_key: 'DTEEmision',
@@ -2129,7 +2206,14 @@ function App() {
   const [isAuditSnapshotLoaded, setIsAuditSnapshotLoaded] = useState(false)
   const [isControlCoreLoaded, setIsControlCoreLoaded] = useState(Boolean(initialControlSnapshot))
   const [isControlCatalogLoaded, setIsControlCatalogLoaded] = useState(Boolean(initialControlSnapshot?.cuentasContables.length || initialControlSnapshot?.reglasContables.length || initialControlSnapshot?.matricesReglas.length))
-  const [isControlActivityLoaded, setIsControlActivityLoaded] = useState(Boolean(initialControlSnapshot?.eventosContables.length || initialControlSnapshot?.asientosContables.length || initialControlSnapshot?.obligacionesMensuales.length || initialControlSnapshot?.cierresMensuales.length))
+  const [isControlActivityLoaded, setIsControlActivityLoaded] = useState(Boolean(
+    initialControlSnapshot?.eventosContables.length
+    || initialControlSnapshot?.asientosContables.length
+    || initialControlSnapshot?.obligacionesMensuales.length
+    || initialControlSnapshot?.cierresMensuales.length
+    || initialControlSnapshot?.liquidacionesMensuales?.length
+    || initialControlSnapshot?.lineasLiquidacion?.length,
+  ))
   const [isReportingReferencesLoaded, setIsReportingReferencesLoaded] = useState(false)
   const [isComplianceLoaded, setIsComplianceLoaded] = useState(false)
   const [isPatrimonioSnapshotLoaded, setIsPatrimonioSnapshotLoaded] = useState(false)
@@ -2328,6 +2412,8 @@ function App() {
     setAsientosContables([])
     setObligacionesMensuales([])
     setCierresMensuales([])
+    setLiquidacionesMensuales([])
+    setLineasLiquidacion([])
     setAuditEvents([])
     setManualResolutions([])
     setCapacidadesSii([])
@@ -3125,6 +3211,8 @@ function App() {
         setAsientosContables(controlSnapshotPayload.asientos_contables)
         setObligacionesMensuales(controlSnapshotPayload.obligaciones_mensuales)
         setCierresMensuales(controlSnapshotPayload.cierres_mensuales)
+        setLiquidacionesMensuales(controlSnapshotPayload.liquidaciones_mensuales)
+        setLineasLiquidacion(controlSnapshotPayload.lineas_liquidacion)
       }
       if (bootstrapCompliance) {
         setCompliancePolicies(compliancePoliciesPayload)
@@ -3253,6 +3341,8 @@ function App() {
                 setAsientosContables(controlActivitySnapshot.asientos_contables)
                 setObligacionesMensuales(controlActivitySnapshot.obligaciones_mensuales)
                 setCierresMensuales(controlActivitySnapshot.cierres_mensuales)
+                setLiquidacionesMensuales(controlActivitySnapshot.liquidaciones_mensuales)
+                setLineasLiquidacion(controlActivitySnapshot.lineas_liquidacion)
                 setIsControlActivityLoaded(true)
                 markControlLoadedAt(new Date().toISOString())
               }
@@ -3539,6 +3629,8 @@ function App() {
       || asientosContables.length > 0
       || obligacionesMensuales.length > 0
       || cierresMensuales.length > 0
+      || liquidacionesMensuales.length > 0
+      || lineasLiquidacion.length > 0
 
     storeControlSnapshot(
       currentUser,
@@ -3554,6 +3646,8 @@ function App() {
           asientosContables,
           obligacionesMensuales,
           cierresMensuales,
+          liquidacionesMensuales,
+          lineasLiquidacion,
           lastLoadedAt: controlLastLoadedAt,
         }
         : null,
@@ -3570,6 +3664,8 @@ function App() {
     asientosContables,
     obligacionesMensuales,
     cierresMensuales,
+    liquidacionesMensuales,
+    lineasLiquidacion,
     controlLastLoadedAt,
   ])
 
@@ -3629,6 +3725,8 @@ function App() {
         setAsientosContables,
         setObligacionesMensuales,
         setCierresMensuales,
+        setLiquidacionesMensuales,
+        setLineasLiquidacion,
         setIsControlCoreLoaded,
         setIsControlCatalogLoaded,
         setIsControlActivityLoaded,
@@ -4971,6 +5069,100 @@ function App() {
     }
   }
 
+  async function handleCreateLiquidacionMensual(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canEditContabilidad) return
+    const ok = await submitCreate('/api/v1/contabilidad/liquidaciones-mensuales/', {
+      owner_tipo: 'empresa',
+      empresa: Number(liquidacionDraft.empresa),
+      comunidad: null,
+      socio: null,
+      cierre_contable: Number(liquidacionDraft.cierre_contable),
+      anio: Number(liquidacionDraft.anio),
+      mes: Number(liquidacionDraft.mes),
+      estado: liquidacionDraft.estado,
+      comision_administracion_aplica: liquidacionDraft.comision_administracion_aplica,
+      saldo_final_clp: liquidacionDraft.saldo_final_clp,
+      saldo_final_explicacion: liquidacionDraft.saldo_final_explicacion,
+      saldo_final_evidencia_ref: liquidacionDraft.saldo_final_evidencia_ref,
+      evidencia_base_ref: liquidacionDraft.evidencia_base_ref,
+      responsable_ref: liquidacionDraft.responsable_ref,
+    }, 'Liquidación mensual creada correctamente.')
+    if (ok) {
+      setLiquidacionDraft({
+        empresa: '',
+        cierre_contable: '',
+        anio: '2026',
+        mes: '5',
+        estado: 'preparada',
+        comision_administracion_aplica: false,
+        saldo_final_clp: '0.00',
+        saldo_final_explicacion: '',
+        saldo_final_evidencia_ref: '',
+        evidencia_base_ref: '',
+        responsable_ref: '',
+      })
+    }
+  }
+
+  async function handleCreateLineaLiquidacion(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canEditContabilidad) return
+    const ok = await submitCreate('/api/v1/contabilidad/lineas-liquidacion/', {
+      liquidacion: Number(lineaLiquidacionDraft.liquidacion),
+      tipo_linea: lineaLiquidacionDraft.tipo_linea,
+      descripcion: lineaLiquidacionDraft.descripcion,
+      monto_clp: lineaLiquidacionDraft.monto_clp,
+      evidencia_ref: lineaLiquidacionDraft.evidencia_ref,
+      beneficiario_socio: lineaLiquidacionDraft.beneficiario_socio ? Number(lineaLiquidacionDraft.beneficiario_socio) : null,
+      evento_contable: lineaLiquidacionDraft.evento_contable ? Number(lineaLiquidacionDraft.evento_contable) : null,
+    }, 'Línea de liquidación creada correctamente.')
+    if (ok) {
+      setLineaLiquidacionDraft({
+        liquidacion: '',
+        tipo_linea: 'ingreso_arriendo',
+        descripcion: '',
+        monto_clp: '',
+        evidencia_ref: '',
+        beneficiario_socio: '',
+        evento_contable: '',
+      })
+    }
+  }
+
+  function startReopenCierre(row: { id: number }) {
+    setReopenCierreDraft((current) => ({
+      ...current,
+      cierre_id: String(row.id),
+    }))
+  }
+
+  async function handleReopenCierre(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canEditContabilidad) return
+    if (!reopenCierreDraft.cierre_id) {
+      setFormError('Selecciona un cierre aprobado para reabrir.')
+      return
+    }
+    const ok = await submitCreate(`/api/v1/contabilidad/cierres-mensuales/${Number(reopenCierreDraft.cierre_id)}/reabrir/`, {
+      tipo_efecto: reopenCierreDraft.tipo_efecto,
+      monto_efecto: reopenCierreDraft.monto_efecto,
+      motivo: reopenCierreDraft.motivo,
+      efecto_esperado: reopenCierreDraft.efecto_esperado,
+      evidencia_ref: reopenCierreDraft.evidencia_ref,
+    }, 'Cierre reabierto correctamente.')
+    if (ok) {
+      setReopenCierreDraft({
+        cierre_id: '',
+        tipo_efecto: 'reverso',
+        monto_efecto: '',
+        motivo: '',
+        efecto_esperado: '',
+        evidencia_ref: '',
+      })
+    }
+  }
+
   async function handleAccountingAction(path: string, successMessage: string) {
     if (!canEditContabilidad) return
     if (!token) return
@@ -6284,6 +6476,40 @@ function App() {
       ),
     [cierresMensuales, normalizedSearch],
   )
+  const filteredLiquidaciones = useMemo(
+    () =>
+      liquidacionesMensuales.filter((item) =>
+        matches(normalizedSearch, [
+          item.owner_tipo,
+          item.empresa,
+          item.comunidad,
+          item.socio,
+          item.cierre_contable,
+          item.anio,
+          item.mes,
+          item.estado,
+          item.saldo_final_clp,
+          item.evidencia_base_ref,
+          item.responsable_ref,
+        ]),
+      ),
+    [liquidacionesMensuales, normalizedSearch],
+  )
+  const filteredLineasLiquidacion = useMemo(
+    () =>
+      lineasLiquidacion.filter((item) =>
+        matches(normalizedSearch, [
+          item.liquidacion,
+          item.tipo_linea,
+          item.descripcion,
+          item.monto_clp,
+          item.evidencia_ref,
+          item.beneficiario_socio,
+          item.evento_contable,
+        ]),
+      ),
+    [lineasLiquidacion, normalizedSearch],
+  )
   const filteredAuditEvents = useMemo(
     () =>
       auditEvents.filter((item) =>
@@ -6867,6 +7093,15 @@ function App() {
           cierreDraft={cierreDraft}
           setCierreDraft={setCierreDraft}
           handlePrepareCierre={handlePrepareCierre}
+          liquidacionDraft={liquidacionDraft}
+          setLiquidacionDraft={setLiquidacionDraft}
+          handleCreateLiquidacionMensual={handleCreateLiquidacionMensual}
+          lineaLiquidacionDraft={lineaLiquidacionDraft}
+          setLineaLiquidacionDraft={setLineaLiquidacionDraft}
+          handleCreateLineaLiquidacion={handleCreateLineaLiquidacion}
+          reopenCierreDraft={reopenCierreDraft}
+          setReopenCierreDraft={setReopenCierreDraft}
+          handleReopenCierre={handleReopenCierre}
           filteredRegimenes={filteredRegimenes}
           filteredConfigsFiscales={filteredConfigsFiscales}
           filteredCuentasContables={filteredCuentasContables}
@@ -6876,7 +7111,10 @@ function App() {
           filteredAsientosContables={filteredAsientosContables}
           filteredObligaciones={filteredObligaciones}
           filteredCierres={filteredCierres}
+          filteredLiquidaciones={filteredLiquidaciones}
+          filteredLineasLiquidacion={filteredLineasLiquidacion}
           empresas={empresas}
+          socios={socios}
           regimenesTributarios={regimenesTributarios}
           cuentasContables={cuentasContables}
           reglasContables={reglasContables}
@@ -6887,6 +7125,7 @@ function App() {
           toneFor={toneFor}
           isSubmitting={isSubmitting}
           handleAccountingAction={handleAccountingAction}
+          startReopenCierre={startReopenCierre}
           startEditConfigFiscal={startEditConfigFiscal}
           onViewImpact={(companyId) => {
             const companyName = empresaById.get(companyId)?.razon_social || String(companyId)
