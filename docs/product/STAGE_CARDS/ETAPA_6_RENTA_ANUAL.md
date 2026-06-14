@@ -161,6 +161,14 @@ DDJJ/F22 con `source_kind=f22_export_layout`, pero mantiene obligatoriamente
 `official_format=false`, `sii_submission=false` y
 `final_tax_calculation=false`. Sirve para preparar y revisar el paquete F22; no
 presenta, no sube y no decide la renta final.
+`audit_company_accounting_progress` funciona como cursor operativo por empresa
+y ano comercial: consolida en JSON si la empresa tiene configuracion fiscal,
+doce cierres, balances aprobados/cuadrados, F29, `ProcesoRentaAnual`,
+`AnnualTaxTrialBalance`, workbooks RLI/CPT, dossier y export local. Esto permite
+responder el avance de una empresa piloto sin leer datos reales por defecto ni
+confundir preparacion tecnica con cierre tributario. La bandera
+`ready_for_company_accounting_review` solo significa lista para revision
+responsable.
 
 ## Gate
 
@@ -238,6 +246,11 @@ presenta, no sube y no decide la renta final.
   tributario, fuente oficial/experta lista del mismo ano y aplicable a F22,
   medio preferente permitido, refs no sensibles de certificacion/formato/
   instrucciones/responsable, `source_payload` dict y `hash_layout` coherente.
+- El avance de una empresa piloto debe medirse con
+  `audit_company_accounting_progress --empresa-id <id> --fiscal-year <ano>`
+  antes de declarar que su contabilidad o renta esta cerrada. La salida local
+  puede guardarse en `local-evidence/`; fuera de ese directorio no debe
+  versionarse evidencia contable ni tributaria.
   Para tratar un proceso anual como trazable, su resumen
   `annual_tax_f22_export_layouts` debe coincidir con el layout preparado.
   Layouts invalidos, faltantes, desalineados, con warnings o payloads que

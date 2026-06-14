@@ -156,6 +156,14 @@ contable o tributaria requiere criterio.
   modo local crea SQLite bajo `local-evidence/`, corre migraciones y debe
   quedar `classification=parcial`, `ready_for_stage5_contabilidad=false` y
   issue `stage5.source_kind_not_authorized`.
+- `audit_company_accounting_progress` entrega un diagnostico por empresa y
+  ano comercial para convertir el avance contable en un estado objetivo:
+  configuracion fiscal, doce cierres mensuales aprobados, balances mensuales
+  aprobados/cuadrados, F29 mensuales, proceso anual, balance anual, RLI/CPT,
+  dossier y export local. La salida `ready_for_company_accounting_review`
+  significa listo para revision responsable, no cierre contable/tributario
+  legal. Es un reporte de progreso; no abre gates, no lee fuentes externas y
+  no declara cierre de Etapa 5/6.
 - Para cierre con fuente autorizada, el wrapper exige `-SourceKind
   snapshot_controlado` o `real_autorizado`, `-SourceLabel`,
   `-AuthorizationRef`, `-Stage3EvidenceRef`, `-LedgerProofRef`,

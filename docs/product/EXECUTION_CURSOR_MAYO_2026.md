@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ninguno; `stage6-trial-balance-mapping-guard` cerrado por este paquete. |
-| Fuente exacta | Base `main` en `2c9de1d`, posterior al merge de PR #845. |
-| Brecha activa | Cerrada localmente: Etapa 6 bloquea mappings basados en `annual_trial_balance.*` sin `trial_balance_classifier` DJ1847 o apuntando directo a destinos posteriores como F22/DDJJ. |
-| Motivo de prioridad | Impedir que la union contabilidad -> renta salte desde balance anual directo a F22/DDJJ sin pasar por RLI/CPT trazable. |
-| Worktree | `D:/Proyectos/LeaseManager-stage6-trial-balance-mapping-guard` hasta merge; luego remover. |
-| Rama | `codex/stage6-trial-balance-mapping-guard` hasta merge; luego eliminar local/remoto. |
-| Estado | Implementacion local finalizada; pendiente commit, PR, CI, merge y limpieza. |
-| Gate esperado | `scripts/run-stage6-readiness-gate.ps1` queda en `classification=parcial`; no cierra Etapa 6 ni presenta DDJJ/F22 sin fuente final, certificacion/formato, responsable, autorizacion y evidencia no sensible. |
-| Estado al cerrar paquete | Commit, PR, CI, merge y limpieza; main debe quedar sincronizado y sin worktree tactico de este frente. |
-| Bloqueos relacionados | Mapping fiscal final sigue bloqueado sin fuente DJ1847/F22 revisada, responsable tributario, casos controlados, autorizacion explicita y evidencia no sensible. |
-| Politica de reanudacion | No reabrir goal prompts, EDIG ni este frente; si el paquete ya esta mergeado, diagnosticar el siguiente frente seguro desde main limpio y fuentes rectoras. |
-| Siguiente accion | Cerrar el paquete por PR/CI/merge. Despues del merge, continuar solo con el siguiente frente seguro; no usar SII real, navegador, datos reales ni secretos sin autorizacion explicita. |
+| Frente activo | `company-accounting-progress`. |
+| Fuente exacta | `main` en `0a08304f`, posterior al merge de PR #846. |
+| Brecha activa | Falta un auditor objetivo por empresa y ano comercial que responda cuanto avance real existe en contabilidad/renta antes de elegir o cerrar una empresa piloto. |
+| Motivo de prioridad | Evitar que el avance siga pareciendo abstracto: el sistema debe poder decir, para una empresa concreta, si tiene configuracion fiscal, 12 cierres, balances, F29, proceso anual, balance anual, RLI/CPT, dossier y export local. |
+| Worktree | `D:/Proyectos/LeaseManager-company-accounting-progress`. |
+| Rama | `codex/company-accounting-progress`. |
+| Estado | Implementacion local validada; pendiente commit, PR, CI, merge y limpieza. |
+| Gate esperado | Diagnostico local JSON; no cierra Etapa 5 ni Etapa 6, no lee `.env`, no usa datos reales ni abre SII/EDIG. |
+| Estado al cerrar paquete | Commit, PR, CI, merge y limpieza; `main` debe quedar sincronizado. |
+| Bloqueos relacionados | La contabilidad real de una primera empresa requiere elegir empresa/ano y autorizar fuentes o snapshot controlado; este auditor solo mide el estado de la DB configurada. |
+| Politica de reanudacion | Continuar este worktree hasta cerrar, pausar explicitamente o limpiar. No reabrir goal prompts, EDIG ni paquetes ya mergeados. |
+| Siguiente accion | Validar `audit_company_accounting_progress` con tests y registrar evidencia. |
 
 ## Actualizacion
 
