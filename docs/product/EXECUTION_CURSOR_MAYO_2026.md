@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Mapeo EDIG AT2026 para motor de renta anual LeaseManager. |
-| Fuente exacta | Solicitud del usuario: implementar el plan de mapeo EDIG AT2026 -> LeaseManager para entender contabilidad, RLI/CPT/RAI/SAC, DDJJ, F22, validaciones y upload/export SII sin copiar codigo propietario ni versionar EDIG. |
-| Brecha activa | Etapa 6 tenia boundary asistido, pero faltaba una matriz implementable que explicara como unir contabilidad y renta mediante capa tributaria intermedia y como investigar EDIG con sandbox seguro. |
-| Motivo de prioridad | Reduce ambiguedad estrategica de Renta Anual y evita dos errores: F22 directo desde asientos o IA autonoma sin regla/gate. |
-| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-edig-tax-mapping`. |
-| Rama | `codex/edig-tax-mapping`. |
-| Estado | Paquete documental/operativo en curso: matriz EDIG->LeaseManager, runbook de sandbox, script de inventario read-only y proteccion Git de EDIG. No ejecutar EDIG en el root activo. |
-| Gate esperado | Validar que EDIG sigue ignorado/no trackeado, script parsea y ejecuta inventario estatico sin ejecutar binarios, salida queda en `local-evidence/`, higiene repo y `git diff --check`. |
-| Estado al cerrar paquete | Dejar Etapa 6 alineada con normalizador anual RLI/CPT/RAI/SAC/DDJJ/F22 versionado por ano tributario, con EDIG como referencia no normativa y sin cierre de gate SII. |
+| Frente activo | Sin paquete tactico abierto. |
+| Fuente exacta | `main` despues de PR #813: mapeo EDIG AT2026 integrado y Etapa 6 alineada con motor anual tributario versionado. |
+| Brecha activa | Pendiente elegir el siguiente frente seguro desde plan trazable, stage cards, gates y estado real del repositorio. |
+| Motivo de prioridad | Evitar que compactaciones o contexto auxiliar reabran el paquete EDIG ya cerrado o vuelvan a redactar goals/prompts. |
+| Worktree | N/A. |
+| Rama | `main`. |
+| Estado | PR #813 cerrado: EDIG protegido por Git, matriz EDIG->LeaseManager creada, runbook sandbox creado, script de inventario read-only creado y arquitectura de Renta Anual actualizada. |
+| Gate esperado | Antes del proximo paquete, confirmar `git status --short --branch`, `git worktree list` y seleccionar una brecha real que no dependa de secretos, EDIG ejecutado, SII real ni datos productivos. |
+| Estado al cerrar paquete | Etapa 6 quedo alineada con normalizador anual RLI/CPT/RAI/SAC/DDJJ/F22 por ano tributario, con EDIG como referencia funcional no normativa y sin apertura del gate SII. |
 | Bloqueos relacionados | Presentacion F22/DDJJ final sigue bloqueada sin formato/certificacion SII vigente, responsable, autorizacion explicita y evidencia no sensible. Ejecucion EDIG solo en VM/sandbox con datos ficticios. |
-| Politica de reanudacion | No usar PDFs tributarios reales del worktree externo ni ejecutar EDIG fuera de sandbox. Si el paquete queda interrumpido, continuar en `codex/edig-tax-mapping` y no reabrir conversaciones de goal. |
-| Siguiente accion | Ejecutar validaciones locales del paquete, abrir PR y esperar CI si aplica. |
+| Politica de reanudacion | No reabrir conversaciones de goal ni repetir el mapeo EDIG. Si no hay worktree sucio, continuar por el siguiente frente util y seguro del repo; si un gate externo bloquea cierre, registrar una vez y seguir con preparacion local valida. |
+| Siguiente accion | Diagnosticar estado real y avanzar el siguiente paquete tecnico trazable permitido por la arquitectura. |
 
 ## Actualizacion
 
