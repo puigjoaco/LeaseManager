@@ -8,9 +8,11 @@ from cobranza.models import PagoMensual
 from patrimonio.models import Empresa
 
 from .models import (
+    AnnualTaxSourceBundle,
     CapacidadTributariaSII,
     DDJJPreparacionAnual,
     DTEEmitido,
+    EstadoAnnualTaxSourceBundle,
     F22PreparacionAnual,
     F29PreparacionMensual,
     ProcesoRentaAnual,
@@ -163,6 +165,55 @@ class TaxCodeMappingSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelS
         return attrs
 
 
+class AnnualTaxSourceBundleSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('source_label', 'authorization_ref', 'responsible_ref')
+    redacted_payload_fields = ('resumen_fuentes',)
+
+    class Meta:
+        model = AnnualTaxSourceBundle
+        fields = (
+            'id',
+            'empresa',
+            'anio_tributario',
+            'anio_comercial',
+            'source_kind',
+            'source_label',
+            'authorization_ref',
+            'responsible_ref',
+            'hash_fuentes',
+            'resumen_fuentes',
+            'estado',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'created_at', 'updated_at')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if user and getattr(user, 'is_authenticated', False):
+            self.fields['empresa'].queryset = scope_queryset_for_user(Empresa.objects.all(), user, company_paths=('id',))
+
+    def get_validators(self):
+        # Conditional unique constraints need the full instance; validate() delegates to model full_clean().
+        return []
+
+    def validate(self, attrs):
+        if self.instance is not None and self.instance.estado == EstadoAnnualTaxSourceBundle.FROZEN:
+            raise serializers.ValidationError(
+                {'estado': 'AnnualTaxSourceBundle congelado no se modifica desde el endpoint generico.'}
+            )
+        candidate = build_validation_candidate(self.instance, AnnualTaxSourceBundle)
+        for field, value in attrs.items():
+            setattr(candidate, field, value)
+        try:
+            candidate.full_clean()
+        except DjangoValidationError as error:
+            raise_drf_validation_error(error)
+        return attrs
+
+
 class DTEEmitidoSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
     redacted_reference_fields = ('sii_track_id',)
     redacted_text_fields = ('observaciones',)
@@ -285,6 +336,7 @@ class ProcesoRentaAnualSerializer(RedactSensitiveSiiFieldsMixin, serializers.Mod
             'empresa',
             'anio_tributario',
             'estado',
+            'source_bundle',
             'fecha_preparacion',
             'resumen_anual',
             'paquete_ddjj_ref',

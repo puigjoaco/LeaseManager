@@ -3,6 +3,7 @@ from django.contrib import admin
 from core.reference_validation import redact_sensitive_payload, redact_sensitive_reference
 
 from .models import (
+    AnnualTaxSourceBundle,
     CapacidadTributariaSII,
     DDJJPreparacionAnual,
     DTEEmitido,
@@ -175,6 +176,61 @@ class TaxCodeMappingAdmin(admin.ModelAdmin):
         return False
 
 
+@admin.register(AnnualTaxSourceBundle)
+class AnnualTaxSourceBundleAdmin(admin.ModelAdmin):
+    fields = (
+        'empresa',
+        'anio_tributario',
+        'anio_comercial',
+        'source_kind',
+        'source_label_redacted',
+        'authorization_ref_redacted',
+        'responsible_ref_redacted',
+        'hash_fuentes',
+        'resumen_fuentes_redacted',
+        'estado',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = fields
+    list_display = (
+        'empresa',
+        'anio_tributario',
+        'anio_comercial',
+        'source_kind',
+        'estado',
+        'source_label_redacted',
+        'responsible_ref_redacted',
+    )
+    list_filter = ('anio_tributario', 'source_kind', 'estado')
+    search_fields = ('empresa__razon_social',)
+
+    @admin.display(description='source_label')
+    def source_label_redacted(self, obj):
+        return _redacted_attr(obj, 'source_label')
+
+    @admin.display(description='authorization_ref')
+    def authorization_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'authorization_ref')
+
+    @admin.display(description='responsible_ref')
+    def responsible_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'responsible_ref')
+
+    @admin.display(description='resumen_fuentes')
+    def resumen_fuentes_redacted(self, obj):
+        return _redacted_payload_attr(obj, 'resumen_fuentes')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 @admin.register(DTEEmitido)
 class DTEEmitidoAdmin(admin.ModelAdmin):
     fields = (
@@ -288,6 +344,7 @@ class ProcesoRentaAnualAdmin(admin.ModelAdmin):
         'empresa',
         'anio_tributario',
         'estado',
+        'source_bundle',
         'fecha_preparacion',
         'resumen_anual_redacted',
         'paquete_ddjj_ref_redacted',

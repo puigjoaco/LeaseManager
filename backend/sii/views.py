@@ -10,10 +10,11 @@ from core.scope_access import ScopedQuerysetMixin, get_scope_access, scope_query
 from cobranza.models import PagoMensual
 from patrimonio.models import Empresa
 
-from .models import CapacidadTributariaSII, DTEEmitido, F29PreparacionMensual, TaxCodeMapping, TaxYearRuleSet
+from .models import AnnualTaxSourceBundle, CapacidadTributariaSII, DTEEmitido, F29PreparacionMensual, TaxCodeMapping, TaxYearRuleSet
 from .serializers import (
     AnnualGenerateSerializer,
     AnnualStatusSerializer,
+    AnnualTaxSourceBundleSerializer,
     CapacidadTributariaSIISerializer,
     DDJJPreparacionAnualSerializer,
     DTEEmitidoSerializer,
@@ -148,6 +149,11 @@ class SiiSnapshotView(APIView):
             access,
             company_paths=('empresa_id',),
         )
+        source_bundles = scope_queryset_for_access(
+            AnnualTaxSourceBundle.objects.select_related('empresa').order_by('-anio_tributario', 'empresa_id', 'source_kind', 'source_label'),
+            access,
+            company_paths=('empresa_id',),
+        )
         tax_year_rule_sets = TaxYearRuleSet.objects.select_related('regimen_tributario').order_by(
             '-anio_tributario',
             'regimen_tributario_id',
@@ -225,10 +231,27 @@ class SiiSnapshotView(APIView):
                         'empresa': item.empresa_id,
                         'anio_tributario': item.anio_tributario,
                         'estado': item.estado,
+                        'source_bundle': item.source_bundle_id,
                         'fecha_preparacion': item.fecha_preparacion,
                         'responsable_revision_ref': redact_sensitive_reference(item.responsable_revision_ref),
                     }
                     for item in procesos
+                ],
+                'annual_tax_source_bundles': [
+                    {
+                        'id': item.id,
+                        'empresa': item.empresa_id,
+                        'anio_tributario': item.anio_tributario,
+                        'anio_comercial': item.anio_comercial,
+                        'source_kind': item.source_kind,
+                        'source_label': redact_sensitive_reference(item.source_label),
+                        'authorization_ref': redact_sensitive_reference(item.authorization_ref),
+                        'responsible_ref': redact_sensitive_reference(item.responsible_ref),
+                        'hash_fuentes': item.hash_fuentes,
+                        'resumen_fuentes': redact_sensitive_payload(item.resumen_fuentes),
+                        'estado': item.estado,
+                    }
+                    for item in source_bundles
                 ],
                 'ddjjs': [
                     {
@@ -335,6 +358,24 @@ class TaxCodeMappingDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAP
     queryset = TaxCodeMapping.objects.select_related('rule_set', 'rule_set__regimen_tributario').all()
     audit_entity_type = 'tax_code_mapping'
     audit_entity_label = 'TaxCodeMapping'
+
+
+class AnnualTaxSourceBundleListCreateView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.ListCreateAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualTaxSourceBundleSerializer
+    queryset = AnnualTaxSourceBundle.objects.select_related('empresa').all()
+    company_scope_paths = ('empresa_id',)
+    audit_entity_type = 'annual_tax_source_bundle'
+    audit_entity_label = 'AnnualTaxSourceBundle'
+
+
+class AnnualTaxSourceBundleDetailView(ScopedQuerysetMixin, AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+    permission_classes = [ControlModulePermission]
+    serializer_class = AnnualTaxSourceBundleSerializer
+    queryset = AnnualTaxSourceBundle.objects.select_related('empresa').all()
+    company_scope_paths = ('empresa_id',)
+    audit_entity_type = 'annual_tax_source_bundle'
+    audit_entity_label = 'AnnualTaxSourceBundle'
 
 
 class DTEEmitidoListView(ScopedQuerysetMixin, generics.ListAPIView):
@@ -516,7 +557,7 @@ class F29StatusUpdateView(APIView):
 class ProcesoRentaAnualListView(ScopedQuerysetMixin, generics.ListAPIView):
     permission_classes = [ControlModulePermission]
     serializer_class = ProcesoRentaAnualSerializer
-    queryset = ProcesoRentaAnual.objects.select_related('empresa').all()
+    queryset = ProcesoRentaAnual.objects.select_related('empresa', 'source_bundle').all()
     company_scope_paths = ('empresa_id',)
 
 

@@ -51,6 +51,11 @@ paquetes DDJJ, draft F22, dossier y export gate.
 propia: reglas versionadas por ano tributario/regimen y mapeos trazables hacia
 RLI/CPT/RAI/SAC/DDJJ/F22/Dossier, sin copiar reglas EDIG ni declarar formulas
 fiscales finales.
+`AnnualTaxSourceBundle` materializa la siguiente capa: congela fuentes anuales
+no sensibles desde cierres mensuales, obligaciones PPM/F29 y configuracion
+fiscal, conserva hash SHA-256 del payload anual normalizado y se enlaza al
+`ProcesoRentaAnual` para que DDJJ/F22 partan desde un dossier revisable, no
+desde inferencia libre ni automatizacion tributaria autonoma.
 
 ## Gate
 
@@ -60,6 +65,10 @@ fiscales finales.
   empresa, con `hash_normativo`, fuente y responsable no sensibles.
 - `TaxCodeMapping` activo y trazable para el rule set antes de preparar
   ProcesoRentaAnual/DDJJ/F22.
+- `AnnualTaxSourceBundle` congelado por empresa/ano tributario antes de
+  preparar ProcesoRentaAnual/DDJJ/F22; debe tener doce cierres aprobados,
+  obligaciones mensuales trazables, refs no sensibles y `hash_fuentes`
+  coherente con `resumen_fuentes`.
 - Responsable de revision anual trazado antes de tratar el paquete como
   aprobado.
 - Documentos generados desde datos trazables.
@@ -152,10 +161,18 @@ fiscales finales.
   si falta `TaxYearRuleSet` aprobado o si sus `TaxCodeMapping` activos no pasan
   validacion de dominio. El resumen anual conserva solo metadata no sensible de
   la regla aplicada: AT, regimen, version, hash y conteos por destino.
+- `generate_annual_preparation()` congela o reutiliza un
+  `AnnualTaxSourceBundle` local antes de crear ProcesoRentaAnual/DDJJ/F22. El
+  proceso anual conserva id/hash del bundle, y
+  `audit_stage6_renta_anual_readiness` bloquea procesos heredados sin bundle,
+  con bundle no congelado, desalineado o con metadata/hash distinta.
 - La API/snapshot/admin de SII exponen `TaxYearRuleSet` y `TaxCodeMapping` con
   referencias/payloads redactados y auditoria de creacion/actualizacion; el
   bootstrap demo anual crea parametria demo controlada, no oficial, antes de
   generar artefactos anuales locales.
+- La API/snapshot/admin de SII exponen `AnnualTaxSourceBundle` con refs y
+  payloads redactados; el admin no busca referencias crudas potencialmente
+  sensibles.
 
 ```powershell
 scripts\run-stage6-readiness-gate.ps1 -PythonExe backend\.venv\Scripts\python.exe
