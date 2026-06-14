@@ -74,6 +74,13 @@ con saldos iniciales/finales, movimientos trazados a RLI/CPT o participaciones
 activas, hashes por movimiento/registro y exposicion redactada. Esta capa
 mantiene `final_tax_calculation=false`; no reemplaza revision tributaria ni
 presentacion SII.
+`AnnualRealEstateSection` y `AnnualRealEstateItem` materializan la seccion
+anual de bienes raices/arriendos: preparan items por propiedad desde
+`Propiedad`, `DistribucionCobroMensual` y `ContratoPropiedad`, distribuyen
+arriendos por porcentaje interno, congelan snapshots anuales con hash y dejan
+contribuciones como fuente `not_loaded_v1` hasta contar con respaldo oficial o
+experto. Esta capa alimenta el dossier y la futura matriz DDJJ/F22, pero no
+declara calculo fiscal final ni presentacion SII.
 
 ## Gate
 
@@ -108,6 +115,19 @@ presentacion SII.
   coherente. Movimientos con warnings bloquean readiness hasta revision
   tributaria; retiros/dividendos pueden conservar movimientos cero trazados a
   participaciones activas mientras no existan eventos propios.
+- `AnnualRealEstateSection` preparada requiere proceso anual, bundle y rule
+  set coherentes, `resumen_seccion` y `hash_seccion` coherentes. Para tratar un
+  proceso anual como trazable debe existir una seccion preparada y su resumen
+  debe coincidir con `ProcesoRentaAnual.resumen_anual.annual_real_estate_sections`.
+- `AnnualRealEstateItem` activo requiere snapshot anual completo de propiedad,
+  montos no negativos, `formula_ref`, `evidencia_ref`, `source_payload` y
+  `hash_item` coherente. El snapshot anual queda congelado: cambios posteriores
+  en la ficha maestra de la propiedad no invalidan evidencia ya preparada,
+  siempre que el hash del item se mantenga vigente.
+- `generate_annual_preparation()` sincroniza bienes raices/arriendos despues
+  de RLI/CPT y registros empresariales, antes de emitir DDJJ/F22 locales. La
+  readiness bloquea procesos trazables sin seccion inmobiliaria, sin items
+  activos, con resumen desalineado, invalidos o con warnings pendientes.
 - Responsable de revision anual trazado antes de tratar el paquete como
   aprobado.
 - Documentos generados desde datos trazables.
@@ -235,6 +255,11 @@ presentacion SII.
   `AnnualEnterpriseRegisterMovement` con refs, warnings y payloads redactados;
   el admin es solo lectura para preservar que RAI/SAC/retiros/dividendos
   provienen del motor anual y no de edicion manual opaca.
+- La API/snapshot/admin de SII exponen `AnnualRealEstateSection` y
+  `AnnualRealEstateItem` con refs, warnings y payloads redactados; el snapshot
+  redacta rol/direccion de propiedad y el admin es solo lectura para preservar
+  que bienes raices/arriendos provienen del normalizador anual y no de edicion
+  manual opaca.
 
 ```powershell
 scripts\run-stage6-readiness-gate.ps1 -PythonExe backend\.venv\Scripts\python.exe

@@ -480,6 +480,12 @@ class EstadoAnnualEnterpriseRegister(models.TextChoices):
     RETIRED = 'retirado', 'Retirado'
 
 
+class EstadoAnnualRealEstateSection(models.TextChoices):
+    DRAFT = 'borrador', 'Borrador'
+    PREPARED = 'preparado', 'Preparado'
+    RETIRED = 'retirado', 'Retirado'
+
+
 class SignoAnnualTaxLine(models.TextChoices):
     ADD = 'suma', 'Suma'
     SUBTRACT = 'resta', 'Resta'
@@ -531,6 +537,29 @@ def _enterprise_movement_integrity_payload(movement):
         'evidencia_ref': movement.evidencia_ref,
         'warnings': movement.warnings,
         'source_payload': movement.source_payload,
+    }
+
+
+def _real_estate_item_integrity_payload(item):
+    return {
+        'section_id': item.section_id,
+        'propiedad_id': item.propiedad_id,
+        'codigo_propiedad_snapshot': item.codigo_propiedad_snapshot,
+        'rol_avaluo_snapshot': item.rol_avaluo_snapshot,
+        'direccion_snapshot': item.direccion_snapshot,
+        'comuna_snapshot': item.comuna_snapshot,
+        'region_snapshot': item.region_snapshot,
+        'tipo_inmueble_snapshot': item.tipo_inmueble_snapshot,
+        'owner_tipo_snapshot': item.owner_tipo_snapshot,
+        'owner_id_snapshot': item.owner_id_snapshot,
+        'arriendo_devengado_clp': str(item.arriendo_devengado_clp),
+        'arriendo_conciliado_clp': str(item.arriendo_conciliado_clp),
+        'arriendo_facturable_clp': str(item.arriendo_facturable_clp),
+        'contribuciones_clp': str(item.contribuciones_clp),
+        'formula_ref': item.formula_ref,
+        'evidencia_ref': item.evidencia_ref,
+        'warnings': item.warnings,
+        'source_payload': item.source_payload,
     }
 
 
@@ -1395,6 +1424,311 @@ class AnnualEnterpriseRegisterMovement(OperationalSIITextNormalizationMixin, Tim
                 errors['source_payload'] = 'Movimiento activo requiere source_payload trazable.'
             if not has_text(self.hash_movimiento):
                 errors['hash_movimiento'] = 'Movimiento activo requiere hash_movimiento.'
+        if errors:
+            raise ValidationError(errors)
+
+
+class AnnualRealEstateSection(OperationalSIITextNormalizationMixin, TimestampedModel):
+    operational_text_fields = (
+        'source_ref',
+        'responsible_ref',
+        'hash_seccion',
+    )
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.PROTECT,
+        related_name='annual_real_estate_sections',
+    )
+    proceso_renta_anual = models.ForeignKey(
+        'sii.ProcesoRentaAnual',
+        on_delete=models.PROTECT,
+        related_name='real_estate_sections',
+    )
+    source_bundle = models.ForeignKey(
+        AnnualTaxSourceBundle,
+        on_delete=models.PROTECT,
+        related_name='real_estate_sections',
+    )
+    rule_set = models.ForeignKey(
+        TaxYearRuleSet,
+        on_delete=models.PROTECT,
+        related_name='real_estate_sections',
+    )
+    anio_tributario = models.PositiveSmallIntegerField()
+    anio_comercial = models.PositiveSmallIntegerField()
+    source_ref = models.CharField(max_length=255, blank=True)
+    responsible_ref = models.CharField(max_length=255, blank=True)
+    propiedades_total = models.PositiveIntegerField(default=0)
+    arriendo_devengado_total_clp = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    arriendo_conciliado_total_clp = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    arriendo_facturable_total_clp = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    contribuciones_total_clp = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    resumen_seccion = models.JSONField(default=dict, blank=True)
+    hash_seccion = models.CharField(max_length=64, blank=True)
+    estado = models.CharField(
+        max_length=16,
+        choices=EstadoAnnualRealEstateSection.choices,
+        default=EstadoAnnualRealEstateSection.DRAFT,
+    )
+
+    class Meta:
+        ordering = ['empresa_id', '-anio_tributario', 'id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['proceso_renta_anual'],
+                name='uniq_annual_real_estate_section_process',
+            ),
+        ]
+
+    def __str__(self):
+        return f'Bienes raices {self.empresa_id} AT{self.anio_tributario}'
+
+    def clean(self):
+        super().clean()
+        self.hash_seccion = _normalize_hash(self.hash_seccion)
+        errors = {}
+        expected_commercial_year = self.anio_tributario - 1
+        if self.anio_comercial != expected_commercial_year:
+            errors['anio_comercial'] = (
+                f'anio_comercial debe ser {expected_commercial_year} para AT{self.anio_tributario}.'
+            )
+        _add_non_sensitive_reference_error(errors, self, 'source_ref')
+        _add_non_sensitive_reference_error(errors, self, 'responsible_ref')
+        _add_non_sensitive_payload_error(errors, 'resumen_seccion', self.resumen_seccion)
+        if has_text(self.hash_seccion) and not _is_sha256(self.hash_seccion):
+            errors['hash_seccion'] = 'hash_seccion debe ser SHA-256 hexadecimal de 64 caracteres.'
+        if min(
+            self.arriendo_devengado_total_clp,
+            self.arriendo_conciliado_total_clp,
+            self.arriendo_facturable_total_clp,
+            self.contribuciones_total_clp,
+        ) < 0:
+            errors['resumen_seccion'] = 'Los totales de la seccion anual inmobiliaria no pueden ser negativos.'
+        if self.arriendo_facturable_total_clp > self.arriendo_devengado_total_clp:
+            errors['arriendo_facturable_total_clp'] = 'El total facturable no puede exceder el devengado.'
+
+        try:
+            process = self.proceso_renta_anual
+        except ObjectDoesNotExist:
+            process = None
+        if process is not None:
+            if process.empresa_id != self.empresa_id:
+                errors['proceso_renta_anual'] = 'El proceso anual debe pertenecer a la misma empresa de la seccion.'
+            elif process.anio_tributario != self.anio_tributario:
+                errors['proceso_renta_anual'] = 'El proceso anual debe corresponder al mismo anio_tributario.'
+            if process.source_bundle_id and process.source_bundle_id != self.source_bundle_id:
+                errors['source_bundle'] = 'La seccion debe usar el mismo AnnualTaxSourceBundle del proceso anual.'
+
+        try:
+            source_bundle = self.source_bundle
+        except ObjectDoesNotExist:
+            source_bundle = None
+        if source_bundle is not None:
+            if source_bundle.empresa_id != self.empresa_id:
+                errors['source_bundle'] = 'AnnualTaxSourceBundle debe pertenecer a la misma empresa de la seccion.'
+            elif source_bundle.anio_tributario != self.anio_tributario:
+                errors['source_bundle'] = 'AnnualTaxSourceBundle debe corresponder al mismo anio_tributario.'
+            elif source_bundle.estado != EstadoAnnualTaxSourceBundle.FROZEN:
+                errors['source_bundle'] = 'AnnualRealEstateSection requiere AnnualTaxSourceBundle congelado.'
+
+        try:
+            rule_set = self.rule_set
+        except ObjectDoesNotExist:
+            rule_set = None
+        if rule_set is not None:
+            if rule_set.anio_tributario != self.anio_tributario:
+                errors['rule_set'] = 'TaxYearRuleSet debe corresponder al mismo anio_tributario de la seccion.'
+            elif rule_set.estado != EstadoReglaTributariaAnual.APPROVED:
+                errors['rule_set'] = 'AnnualRealEstateSection requiere TaxYearRuleSet aprobado.'
+
+        if isinstance(self.resumen_seccion, dict):
+            identity_errors = []
+            for key, expected in (
+                ('empresa_id', self.empresa_id),
+                ('proceso_renta_anual_id', self.proceso_renta_anual_id),
+                ('source_bundle_id', self.source_bundle_id),
+                ('rule_set_id', self.rule_set_id),
+                ('anio_tributario', self.anio_tributario),
+                ('anio_comercial', self.anio_comercial),
+                ('propiedades_total', self.propiedades_total),
+                ('arriendo_devengado_total_clp', str(self.arriendo_devengado_total_clp)),
+                ('arriendo_conciliado_total_clp', str(self.arriendo_conciliado_total_clp)),
+                ('arriendo_facturable_total_clp', str(self.arriendo_facturable_total_clp)),
+                ('contribuciones_total_clp', str(self.contribuciones_total_clp)),
+            ):
+                value = self.resumen_seccion.get(key)
+                if value is None:
+                    continue
+                if key.endswith('_clp'):
+                    matches = str(value) == str(expected)
+                else:
+                    try:
+                        matches = int(value) == int(expected)
+                    except (TypeError, ValueError):
+                        matches = False
+                if not matches:
+                    identity_errors.append(key)
+            if identity_errors:
+                errors['resumen_seccion'] = (
+                    'resumen_seccion debe coincidir con empresa, proceso, fuente, regla, anio y totales.'
+                )
+            expected_hash = _payload_hash(self.resumen_seccion)
+            if self.hash_seccion and self.hash_seccion != expected_hash:
+                errors['hash_seccion'] = 'hash_seccion debe corresponder al resumen_seccion.'
+        elif self.resumen_seccion:
+            errors['resumen_seccion'] = 'resumen_seccion debe ser un objeto JSON.'
+
+        if self.estado == EstadoAnnualRealEstateSection.PREPARED:
+            _add_active_fiscal_config_error(errors, self, 'AnnualRealEstateSection')
+            if not has_text(self.source_ref):
+                errors['source_ref'] = 'AnnualRealEstateSection preparada requiere source_ref no sensible.'
+            if not has_text(self.responsible_ref):
+                errors['responsible_ref'] = 'AnnualRealEstateSection preparada requiere responsible_ref no sensible.'
+            if not self.resumen_seccion:
+                errors['resumen_seccion'] = 'AnnualRealEstateSection preparada requiere resumen_seccion.'
+            if not has_text(self.hash_seccion):
+                errors['hash_seccion'] = 'AnnualRealEstateSection preparada requiere hash_seccion.'
+        if errors:
+            raise ValidationError(errors)
+
+
+class AnnualRealEstateItem(OperationalSIITextNormalizationMixin, TimestampedModel):
+    operational_text_fields = (
+        'codigo_propiedad_snapshot',
+        'rol_avaluo_snapshot',
+        'direccion_snapshot',
+        'comuna_snapshot',
+        'region_snapshot',
+        'tipo_inmueble_snapshot',
+        'owner_tipo_snapshot',
+        'formula_ref',
+        'evidencia_ref',
+        'hash_item',
+    )
+
+    section = models.ForeignKey(
+        AnnualRealEstateSection,
+        on_delete=models.CASCADE,
+        related_name='items',
+    )
+    propiedad = models.ForeignKey(
+        'patrimonio.Propiedad',
+        on_delete=models.PROTECT,
+        related_name='annual_real_estate_items',
+    )
+    codigo_propiedad_snapshot = models.CharField(max_length=16)
+    rol_avaluo_snapshot = models.CharField(max_length=64, blank=True)
+    direccion_snapshot = models.CharField(max_length=255)
+    comuna_snapshot = models.CharField(max_length=100)
+    region_snapshot = models.CharField(max_length=100)
+    tipo_inmueble_snapshot = models.CharField(max_length=32)
+    owner_tipo_snapshot = models.CharField(max_length=32)
+    owner_id_snapshot = models.PositiveIntegerField()
+    arriendo_devengado_clp = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    arriendo_conciliado_clp = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    arriendo_facturable_clp = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    contribuciones_clp = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    formula_ref = models.CharField(max_length=255, blank=True)
+    evidencia_ref = models.CharField(max_length=255, blank=True)
+    warnings = models.JSONField(default=list, blank=True)
+    source_payload = models.JSONField(default=dict, blank=True)
+    hash_item = models.CharField(max_length=64, blank=True)
+    estado = models.CharField(max_length=16, choices=EstadoRegistro.choices, default=EstadoRegistro.ACTIVE)
+
+    class Meta:
+        ordering = ['section_id', 'codigo_propiedad_snapshot', 'propiedad_id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['section', 'propiedad'],
+                name='uniq_annual_real_estate_item_property',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.section_id} {self.codigo_propiedad_snapshot}'
+
+    def clean(self):
+        super().clean()
+        self.hash_item = _normalize_hash(self.hash_item)
+        errors = {}
+        _add_non_sensitive_reference_error(errors, self, 'formula_ref')
+        _add_non_sensitive_reference_error(errors, self, 'evidencia_ref')
+        _add_non_sensitive_payload_error(errors, 'warnings', self.warnings)
+        _add_non_sensitive_payload_error(errors, 'source_payload', self.source_payload)
+        if self.warnings and not isinstance(self.warnings, list):
+            errors['warnings'] = 'warnings debe ser una lista JSON.'
+        if self.source_payload and not isinstance(self.source_payload, dict):
+            errors['source_payload'] = 'source_payload debe ser un objeto JSON.'
+        if has_text(self.hash_item) and not _is_sha256(self.hash_item):
+            errors['hash_item'] = 'hash_item debe ser SHA-256 hexadecimal de 64 caracteres.'
+        if min(
+            self.arriendo_devengado_clp,
+            self.arriendo_conciliado_clp,
+            self.arriendo_facturable_clp,
+            self.contribuciones_clp,
+        ) < 0:
+            errors['source_payload'] = 'Los montos del item inmobiliario no pueden ser negativos.'
+        if self.arriendo_facturable_clp > self.arriendo_devengado_clp:
+            errors['arriendo_facturable_clp'] = 'El monto facturable no puede exceder el devengado.'
+
+        try:
+            section = self.section
+        except ObjectDoesNotExist:
+            section = None
+        if section is not None and isinstance(self.source_payload, dict):
+            for key, expected in (
+                ('empresa_id', section.empresa_id),
+                ('proceso_renta_anual_id', section.proceso_renta_anual_id),
+                ('anio_tributario', section.anio_tributario),
+                ('anio_comercial', section.anio_comercial),
+            ):
+                value = self.source_payload.get(key)
+                if value is None:
+                    continue
+                try:
+                    matches = int(value) == int(expected)
+                except (TypeError, ValueError):
+                    matches = False
+                if not matches:
+                    errors['source_payload'] = 'source_payload debe coincidir con la seccion anual inmobiliaria.'
+                    break
+
+        if isinstance(self.source_payload, dict):
+            payload_property_id = self.source_payload.get('propiedad_id')
+            if payload_property_id is not None:
+                try:
+                    property_matches = int(payload_property_id) == int(self.propiedad_id)
+                except (TypeError, ValueError):
+                    property_matches = False
+                if not property_matches:
+                    errors['source_payload'] = 'source_payload debe coincidir con la propiedad del item inmobiliario.'
+
+        expected_hash = _payload_hash(_real_estate_item_integrity_payload(self))
+        if self.hash_item and self.hash_item != expected_hash:
+            errors['hash_item'] = 'hash_item debe corresponder al item inmobiliario normalizado.'
+
+        if self.estado == EstadoRegistro.ACTIVE:
+            for field_name in (
+                'codigo_propiedad_snapshot',
+                'direccion_snapshot',
+                'comuna_snapshot',
+                'region_snapshot',
+                'tipo_inmueble_snapshot',
+                'owner_tipo_snapshot',
+            ):
+                if not has_text(getattr(self, field_name)):
+                    errors[field_name] = 'Item inmobiliario activo requiere snapshot de propiedad completo.'
+            if not self.owner_id_snapshot:
+                errors['owner_id_snapshot'] = 'Item inmobiliario activo requiere owner_id_snapshot.'
+            if not has_text(self.formula_ref):
+                errors['formula_ref'] = 'Item inmobiliario activo requiere formula_ref no sensible.'
+            if not has_text(self.evidencia_ref):
+                errors['evidencia_ref'] = 'Item inmobiliario activo requiere evidencia_ref no sensible.'
+            if not self.source_payload:
+                errors['source_payload'] = 'Item inmobiliario activo requiere source_payload trazable.'
+            if not has_text(self.hash_item):
+                errors['hash_item'] = 'Item inmobiliario activo requiere hash_item.'
         if errors:
             raise ValidationError(errors)
 

@@ -10,6 +10,8 @@ from patrimonio.models import Empresa
 from .models import (
     AnnualEnterpriseRegisterMovement,
     AnnualEnterpriseRegisterSet,
+    AnnualRealEstateItem,
+    AnnualRealEstateSection,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -369,12 +371,12 @@ class AnnualEnterpriseRegisterMovementSerializer(RedactSensitiveSiiFieldsMixin, 
         read_only_fields = fields
 
 
-class AnnualEnterpriseRegisterSetSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
+class AnnualRealEstateSectionSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
     redacted_reference_fields = ('source_ref', 'responsible_ref')
-    redacted_payload_fields = ('resumen_registro',)
+    redacted_payload_fields = ('resumen_seccion',)
 
     class Meta:
-        model = AnnualEnterpriseRegisterSet
+        model = AnnualRealEstateSection
         fields = (
             'id',
             'empresa',
@@ -383,14 +385,15 @@ class AnnualEnterpriseRegisterSetSerializer(RedactSensitiveSiiFieldsMixin, seria
             'rule_set',
             'anio_tributario',
             'anio_comercial',
-            'tipo_registro',
             'source_ref',
             'responsible_ref',
-            'saldo_inicial_clp',
-            'movimientos_total_clp',
-            'saldo_final_clp',
-            'resumen_registro',
-            'hash_registro',
+            'propiedades_total',
+            'arriendo_devengado_total_clp',
+            'arriendo_conciliado_total_clp',
+            'arriendo_facturable_total_clp',
+            'contribuciones_total_clp',
+            'resumen_seccion',
+            'hash_seccion',
             'estado',
             'created_at',
             'updated_at',
@@ -398,25 +401,33 @@ class AnnualEnterpriseRegisterSetSerializer(RedactSensitiveSiiFieldsMixin, seria
         read_only_fields = fields
 
 
-class AnnualEnterpriseRegisterMovementSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
+class AnnualRealEstateItemSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
     redacted_reference_fields = ('formula_ref', 'evidencia_ref')
     redacted_payload_fields = ('warnings', 'source_payload')
 
     class Meta:
-        model = AnnualEnterpriseRegisterMovement
+        model = AnnualRealEstateItem
         fields = (
             'id',
-            'register_set',
-            'source_workbook_line',
-            'codigo_interno',
-            'origen',
-            'signo',
-            'monto_clp',
+            'section',
+            'propiedad',
+            'codigo_propiedad_snapshot',
+            'rol_avaluo_snapshot',
+            'direccion_snapshot',
+            'comuna_snapshot',
+            'region_snapshot',
+            'tipo_inmueble_snapshot',
+            'owner_tipo_snapshot',
+            'owner_id_snapshot',
+            'arriendo_devengado_clp',
+            'arriendo_conciliado_clp',
+            'arriendo_facturable_clp',
+            'contribuciones_clp',
             'formula_ref',
             'evidencia_ref',
             'warnings',
             'source_payload',
-            'hash_movimiento',
+            'hash_item',
             'estado',
             'created_at',
             'updated_at',

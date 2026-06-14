@@ -24,6 +24,8 @@ from contratos.models import Arrendatario, Contrato, ContratoPropiedad, PeriodoC
 from .admin import (
     AnnualEnterpriseRegisterMovementAdmin,
     AnnualEnterpriseRegisterSetAdmin,
+    AnnualRealEstateItemAdmin,
+    AnnualRealEstateSectionAdmin,
     AnnualTaxSourceBundleAdmin,
     AnnualTaxWorkbookAdmin,
     AnnualTaxWorkbookLineAdmin,
@@ -40,6 +42,8 @@ from .admin import (
 from .models import (
     AnnualEnterpriseRegisterMovement,
     AnnualEnterpriseRegisterSet,
+    AnnualRealEstateItem,
+    AnnualRealEstateSection,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -2878,6 +2882,15 @@ class SiiAPITests(APITestCase):
         )
         self.assertEqual(process.resumen_anual['annual_enterprise_registers']['by_type']['RAI']['warnings_total'], 0)
         self.assertEqual(process.resumen_anual['annual_enterprise_registers']['by_type']['SAC']['warnings_total'], 0)
+        real_estate_sections = AnnualRealEstateSection.objects.filter(proceso_renta_anual=process)
+        real_estate_items = AnnualRealEstateItem.objects.filter(section__proceso_renta_anual=process)
+        self.assertEqual(real_estate_sections.count(), 1)
+        self.assertEqual(real_estate_items.count(), 1)
+        self.assertEqual(process.resumen_anual['annual_real_estate_sections']['total'], 1)
+        section_summary = next(iter(process.resumen_anual['annual_real_estate_sections']['by_id'].values()))
+        self.assertEqual(section_summary['propiedades_total'], 1)
+        self.assertEqual(section_summary['items_total'], 1)
+        self.assertEqual(section_summary['warnings_total'], 0)
 
         monthly_facts_response = self.client.get(reverse('sii-monthly-tax-fact-list'))
         self.assertEqual(monthly_facts_response.status_code, status.HTTP_200_OK)
@@ -2886,14 +2899,20 @@ class SiiAPITests(APITestCase):
         workbook_line_response = self.client.get(reverse('sii-annual-tax-workbook-line-list'))
         enterprise_register_response = self.client.get(reverse('sii-annual-enterprise-register-list'))
         enterprise_movement_response = self.client.get(reverse('sii-annual-enterprise-register-movement-list'))
+        real_estate_section_response = self.client.get(reverse('sii-annual-real-estate-section-list'))
+        real_estate_item_response = self.client.get(reverse('sii-annual-real-estate-item-list'))
         self.assertEqual(workbook_response.status_code, status.HTTP_200_OK)
         self.assertEqual(workbook_line_response.status_code, status.HTTP_200_OK)
         self.assertEqual(enterprise_register_response.status_code, status.HTTP_200_OK)
         self.assertEqual(enterprise_movement_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(real_estate_section_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(real_estate_item_response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(workbook_response.data), 2)
         self.assertEqual(len(workbook_line_response.data), 2)
         self.assertEqual(len(enterprise_register_response.data), 4)
         self.assertGreaterEqual(len(enterprise_movement_response.data), 6)
+        self.assertEqual(len(real_estate_section_response.data), 1)
+        self.assertEqual(len(real_estate_item_response.data), 1)
         snapshot = self.client.get(reverse('sii-snapshot'))
         self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
         self.assertEqual(len(snapshot.data['monthly_tax_facts']), 12)
@@ -2901,6 +2920,40 @@ class SiiAPITests(APITestCase):
         self.assertEqual(len(snapshot.data['annual_tax_workbook_lines']), 2)
         self.assertEqual(len(snapshot.data['annual_enterprise_registers']), 4)
         self.assertGreaterEqual(len(snapshot.data['annual_enterprise_register_movements']), 6)
+        self.assertEqual(len(snapshot.data['annual_real_estate_sections']), 1)
+        self.assertEqual(len(snapshot.data['annual_real_estate_items']), 1)
+
+    def test_real_estate_item_preserves_frozen_snapshot_after_property_master_changes(self):
+        empresa, _ = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887', '1879'])
+        self._activate_annual_capabilities(empresa)
+        self._create_twelve_approved_closes(empresa, fiscal_year=2026)
+        generated = self.client.post(
+            reverse('sii-anual-generate'),
+            {'empresa_id': empresa.id, 'anio_tributario': 2027},
+            format='json',
+        )
+        self.assertEqual(generated.status_code, status.HTTP_201_CREATED)
+        item = AnnualRealEstateItem.objects.select_related('propiedad').get()
+        original_snapshot = {
+            'direccion_snapshot': item.direccion_snapshot,
+            'comuna_snapshot': item.comuna_snapshot,
+            'region_snapshot': item.region_snapshot,
+            'hash_item': item.hash_item,
+        }
+
+        Propiedad.objects.filter(pk=item.propiedad_id).update(
+            direccion='Direccion maestra actualizada 123',
+            comuna='Comuna Actualizada',
+            region='Region Actualizada',
+        )
+        item.refresh_from_db()
+        item.full_clean()
+
+        self.assertEqual(item.direccion_snapshot, original_snapshot['direccion_snapshot'])
+        self.assertEqual(item.comuna_snapshot, original_snapshot['comuna_snapshot'])
+        self.assertEqual(item.region_snapshot, original_snapshot['region_snapshot'])
+        self.assertEqual(item.hash_item, original_snapshot['hash_item'])
 
     def test_monthly_tax_fact_admin_and_api_redact_sensitive_payloads(self):
         empresa, _ = self._setup_paid_payment()
@@ -3094,6 +3147,78 @@ class SiiAPITests(APITestCase):
         self.assertNotIn('movement-secret', serialized_payload)
         self.assertNotIn('secret-register-value', serialized_payload)
         self.assertNotIn('secret-movement-value', serialized_payload)
+
+    def test_real_estate_section_admin_and_api_redact_sensitive_payloads(self):
+        empresa, _ = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887', '1879'])
+        self._activate_annual_capabilities(empresa)
+        self._create_twelve_approved_closes(empresa, fiscal_year=2026)
+        generated = self.client.post(
+            reverse('sii-anual-generate'),
+            {'empresa_id': empresa.id, 'anio_tributario': 2027},
+            format='json',
+        )
+        self.assertEqual(generated.status_code, status.HTTP_201_CREATED)
+        section = AnnualRealEstateSection.objects.get(empresa=empresa, anio_tributario=2027)
+        item = AnnualRealEstateItem.objects.get(section=section)
+        AnnualRealEstateSection.objects.filter(pk=section.pk).update(
+            source_ref='https://sii.example.test/real-estate?token=secret',
+            responsible_ref='Bearer real-estate-secret',
+            resumen_seccion={'api_key': 'secret-real-estate-value'},
+        )
+        AnnualRealEstateItem.objects.filter(pk=item.pk).update(
+            formula_ref='https://sii.example.test/real-estate-formula?token=secret',
+            evidencia_ref='Bearer real-estate-item-secret',
+            warnings=['https://sii.example.test/real-estate-warning?token=secret'],
+            source_payload={'api_key': 'secret-real-estate-item-value'},
+        )
+        section.refresh_from_db()
+        item.refresh_from_db()
+        section_admin = AnnualRealEstateSectionAdmin(AnnualRealEstateSection, AdminSite())
+        item_admin = AnnualRealEstateItemAdmin(AnnualRealEstateItem, AdminSite())
+
+        self.assertEqual(section_admin.source_ref_redacted(section), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(section_admin.responsible_ref_redacted(section), REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('secret-real-estate-value', json.dumps(section_admin.resumen_seccion_redacted(section)))
+        self.assertEqual(item_admin.formula_ref_redacted(item), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(item_admin.evidencia_ref_redacted(item), REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('secret-real-estate-item-value', json.dumps(item_admin.source_payload_redacted(item)))
+
+        section_response = self.client.get(reverse('sii-annual-real-estate-section-list'))
+        item_response = self.client.get(reverse('sii-annual-real-estate-item-list'))
+        snapshot = self.client.get(reverse('sii-snapshot'))
+        serialized_payload = json.dumps(
+            {
+                'sections': section_response.data,
+                'items': item_response.data,
+                'snapshot': snapshot.data,
+            },
+            default=str,
+        )
+        self.assertEqual(section_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(item_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
+        section_data = next(entry for entry in section_response.data if entry['id'] == section.id)
+        item_data = next(entry for entry in item_response.data if entry['id'] == item.id)
+        snapshot_section_data = next(
+            entry for entry in snapshot.data['annual_real_estate_sections'] if entry['id'] == section.id
+        )
+        snapshot_item_data = next(
+            entry for entry in snapshot.data['annual_real_estate_items'] if entry['id'] == item.id
+        )
+        self.assertEqual(section_data['source_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(section_data['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_section_data['source_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_section_data['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(item_data['formula_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(item_data['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_item_data['formula_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_item_data['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('token=secret', serialized_payload)
+        self.assertNotIn('real-estate-secret', serialized_payload)
+        self.assertNotIn('real-estate-item-secret', serialized_payload)
+        self.assertNotIn('secret-real-estate-value', serialized_payload)
+        self.assertNotIn('secret-real-estate-item-value', serialized_payload)
 
     def test_generate_annual_preparation_rejects_source_changes_after_bundle_freeze(self):
         empresa, _ = self._setup_paid_payment()
