@@ -8,6 +8,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Count, Q
 from django.utils import timezone
 
+from audit.models import AuditEvent
 from contabilidad.models import (
     AsientoContable,
     BalanceComprobacion,
@@ -46,7 +47,10 @@ from contabilidad.services import (
 )
 from conciliacion.models import TransferenciaIntercuenta
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
-from core.state_transition_audit_readiness import count_state_changed_events_without_transition_metadata
+from core.state_transition_audit_readiness import (
+    count_state_changed_events_without_transition_metadata,
+    transition_event_has_transition_metadata,
+)
 
 
 AUTHORIZED_STAGE5_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
@@ -237,6 +241,29 @@ def _count_approved_closes_without_approval_context(approved_closes) -> int:
     return missing
 
 
+def _count_reopened_closes_without_state_changed_event(reopened_closes) -> int:
+    close_ids = [str(close.pk) for close in reopened_closes]
+    if not close_ids:
+        return 0
+
+    events = AuditEvent.objects.filter(
+        event_type='contabilidad.cierre_mensual.state_changed',
+        entity_type='cierre_mensual_contable',
+        entity_id__in=close_ids,
+    ).only('entity_id', 'metadata')
+    covered = set()
+    for event in events:
+        metadata = event.metadata if isinstance(event.metadata, dict) else {}
+        if (
+            transition_event_has_transition_metadata(event)
+            and metadata.get('estado_anterior') == EstadoCierreMensual.APPROVED
+            and metadata.get('estado_nuevo') == EstadoCierreMensual.REOPENED
+        ):
+            covered.add(str(event.entity_id))
+
+    return sum(1 for close_id in close_ids if close_id not in covered)
+
+
 def _count_required_admin_fee_line_missing(liquidations) -> int:
     missing = 0
     for liquidation in liquidations:
@@ -398,6 +425,7 @@ def collect_stage5_contabilidad_readiness(
         1 for close in approved_closes if not get_active_monthly_close_reopen_policy(close.empresa)
     )
     reopened_closes_without_effect = sum(1 for close in reopened_closes if not close.efectos_reapertura.exists())
+    reopened_closes_without_state_changed_event = _count_reopened_closes_without_state_changed_event(reopened_closes)
     reopen_effects_without_posted_event = reopen_effects.exclude(
         evento_contable__estado_contable=EstadoEventoContable.POSTED
     ).count()
@@ -732,6 +760,14 @@ def collect_stage5_contabilidad_readiness(
                 count=reopened_closes_without_effect,
             )
         )
+    if reopened_closes_without_state_changed_event:
+        issues.append(
+            _issue(
+                'stage5.reopened_close_state_audit_missing',
+                'Existen cierres reabiertos sin evento state_changed trazable.',
+                count=reopened_closes_without_state_changed_event,
+            )
+        )
     if reopen_effects_without_posted_event:
         issues.append(
             _issue(
@@ -967,6 +1003,7 @@ def collect_stage5_contabilidad_readiness(
                 'approved_closes_without_approval_context': approved_closes_without_approval_context,
                 'reopen_effects_total': reopen_effects.count(),
                 'reopened_closes_without_effect': reopened_closes_without_effect,
+                'reopened_closes_without_state_changed_event': reopened_closes_without_state_changed_event,
                 'reopen_effects_without_posted_event': reopen_effects_without_posted_event,
                 'reopen_effects_sensitive_references': reopen_effects_sensitive_references,
                 'close_sensitive_payloads': close_sensitive_payloads,

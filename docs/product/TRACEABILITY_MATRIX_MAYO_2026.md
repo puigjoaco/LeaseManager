@@ -57,6 +57,14 @@ soporta la aprobacion. `audit_stage5_contabilidad_readiness` bloquea snapshots
 heredados donde el cierre aprobado perdio ese contexto, manteniendo el paquete
 mensual apto para revision humana o IA supervisada.
 
+Nota 2026-06-13: Etapa 5 traza reaperturas excepcionales como cambio de estado.
+`CierreMensualReopenView` registra `reopened` y
+`contabilidad.cierre_mensual.state_changed` en la misma transaccion con
+metadata `aprobado` -> `reabierto` y contexto redactable del efecto contable;
+si falla la auditoria, se revierte la reapertura, snapshots y evento de efecto.
+`audit_stage5_contabilidad_readiness` bloquea cierres reabiertos heredados sin
+ese `state_changed`, evitando paquetes mensuales reabiertos sin trazabilidad.
+
 Nota 2026-06-13: Reporting/Etapa 7 cubre en API los bloqueos de
 `ProcesoRentaAnual.borrador_f22_ref` faltante o sensible para procesos anuales
 finales. `_assert_annual_tax_traceability()` devuelve
