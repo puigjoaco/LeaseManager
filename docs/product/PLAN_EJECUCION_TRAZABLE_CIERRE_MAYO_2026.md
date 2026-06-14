@@ -34,7 +34,7 @@ inconsistente, duplicado, desactualizado, inseguro, mal integrado o pendiente.
 | 3 | Banco y conciliacion | Movimientos, conciliacion, ingresos desconocidos y saldos cuadrados. |
 | 4 | SII y DTE | Configuracion fiscal, emision aplicable, aceptacion/estado y reglas validadas. |
 | 5 | Pre-cierre mensual y contabilidad asistida | Ledger, asientos, liquidaciones, PPM/F29/F21 y paquete mensual reproducible con aprobacion responsable. |
-| 6 | Dossier de renta anual | DDJJ, F22, certificados y trazabilidad anual para revision experta/oficial. |
+| 6 | Renta anual automatizable | Motor tributario anual, DDJJ, F22, archivo/export certificable, certificados y trazabilidad para revision y eventual presentacion bajo gate SII. |
 | 7 | Operacion productiva | Backups, restore, runbook, monitoreo, smoke, aceptacion y continuidad. |
 
 ## Regla de cierre por etapas
@@ -47,6 +47,10 @@ En contabilidad y tributacion, `cerrado` no significa decision autonoma del
 sistema. Significa paquete reproducible, evidencia completa, reglas vigentes,
 gate aplicable y aprobacion responsable. Si falta criterio experto/oficial, el
 estado correcto es preparacion o revision, aunque los datos locales cuadren.
+Si la regla tributaria esta completamente versionada, el formato/canal SII esta
+certificado o autorizado y existe aprobacion responsable, la ejecucion puede ser
+automatica como software tributario. Si falta cualquiera de esos elementos, el
+resultado sigue siendo dossier/export revisable, no presentacion final.
 
 Se permite preparar trabajo de etapas posteriores o de integracion cuando no
 use datos/credenciales no autorizadas, no abra integraciones cerradas y quede

@@ -19,6 +19,7 @@ frontend/.env
 scripts/node_modules/
 # Material manual / evidencia externa no producto
 Joaquin Ingreso Manual/
+EDIG AT2026 SOFTWARE RENTA/
 HANDOFF/
 docs/HANDOFF_GREENFIELD_*.md
 migration/bundles/*.json

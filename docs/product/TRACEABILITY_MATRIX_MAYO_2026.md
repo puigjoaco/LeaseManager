@@ -14,6 +14,13 @@ decide ni presenta renta/tributacion final de forma autonoma. La aprobacion o
 presentacion externa exige gate aplicable, responsable trazado y validacion
 experta/oficial cuando corresponda.
 
+Nota 2026-06-13: Arquitectura/Etapa 6 aclaran que Renta Anual no queda fuera
+del producto. El objetivo es operar como software tributario deterministico:
+motor versionado por Ano Tributario, mapeo de datos a codigos F22/DDJJ,
+archivo/export compatible y eventual presentacion automatizada solo si existe
+certificacion, API, carga de archivo o canal SII autorizado, con aprobacion
+responsable y evidencia no sensible. Lo ambiguo queda como bloqueo de revision.
+
 Nota 2026-06-13: Etapa 6/7 convierten el boundary asistido en enforcement
 local para artefactos anuales. `ProcesoRentaAnual`, DDJJ y F22 en estados
 aprobados, observados, rectificados o presentados requieren

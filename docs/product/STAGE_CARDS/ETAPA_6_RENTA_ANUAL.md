@@ -2,26 +2,38 @@
 
 ## Objetivo
 
-Preparar el dossier anual de renta, DDJJ, F22, certificados y trazabilidad
-desde cierres mensuales. LeaseManager organiza datos, reglas, bloqueos y
-evidencia; la decision tributaria final requiere revision experta/oficial,
-responsable trazado y gate aplicable.
+Preparar y generar la renta anual, DDJJ, F22, certificados y trazabilidad desde
+cierres mensuales. LeaseManager organiza datos, reglas, bloqueos y evidencia, y
+puede actuar como software tributario deterministico si el formato/canal SII del
+Ano Tributario esta versionado y certificado. La decision tributaria final
+requiere regla verificable, responsable trazado, gate aplicable y aprobacion.
 
 ## Alcance
 
 - Proceso de renta anual como expediente revisable.
+- Motor tributario anual versionado por Ano Tributario.
 - Certificados.
 - Declaraciones juradas.
-- F22 y respaldos.
+- F22, archivo/export compatible y respaldos.
 - Validaciones tributarias.
+- Certificacion o canal SII/casa de software cuando exista presentacion
+  automatizable.
 - Checklist de revision experta/oficial.
 
 ## Gate
 
 - Cierres mensuales completos.
 - Reglas tributarias validadas.
+- Cada campo/codigo F22 automatizado debe estar mapeado a dato, cierre,
+  obligacion, DDJJ, certificado o regla versionada del Ano Tributario vigente.
+  Lo no mapeado o ambiguo queda como bloqueo de revision, no como calculo
+  inferido.
 - Responsable de revision anual trazado antes de tratar el paquete como
   aprobado.
+- Presentacion final automatizada solo si existe canal SII, certificacion de
+  software, formato de archivo o API habilitada para el Ano Tributario, con
+  aprobacion responsable y evidencia no sensible de envio/recepcion. Sin ese
+  gate, LeaseManager entrega dossier y archivo preparatorio para carga manual.
 - Documentos generados desde datos trazables.
 - Evidencia sin datos sensibles expuestos.
 - Capacidades DDJJ/F22, ProcesoRentaAnual, DDJJ y F22 pertenecen a empresas
@@ -32,7 +44,9 @@ responsable trazado y gate aplicable.
   respaldos tributarios PDF y referencias finales no sensibles sin conectar SII
   ni leer certificados reales.
 - El readiness de Etapa 6 puede declarar preparacion local, brecha o bloqueo de
-  cierre; no declara presentacion anual final ni sustituye criterio tributario.
+  cierre; solo declara presentacion anual final si existe source autorizada,
+  gate/canal SII certificado y evidencia de responsable. No sustituye criterio
+  tributario en casos interpretativos.
 - `ProcesoRentaAnual.resumen_anual`, `DDJJPreparacionAnual.resumen_paquete`
   y `F22PreparacionAnual.resumen_f22` deben trazar al ano comercial
   inmediatamente anterior al `anio_tributario`; el dominio rechaza nuevas
@@ -113,5 +127,7 @@ scripts\run-stage6-readiness-gate.ps1 -PythonExe backend\.venv\Scripts\python.ex
 
 El dossier anual no queda aprobable si existen meses sin cierre validado,
 reglas fiscales sin respaldo o responsable de revision ausente. La renta anual
-final no se declara presentada por el core v1; `SII.PresentacionAnualFinal`
-sigue podada salvo reemision formal del set activo.
+final no se declara presentada por el core si falta gate SII/certificacion,
+canal autorizado, regla versionada o responsable. `SII.PresentacionAnualFinal`
+solo se habilita mediante reemision formal del set activo o capacidad
+equivalente certificada.
