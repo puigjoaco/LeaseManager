@@ -22,13 +22,16 @@ from contabilidad.services import approve_monthly_close, prepare_monthly_close
 from patrimonio.models import Empresa
 from sii.models import (
     AnnualTaxDDJJFormLayout,
+    AnnualTaxF22ExportLayout,
     CapacidadSII,
     DestinoMapeoTributarioAnual,
     AnnualTaxOfficialSource,
     EstadoAnnualTaxDDJJLayout,
+    EstadoAnnualTaxF22ExportLayout,
     EstadoAnnualTaxOfficialSource,
     EstadoReglaTributariaAnual,
     MedioAnnualTaxDDJJ,
+    MedioAnnualTaxF22Export,
     TaxCodeMapping,
     TaxYearRuleSet,
     TipoAnnualTaxOfficialSource,
@@ -78,7 +81,9 @@ class Command(BaseCommand):
         self._ensure_config_baseline(config=config, ppm_rate=ppm_rate, ddjj_codes=ddjj_codes)
         self._ensure_tax_year_ruleset(config=config, anio_tributario=anio_tributario, ddjj_codes=ddjj_codes)
         self._ensure_ddjj_layouts(config=config, anio_tributario=anio_tributario, ddjj_codes=ddjj_codes)
+        self._ensure_f22_export_layout(config=config, anio_tributario=anio_tributario)
         self._ensure_real_estate_contribution_source(config=config, anio_tributario=anio_tributario)
+        self._ensure_f22_export_format_source(config=config, anio_tributario=anio_tributario)
         updated_capabilities = self._ensure_annual_cert_refs(empresa=empresa, cert_prefix=cert_prefix)
 
         prepared_months = 0
@@ -328,6 +333,25 @@ class Command(BaseCommand):
             },
         )
 
+    def _ensure_f22_export_format_source(
+        self,
+        *,
+        config: ConfiguracionFiscalEmpresa,
+        anio_tributario: int,
+    ) -> AnnualTaxOfficialSource:
+        return self._ensure_official_source(
+            config=config,
+            anio_tributario=anio_tributario,
+            key="f22-export-format",
+            applies_to=DestinoMapeoTributarioAnual.F22,
+            metadata_extra={
+                "f22_export_format": True,
+                "f22_certification": False,
+                "official_format": False,
+                "sii_submission": False,
+            },
+        )
+
     def _ensure_ddjj_layouts(
         self,
         *,
@@ -417,6 +441,79 @@ class Command(BaseCommand):
             layout.save()
             layouts.append(layout)
         return layouts
+
+    def _ensure_f22_export_layout(
+        self,
+        *,
+        config: ConfiguracionFiscalEmpresa,
+        anio_tributario: int,
+    ) -> AnnualTaxF22ExportLayout:
+        certification_source = self._ensure_official_source(
+            config=config,
+            anio_tributario=anio_tributario,
+            key="f22-export-format",
+            applies_to=DestinoMapeoTributarioAnual.F22,
+            metadata_extra={"f22_export_format": True, "f22_certification": True},
+        )
+        instructions_source = self._ensure_official_source(
+            config=config,
+            anio_tributario=anio_tributario,
+            key="f22-instructions",
+            applies_to=DestinoMapeoTributarioAnual.F22,
+            metadata_extra={"f22_instructions": True},
+        )
+        layout, _ = AnnualTaxF22ExportLayout.objects.get_or_create(
+            anio_tributario=anio_tributario,
+            form_code="F22",
+            defaults={
+                "title": f"F22 AT{anio_tributario} preview local demo controlado",
+                "allows_local_preview": True,
+                "allows_certified_file": False,
+                "allows_supervised_portal": False,
+                "medio_preferente": MedioAnnualTaxF22Export.LOCAL_PREVIEW,
+                "certification_ref": f"demo-certification-f22-at{anio_tributario}",
+                "format_ref": f"demo-f22-layout-at{anio_tributario}",
+                "instructions_ref": f"demo-f22-instructions-at{anio_tributario}",
+                "responsible_ref": f"demo-f22-layout-reviewer-at{anio_tributario}",
+                "official_certification_source": certification_source,
+                "official_instructions_source": instructions_source,
+                "warnings": [],
+                "source_payload": {
+                    "source": "bootstrap_demo_tax_annual_flow",
+                    "form_code": "F22",
+                    "anio_tributario": anio_tributario,
+                    "official_format": False,
+                    "sii_submission": False,
+                    "final_tax_calculation": False,
+                },
+                "estado": EstadoAnnualTaxF22ExportLayout.PREPARED,
+            },
+        )
+        layout.title = f"F22 AT{anio_tributario} preview local demo controlado"
+        layout.allows_local_preview = True
+        layout.allows_certified_file = False
+        layout.allows_supervised_portal = False
+        layout.medio_preferente = MedioAnnualTaxF22Export.LOCAL_PREVIEW
+        layout.certification_ref = f"demo-certification-f22-at{anio_tributario}"
+        layout.format_ref = f"demo-f22-layout-at{anio_tributario}"
+        layout.instructions_ref = f"demo-f22-instructions-at{anio_tributario}"
+        layout.responsible_ref = f"demo-f22-layout-reviewer-at{anio_tributario}"
+        layout.official_certification_source = certification_source
+        layout.official_instructions_source = instructions_source
+        layout.warnings = []
+        layout.source_payload = {
+            "source": "bootstrap_demo_tax_annual_flow",
+            "form_code": "F22",
+            "anio_tributario": anio_tributario,
+            "official_format": False,
+            "sii_submission": False,
+            "final_tax_calculation": False,
+        }
+        layout.estado = EstadoAnnualTaxF22ExportLayout.PREPARED
+        layout.hash_layout = layout.compute_hash_layout()
+        layout.full_clean()
+        layout.save()
+        return layout
 
     def _ensure_annual_cert_refs(self, *, empresa: Empresa, cert_prefix: str) -> int:
         updated = 0

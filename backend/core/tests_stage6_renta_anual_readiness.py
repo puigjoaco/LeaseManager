@@ -45,6 +45,7 @@ from sii.models import (
     AnnualTaxArtifactMatrix,
     AnnualTaxArtifactMatrixItem,
     AnnualTaxDDJJFormLayout,
+    AnnualTaxF22ExportLayout,
     AnnualTaxDossier,
     AnnualTaxExport,
     AnnualTaxOfficialSource,
@@ -62,6 +63,7 @@ from sii.models import (
     EstadoAnnualEnterpriseRegister,
     EstadoAnnualTaxArtifactReview,
     EstadoAnnualTaxDDJJLayout,
+    EstadoAnnualTaxF22ExportLayout,
     EstadoAnnualTaxOfficialSource,
     EstadoAnnualTaxSourceBundle,
     EstadoRegistro,
@@ -69,6 +71,7 @@ from sii.models import (
     EstadoGateSII,
     F22PreparacionAnual,
     MedioAnnualTaxDDJJ,
+    MedioAnnualTaxF22Export,
     MonthlyTaxFact,
     ProcesoRentaAnual,
     TaxCodeMapping,
@@ -81,6 +84,7 @@ from sii.services import (
     summarize_annual_tax_artifact_matrices,
     summarize_annual_tax_dossiers,
     summarize_annual_tax_ddjj_layouts,
+    summarize_annual_tax_f22_export_layouts,
     summarize_annual_tax_exports,
     summarize_annual_tax_review_checklists,
     summarize_annual_tax_trial_balances,
@@ -276,6 +280,24 @@ class Stage6RentaAnualReadinessTests(TestCase):
             metadata={'source': 'stage6-controlled', 'real_estate_contributions': True},
         )
 
+    def _create_f22_export_format_source(self, *, anio_tributario=2026, regime_code=''):
+        return AnnualTaxOfficialSource.objects.create(
+            anio_tributario=anio_tributario,
+            source_key=f'expert-f22-export-format-at{anio_tributario}',
+            source_type=TipoAnnualTaxOfficialSource.EXPERT_REVIEW,
+            title=f'Revision experta formato export F22 AT{anio_tributario}',
+            source_ref=f'expert-f22-export-format-source-ref-at{anio_tributario}',
+            source_hash='8' * 64,
+            retrieved_on=date(2026, 6, 14),
+            responsible_ref='f22-export-format-reviewer-controlled',
+            estado=EstadoAnnualTaxOfficialSource.APPROVED,
+            applies_to=DestinoMapeoTributarioAnual.F22,
+            form_code='F22',
+            regime_code=regime_code,
+            scope_note='Fuente experta controlada para formato/certificacion F22 local.',
+            metadata={'source': 'stage6-controlled', 'f22_export_format': True, 'official_format': False},
+        )
+
     def _create_ddjj_layouts(self, config, *, anio_tributario=2026):
         source = self._create_official_source(
             anio_tributario=anio_tributario,
@@ -320,6 +342,47 @@ class Stage6RentaAnualReadinessTests(TestCase):
             layout.save()
             layouts.append(layout)
         return layouts
+
+    def _create_f22_export_layout(self, config, *, anio_tributario=2026, warnings=None):
+        certification_source = self._create_official_source(
+            anio_tributario=anio_tributario,
+            applies_to=DestinoMapeoTributarioAnual.F22,
+            regime_code=config.regimen_tributario.codigo_regimen,
+        )
+        AnnualTaxOfficialSource.objects.filter(pk=certification_source.pk).update(
+            metadata={'source': 'stage6-controlled', 'f22_export_format': True}
+        )
+        certification_source.refresh_from_db()
+        instructions_source = certification_source
+        layout = AnnualTaxF22ExportLayout(
+            anio_tributario=anio_tributario,
+            form_code='F22',
+            title=f'F22 AT{anio_tributario} preview local controlado',
+            allows_local_preview=True,
+            allows_certified_file=False,
+            allows_supervised_portal=False,
+            medio_preferente=MedioAnnualTaxF22Export.LOCAL_PREVIEW,
+            certification_ref=f'f22-certification-at{anio_tributario}-controlled',
+            format_ref=f'f22-layout-at{anio_tributario}-controlled',
+            instructions_ref=f'f22-instructions-at{anio_tributario}-controlled',
+            responsible_ref='stage6-f22-layout-owner',
+            official_certification_source=certification_source,
+            official_instructions_source=instructions_source,
+            warnings=list(warnings or []),
+            source_payload={
+                'source': 'stage6-controlled',
+                'anio_tributario': anio_tributario,
+                'form_code': 'F22',
+                'official_format': False,
+                'sii_submission': False,
+                'final_tax_calculation': False,
+            },
+            estado=EstadoAnnualTaxF22ExportLayout.PREPARED,
+        )
+        layout.hash_layout = layout.compute_hash_layout()
+        layout.full_clean()
+        layout.save()
+        return layout
 
     def _create_approved_tax_year_ruleset(self, config, anio_tributario=2026):
         rule_source = self._create_official_source(
@@ -391,6 +454,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
         fiscal_year=2025,
         real_estate_contribution_source=None,
         real_estate_contributions_by_property_id=None,
+        f22_export_format_source=None,
     ):
         source_summary = {
             'empresa_id': empresa.id,
@@ -407,6 +471,15 @@ class Stage6RentaAnualReadinessTests(TestCase):
                 'official_source_id': real_estate_contribution_source.id if real_estate_contribution_source else None,
                 'values_by_property_id': real_estate_contributions_by_property_id or {},
                 'final_tax_calculation': False,
+            },
+            'f22_export_format': {
+                'source': 'official_or_expert_review' if f22_export_format_source else 'not_loaded_v1',
+                'official_source_id': f22_export_format_source.id if f22_export_format_source else None,
+                'official_format': False,
+                'sii_submission': False,
+                'final_tax_calculation': False,
+                'requires_official_format_gate': True,
+                'requires_explicit_submission_authorization': True,
             },
         }
         source_hash = hashlib.sha256(
@@ -499,6 +572,9 @@ class Stage6RentaAnualReadinessTests(TestCase):
         real_estate_source = self._create_real_estate_contribution_source(
             regime_code=config.regimen_tributario.codigo_regimen,
         )
+        f22_export_format_source = self._create_f22_export_format_source(
+            regime_code=config.regimen_tributario.codigo_regimen,
+        )
         source_bundle = self._create_annual_source_bundle(
             empresa,
             real_estate_contribution_source=real_estate_source,
@@ -509,6 +585,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
                     'evidencia_ref': 'real-estate-contributions-controlled',
                 },
             },
+            f22_export_format_source=f22_export_format_source,
         )
         monthly_facts = sync_monthly_tax_facts(empresa, 2025)
         self._create_annual_trial_balance_source(empresa, 2025)
@@ -555,11 +632,13 @@ class Stage6RentaAnualReadinessTests(TestCase):
         sync_annual_enterprise_registers(process, rule_set, source_bundle)
         sync_annual_real_estate_section(process, rule_set, source_bundle)
         self._create_ddjj_layouts(config)
+        self._create_f22_export_layout(config)
         summary['annual_tax_trial_balances'] = summarize_annual_tax_trial_balances(process)
         summary['annual_tax_workbooks'] = summarize_annual_tax_workbooks(process)
         summary['annual_enterprise_registers'] = summarize_annual_enterprise_registers(process)
         summary['annual_real_estate_sections'] = summarize_annual_real_estate_sections(process)
         summary['annual_tax_ddjj_layouts'] = summarize_annual_tax_ddjj_layouts(process)
+        summary['annual_tax_f22_export_layouts'] = summarize_annual_tax_f22_export_layouts(process)
         process.resumen_anual = summary
         process.save(update_fields=['resumen_anual', 'updated_at'])
         sync_annual_tax_artifact_matrix(process, rule_set, source_bundle, config)
@@ -1202,6 +1281,68 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertNotIn('token=secret', serialized_result)
         self.assertNotIn('api_key', serialized_result)
 
+    def test_f22_export_layout_missing_is_blocking(self):
+        self._create_valid_local_matrix()
+        AnnualTaxF22ExportLayout.objects.all().delete()
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.process_f22_export_layout_missing', issue_codes)
+        self.assertEqual(result['sections']['annual_tax_f22_export_layouts']['layouts_total'], 0)
+
+    def test_f22_export_layout_warning_is_blocking(self):
+        self._create_valid_local_matrix()
+        layout = AnnualTaxF22ExportLayout.objects.get()
+        layout.warnings = ['f22_layout_requires_expert_review']
+        layout.hash_layout = layout.compute_hash_layout()
+        layout.save(update_fields=['warnings', 'hash_layout', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.f22_export_layout_warning_review_required', issue_codes)
+
+    def test_f22_export_layout_summary_hash_mismatch_is_blocking(self):
+        self._create_valid_local_matrix()
+        process = ProcesoRentaAnual.objects.get()
+        summary = dict(process.resumen_anual)
+        layout_summary = dict(summary['annual_tax_f22_export_layouts'])
+        by_form_code = dict(layout_summary['by_form_code'])
+        form_summary = dict(by_form_code['F22'])
+        form_summary['hash_layout'] = 'f' * 64
+        by_form_code['F22'] = form_summary
+        layout_summary['by_form_code'] = by_form_code
+        summary['annual_tax_f22_export_layouts'] = layout_summary
+        process.resumen_anual = summary
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.process_f22_export_layout_summary_mismatch', issue_codes)
+
+    def test_invalid_f22_export_layout_is_blocking_without_leak(self):
+        self._create_valid_local_matrix()
+        layout = AnnualTaxF22ExportLayout.objects.get()
+        AnnualTaxF22ExportLayout.objects.filter(pk=layout.pk).update(
+            format_ref='https://sii.example.test/f22-layout?token=secret',
+            source_payload={'api_key': 'secret-f22-layout', 'official_format': True},
+            hash_layout='not-a-sha',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+        serialized_result = json.dumps(result)
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.f22_export_layout_invalid', issue_codes)
+        self.assertNotIn('token=secret', serialized_result)
+        self.assertNotIn('api_key', serialized_result)
+
     def test_annual_process_without_artifact_matrix_is_blocking(self):
         self._create_valid_local_matrix()
         AnnualTaxReviewChecklist.objects.all().delete()
@@ -1491,6 +1632,40 @@ class Stage6RentaAnualReadinessTests(TestCase):
 
         self.assertFalse(result['ready_for_stage6_renta_anual'])
         self.assertIn('stage6.process_tax_export_summary_mismatch', issue_codes)
+
+    def test_tax_export_without_f22_format_source_is_blocking(self):
+        self._create_valid_local_matrix()
+        process = ProcesoRentaAnual.objects.get()
+        export = AnnualTaxExport.objects.get()
+        payload = dict(export.export_payload)
+        payload['official_format_source_id'] = None
+        payload['official_format_source'] = {
+            'source': 'not_loaded_v1',
+            'official_source_id': None,
+            'official_format': False,
+            'sii_submission': False,
+            'final_tax_calculation': False,
+            'requires_official_format_gate': True,
+            'requires_explicit_submission_authorization': True,
+        }
+        hash_export = hashlib.sha256(
+            json.dumps(payload, sort_keys=True, separators=(',', ':'), ensure_ascii=True, default=str).encode('utf-8')
+        ).hexdigest()
+        AnnualTaxExport.objects.filter(pk=export.pk).update(
+            official_format_source=None,
+            export_payload=payload,
+            hash_export=hash_export,
+        )
+        summary = dict(process.resumen_anual)
+        summary['annual_tax_exports'] = summarize_annual_tax_exports(process)
+        process.resumen_anual = summary
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.tax_export_official_format_source_missing', issue_codes)
 
     def test_invalid_tax_export_is_blocking_without_leak(self):
         self._create_valid_local_matrix()
@@ -1874,7 +2049,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage6_renta_anual'])
         self.assertIn('stage6.official_source_invalid', issue_codes)
         self.assertEqual(result['sections']['annual_tax_official_sources']['official_source_invalid'], 1)
-        self.assertEqual(result['sections']['annual_tax_official_sources']['sources_total'], 8)
+        self.assertEqual(result['sections']['annual_tax_official_sources']['sources_total'], 10)
         self.assertNotIn('token=secret', serialized_result)
         self.assertNotIn('source-secret', serialized_result)
 

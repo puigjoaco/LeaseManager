@@ -98,9 +98,10 @@ tener fuente SII/experta, responsable y evidencia no sensible.
 | `AnnualRealEstateSection` / `AnnualRealEstateItem` | Normalizar bienes raices/arriendos | propiedades, contratos, pagos, distribuciones y contribuciones | seccion anual, items por propiedad y respaldo | fuente SII/experta para codigos y contribuciones |
 | `AnnualTaxArtifactMatrix` / `AnnualTaxArtifactMatrixItem` | Conectar fuentes anuales con DDJJ/F22 revisables | source bundle, rule set, config fiscal, resumen anual, RLI/CPT, registros y bienes raices | matriz por destino, medio, fuente, responsable, warnings y hash | items DDJJ/F22 activos y sin warnings pendientes |
 | `DdjjPackageBuilder` | Preparar DDJJ/certificados | matriz DDJJ, registros, socios, certificados | paquetes DDJJ revisables | medio SII vigente por formulario |
-| `F22DraftBuilder` | Mapear a codigos F22 | matriz F22, registros intermedios y DDJJ | preview F22 | formato/certificacion vigente |
+| `AnnualTaxF22ExportLayout` | Materializar formato/certificacion F22 revisable antes del export | fuente oficial/experta, instrucciones/formato/responsable y medio preferente | layout F22 hasheado, payload no sensible y boundary explicito | no habilita formato oficial, envio SII ni calculo final |
+| `F22DraftBuilder` | Mapear a codigos F22 | matriz F22, layout F22, registros intermedios y DDJJ | preview F22 | formato/certificacion vigente y revision responsable |
 | `AnnualTaxDossier` | Generar respaldo revisable | todo lo anterior | PDF/HTML/resumen hash | responsable de revision |
-| `AnnualTaxExport` | Emitir archivo controlado | F22/DDJJ aprobados | export no sensible | autorizacion explicita y gate SII |
+| `AnnualTaxExport` | Emitir preview/export local controlado | dossier, matriz, layout F22 y fuente de formato/certificacion | export no sensible | autorizacion explicita y gate SII para cualquier salida oficial |
 
 ## Contratos de datos minimos
 
@@ -115,6 +116,7 @@ contratos:
 | Linea normalizada | `codigo_interno`, `origen`, `monto`, `signo`, `formula_ref`, `evidencia_ref`, `official_source`, `warnings` | trazabilidad de cada monto |
 | Registro empresarial | `tipo_registro`, `saldo_inicial`, `movimientos`, `saldo_final`, `fuente_saldo` | RAI/SAC no puede inventar saldos |
 | Paquete DDJJ | `formulario`, `medio_sii`, `periodo`, `registros`, `responsable_revision_ref`, `paquete_ref` | DDJJ revisable antes de F22 |
+| Layout F22 export | `anio_tributario`, `form_code=F22`, `medio_preferente`, `certification_ref`, `format_ref`, `instructions_ref`, `official_source`, `hash_layout`, `estado` | separar preparacion local de formato oficial/presentacion SII |
 | Draft F22 | `codigo_f22`, `valor`, `fuente_linea`, `estado_revision`, `borrador_ref` | F22 como salida explicable |
 | Decision responsable | `responsable_ref`, `accion`, `observacion`, `evidencia_ref`, `timestamp` | boundary humano/experto |
 
@@ -182,38 +184,48 @@ contratos:
    y `sii_submission=false`. API/snapshot/admin redactan refs/payloads y
    readiness bloquea si falta dossier, si el resumen esta desalineado, si falta
    responsable o si existen warnings/revision pendiente.
-10. `stage6-export-gate`: export/preview, sin presentacion final automatica.
+10. `stage6-f22-export-layout`: formato/certificacion F22 como capa revisable
+   previa al export local. Implementado como `AnnualTaxF22ExportLayout`: una
+   fila `F22` por ano tributario conserva fuente oficial/experta, refs no
+   sensibles de certificacion/formato/instrucciones/responsable, medio
+   preferente, warnings, payload no sensible y `hash_layout`. La matriz
+   DDJJ/F22 lo referencia con `source_kind=f22_export_layout`; dossier, export
+   y checklist lo resumen sin habilitar archivo oficial, upload SII,
+   presentacion autonoma ni calculo tributario final. Readiness bloquea layout
+   faltante, invalido, con warnings o resumen anual desalineado.
+11. `stage6-export-gate`: export/preview, sin presentacion final automatica.
    Implementado como `AnnualTaxExport`: genera un paquete local controlado
-   desde `AnnualTaxDossier`, source bundle, rule set y matriz DDJJ/F22, con
-   payload hasheado, refs no sensibles, conteos DDJJ/F22 y flags obligatorios
-   `official_format=false`, `sii_submission=false` y
+   desde `AnnualTaxDossier`, source bundle, rule set, matriz DDJJ/F22, layout
+   F22 y fuente oficial/experta de formato/certificacion, con payload hasheado,
+   refs no sensibles, conteos DDJJ/F22, id/hash/medio del layout F22 y flags
+   obligatorios `official_format=false`, `sii_submission=false` y
    `final_tax_calculation=false`. API/snapshot/admin redactan refs/payloads y
-   readiness bloquea si falta export, si el resumen esta desalineado, si hay
-   revision pendiente o si intenta declarar formato oficial/presentacion/calculo
-   final.
-11. `stage6-edig-coverage-matrix`: matriz de cobertura segura, sin dependencia
+   readiness bloquea si falta export, fuente de formato F22, resumen alineado,
+   revision responsable o si intenta declarar formato oficial/presentacion/
+   calculo final.
+12. `stage6-edig-coverage-matrix`: matriz de cobertura segura, sin dependencia
     runtime de EDIG. Implementado como
     `build-edig-at2026-leasemanager-coverage.ps1`: toma los inventarios
     sanitizados de `local-evidence/`, resume cobertura por area y separa
     claramente componentes ya implementados de brechas externas/oficiales.
-12. `stage6-official-source-gaps`: matriz de brechas oficiales AT2026.
+13. `stage6-official-source-gaps`: matriz de brechas oficiales AT2026.
     Implementado como `RENTA_ANUAL_OFFICIAL_SOURCE_GAPS_AT2026.md` y
     `build-stage6-official-source-gap-matrix.ps1`: clasifica DTE, F29, DDJJ,
     DJ1847/RLI/CPT, F22, bienes raices/contribuciones y automatizacion por
     navegador entre preparacion local permitida, fuente oficial/experta
     requerida y presentacion externa bloqueada, sin ejecutar EDIG, sin llamar
     SII y sin producir archivos oficiales.
-13. `stage6-official-tax-source-registry`: registro operacional de fuentes
+14. `stage6-official-tax-source-registry`: registro operacional de fuentes
     oficiales/experta. Implementado como `AnnualTaxOfficialSource`: modelo,
     migracion, API/snapshot/admin redactados y readiness bloqueante si una
     fuente AT registrada es invalida, usa URL no segura, carece de hash/fecha/
     responsable o conserva refs/payloads sensibles.
-14. `stage6-rule-source-link`: respaldo obligatorio de reglas y mappings con
+15. `stage6-rule-source-link`: respaldo obligatorio de reglas y mappings con
     fuentes oficiales/experta. Implementado como enlaces `official_source` desde
     `TaxYearRuleSet` y `TaxCodeMapping`, validacion de AT/destino/regimen y
     readiness bloqueante si una regla aprobada o mapping activo no tiene fuente
     revisada/aprobada compatible.
-15. `stage6-demo-official-sources`: baseline anual demo compatible con fuentes.
+16. `stage6-demo-official-sources`: baseline anual demo compatible con fuentes.
     Implementado en `bootstrap_demo_tax_annual_flow`: crea/repara fuentes
     expertas demo aprobadas para el rule set anual y para mappings
     RLI/CPT/RAI/SAC/DDJJ/F22, de forma idempotente y sin declarar fuente SII
@@ -235,7 +247,7 @@ necesarias ya tienen equivalente propio en LeaseManager:
 | Bienes raices/arriendos/contribuciones | seccion implementada; fuente contribuciones pendiente |
 | Matriz DDJJ/F22 | matriz revisable implementada |
 | Dossier/respaldo | paquete revisable implementado |
-| Export/upload | export local implementado; presentacion externa bloqueada |
+| Layout/export F22 | layout F22 y export local implementados; formato oficial/presentacion externa bloqueados |
 
 La conclusion operativa es que EDIG ya no debe ser usado como fuente para
 seguir agregando estructura interna. El siguiente avance real depende de fuente
@@ -253,7 +265,7 @@ Fuentes verificadas al 2026-06-14:
 
 | Fuente | Decision tecnica |
 | --- | --- |
-| Certificacion F22 AT2026 | Investigar formato/certificacion de archivo; no declarar consistencia tributaria por estar certificado tecnicamente. |
+| Certificacion F22 AT2026 | Mantener `AnnualTaxF22ExportLayout` como capa revisable; no declarar archivo oficial, presentacion SII ni consistencia tributaria final por tener layout preparado. |
 | Instrucciones F22 Renta 2026 | Bajar codigos a `TaxCodeMapping` con fuente/hash/responsable, no citar la guia como formula generica. |
 | Medios y formularios DDJJ 2026 | Modelar cada DDJJ por formulario, medio, layout, certificado, vencimiento y responsable. |
 | DJ1847 AT2026 | Priorizar mapping plan de cuentas -> balance 8 columnas -> RLI/CPT y valores tributarios. |
@@ -285,11 +297,15 @@ DJ1847/RLI/CPT, porque ahi ocurre la union real entre contabilidad y renta.
 | Item DDJJ/F22 faltante | matriz preparada sin items activos, sin items F22 o sin items DDJJ |
 | Resumen matriz DDJJ/F22 desalineado | hash, conteos o ids del proceso no coinciden con la matriz vigente |
 | Item matriz con warning/bloqueo | fuente anual requiere revision tributaria antes de package/export |
+| Layout F22 faltante | proceso anual trazable sin `AnnualTaxF22ExportLayout` preparado |
+| Resumen layout F22 desalineado | hash, medio, warnings o ids del proceso no coinciden con el layout vigente |
+| Layout F22 fuera de boundary | payload intenta marcar formato oficial, presentacion SII o calculo tributario final |
 | Dossier anual faltante | proceso anual trazable sin `AnnualTaxDossier` preparado |
 | Resumen dossier desalineado | hash, conteos, matriz o ids del proceso no coinciden con el dossier vigente |
 | Dossier con revision pendiente | warnings o estado `requiere_revision` bloquean cierre/presentacion aunque permitan export local de revision; estado `bloqueado` impide export |
 | Export anual faltante | proceso anual trazable sin `AnnualTaxExport` preparado |
 | Resumen export desalineado | hash, dossier, conteos, flags o ids del proceso no coinciden con el export vigente |
+| Export sin fuente formato F22 | `AnnualTaxExport` no enlaza fuente oficial/experta de formato/certificacion F22 |
 | Export fuera de boundary | intento de marcar formato oficial SII, presentacion SII o calculo final autonomo |
 | Responsable ausente | DDJJ/F22/dossier avanzado sin `responsable_revision_ref` |
 | Refs sensibles | URLs, tokens, correos, certificados o claves en refs/payloads |

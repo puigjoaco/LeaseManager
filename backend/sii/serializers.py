@@ -15,6 +15,7 @@ from .models import (
     AnnualTaxArtifactMatrix,
     AnnualTaxArtifactMatrixItem,
     AnnualTaxDDJJFormLayout,
+    AnnualTaxF22ExportLayout,
     AnnualTaxDossier,
     AnnualTaxExport,
     AnnualTaxOfficialSource,
@@ -280,6 +281,56 @@ class AnnualTaxDDJJFormLayoutSerializer(RedactSensitiveSiiFieldsMixin, serialize
 
     def validate(self, attrs):
         candidate = build_validation_candidate(self.instance, AnnualTaxDDJJFormLayout)
+        for field, value in attrs.items():
+            setattr(candidate, field, value)
+        try:
+            candidate.full_clean()
+        except DjangoValidationError as error:
+            raise_drf_validation_error(error)
+        return attrs
+
+
+class AnnualTaxF22ExportLayoutSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = (
+        'certification_ref',
+        'format_ref',
+        'instructions_ref',
+        'responsible_ref',
+    )
+    redacted_payload_fields = ('warnings', 'source_payload')
+
+    class Meta:
+        model = AnnualTaxF22ExportLayout
+        fields = (
+            'id',
+            'anio_tributario',
+            'form_code',
+            'title',
+            'allows_local_preview',
+            'allows_certified_file',
+            'allows_supervised_portal',
+            'medio_preferente',
+            'certification_ref',
+            'format_ref',
+            'instructions_ref',
+            'responsible_ref',
+            'official_certification_source',
+            'official_instructions_source',
+            'warnings',
+            'source_payload',
+            'hash_layout',
+            'estado',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'created_at', 'updated_at')
+
+    def get_validators(self):
+        # Model full_clean validates the conditional source/hash contract with instance context.
+        return []
+
+    def validate(self, attrs):
+        candidate = build_validation_candidate(self.instance, AnnualTaxF22ExportLayout)
         for field, value in attrs.items():
             setattr(candidate, field, value)
         try:
@@ -722,6 +773,7 @@ class AnnualTaxExportSerializer(RedactSensitiveSiiFieldsMixin, serializers.Model
             'source_bundle',
             'rule_set',
             'artifact_matrix',
+            'official_format_source',
             'anio_tributario',
             'anio_comercial',
             'export_kind',
