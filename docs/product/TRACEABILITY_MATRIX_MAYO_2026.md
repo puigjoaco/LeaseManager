@@ -61,6 +61,14 @@ del resumen mensual y refs no sensibles. La readiness bloquea procesos anuales
 trazables sin doce hechos mensuales normalizados o con resumen mensual
 desalineado, manteniendo el camino anual en capas antes de RLI/CPT/F22.
 
+Nota 2026-06-14: `RENTA_ANUAL_OFFICIAL_SOURCE_GAPS_AT2026.md` consolida las
+fuentes oficiales y brechas externas de Etapa 6. DTE queda como integracion
+tecnica posible bajo gate propio; F29, DDJJ, DJ1847/RLI/CPT, F22, bienes
+raices/contribuciones y automatizacion por navegador quedan como preparacion
+local revisable hasta contar con fuente SII/experta, certificacion/formato,
+responsable y autorizacion explicita. `build-stage6-official-source-gap-matrix.ps1`
+genera una salida local ignorada para no volver a debatir ese boundary.
+
 Nota 2026-06-14: Etapa 6 materializa el skeleton RLI/CPT mediante
 `AnnualTaxWorkbook` y `AnnualTaxWorkbookLine`. La preparacion anual genera
 workbooks RLI y CPT desde `TaxCodeMapping` + `MonthlyTaxFact`, con hashes por

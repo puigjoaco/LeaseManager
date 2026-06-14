@@ -169,8 +169,8 @@ piezas minimas:
 ## Fuentes oficiales verificadas
 
 - F22: el SII invita a empresas de software a certificarse para generar
-  archivos de declaracion anual Formulario 22 por Internet.
-  `https://www.sii.cl/noticias/2025/120225noti01aav.htm`
+  archivos de declaracion anual Formulario 22 por Internet para AT2026.
+  `https://www.sii.cl/noticias/2026/060226noti02pcr.htm`
 - F29: el proceso Upload carga archivo, despliega el formulario, recalcula
   totalizadores y valida con set de validaciones.
   `https://www.sii.cl/ayudas/ayudas_por_servicios/2055-procesocertificacion-2056.html`
@@ -185,6 +185,12 @@ piezas minimas:
 Estas fuentes prueban el camino archivo/upload/certificacion. No prueban una API
 REST publica para presentar F22; por defecto ese camino queda bloqueado hasta
 documento oficial vigente.
+
+La separacion operativa queda consolidada en
+`docs/product/RENTA_ANUAL_OFFICIAL_SOURCE_GAPS_AT2026.md`: DTE puede tratarse
+como integracion tecnica con gate propio; F29, DDJJ, DJ1847/RLI/CPT, F22,
+bienes raices y contribuciones quedan como preparacion local hasta fuente
+oficial/experta, certificacion, responsable y autorizacion explicita.
 
 ## Proximos paquetes tecnicos
 

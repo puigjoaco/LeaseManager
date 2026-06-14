@@ -108,6 +108,11 @@ dossier y la matriz DDJJ/F22 en un payload hasheado, con refs no sensibles,
 responsable, conteos DDJJ/F22 y flags obligatorios `official_format=false`,
 `sii_submission=false` y `final_tax_calculation=false`. Es una salida revisable
 del motor anual, no un formato oficial SII ni una presentacion.
+`RENTA_ANUAL_OFFICIAL_SOURCE_GAPS_AT2026.md` fija la matriz de brechas
+oficiales: DTE queda como integracion tecnica separada bajo gate; F29, DDJJ,
+DJ1847/RLI/CPT, F22, bienes raices/contribuciones y automatizacion por
+navegador quedan limitados a preparacion revisable hasta fuente SII/experta,
+formato/certificacion, responsable y autorizacion explicita.
 
 ## Gate
 
@@ -177,6 +182,9 @@ del motor anual, no un formato oficial SII ni una presentacion.
 - `AnnualTaxExport` bloquea readiness si falta, si esta desalineado, si contiene
   refs/payloads sensibles, si hay revision pendiente o si intenta declarar
   formato oficial SII, presentacion SII o calculo fiscal final autonomo.
+- La matriz `stage6-official-source-gaps` debe mantenerse alineada con fuentes
+  SII vigentes antes de promover cualquier warning de regla, medio DDJJ,
+  mapping DJ1847/RLI/CPT, contribucion o formato F22 a estado cerrable.
 - `generate_annual_preparation()` sincroniza bienes raices/arriendos despues
   de RLI/CPT y registros empresariales, antes de emitir DDJJ/F22 locales. La
   readiness bloquea procesos trazables sin seccion inmobiliaria, sin items
