@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
+import hashlib
 
 from django.core.management.base import BaseCommand, CommandError
 
@@ -15,7 +16,13 @@ from contabilidad.models import (
 )
 from contabilidad.services import approve_monthly_close, prepare_monthly_close
 from patrimonio.models import Empresa
-from sii.models import CapacidadSII
+from sii.models import (
+    CapacidadSII,
+    DestinoMapeoTributarioAnual,
+    EstadoReglaTributariaAnual,
+    TaxCodeMapping,
+    TaxYearRuleSet,
+)
 from sii.services import generate_annual_preparation
 
 
@@ -59,6 +66,7 @@ class Command(BaseCommand):
 
         config = self._get_config(empresa)
         self._ensure_config_baseline(config=config, ppm_rate=ppm_rate, ddjj_codes=ddjj_codes)
+        self._ensure_tax_year_ruleset(config=config, anio_tributario=anio_tributario, ddjj_codes=ddjj_codes)
         updated_capabilities = self._ensure_annual_cert_refs(empresa=empresa, cert_prefix=cert_prefix)
 
         prepared_months = 0
@@ -118,6 +126,78 @@ class Command(BaseCommand):
             dirty = True
         if dirty:
             config.save(update_fields=["tasa_ppm_vigente", "ddjj_habilitadas", "updated_at"])
+
+    def _ensure_tax_year_ruleset(
+        self,
+        *,
+        config: ConfiguracionFiscalEmpresa,
+        anio_tributario: int,
+        ddjj_codes: tuple[str, ...],
+    ) -> TaxYearRuleSet:
+        hash_normativo = hashlib.sha256(
+            f"demo-tax-year-ruleset-{anio_tributario}-{config.regimen_tributario_id}".encode("utf-8")
+        ).hexdigest()
+        rule_set = TaxYearRuleSet.objects.filter(
+            anio_tributario=anio_tributario,
+            regimen_tributario=config.regimen_tributario,
+            estado=EstadoReglaTributariaAnual.APPROVED,
+        ).first()
+        created = False
+        if rule_set is None:
+            rule_set, created = TaxYearRuleSet.objects.get_or_create(
+                anio_tributario=anio_tributario,
+                regimen_tributario=config.regimen_tributario,
+                version=f"AT{anio_tributario}-demo-v1",
+                defaults={
+                    "estado": EstadoReglaTributariaAnual.APPROVED,
+                    "fuente_ref": f"demo-tax-rule-source-at{anio_tributario}",
+                    "hash_normativo": hash_normativo,
+                    "responsable_aprobacion_ref": f"demo-tax-rule-reviewer-at{anio_tributario}",
+                    "metadata": {"source": "bootstrap_demo_tax_annual_flow", "official": False},
+                },
+            )
+        if not created and rule_set.estado != EstadoReglaTributariaAnual.APPROVED:
+            rule_set.estado = EstadoReglaTributariaAnual.APPROVED
+            rule_set.fuente_ref = f"demo-tax-rule-source-at{anio_tributario}"
+            rule_set.hash_normativo = hash_normativo
+            rule_set.responsable_aprobacion_ref = f"demo-tax-rule-reviewer-at{anio_tributario}"
+            rule_set.metadata = {"source": "bootstrap_demo_tax_annual_flow", "official": False}
+            rule_set.full_clean()
+            rule_set.save(
+                update_fields=[
+                    "estado",
+                    "fuente_ref",
+                    "hash_normativo",
+                    "responsable_aprobacion_ref",
+                    "metadata",
+                    "updated_at",
+                ]
+            )
+
+        required_destinations = (
+            DestinoMapeoTributarioAnual.RLI,
+            DestinoMapeoTributarioAnual.CPT,
+            DestinoMapeoTributarioAnual.RAI,
+            DestinoMapeoTributarioAnual.SAC,
+            DestinoMapeoTributarioAnual.F22,
+            DestinoMapeoTributarioAnual.DDJJ,
+        )
+        for destino in required_destinations:
+            TaxCodeMapping.objects.get_or_create(
+                rule_set=rule_set,
+                destino=destino,
+                codigo_interno=f"demo.{destino.lower()}.controlled",
+                codigo_destino=f"{destino}-DEMO",
+                defaults={
+                    "formula_ref": f"demo-formula-{destino.lower()}-at{anio_tributario}",
+                    "evidencia_ref": f"demo-evidence-{destino.lower()}-at{anio_tributario}",
+                    "metadata": {
+                        "source": "bootstrap_demo_tax_annual_flow",
+                        "ddjj_codes": list(ddjj_codes) if destino == DestinoMapeoTributarioAnual.DDJJ else [],
+                    },
+                },
+            )
+        return rule_set
 
     def _ensure_annual_cert_refs(self, *, empresa: Empresa, cert_prefix: str) -> int:
         updated = 0

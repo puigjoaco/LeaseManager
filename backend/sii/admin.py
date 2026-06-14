@@ -9,6 +9,8 @@ from .models import (
     F22PreparacionAnual,
     F29PreparacionMensual,
     ProcesoRentaAnual,
+    TaxCodeMapping,
+    TaxYearRuleSet,
 )
 
 
@@ -64,6 +66,104 @@ class CapacidadTributariaSIIAdmin(admin.ModelAdmin):
     @admin.display(description='ultimo_resultado')
     def ultimo_resultado_redacted(self, obj):
         return _redacted_payload_attr(obj, 'ultimo_resultado')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(TaxYearRuleSet)
+class TaxYearRuleSetAdmin(admin.ModelAdmin):
+    fields = (
+        'anio_tributario',
+        'regimen_tributario',
+        'version',
+        'estado',
+        'fuente_ref_redacted',
+        'hash_normativo',
+        'responsable_aprobacion_ref_redacted',
+        'descripcion',
+        'metadata_redacted',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = fields
+    list_display = (
+        'anio_tributario',
+        'regimen_tributario',
+        'version',
+        'estado',
+        'fuente_ref_redacted',
+        'responsable_aprobacion_ref_redacted',
+    )
+    list_filter = ('anio_tributario', 'estado', 'regimen_tributario')
+    search_fields = ('version', 'regimen_tributario__codigo_regimen')
+
+    @admin.display(description='fuente_ref')
+    def fuente_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'fuente_ref')
+
+    @admin.display(description='responsable_aprobacion_ref')
+    def responsable_aprobacion_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'responsable_aprobacion_ref')
+
+    @admin.display(description='metadata')
+    def metadata_redacted(self, obj):
+        return _redacted_payload_attr(obj, 'metadata')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(TaxCodeMapping)
+class TaxCodeMappingAdmin(admin.ModelAdmin):
+    fields = (
+        'rule_set',
+        'destino',
+        'codigo_interno',
+        'codigo_destino',
+        'formula_ref_redacted',
+        'evidencia_ref_redacted',
+        'estado',
+        'metadata_redacted',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = fields
+    list_display = (
+        'rule_set',
+        'destino',
+        'codigo_interno',
+        'codigo_destino',
+        'estado',
+        'formula_ref_redacted',
+        'evidencia_ref_redacted',
+    )
+    list_filter = ('destino', 'estado', 'rule_set__anio_tributario')
+    search_fields = ('codigo_interno', 'codigo_destino', 'rule_set__version')
+
+    @admin.display(description='formula_ref')
+    def formula_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'formula_ref')
+
+    @admin.display(description='evidencia_ref')
+    def evidencia_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'evidencia_ref')
+
+    @admin.display(description='metadata')
+    def metadata_redacted(self, obj):
+        return _redacted_payload_attr(obj, 'metadata')
 
     def has_add_permission(self, request):
         return False

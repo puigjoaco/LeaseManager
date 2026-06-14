@@ -18,12 +18,20 @@ from .views import (
     F29StatusUpdateView,
     ProcesoRentaAnualListView,
     SiiSnapshotView,
+    TaxCodeMappingDetailView,
+    TaxCodeMappingListCreateView,
+    TaxYearRuleSetDetailView,
+    TaxYearRuleSetListCreateView,
 )
 
 urlpatterns = [
     path('snapshot/', SiiSnapshotView.as_view(), name='sii-snapshot'),
     path('capacidades/', CapacidadTributariaSIIListCreateView.as_view(), name='sii-capacidad-list'),
     path('capacidades/<int:pk>/', CapacidadTributariaSIIDetailView.as_view(), name='sii-capacidad-detail'),
+    path('anual/rule-sets/', TaxYearRuleSetListCreateView.as_view(), name='sii-tax-year-ruleset-list'),
+    path('anual/rule-sets/<int:pk>/', TaxYearRuleSetDetailView.as_view(), name='sii-tax-year-ruleset-detail'),
+    path('anual/code-mappings/', TaxCodeMappingListCreateView.as_view(), name='sii-tax-code-mapping-list'),
+    path('anual/code-mappings/<int:pk>/', TaxCodeMappingDetailView.as_view(), name='sii-tax-code-mapping-detail'),
     path('dtes/', DTEEmitidoListView.as_view(), name='sii-dte-list'),
     path('dtes/<int:pk>/', DTEEmitidoDetailView.as_view(), name='sii-dte-detail'),
     path('dtes/generar/', DTEGenerateView.as_view(), name='sii-dte-generate'),

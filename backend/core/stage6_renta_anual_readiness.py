@@ -24,9 +24,12 @@ from sii.models import (
     CapacidadSII,
     CapacidadTributariaSII,
     DDJJPreparacionAnual,
+    EstadoReglaTributariaAnual,
     EstadoGateSII,
     F22PreparacionAnual,
     ProcesoRentaAnual,
+    TaxCodeMapping,
+    TaxYearRuleSet,
     has_text,
 )
 
@@ -187,6 +190,39 @@ def _collect_process_issues(processes) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
+def _collect_tax_year_rule_issues(processes, active_fiscal_configs) -> dict[str, int]:
+    counts = Counter()
+    fiscal_config_by_company_id = {
+        config.empresa_id: config
+        for config in active_fiscal_configs
+    }
+    for process in processes:
+        if process.estado not in ANNUAL_TRACEABLE_STATES:
+            continue
+        fiscal_config = fiscal_config_by_company_id.get(process.empresa_id)
+        if fiscal_config is None:
+            continue
+        approved_rule_sets = TaxYearRuleSet.objects.filter(
+            anio_tributario=process.anio_tributario,
+            regimen_tributario_id=fiscal_config.regimen_tributario_id,
+            estado=EstadoReglaTributariaAnual.APPROVED,
+        )
+        if not approved_rule_sets.exists():
+            counts['tax_year_ruleset_missing'] += 1
+            continue
+        for rule_set in approved_rule_sets:
+            if not rule_set.code_mappings.filter(estado=EstadoRegistro.ACTIVE).exists():
+                counts['tax_code_mapping_missing'] += 1
+
+    invalid_rule_sets = _count_invalid(TaxYearRuleSet.objects.all())
+    if invalid_rule_sets:
+        counts['tax_year_ruleset_invalid'] = invalid_rule_sets
+    invalid_mappings = _count_invalid(TaxCodeMapping.objects.select_related('rule_set'))
+    if invalid_mappings:
+        counts['tax_code_mapping_invalid'] = invalid_mappings
+    return dict(sorted(counts.items()))
+
+
 def _collect_annual_document_issues(processes, ddjj_preparations, f22_preparations) -> dict[str, int]:
     counts = Counter()
     ddjj_by_process = {item.proceso_renta_anual_id: item for item in ddjj_preparations}
@@ -284,6 +320,7 @@ def collect_stage6_renta_anual_readiness(
 
     annual_processes = ProcesoRentaAnual.objects.select_related('empresa')
     process_issues = _collect_process_issues(annual_processes)
+    tax_year_rule_issues = _collect_tax_year_rule_issues(annual_processes, active_fiscal_configs)
 
     ddjj_preparations = DDJJPreparacionAnual.objects.select_related(
         'empresa',
@@ -513,6 +550,31 @@ def collect_stage6_renta_anual_readiness(
                 count=invalid_tax_support_documents,
             )
         )
+
+    for key, code, message in [
+        (
+            'tax_year_ruleset_missing',
+            'stage6.tax_year_ruleset_missing',
+            'Existen procesos anuales trazables sin TaxYearRuleSet aprobado para su ano tributario y regimen.',
+        ),
+        (
+            'tax_code_mapping_missing',
+            'stage6.tax_code_mapping_missing',
+            'Existen TaxYearRuleSet aprobados sin mapeos activos trazables para RLI/CPT/DDJJ/F22.',
+        ),
+        (
+            'tax_year_ruleset_invalid',
+            'stage6.tax_year_ruleset_invalid',
+            'Existen TaxYearRuleSet que no pasan validacion de dominio o referencias.',
+        ),
+        (
+            'tax_code_mapping_invalid',
+            'stage6.tax_code_mapping_invalid',
+            'Existen TaxCodeMapping que no pasan validacion de dominio o referencias.',
+        ),
+    ]:
+        if tax_year_rule_issues.get(key):
+            issues.append(_issue(code, message, count=tax_year_rule_issues[key]))
 
     for key, code, message in [
         (
@@ -802,6 +864,15 @@ def collect_stage6_renta_anual_readiness(
                 'usable': usable_tax_support_documents.count(),
                 'invalid_usable': invalid_tax_support_documents,
                 'by_state': _count_by(tax_support_documents, 'estado'),
+            },
+            'tax_year_rules': {
+                'rule_sets_total': TaxYearRuleSet.objects.count(),
+                'approved_rule_sets': TaxYearRuleSet.objects.filter(estado=EstadoReglaTributariaAnual.APPROVED).count(),
+                'code_mappings_total': TaxCodeMapping.objects.count(),
+                'active_code_mappings': TaxCodeMapping.objects.filter(estado=EstadoRegistro.ACTIVE).count(),
+                'rule_sets_by_state': _count_by(TaxYearRuleSet.objects.all(), 'estado'),
+                'code_mappings_by_target': _count_by(TaxCodeMapping.objects.all(), 'destino'),
+                **tax_year_rule_issues,
             },
             'audit': {
                 'annual_status_transition_metadata_missing': annual_status_transition_metadata_missing,

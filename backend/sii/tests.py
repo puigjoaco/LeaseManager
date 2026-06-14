@@ -27,8 +27,22 @@ from .admin import (
     F22PreparacionAnualAdmin,
     F29PreparacionMensualAdmin,
     ProcesoRentaAnualAdmin,
+    TaxCodeMappingAdmin,
+    TaxYearRuleSetAdmin,
 )
-from .models import CapacidadTributariaSII, DDJJPreparacionAnual, DTEEmitido, EstadoGateSII, F22PreparacionAnual, F29PreparacionMensual, ProcesoRentaAnual
+from .models import (
+    CapacidadTributariaSII,
+    DDJJPreparacionAnual,
+    DestinoMapeoTributarioAnual,
+    DTEEmitido,
+    EstadoGateSII,
+    EstadoReglaTributariaAnual,
+    F22PreparacionAnual,
+    F29PreparacionMensual,
+    ProcesoRentaAnual,
+    TaxCodeMapping,
+    TaxYearRuleSet,
+)
 
 
 class SiiAPITests(APITestCase):
@@ -185,12 +199,12 @@ class SiiAPITests(APITestCase):
             'regla_fiscal_ref': f'regla-{prefix}-validada',
         }
 
-    def _activate_fiscal_config(self, empresa, ddjj_habilitadas=None):
+    def _activate_fiscal_config(self, empresa, ddjj_habilitadas=None, *, with_tax_year_ruleset=True, anio_tributario=2027):
         regime, _ = RegimenTributarioEmpresa.objects.get_or_create(
             codigo_regimen='EmpresaContabilidadCompletaV1',
             defaults={'descripcion': 'Regimen canonico', 'estado': 'activa'},
         )
-        return ConfiguracionFiscalEmpresa.objects.create(
+        config = ConfiguracionFiscalEmpresa.objects.create(
             empresa=empresa,
             regimen_tributario=regime,
             afecta_iva_arriendo=False,
@@ -201,6 +215,196 @@ class SiiAPITests(APITestCase):
             moneda_funcional='CLP',
             estado='activa',
         )
+        if with_tax_year_ruleset:
+            self._ensure_tax_year_ruleset(regime, anio_tributario=anio_tributario)
+        return config
+
+    def _ensure_tax_year_ruleset(self, regime, *, anio_tributario=2027):
+        rule_set = TaxYearRuleSet.objects.filter(
+            anio_tributario=anio_tributario,
+            regimen_tributario=regime,
+            estado=EstadoReglaTributariaAnual.APPROVED,
+        ).first()
+        if rule_set is None:
+            rule_set, _ = TaxYearRuleSet.objects.get_or_create(
+                anio_tributario=anio_tributario,
+                regimen_tributario=regime,
+                version=f'AT{anio_tributario}-controlled-v1',
+                defaults={
+                    'estado': EstadoReglaTributariaAnual.APPROVED,
+                    'fuente_ref': f'tax-rule-source-at{anio_tributario}-controlled',
+                    'hash_normativo': 'b' * 64,
+                    'responsable_aprobacion_ref': f'tax-rule-reviewer-at{anio_tributario}-controlled',
+                    'metadata': {'source': 'sii-test-controlled'},
+                },
+            )
+        if rule_set.estado != EstadoReglaTributariaAnual.APPROVED:
+            rule_set.estado = EstadoReglaTributariaAnual.APPROVED
+            rule_set.fuente_ref = f'tax-rule-source-at{anio_tributario}-controlled'
+            rule_set.hash_normativo = 'b' * 64
+            rule_set.responsable_aprobacion_ref = f'tax-rule-reviewer-at{anio_tributario}-controlled'
+            rule_set.save(
+                update_fields=[
+                    'estado',
+                    'fuente_ref',
+                    'hash_normativo',
+                    'responsable_aprobacion_ref',
+                    'updated_at',
+                ]
+            )
+        for destino in (
+            DestinoMapeoTributarioAnual.RLI,
+            DestinoMapeoTributarioAnual.CPT,
+            DestinoMapeoTributarioAnual.RAI,
+            DestinoMapeoTributarioAnual.SAC,
+            DestinoMapeoTributarioAnual.DDJJ,
+            DestinoMapeoTributarioAnual.F22,
+        ):
+            TaxCodeMapping.objects.get_or_create(
+                rule_set=rule_set,
+                destino=destino,
+                codigo_interno=f'lease.{destino.lower()}.controlled',
+                codigo_destino=f'{destino}-CONTROL',
+                defaults={
+                    'formula_ref': f'formula-ref-{destino.lower()}-controlled',
+                    'evidencia_ref': f'evidence-ref-{destino.lower()}-controlled',
+                    'metadata': {'source': 'sii-test-controlled'},
+                },
+            )
+        return rule_set
+
+    def test_tax_year_ruleset_and_mapping_require_traceable_non_sensitive_refs(self):
+        empresa = self._create_active_empresa(nombre='TaxRuleCo', rut='56565656-5')
+        config = self._activate_fiscal_config(empresa)
+        rule_set = TaxYearRuleSet(
+            anio_tributario=2026,
+            regimen_tributario=config.regimen_tributario,
+            version='AT2026-v1',
+            estado=EstadoReglaTributariaAnual.APPROVED,
+            fuente_ref='https://sii.example.test/rule?token=secret',
+            hash_normativo='bad-hash',
+            responsable_aprobacion_ref='tax-reviewer-controlled',
+        )
+
+        with self.assertRaises(ValidationError) as rule_error:
+            rule_set.full_clean()
+
+        self.assertIn('fuente_ref', rule_error.exception.message_dict)
+        self.assertIn('hash_normativo', rule_error.exception.message_dict)
+
+        rule_set.fuente_ref = 'tax-rule-source-at2026-controlled'
+        rule_set.hash_normativo = 'A' * 64
+        rule_set.full_clean()
+        rule_set.save()
+        self.assertEqual(rule_set.hash_normativo, 'a' * 64)
+
+        mapping = TaxCodeMapping(
+            rule_set=rule_set,
+            destino=DestinoMapeoTributarioAnual.F22,
+            codigo_interno='lease.revenue.net',
+            codigo_destino='F22-001',
+            formula_ref='',
+            evidencia_ref='https://sii.example.test/evidence?token=secret',
+        )
+
+        with self.assertRaises(ValidationError) as mapping_error:
+            mapping.full_clean()
+
+        self.assertIn('formula_ref', mapping_error.exception.message_dict)
+        self.assertIn('evidencia_ref', mapping_error.exception.message_dict)
+
+    def test_tax_year_ruleset_admin_redacts_sensitive_refs(self):
+        empresa = self._create_active_empresa(nombre='TaxRuleAdminCo', rut='57575757-5')
+        config = self._activate_fiscal_config(empresa)
+        rule_set = TaxYearRuleSet.objects.create(
+            anio_tributario=2026,
+            regimen_tributario=config.regimen_tributario,
+            version='AT2026-v1',
+            estado=EstadoReglaTributariaAnual.DRAFT,
+            fuente_ref='https://sii.example.test/rule?token=secret',
+            responsable_aprobacion_ref='Bearer reviewer-secret',
+            metadata={'api_key': 'secret'},
+        )
+        mapping = TaxCodeMapping.objects.create(
+            rule_set=rule_set,
+            destino=DestinoMapeoTributarioAnual.F22,
+            codigo_interno='lease.revenue.net',
+            codigo_destino='F22-001',
+            formula_ref='https://sii.example.test/formula?token=secret',
+            evidencia_ref='Bearer evidence-secret',
+            metadata={'credential': 'secret'},
+        )
+        site = AdminSite()
+        rule_admin = TaxYearRuleSetAdmin(TaxYearRuleSet, site)
+        mapping_admin = TaxCodeMappingAdmin(TaxCodeMapping, site)
+
+        self.assertEqual(rule_admin.fuente_ref_redacted(rule_set), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(rule_admin.responsable_aprobacion_ref_redacted(rule_set), REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('secret', json.dumps(rule_admin.metadata_redacted(rule_set)))
+        self.assertEqual(mapping_admin.formula_ref_redacted(mapping), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(mapping_admin.evidencia_ref_redacted(mapping), REDACTED_SENSITIVE_REFERENCE)
+        self.assertNotIn('secret', json.dumps(mapping_admin.metadata_redacted(mapping)))
+
+    def test_tax_year_ruleset_api_creates_mapping_and_redacts_snapshot_refs(self):
+        empresa = self._create_active_empresa(nombre='TaxRuleApiCo', rut='58585858-5')
+        config = self._activate_fiscal_config(empresa)
+
+        rule_response = self.client.post(
+            reverse('sii-tax-year-ruleset-list'),
+            {
+                'anio_tributario': 2026,
+                'regimen_tributario': config.regimen_tributario_id,
+                'version': 'AT2026-api-v1',
+                'estado': EstadoReglaTributariaAnual.APPROVED,
+                'fuente_ref': 'tax-rule-source-api-controlled',
+                'hash_normativo': 'c' * 64,
+                'responsable_aprobacion_ref': 'tax-rule-api-reviewer-controlled',
+                'metadata': {'source': 'api-controlled'},
+            },
+            format='json',
+        )
+        self.assertEqual(rule_response.status_code, status.HTTP_201_CREATED)
+
+        mapping_response = self.client.post(
+            reverse('sii-tax-code-mapping-list'),
+            {
+                'rule_set': rule_response.data['id'],
+                'destino': DestinoMapeoTributarioAnual.F22,
+                'codigo_interno': 'lease.revenue.net',
+                'codigo_destino': 'F22-CONTROL',
+                'formula_ref': 'formula-ref-api-controlled',
+                'evidencia_ref': 'evidence-ref-api-controlled',
+                'metadata': {'source': 'api-controlled'},
+            },
+            format='json',
+        )
+        self.assertEqual(mapping_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(mapping_response.data['formula_ref'], 'formula-ref-api-controlled')
+
+        TaxYearRuleSet.objects.filter(pk=rule_response.data['id']).update(
+            fuente_ref='https://sii.example.test/rule?token=secret',
+            responsable_aprobacion_ref='Bearer reviewer-secret',
+            metadata={'api_key': 'secret'},
+        )
+        TaxCodeMapping.objects.filter(pk=mapping_response.data['id']).update(
+            formula_ref='https://sii.example.test/formula?token=secret',
+            evidencia_ref='Bearer evidence-secret',
+            metadata={'credential': 'secret'},
+        )
+
+        snapshot = self.client.get(reverse('sii-snapshot'))
+        self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
+        serialized_snapshot = json.dumps(snapshot.data)
+        self.assertEqual(
+            next(item for item in snapshot.data['tax_year_rule_sets'] if item['id'] == rule_response.data['id'])['fuente_ref'],
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertEqual(
+            next(item for item in snapshot.data['tax_code_mappings'] if item['id'] == mapping_response.data['id'])['formula_ref'],
+            REDACTED_SENSITIVE_REFERENCE,
+        )
+        self.assertNotIn('token=secret', serialized_snapshot)
+        self.assertNotIn('reviewer-secret', serialized_snapshot)
 
     def _create_monthly_close_and_obligation(self, empresa, estado_preparacion='preparado'):
         close = CierreMensualContable.objects.create(
@@ -2291,6 +2495,25 @@ class SiiAPITests(APITestCase):
             format='json',
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_generate_annual_preparation_requires_approved_tax_year_ruleset(self):
+        empresa, _ = self._setup_paid_payment()
+        self._activate_fiscal_config(
+            empresa,
+            ddjj_habilitadas=['1887'],
+            with_tax_year_ruleset=False,
+        )
+        self._activate_annual_capabilities(empresa)
+        self._create_twelve_approved_closes(empresa, fiscal_year=2026)
+
+        response = self.client.post(
+            reverse('sii-anual-generate'),
+            {'empresa_id': empresa.id, 'anio_tributario': 2027},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('TaxYearRuleSet', response.data['detail'])
 
     def test_generate_annual_preparation_rejects_conditioned_gates(self):
         empresa, _ = self._setup_paid_payment()
