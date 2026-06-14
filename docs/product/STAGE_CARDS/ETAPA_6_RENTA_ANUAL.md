@@ -37,6 +37,12 @@ reportes/respaldo, upload/export y conectividad auxiliar. Las raices de datos
 de usuario/licencia/salida quedan excluidas o redactadas; la salida se mantiene
 en `local-evidence/` y no se versiona.
 
+`scripts/extract-edig-mdb-schema.ps1` puede extraer metadata de tablas/columnas
+de los MDB nucleo desde copias temporales, sin ejecutar EDIG ni leer filas. La
+extraccion local confirma bases separadas para maestros, F29/PPM, parametria de
+regimen, PRO/F22 y registros RLI/CPT/RAI/SAC. Esa evidencia orienta el motor
+anual propio, pero no habilita copiar schema EDIG ni declarar reglas fiscales.
+
 ## Gate
 
 - Cierres mensuales completos.

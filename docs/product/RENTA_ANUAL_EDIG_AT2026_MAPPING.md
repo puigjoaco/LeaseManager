@@ -87,6 +87,35 @@ intermedios y render/export. Por eso el motor propio debe avanzar por:
 5. F22 preview/export;
 6. gate de presentacion externa.
 
+## Esquema MDB observado
+
+`scripts/extract-edig-mdb-schema.ps1` profundiza el analisis de bases Access
+sin leer filas: copia temporalmente solo los MDB nucleo, usa metadata OleDb de
+tablas/columnas y borra las copias al terminar. En Windows 64-bit se relanza en
+PowerShell 32-bit para usar `Microsoft.Jet.OLEDB.4.0`, necesario para estos MDB
+antiguos.
+
+La extraccion local read-only cubrio 7/7 MDB nucleo con 205 tablas y 5.494
+columnas:
+
+- `CENTRAL/comun.MDB`: maestros de contribuyente/usuario/producto.
+- `CENTRAL/prtRegAT21.MDB`: plantillas/parametros de registros RLI, CPT, RAI,
+  SAC, retiros/dividendos y controles.
+- `CENTRAL/R14PARA26.MDB`: parametria por regimen, codigos DJ/F22, items RLI y
+  CPT.
+- `DATOS/CANova.mdb`: estado/capacidades de contribuyente.
+- `DATOS/F29LGH.MDB`: Form29, IVA, PPM, ventas/compras y detalles mensuales.
+- `DATOS/PRO26.MDB`: proceso F22, bienes raices/arriendos, certificados,
+  traspasos y resumen anual.
+- `DATOS/Reg14.MDB`: registros empresariales RLI/CPT/RAI/SAC, entidades,
+  retiros/dividendos y totales.
+
+Esto refuerza que el diseno propio debe guardar estructuras tributarias
+intermedias versionadas y auditables. El esquema observado no se convierte en
+modelo 1:1 ni se copian nombres/relaciones propietarios al dominio; solo se usa
+para validar que las piezas funcionales que LeaseManager necesita existen como
+capas separadas en un software AT2026 real.
+
 ## Linea de diseno propia
 
 LeaseManager debe implementar un motor anual por ano tributario con estas
