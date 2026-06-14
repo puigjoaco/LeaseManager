@@ -41,6 +41,18 @@ sin leer filas, reforzando la separacion entre maestros, F29/PPM, parametria
 por regimen, PRO/F22 y registros RLI/CPT/RAI/SAC. Sigue siendo referencia
 funcional no normativa.
 
+Nota 2026-06-13: `docs/product/RENTA_ANUAL_AT2026_ENGINE_BLUEPRINT.md`
+convierte la evidencia EDIG AT2026 en arquitectura propia implementable para
+Etapa 6: `AnnualTaxSourceBundle`, `TaxYearRuleSet`, `AnnualTaxProfile`,
+`MonthlyTaxFact`, `AnnualTaxNormalizer`, RLI/CPT workbooks,
+`EnterpriseRegisterSet`, seccion bienes raices, DDJJ, F22, dossier y export
+gate. El orden recomendado empieza por reglas AT/source bundle y termina en
+preview/export controlado, sin presentacion SII autonoma. El blueprint tambien
+fija una matriz para decidir integracion SII: DTE puede avanzar por gate tecnico
+si existe certificacion/formato/web service vigente; F29/DDJJ/F22 quedan como
+preparacion, preview, dossier o export supervisado hasta evidencia oficial,
+responsable y autorizacion.
+
 Nota 2026-06-13: Etapa 6/7 convierten el boundary asistido en enforcement
 local para artefactos anuales. `ProcesoRentaAnual`, DDJJ y F22 en estados
 aprobados, observados, rectificados o presentados requieren

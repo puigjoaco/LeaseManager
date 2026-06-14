@@ -43,6 +43,11 @@ extraccion local confirma bases separadas para maestros, F29/PPM, parametria de
 regimen, PRO/F22 y registros RLI/CPT/RAI/SAC. Esa evidencia orienta el motor
 anual propio, pero no habilita copiar schema EDIG ni declarar reglas fiscales.
 
+`docs/product/RENTA_ANUAL_AT2026_ENGINE_BLUEPRINT.md` traduce esa evidencia a
+componentes propios de LeaseManager: source bundle anual, rule set por AT,
+normalizador, workbooks RLI/CPT, registros RAI/SAC, seccion bienes raices,
+paquetes DDJJ, draft F22, dossier y export gate.
+
 ## Gate
 
 - Cierres mensuales completos.
