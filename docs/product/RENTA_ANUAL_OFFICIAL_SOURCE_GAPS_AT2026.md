@@ -157,6 +157,13 @@ oficial/experta revisada para preparar montos trazables. No convierte el
 balance en declaracion de renta; cualquier warning de clasificacion, fuente o
 criterio mantiene el cierre bajo revision responsable.
 
+Los `TaxCodeMapping` que consumen `annual_trial_balance.*` deben declarar
+`trial_balance_classifier` DJ1847 y solo alimentar RLI/CPT. Si un mapping
+heredado intenta saltar desde balance anual directo a F22/DDJJ/RAI/SAC o no
+trae clasificador, readiness lo bloquea como brecha de fuente/mapping oficial.
+Esto mantiene la union contabilidad -> renta dentro de la capa intermedia
+DJ1847/RLI/CPT antes de cualquier dossier, DDJJ o F22.
+
 `AnnualTaxDDJJFormLayout` baja la brecha de medios/formularios DDJJ a una capa
 operativa propia: una fila por ano tributario y formulario conserva medios SII
 permitidos, medio preferente, vencimientos, certificado, resolucion, refs de

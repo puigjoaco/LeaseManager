@@ -2024,6 +2024,40 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertNotIn('sii.example.test', serialized_result)
         self.assertNotIn('token=secret', serialized_result)
 
+    def test_trial_balance_mapping_without_classifier_is_blocking(self):
+        self._create_valid_local_matrix()
+        rli_mapping = TaxCodeMapping.objects.get(destino=DestinoMapeoTributarioAnual.RLI)
+        rai_mapping = TaxCodeMapping.objects.get(destino=DestinoMapeoTributarioAnual.RAI)
+        TaxCodeMapping.objects.filter(pk=rli_mapping.pk).update(
+            metadata={
+                'source': 'stage6-controlled',
+                'source_metric': 'annual_trial_balance.resultado_ganancia_clp',
+            },
+        )
+        TaxCodeMapping.objects.filter(pk=rai_mapping.pk).update(
+            metadata={
+                'source': 'stage6-controlled',
+                'source_metric': 'annual_trial_balance.resultado_ganancia_clp',
+                'trial_balance_classifier': 'RLI-LEASE-REVENUE',
+            },
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.tax_code_mapping_invalid', issue_codes)
+        self.assertIn('stage6.tax_code_mapping_trial_balance_classifier_missing', issue_codes)
+        self.assertIn('stage6.tax_code_mapping_trial_balance_destination_invalid', issue_codes)
+        self.assertEqual(
+            result['sections']['tax_year_rules']['tax_code_mapping_trial_balance_classifier_missing'],
+            1,
+        )
+        self.assertEqual(
+            result['sections']['tax_year_rules']['tax_code_mapping_trial_balance_destination_invalid'],
+            1,
+        )
+
     def test_invalid_annual_tax_official_source_is_blocking_without_sensitive_leak(self):
         self._create_valid_local_matrix()
         AnnualTaxOfficialSource.objects.create(

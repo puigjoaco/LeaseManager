@@ -77,6 +77,11 @@ un `BalanceComprobacion` aprobado de diciembre, una fuente oficial/experta
 revisada y el rule set anual para generar lineas por cuenta, clasificador,
 sumas, saldos, inventario y resultado. Esta capa es evidencia preparatoria
 para revision tributaria; no calcula ni presenta renta final.
+`TaxCodeMapping` no puede usar metricas `annual_trial_balance.*` de forma
+ambigua: para mappings activos bajo rule set aprobado, esa fuente solo puede
+alimentar RLI/CPT y debe indicar `trial_balance_classifier` DJ1847 trazable.
+Esto impide saltar desde balance anual directo a F22/DDJJ o preparar workbooks
+sin clasificador contable tributario.
 `AnnualTaxWorkbook` y `AnnualTaxWorkbookLine` materializan el primer esqueleto
 RLI/CPT: para cada `ProcesoRentaAnual` se preparan workbooks RLI y CPT desde
 `TaxCodeMapping` aprobado, `MonthlyTaxFact` y, cuando el mapping lo exige,
@@ -188,6 +193,10 @@ presenta, no sube y no decide la renta final.
   formula/evidencia no sensibles, `source_payload` y `hash_linea` coherente.
   Cualquier warning de linea o del balance agregado bloquea readiness hasta
   revision tributaria.
+- `TaxCodeMapping` activo bajo `TaxYearRuleSet` aprobado que declare
+  `source_metric=annual_trial_balance.*` debe apuntar solo a RLI/CPT y
+  conservar `trial_balance_classifier`; mappings heredados sin ese clasificador
+  o apuntando directo a destinos posteriores bloquean readiness.
 - `AnnualTaxWorkbook` preparado para RLI y CPT antes de tratar un proceso anual
   como trazable. Ambos workbooks deben pertenecer al mismo proceso, rule set,
   bundle y empresa, conservar `hash_workbook` coherente y aparecer en

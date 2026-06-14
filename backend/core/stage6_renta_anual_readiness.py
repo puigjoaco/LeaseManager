@@ -41,6 +41,7 @@ from sii.models import (
     CapacidadSII,
     CapacidadTributariaSII,
     DDJJPreparacionAnual,
+    DestinoMapeoTributarioAnual,
     EstadoAnnualEnterpriseRegister,
     EstadoAnnualRealEstateSection,
     EstadoAnnualTaxArtifactMatrix,
@@ -1150,6 +1151,13 @@ def _collect_tax_year_rule_issues(processes, active_fiscal_configs) -> dict[str,
     for mapping in mappings:
         if mapping.estado != EstadoRegistro.ACTIVE or mapping.rule_set.estado != EstadoReglaTributariaAnual.APPROVED:
             continue
+        metadata = mapping.metadata if isinstance(mapping.metadata, dict) else {}
+        source_metric = str(metadata.get('source_metric') or '').strip()
+        if source_metric.startswith('annual_trial_balance.'):
+            if mapping.destino not in {DestinoMapeoTributarioAnual.RLI, DestinoMapeoTributarioAnual.CPT}:
+                counts['tax_code_mapping_trial_balance_destination_invalid'] += 1
+            if not has_text(metadata.get('trial_balance_classifier')):
+                counts['tax_code_mapping_trial_balance_classifier_missing'] += 1
         if not mapping.official_source_id:
             counts['tax_code_mapping_official_source_missing'] += 1
             continue
@@ -2321,6 +2329,16 @@ def collect_stage6_renta_anual_readiness(
             'tax_code_mapping_official_source_regime_mismatch',
             'stage6.tax_code_mapping_official_source_regime_mismatch',
             'Existen TaxCodeMapping activos con fuente AT de otro regimen tributario.',
+        ),
+        (
+            'tax_code_mapping_trial_balance_classifier_missing',
+            'stage6.tax_code_mapping_trial_balance_classifier_missing',
+            'Mappings RLI/CPT que consumen annual_trial_balance requieren trial_balance_classifier DJ1847 trazable.',
+        ),
+        (
+            'tax_code_mapping_trial_balance_destination_invalid',
+            'stage6.tax_code_mapping_trial_balance_destination_invalid',
+            'Metricas annual_trial_balance solo pueden alimentar mappings RLI/CPT antes de DDJJ/F22.',
         ),
     ]:
         if tax_year_rule_issues.get(key):
