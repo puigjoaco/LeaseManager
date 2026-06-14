@@ -263,27 +263,34 @@ def generate_f29_draft(empresa, anio, mes):
     return draft, created
 
 
-def register_f29_status(draft, *, estado_preparacion, borrador_ref='', observaciones=''):
+def register_f29_status(draft, *, estado_preparacion, borrador_ref='', responsable_revision_ref='', observaciones=''):
     if estado_preparacion == EstadoPreparacionTributaria.PRESENTED:
         raise ValueError('SII.F29Presentacion requiere gate propio y no se registra desde preparacion local.')
     input_ref = _ensure_non_sensitive_reference(borrador_ref, 'borrador_ref')
+    input_responsable = _ensure_non_sensitive_reference(responsable_revision_ref, 'responsable_revision_ref')
     input_observaciones = _ensure_non_sensitive_text(observaciones, 'observaciones')
     next_ref = input_ref or draft.borrador_ref
+    next_responsable = input_responsable or draft.responsable_revision_ref
     if estado_preparacion in TAX_STATUS_REQUIRING_GATE:
         ensure_sii_capability_ready(draft.capacidad_tributaria, draft.capacidad_tributaria.capacidad_key)
     if estado_preparacion in TAX_STATUS_REQUIRING_REF:
         if not next_ref:
             raise ValueError('Aprobar u observar F29 requiere borrador_ref trazable.')
         _ensure_non_sensitive_reference(next_ref, 'borrador_ref')
+        if not next_responsable:
+            raise ValueError('Aprobar u observar F29 requiere responsable_revision_ref trazable.')
+        _ensure_non_sensitive_reference(next_responsable, 'responsable_revision_ref')
 
     draft.estado_preparacion = estado_preparacion
     if input_ref:
         draft.borrador_ref = input_ref
+    if input_responsable:
+        draft.responsable_revision_ref = input_responsable
     if input_observaciones:
         draft.observaciones = input_observaciones
     if estado_preparacion in TAX_STATUS_REQUIRING_GATE:
         _ensure_artifact_valid_for_status_transition(draft, 'F29')
-    draft.save(update_fields=['estado_preparacion', 'borrador_ref', 'observaciones', 'updated_at'])
+    draft.save(update_fields=['estado_preparacion', 'borrador_ref', 'responsable_revision_ref', 'observaciones', 'updated_at'])
     return draft
 
 

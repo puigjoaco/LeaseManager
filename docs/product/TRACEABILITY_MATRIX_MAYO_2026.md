@@ -41,6 +41,14 @@ y evidencia. La aprobacion queda deshabilitada en UI si el cierre no tiene
 liquidacion responsable visible, manteniendo el bloqueo backend como fuente de
 verdad.
 
+Nota 2026-06-13: Etapa 4 aplica el mismo boundary asistido a F29 mensual. F29
+en estados aprobados, observados o rectificados requiere
+`responsable_revision_ref` no sensible junto a `borrador_ref`; dominio/API,
+snapshot, admin, backoffice y readiness bloquean responsables faltantes o
+sensibles. La UI reemplaza la accion ciega de estado F29 por un formulario de
+revision con responsable, reforzando que LeaseManager prepara formularios
+revisables y no presenta ni aprueba tributacion mensual de forma autonoma.
+
 Nota 2026-06-13: Reporting/Etapa 7 cubre en API los bloqueos de
 `ProcesoRentaAnual.borrador_f22_ref` faltante o sensible para procesos anuales
 finales. `_assert_annual_tax_traceability()` devuelve

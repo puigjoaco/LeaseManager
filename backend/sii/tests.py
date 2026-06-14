@@ -439,6 +439,7 @@ class SiiAPITests(APITestCase):
             ultimo_resultado={},
         )
         f29_ref = sized_ref('f29-draft-', 255, 'f')
+        f29_responsible_ref = sized_ref('f29-review-', 255, 'r')
         f29 = F29PreparacionMensual(
             empresa=empresa,
             capacidad_tributaria=f29_capability,
@@ -448,14 +449,17 @@ class SiiAPITests(APITestCase):
             estado_preparacion='aprobado_para_presentacion',
             resumen_formulario={'source': 'controlled'},
             borrador_ref=f'   {f29_ref}   ',
+            responsable_revision_ref=f'   {f29_responsible_ref}   ',
             observaciones='   f29 listo para revision   ',
         )
         f29.full_clean()
         self.assertEqual(f29.borrador_ref, f29_ref)
+        self.assertEqual(f29.responsable_revision_ref, f29_responsible_ref)
         self.assertEqual(f29.observaciones, 'f29 listo para revision')
         f29.save()
         stored_f29 = F29PreparacionMensual.objects.get(pk=f29.pk)
         self.assertEqual(stored_f29.borrador_ref, f29_ref)
+        self.assertEqual(stored_f29.responsable_revision_ref, f29_responsible_ref)
         self.assertEqual(stored_f29.observaciones, 'f29 listo para revision')
 
         process_ddjj_ref = sized_ref('annual-ddjj-', 255, 'd')
@@ -622,6 +626,7 @@ class SiiAPITests(APITestCase):
                     {
                         'estado_preparacion': 'aprobado_para_presentacion',
                         'borrador_ref': 'f29-2026-01',
+                        'responsable_revision_ref': 'tax-reviewer-f29-2026-01',
                     },
                     format='json',
                 )
@@ -2124,11 +2129,13 @@ class SiiAPITests(APITestCase):
             {
                 'estado_preparacion': 'aprobado_para_presentacion',
                 'borrador_ref': 'f29-2026-01',
+                'responsable_revision_ref': 'tax-reviewer-f29-2026-01',
             },
             format='json',
         )
         self.assertEqual(update.status_code, status.HTTP_200_OK)
         self.assertEqual(update.data['estado_preparacion'], 'aprobado_para_presentacion')
+        self.assertEqual(update.data['responsable_revision_ref'], 'tax-reviewer-f29-2026-01')
         event = AuditEvent.objects.get(
             event_type='sii.f29_preparacion.status_updated',
             entity_type='f29_preparacion',
@@ -2140,6 +2147,7 @@ class SiiAPITests(APITestCase):
             previous='preparado',
             current='aprobado_para_presentacion',
         )
+        self.assertEqual(event.metadata['responsable_revision_ref'], 'tax-reviewer-f29-2026-01')
 
     def test_update_f29_status_requires_borrador_ref_for_approved_state(self):
         empresa, _ = self._setup_paid_payment()
@@ -2174,6 +2182,41 @@ class SiiAPITests(APITestCase):
 
         self.assertEqual(update.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('borrador_ref', update.data['detail'])
+
+    def test_update_f29_status_requires_responsable_for_approved_state(self):
+        empresa, _ = self._setup_paid_payment()
+        self._activate_fiscal_config(empresa)
+        self.client.post(
+            reverse('sii-capacidad-list'),
+            {
+                'empresa': empresa.id,
+                'capacidad_key': 'F29Preparacion',
+                **self._sii_readiness_fields('f29'),
+                'ambiente': 'certificacion',
+                'estado_gate': 'abierto',
+                'ultimo_resultado': {},
+            },
+            format='json',
+        )
+        self._create_monthly_close_and_obligation(empresa, estado_preparacion='preparado')
+        generated = self.client.post(
+            reverse('sii-f29-generate'),
+            {'empresa_id': empresa.id, 'anio': 2026, 'mes': 1},
+            format='json',
+        )
+        self.assertEqual(generated.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.post(
+            reverse('sii-f29-status', args=[generated.data['id']]),
+            {
+                'estado_preparacion': 'aprobado_para_presentacion',
+                'borrador_ref': 'f29-2026-01',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('responsable_revision_ref', response.data['detail'])
 
     def test_monthly_sii_workflow_from_paid_payment_to_dte_and_f29(self):
         empresa, pago = self._setup_paid_payment(monto_facturable='100000.00', monto_cobrado='100111.00')
@@ -2229,11 +2272,13 @@ class SiiAPITests(APITestCase):
             {
                 'estado_preparacion': 'aprobado_para_presentacion',
                 'borrador_ref': 'f29-2026-01',
+                'responsable_revision_ref': 'tax-reviewer-f29-2026-01',
             },
             format='json',
         )
         self.assertEqual(f29_status.status_code, status.HTTP_200_OK)
         self.assertEqual(f29_status.data['estado_preparacion'], 'aprobado_para_presentacion')
+        self.assertEqual(f29_status.data['responsable_revision_ref'], 'tax-reviewer-f29-2026-01')
 
     def test_generate_annual_preparation_requires_twelve_approved_closes(self):
         empresa, _ = self._setup_paid_payment()

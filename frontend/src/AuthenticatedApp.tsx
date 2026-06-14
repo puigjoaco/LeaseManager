@@ -1477,6 +1477,7 @@ type F29Preparacion = {
   estado_preparacion: string
   resumen_formulario: Record<string, unknown>
   borrador_ref: string
+  responsable_revision_ref: string
   observaciones: string
 }
 

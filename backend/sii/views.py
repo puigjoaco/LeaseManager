@@ -203,6 +203,7 @@ class SiiSnapshotView(APIView):
                         'mes': item.mes,
                         'estado_preparacion': item.estado_preparacion,
                         'borrador_ref': redact_sensitive_reference(item.borrador_ref),
+                        'responsable_revision_ref': redact_sensitive_reference(item.responsable_revision_ref),
                         'observaciones': redact_sensitive_reference(item.observaciones),
                     }
                     for item in f29s
@@ -432,6 +433,7 @@ class F29StatusUpdateView(APIView):
                         previous_state=previous_state,
                         current_field='estado_preparacion',
                         current_state=draft.estado_preparacion,
+                        extra={'responsable_revision_ref': redact_sensitive_reference(draft.responsable_revision_ref)},
                     ),
                 )
         except ValueError as error:

@@ -86,6 +86,11 @@ produccion por defecto.
 - F29, DDJJ y F22 en estado preparado, aprobado, observado o rectificado deben
   mantener una capacidad SII abierta y lista; el readiness bloquea artefactos
   heredados avanzados con capacidad condicionada, cerrada o invalida.
+- F29 mensual en estado aprobado, observado o rectificado debe conservar
+  `borrador_ref` y `responsable_revision_ref` no sensibles. La API y el
+  backoffice no pueden ofrecer un cambio ciego de estado F29 sin responsable
+  trazado, porque LeaseManager prepara formularios revisables y no aprueba
+  tributacion mensual de forma autonoma.
 - `F29Presentacion` y `PresentacionAnualFinal` no se registran desde el flujo
   local sin gate propio o reemision formal del set.
 - Una presentacion tributaria externa, cuando el gate la permita, exige

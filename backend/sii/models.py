@@ -352,7 +352,7 @@ class DTEEmitido(OperationalSIITextNormalizationMixin, TimestampedModel):
 
 
 class F29PreparacionMensual(OperationalSIITextNormalizationMixin, TimestampedModel):
-    operational_text_fields = ('borrador_ref', 'observaciones')
+    operational_text_fields = ('borrador_ref', 'responsable_revision_ref', 'observaciones')
 
     empresa = models.ForeignKey(
         Empresa,
@@ -378,6 +378,7 @@ class F29PreparacionMensual(OperationalSIITextNormalizationMixin, TimestampedMod
     )
     resumen_formulario = models.JSONField(default=dict, blank=True)
     borrador_ref = models.CharField(max_length=255, blank=True)
+    responsable_revision_ref = models.CharField(max_length=255, blank=True, default='')
     observaciones = models.TextField(blank=True)
 
     class Meta:
@@ -393,7 +394,9 @@ class F29PreparacionMensual(OperationalSIITextNormalizationMixin, TimestampedMod
         super().clean()
         errors = {}
         _add_required_tax_reference_error(errors, self, 'borrador_ref', 'estado_preparacion')
+        _add_required_review_responsible_error(errors, self, 'estado_preparacion')
         _add_non_sensitive_reference_error(errors, self, 'borrador_ref')
+        _add_non_sensitive_reference_error(errors, self, 'responsable_revision_ref')
         _add_non_sensitive_text_error(errors, 'observaciones', self.observaciones)
         _add_active_fiscal_config_error(errors, self, 'F29')
         if self.capacidad_tributaria.empresa_id != self.empresa_id:
