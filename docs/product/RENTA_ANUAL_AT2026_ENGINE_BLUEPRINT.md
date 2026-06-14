@@ -81,8 +81,9 @@ certeza fiscal mediante navegacion automatica ni por inferencia de IA.
 | `AnnualTaxWorkbook` CPT | Determinar capital propio tributario preparatorio | `TaxCodeMapping` + `MonthlyTaxFact` | lineas CPT, hashes y warnings | no cerrar con warnings |
 | `AnnualEnterpriseRegisterSet` | Construir RAI/SAC/retiros/dividendos | RLI/CPT/socios/movimientos | registros empresariales | saldos iniciales y movimientos trazados |
 | `AnnualRealEstateSection` / `AnnualRealEstateItem` | Normalizar bienes raices/arriendos | propiedades, contratos, pagos, distribuciones y contribuciones | seccion anual, items por propiedad y respaldo | fuente SII/experta para codigos y contribuciones |
-| `DdjjPackageBuilder` | Preparar DDJJ/certificados | registros, socios, certificados | paquetes DDJJ revisables | medio SII vigente por formulario |
-| `F22DraftBuilder` | Mapear a codigos F22 | registros intermedios y DDJJ | preview F22 | formato/certificacion vigente |
+| `AnnualTaxArtifactMatrix` / `AnnualTaxArtifactMatrixItem` | Conectar fuentes anuales con DDJJ/F22 revisables | source bundle, rule set, config fiscal, resumen anual, RLI/CPT, registros y bienes raices | matriz por destino, medio, fuente, responsable, warnings y hash | items DDJJ/F22 activos y sin warnings pendientes |
+| `DdjjPackageBuilder` | Preparar DDJJ/certificados | matriz DDJJ, registros, socios, certificados | paquetes DDJJ revisables | medio SII vigente por formulario |
+| `F22DraftBuilder` | Mapear a codigos F22 | matriz F22, registros intermedios y DDJJ | preview F22 | formato/certificacion vigente |
 | `AnnualTaxDossier` | Generar respaldo revisable | todo lo anterior | PDF/HTML/resumen hash | responsable de revision |
 | `AnnualTaxExport` | Emitir archivo controlado | F22/DDJJ aprobados | export no sensible | autorizacion explicita y gate SII |
 
@@ -143,7 +144,13 @@ contratos:
    redactados y bloquea readiness si falta seccion, items activos, resumen
    alineado o hay warnings pendientes.
 7. `stage6-ddjj-f22-artifact-matrix`: matriz DDJJ/F22 por fuente, medio,
-   responsable y estado.
+   responsable y estado. Implementado como `AnnualTaxArtifactMatrix` y
+   `AnnualTaxArtifactMatrixItem`: genera items DDJJ/F22 desde configuracion
+   fiscal, `TaxCodeMapping`, `ProcesoRentaAnual`, RLI/CPT, registros
+   empresariales y bienes raices; cada item conserva fuente, medio SII,
+   responsable, payload no sensible, hash y `final_tax_calculation=false`.
+   API/snapshot/admin redactan refs/payloads y readiness bloquea si falta
+   matriz, items DDJJ/F22, resumen alineado o revision de warnings.
 8. `stage6-dossier-review`: dossier anual revisable con bloqueo si falta
    responsable.
 9. `stage6-export-gate`: export/preview, sin presentacion final automatica.
@@ -166,6 +173,10 @@ contratos:
 | Item bienes raices faltante | seccion anual preparada sin `AnnualRealEstateItem` activo |
 | Resumen bienes raices desalineado | hash, total, monto o conteo del proceso no coincide con seccion vigente |
 | Item bienes raices con warning | contribuciones u otra fuente inmobiliaria requiere revision antes de cierre |
+| Matriz DDJJ/F22 faltante | proceso anual trazable sin `AnnualTaxArtifactMatrix` preparada |
+| Item DDJJ/F22 faltante | matriz preparada sin items activos, sin items F22 o sin items DDJJ |
+| Resumen matriz DDJJ/F22 desalineado | hash, conteos o ids del proceso no coinciden con la matriz vigente |
+| Item matriz con warning/bloqueo | fuente anual requiere revision tributaria antes de package/export |
 | Responsable ausente | DDJJ/F22/dossier avanzado sin `responsable_revision_ref` |
 | Refs sensibles | URLs, tokens, correos, certificados o claves en refs/payloads |
 | Presentacion sin gate | intento de marcar presentado sin formato SII, autorizacion y evidencia |

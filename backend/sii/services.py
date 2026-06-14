@@ -25,6 +25,8 @@ from .models import (
     AnnualEnterpriseRegisterSet,
     AnnualRealEstateItem,
     AnnualRealEstateSection,
+    AnnualTaxArtifactMatrix,
+    AnnualTaxArtifactMatrixItem,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -34,6 +36,8 @@ from .models import (
     DTEEmitido,
     EstadoAnnualEnterpriseRegister,
     EstadoAnnualRealEstateSection,
+    EstadoAnnualTaxArtifactMatrix,
+    EstadoAnnualTaxArtifactReview,
     EstadoAnnualTaxWorkbook,
     EstadoDTE,
     EstadoGateSII,
@@ -46,9 +50,11 @@ from .models import (
     SII_AUTOMATED_REGIME_CODE,
     EstadoAnnualTaxSourceBundle,
     SourceKindRentaAnual,
+    SourceKindAnnualTaxArtifact,
     SignoAnnualTaxLine,
     TaxCodeMapping,
     TaxYearRuleSet,
+    TipoAnnualTaxArtifactTarget,
     TipoAnnualEnterpriseRegister,
     TipoAnnualTaxWorkbook,
     TipoDTE,
@@ -742,6 +748,43 @@ def summarize_annual_real_estate_sections(process):
     }
 
 
+def summarize_annual_tax_artifact_matrices(process):
+    matrices = AnnualTaxArtifactMatrix.objects.filter(
+        proceso_renta_anual=process,
+        estado=EstadoAnnualTaxArtifactMatrix.PREPARED,
+    ).order_by('id')
+    by_id = {}
+    for matrix in matrices:
+        active_items = matrix.items.filter(estado=EstadoRegistro.ACTIVE).order_by(
+            'target_kind',
+            'target_code',
+            'source_kind',
+            'source_model',
+            'source_object_id',
+        )
+        warning_count = 0
+        review_state_counts = {}
+        for item in active_items:
+            warnings = item.warnings if isinstance(item.warnings, list) else []
+            warning_count += len(warnings)
+            review_state_counts[item.review_state] = review_state_counts.get(item.review_state, 0) + 1
+        by_id[str(matrix.id)] = {
+            'id': matrix.id,
+            'hash_matriz': matrix.hash_matriz,
+            'items_total': matrix.items_total,
+            'ddjj_items_total': matrix.ddjj_items_total,
+            'f22_items_total': matrix.f22_items_total,
+            'active_items_total': active_items.count(),
+            'warnings_total': warning_count,
+            'review_state_counts': dict(sorted(review_state_counts.items())),
+        }
+    return {
+        'total': matrices.count(),
+        'ids': sorted(by_id.keys()),
+        'by_id': by_id,
+    }
+
+
 def sync_annual_tax_workbooks(process, rule_set, source_bundle):
     fiscal_year = process.anio_tributario - 1
     monthly_facts = list(
@@ -1376,6 +1419,364 @@ def sync_annual_real_estate_section(process, rule_set, source_bundle):
     return section
 
 
+def _artifact_matrix_common_payload(matrix):
+    return {
+        'empresa_id': matrix.empresa_id,
+        'proceso_renta_anual_id': matrix.proceso_renta_anual_id,
+        'source_bundle_id': matrix.source_bundle_id,
+        'rule_set_id': matrix.rule_set_id,
+        'anio_tributario': matrix.anio_tributario,
+        'anio_comercial': matrix.anio_comercial,
+    }
+
+
+def _artifact_review_state(warnings):
+    return (
+        EstadoAnnualTaxArtifactReview.REQUIRES_REVIEW
+        if warnings
+        else EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW
+    )
+
+
+def _artifact_matrix_item_hash_payload(matrix, spec):
+    return {
+        'matrix_id': matrix.id,
+        'target_kind': spec['target_kind'],
+        'target_code': spec['target_code'],
+        'medio_sii': spec['medio_sii'],
+        'source_kind': spec['source_kind'],
+        'source_model': spec['source_model'],
+        'source_object_id': spec['source_object_id'],
+        'source_hash': spec.get('source_hash', ''),
+        'review_state': spec['review_state'],
+        'formula_ref': spec['formula_ref'],
+        'evidencia_ref': spec['evidencia_ref'],
+        'responsible_ref': spec['responsible_ref'],
+        'warnings': spec['warnings'],
+        'source_payload': spec['source_payload'],
+    }
+
+
+def _artifact_matrix_warning_list(items):
+    warnings = []
+    for item in items:
+        item_warnings = item.warnings if isinstance(item.warnings, list) else []
+        warnings.extend(item_warnings)
+    return warnings
+
+
+def _artifact_matrix_add_spec(specs, matrix, *, target_kind, target_code, source_kind, source_model,
+                              source_object_id, formula_ref, evidencia_ref, source_payload,
+                              source_hash='', medio_sii='preparacion_local_revisable',
+                              responsible_ref='system-annual-artifact-matrix', warnings=None):
+    normalized_warnings = list(warnings or [])
+    payload = {
+        **_artifact_matrix_common_payload(matrix),
+        **source_payload,
+        'target_kind': target_kind,
+        'target_code': target_code,
+        'medio_sii': medio_sii,
+        'source_kind': source_kind,
+        'source_model': source_model,
+        'source_object_id': source_object_id,
+        'final_tax_calculation': False,
+    }
+    specs.append({
+        'target_kind': target_kind,
+        'target_code': target_code,
+        'medio_sii': medio_sii,
+        'source_kind': source_kind,
+        'source_model': source_model,
+        'source_object_id': source_object_id,
+        'source_hash': source_hash,
+        'review_state': _artifact_review_state(normalized_warnings),
+        'formula_ref': formula_ref,
+        'evidencia_ref': evidencia_ref,
+        'responsible_ref': responsible_ref,
+        'warnings': normalized_warnings,
+        'source_payload': payload,
+    })
+
+
+def _artifact_matrix_specs(matrix, rule_set, source_bundle, config):
+    specs = []
+    ddjj_enabled = bool(config.ddjj_habilitadas)
+    for form_code in sorted(config.ddjj_habilitadas or []):
+        _artifact_matrix_add_spec(
+            specs,
+            matrix,
+            target_kind=TipoAnnualTaxArtifactTarget.DDJJ,
+            target_code=f'DDJJ-{form_code}',
+            source_kind=SourceKindAnnualTaxArtifact.FISCAL_CONFIG,
+            source_model='ConfiguracionFiscalEmpresa',
+            source_object_id=config.id,
+            source_hash='',
+            formula_ref='ddjj-enabled-config-v1',
+            evidencia_ref=f'fiscal-config-{config.id}-ddjj-{form_code}',
+            source_payload={
+                'ddjj_form_code': form_code,
+                'regimen_tributario_id': config.regimen_tributario_id,
+                'source': 'ConfiguracionFiscalEmpresa.ddjj_habilitadas',
+            },
+        )
+
+    mappings = TaxCodeMapping.objects.filter(
+        rule_set=rule_set,
+        destino__in=[DestinoMapeoTributarioAnual.DDJJ, DestinoMapeoTributarioAnual.F22],
+        estado=EstadoRegistro.ACTIVE,
+    ).order_by('destino', 'codigo_interno', 'codigo_destino', 'id')
+    for mapping in mappings:
+        _artifact_matrix_add_spec(
+            specs,
+            matrix,
+            target_kind=mapping.destino,
+            target_code=mapping.codigo_destino,
+            source_kind=SourceKindAnnualTaxArtifact.TAX_MAPPING,
+            source_model='TaxCodeMapping',
+            source_object_id=mapping.id,
+            source_hash=rule_set.hash_normativo,
+            formula_ref=mapping.formula_ref,
+            evidencia_ref=mapping.evidencia_ref,
+            source_payload={
+                'tax_code_mapping_id': mapping.id,
+                'codigo_interno': mapping.codigo_interno,
+                'codigo_destino': mapping.codigo_destino,
+                'destino': mapping.destino,
+                'rule_set_version': rule_set.version,
+            },
+        )
+
+    _artifact_matrix_add_spec(
+        specs,
+        matrix,
+        target_kind=TipoAnnualTaxArtifactTarget.F22,
+        target_code='F22-PREVIEW',
+        source_kind=SourceKindAnnualTaxArtifact.ANNUAL_SUMMARY,
+        source_model='ProcesoRentaAnual',
+        source_object_id=matrix.proceso_renta_anual_id,
+        source_hash=source_bundle.hash_fuentes,
+        formula_ref='f22-preview-summary-v1',
+        evidencia_ref=f'proceso-renta-anual-{matrix.proceso_renta_anual_id}-summary',
+        source_payload={
+            'summary_sections': sorted((matrix.proceso_renta_anual.resumen_anual or {}).keys()),
+            'source_bundle_hash': source_bundle.hash_fuentes,
+            'rule_set_hash': rule_set.hash_normativo,
+        },
+    )
+
+    workbooks = AnnualTaxWorkbook.objects.filter(
+        proceso_renta_anual=matrix.proceso_renta_anual,
+        estado=EstadoAnnualTaxWorkbook.PREPARED,
+    ).prefetch_related('lines').order_by('tipo', 'id')
+    for workbook in workbooks:
+        active_lines = list(workbook.lines.filter(estado=EstadoRegistro.ACTIVE).order_by('codigo_interno', 'id'))
+        _artifact_matrix_add_spec(
+            specs,
+            matrix,
+            target_kind=TipoAnnualTaxArtifactTarget.F22,
+            target_code=f'F22-{workbook.tipo}',
+            source_kind=SourceKindAnnualTaxArtifact.ANNUAL_WORKBOOK,
+            source_model='AnnualTaxWorkbook',
+            source_object_id=workbook.id,
+            source_hash=workbook.hash_workbook,
+            formula_ref=f'f22-{workbook.tipo.lower()}-artifact-source-v1',
+            evidencia_ref=f'annual-tax-workbook-{workbook.id}',
+            warnings=_artifact_matrix_warning_list(active_lines),
+            source_payload={
+                'workbook_id': workbook.id,
+                'tipo': workbook.tipo,
+                'lines_total': len(active_lines),
+                'hash_workbook': workbook.hash_workbook,
+            },
+        )
+
+    registers = AnnualEnterpriseRegisterSet.objects.filter(
+        proceso_renta_anual=matrix.proceso_renta_anual,
+        estado=EstadoAnnualEnterpriseRegister.PREPARED,
+    ).prefetch_related('movements').order_by('tipo_registro', 'id')
+    for register in registers:
+        active_movements = list(register.movements.filter(estado=EstadoRegistro.ACTIVE).order_by('codigo_interno', 'id'))
+        _artifact_matrix_add_spec(
+            specs,
+            matrix,
+            target_kind=TipoAnnualTaxArtifactTarget.F22,
+            target_code=f'F22-{register.tipo_registro}',
+            source_kind=SourceKindAnnualTaxArtifact.ENTERPRISE_REGISTER,
+            source_model='AnnualEnterpriseRegisterSet',
+            source_object_id=register.id,
+            source_hash=register.hash_registro,
+            formula_ref=f'f22-{register.tipo_registro.lower()}-register-source-v1',
+            evidencia_ref=f'annual-enterprise-register-{register.id}',
+            warnings=_artifact_matrix_warning_list(active_movements),
+            source_payload={
+                'register_id': register.id,
+                'tipo_registro': register.tipo_registro,
+                'movements_total': len(active_movements),
+                'hash_registro': register.hash_registro,
+            },
+        )
+        if ddjj_enabled and register.tipo_registro in {
+            TipoAnnualEnterpriseRegister.RETIROS,
+            TipoAnnualEnterpriseRegister.DIVIDENDOS,
+        }:
+            _artifact_matrix_add_spec(
+                specs,
+                matrix,
+                target_kind=TipoAnnualTaxArtifactTarget.DDJJ,
+                target_code=f'DDJJ-{register.tipo_registro}',
+                source_kind=SourceKindAnnualTaxArtifact.ENTERPRISE_REGISTER,
+                source_model='AnnualEnterpriseRegisterSet',
+                source_object_id=register.id,
+                source_hash=register.hash_registro,
+                formula_ref=f'ddjj-{register.tipo_registro.lower()}-register-source-v1',
+                evidencia_ref=f'annual-enterprise-register-{register.id}',
+                warnings=_artifact_matrix_warning_list(active_movements),
+                source_payload={
+                    'register_id': register.id,
+                    'tipo_registro': register.tipo_registro,
+                    'movements_total': len(active_movements),
+                    'hash_registro': register.hash_registro,
+                },
+            )
+
+    real_estate_sections = AnnualRealEstateSection.objects.filter(
+        proceso_renta_anual=matrix.proceso_renta_anual,
+        estado=EstadoAnnualRealEstateSection.PREPARED,
+    ).prefetch_related('items').order_by('id')
+    for section in real_estate_sections:
+        active_items = list(section.items.filter(estado=EstadoRegistro.ACTIVE).order_by('codigo_propiedad_snapshot', 'id'))
+        for target_kind, target_code, formula_ref in (
+            (TipoAnnualTaxArtifactTarget.F22, 'F22-BIENES-RAICES', 'f22-real-estate-source-v1'),
+            (TipoAnnualTaxArtifactTarget.DDJJ, 'DDJJ-BIENES-RAICES', 'ddjj-real-estate-source-v1'),
+        ):
+            if target_kind == TipoAnnualTaxArtifactTarget.DDJJ and not ddjj_enabled:
+                continue
+            _artifact_matrix_add_spec(
+                specs,
+                matrix,
+                target_kind=target_kind,
+                target_code=target_code,
+                source_kind=SourceKindAnnualTaxArtifact.REAL_ESTATE,
+                source_model='AnnualRealEstateSection',
+                source_object_id=section.id,
+                source_hash=section.hash_seccion,
+                formula_ref=formula_ref,
+                evidencia_ref=f'annual-real-estate-section-{section.id}',
+                warnings=_artifact_matrix_warning_list(active_items),
+                source_payload={
+                    'real_estate_section_id': section.id,
+                    'items_total': len(active_items),
+                    'hash_seccion': section.hash_seccion,
+                    'contribuciones_source': 'not_loaded_v1',
+                },
+            )
+    return specs
+
+
+def _save_artifact_matrix_item(matrix, spec):
+    hash_payload = _artifact_matrix_item_hash_payload(matrix, spec)
+    item, _ = AnnualTaxArtifactMatrixItem.objects.update_or_create(
+        matrix=matrix,
+        target_kind=spec['target_kind'],
+        target_code=spec['target_code'],
+        source_kind=spec['source_kind'],
+        source_model=spec['source_model'],
+        source_object_id=spec['source_object_id'],
+        defaults={
+            'medio_sii': spec['medio_sii'],
+            'source_hash': spec.get('source_hash', ''),
+            'review_state': spec['review_state'],
+            'formula_ref': spec['formula_ref'],
+            'evidencia_ref': spec['evidencia_ref'],
+            'responsible_ref': spec['responsible_ref'],
+            'warnings': spec['warnings'],
+            'source_payload': spec['source_payload'],
+            'hash_item': _source_bundle_hash(hash_payload),
+            'estado': EstadoRegistro.ACTIVE,
+        },
+    )
+    try:
+        item.full_clean()
+    except ValidationError as error:
+        reason = _first_validation_error(error)
+        raise ValueError(f'AnnualTaxArtifactMatrixItem no cumple validacion de dominio: {reason}') from error
+    item.save()
+    return item
+
+
+def _finalize_artifact_matrix(matrix):
+    active_items = list(
+        matrix.items.filter(estado=EstadoRegistro.ACTIVE).order_by(
+            'target_kind',
+            'target_code',
+            'source_kind',
+            'source_model',
+            'source_object_id',
+        )
+    )
+    target_counts = {}
+    review_state_counts = {}
+    warning_count = 0
+    for item in active_items:
+        target_counts[item.target_kind] = target_counts.get(item.target_kind, 0) + 1
+        review_state_counts[item.review_state] = review_state_counts.get(item.review_state, 0) + 1
+        warnings = item.warnings if isinstance(item.warnings, list) else []
+        warning_count += len(warnings)
+    matrix.items_total = len(active_items)
+    matrix.ddjj_items_total = target_counts.get(TipoAnnualTaxArtifactTarget.DDJJ, 0)
+    matrix.f22_items_total = target_counts.get(TipoAnnualTaxArtifactTarget.F22, 0)
+    matrix.resumen_matriz = {
+        'empresa_id': matrix.empresa_id,
+        'proceso_renta_anual_id': matrix.proceso_renta_anual_id,
+        'source_bundle_id': matrix.source_bundle_id,
+        'rule_set_id': matrix.rule_set_id,
+        'anio_tributario': matrix.anio_tributario,
+        'anio_comercial': matrix.anio_comercial,
+        'items_total': matrix.items_total,
+        'ddjj_items_total': matrix.ddjj_items_total,
+        'f22_items_total': matrix.f22_items_total,
+        'target_counts': dict(sorted(target_counts.items())),
+        'review_state_counts': dict(sorted(review_state_counts.items())),
+        'warnings_total': warning_count,
+        'item_hashes': [item.hash_item for item in active_items],
+        'source': 'LeaseManager annual tax intermediate artifacts',
+        'final_tax_calculation': False,
+        'sii_submission': False,
+    }
+    matrix.hash_matriz = _source_bundle_hash(matrix.resumen_matriz)
+    matrix.estado = EstadoAnnualTaxArtifactMatrix.PREPARED
+    try:
+        matrix.full_clean()
+    except ValidationError as error:
+        reason = _first_validation_error(error)
+        raise ValueError(f'AnnualTaxArtifactMatrix no cumple validacion de dominio: {reason}') from error
+    matrix.save()
+
+
+def sync_annual_tax_artifact_matrix(process, rule_set, source_bundle, config):
+    fiscal_year = process.anio_tributario - 1
+    matrix, _ = AnnualTaxArtifactMatrix.objects.update_or_create(
+        proceso_renta_anual=process,
+        defaults={
+            'empresa': process.empresa,
+            'source_bundle': source_bundle,
+            'rule_set': rule_set,
+            'anio_tributario': process.anio_tributario,
+            'anio_comercial': fiscal_year,
+            'source_ref': f'annual-tax-artifact-matrix-{process.empresa_id}-at{process.anio_tributario}',
+            'responsible_ref': 'system-annual-artifact-matrix',
+            'estado': EstadoAnnualTaxArtifactMatrix.DRAFT,
+        },
+    )
+    active_item_ids = []
+    for spec in _artifact_matrix_specs(matrix, rule_set, source_bundle, config):
+        item = _save_artifact_matrix_item(matrix, spec)
+        active_item_ids.append(item.id)
+    matrix.items.exclude(id__in=active_item_ids).update(estado=EstadoRegistro.INACTIVE)
+    _finalize_artifact_matrix(matrix)
+    return matrix
+
+
 def freeze_annual_tax_source_bundle(
     empresa,
     anio_tributario,
@@ -1508,6 +1909,7 @@ def build_annual_summary(empresa, fiscal_year, rule_set, source_bundle, process=
         summary['annual_tax_workbooks'] = summarize_annual_tax_workbooks(process)
         summary['annual_enterprise_registers'] = summarize_annual_enterprise_registers(process)
         summary['annual_real_estate_sections'] = summarize_annual_real_estate_sections(process)
+        summary['annual_tax_artifact_matrices'] = summarize_annual_tax_artifact_matrices(process)
     return summary
 
 
@@ -1527,6 +1929,10 @@ def generate_annual_preparation(empresa, anio_tributario):
     sync_annual_tax_workbooks(process, rule_set, source_bundle)
     sync_annual_enterprise_registers(process, rule_set, source_bundle)
     sync_annual_real_estate_section(process, rule_set, source_bundle)
+    summary = build_annual_summary(empresa, fiscal_year, rule_set, source_bundle, process=process)
+    process.resumen_anual = summary
+    process.save(update_fields=['resumen_anual', 'updated_at'])
+    sync_annual_tax_artifact_matrix(process, rule_set, source_bundle, config)
     summary = build_annual_summary(empresa, fiscal_year, rule_set, source_bundle, process=process)
     process.resumen_anual = summary
     process.save(update_fields=['resumen_anual', 'updated_at'])

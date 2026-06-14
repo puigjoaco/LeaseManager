@@ -12,6 +12,8 @@ from .models import (
     AnnualEnterpriseRegisterSet,
     AnnualRealEstateItem,
     AnnualRealEstateSection,
+    AnnualTaxArtifactMatrix,
+    AnnualTaxArtifactMatrixItem,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -425,6 +427,64 @@ class AnnualRealEstateItemSerializer(RedactSensitiveSiiFieldsMixin, serializers.
             'contribuciones_clp',
             'formula_ref',
             'evidencia_ref',
+            'warnings',
+            'source_payload',
+            'hash_item',
+            'estado',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = fields
+
+
+class AnnualTaxArtifactMatrixSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('source_ref', 'responsible_ref')
+    redacted_payload_fields = ('resumen_matriz',)
+
+    class Meta:
+        model = AnnualTaxArtifactMatrix
+        fields = (
+            'id',
+            'empresa',
+            'proceso_renta_anual',
+            'source_bundle',
+            'rule_set',
+            'anio_tributario',
+            'anio_comercial',
+            'source_ref',
+            'responsible_ref',
+            'items_total',
+            'ddjj_items_total',
+            'f22_items_total',
+            'resumen_matriz',
+            'hash_matriz',
+            'estado',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = fields
+
+
+class AnnualTaxArtifactMatrixItemSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
+    redacted_reference_fields = ('formula_ref', 'evidencia_ref', 'responsible_ref')
+    redacted_payload_fields = ('warnings', 'source_payload')
+
+    class Meta:
+        model = AnnualTaxArtifactMatrixItem
+        fields = (
+            'id',
+            'matrix',
+            'target_kind',
+            'target_code',
+            'medio_sii',
+            'source_kind',
+            'source_model',
+            'source_object_id',
+            'source_hash',
+            'review_state',
+            'formula_ref',
+            'evidencia_ref',
+            'responsible_ref',
             'warnings',
             'source_payload',
             'hash_item',

@@ -39,6 +39,8 @@ from sii.models import (
     AnnualEnterpriseRegisterSet,
     AnnualRealEstateItem,
     AnnualRealEstateSection,
+    AnnualTaxArtifactMatrix,
+    AnnualTaxArtifactMatrixItem,
     AmbienteSII,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
@@ -48,6 +50,7 @@ from sii.models import (
     DDJJPreparacionAnual,
     DestinoMapeoTributarioAnual,
     EstadoAnnualEnterpriseRegister,
+    EstadoAnnualTaxArtifactReview,
     EstadoAnnualTaxSourceBundle,
     EstadoRegistro,
     EstadoReglaTributariaAnual,
@@ -61,9 +64,11 @@ from sii.models import (
 from sii.services import (
     summarize_annual_enterprise_registers,
     summarize_annual_real_estate_sections,
+    summarize_annual_tax_artifact_matrices,
     summarize_annual_tax_workbooks,
     sync_annual_enterprise_registers,
     sync_annual_real_estate_section,
+    sync_annual_tax_artifact_matrix,
     sync_annual_tax_workbooks,
     sync_monthly_tax_facts,
 )
@@ -356,6 +361,10 @@ class Stage6RentaAnualReadinessTests(TestCase):
         summary['annual_tax_workbooks'] = summarize_annual_tax_workbooks(process)
         summary['annual_enterprise_registers'] = summarize_annual_enterprise_registers(process)
         summary['annual_real_estate_sections'] = summarize_annual_real_estate_sections(process)
+        process.resumen_anual = summary
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+        sync_annual_tax_artifact_matrix(process, rule_set, source_bundle, config)
+        summary['annual_tax_artifact_matrices'] = summarize_annual_tax_artifact_matrices(process)
         process.resumen_anual = summary
         process.save(update_fields=['resumen_anual', 'updated_at'])
         DDJJPreparacionAnual.objects.create(
@@ -784,6 +793,114 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage6_renta_anual'])
         self.assertIn('stage6.real_estate_section_invalid', issue_codes)
         self.assertIn('stage6.real_estate_item_invalid', issue_codes)
+        self.assertNotIn('token=secret', serialized_result)
+        self.assertNotIn('api_key', serialized_result)
+        self.assertNotIn('access_token', serialized_result)
+
+    def test_annual_process_without_artifact_matrix_is_blocking(self):
+        self._create_valid_local_matrix()
+        AnnualTaxArtifactMatrix.objects.all().delete()
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.process_artifact_matrix_missing', issue_codes)
+        self.assertEqual(result['sections']['annual_tax_artifact_matrices']['matrices_total'], 0)
+
+    def test_artifact_matrix_without_active_items_is_blocking(self):
+        self._create_valid_local_matrix()
+        matrix = AnnualTaxArtifactMatrix.objects.get()
+        AnnualTaxArtifactMatrixItem.objects.filter(matrix=matrix).update(estado=EstadoRegistro.INACTIVE)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.artifact_matrix_item_missing', issue_codes)
+        self.assertIn('stage6.artifact_matrix_f22_item_missing', issue_codes)
+        self.assertIn('stage6.artifact_matrix_ddjj_item_missing', issue_codes)
+
+    def test_artifact_matrix_item_warning_is_blocking(self):
+        self._create_valid_local_matrix()
+        item = AnnualTaxArtifactMatrixItem.objects.select_related('matrix').get(target_kind='F22', target_code='F22-PREVIEW')
+        item.warnings = ['artifact_requires_expert_review']
+        item.review_state = EstadoAnnualTaxArtifactReview.REQUIRES_REVIEW
+        item.hash_item = hashlib.sha256(
+            json.dumps(
+                {
+                    'matrix_id': item.matrix_id,
+                    'target_kind': item.target_kind,
+                    'target_code': item.target_code,
+                    'medio_sii': item.medio_sii,
+                    'source_kind': item.source_kind,
+                    'source_model': item.source_model,
+                    'source_object_id': item.source_object_id,
+                    'source_hash': item.source_hash,
+                    'review_state': item.review_state,
+                    'formula_ref': item.formula_ref,
+                    'evidencia_ref': item.evidencia_ref,
+                    'responsible_ref': item.responsible_ref,
+                    'warnings': item.warnings,
+                    'source_payload': item.source_payload,
+                },
+                sort_keys=True,
+                separators=(',', ':'),
+                ensure_ascii=True,
+                default=str,
+            ).encode('utf-8')
+        ).hexdigest()
+        item.save(update_fields=['warnings', 'review_state', 'hash_item', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.artifact_matrix_item_warning_review_required', issue_codes)
+
+    def test_artifact_matrix_summary_hash_mismatch_is_blocking(self):
+        self._create_valid_local_matrix()
+        process = ProcesoRentaAnual.objects.get()
+        summary = dict(process.resumen_anual)
+        artifact_summary = dict(summary['annual_tax_artifact_matrices'])
+        by_id = dict(artifact_summary['by_id'])
+        matrix_id = next(iter(by_id.keys()))
+        matrix_summary = dict(by_id[matrix_id])
+        matrix_summary['hash_matriz'] = 'f' * 64
+        by_id[matrix_id] = matrix_summary
+        artifact_summary['by_id'] = by_id
+        summary['annual_tax_artifact_matrices'] = artifact_summary
+        process.resumen_anual = summary
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.process_artifact_matrix_summary_mismatch', issue_codes)
+
+    def test_invalid_artifact_matrix_is_blocking_without_leak(self):
+        self._create_valid_local_matrix()
+        matrix = AnnualTaxArtifactMatrix.objects.get()
+        item = AnnualTaxArtifactMatrixItem.objects.get(matrix=matrix, target_kind='F22', target_code='F22-PREVIEW')
+        AnnualTaxArtifactMatrix.objects.filter(pk=matrix.pk).update(
+            source_ref='https://sii.example.test/artifact-matrix?token=secret',
+            resumen_matriz={'api_key': 'secret-artifact-matrix'},
+            hash_matriz='not-a-sha',
+        )
+        AnnualTaxArtifactMatrixItem.objects.filter(pk=item.pk).update(
+            evidencia_ref='https://sii.example.test/artifact-item?token=secret',
+            source_payload={'access_token': 'secret-artifact-item'},
+            hash_item='not-a-sha',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+        serialized_result = json.dumps(result)
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.artifact_matrix_invalid', issue_codes)
+        self.assertIn('stage6.artifact_matrix_item_invalid', issue_codes)
         self.assertNotIn('token=secret', serialized_result)
         self.assertNotIn('api_key', serialized_result)
         self.assertNotIn('access_token', serialized_result)

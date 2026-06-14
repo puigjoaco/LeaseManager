@@ -25,6 +25,8 @@ from sii.models import (
     AnnualEnterpriseRegisterSet,
     AnnualRealEstateItem,
     AnnualRealEstateSection,
+    AnnualTaxArtifactMatrix,
+    AnnualTaxArtifactMatrixItem,
     AnnualTaxSourceBundle,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
@@ -33,6 +35,8 @@ from sii.models import (
     DDJJPreparacionAnual,
     EstadoAnnualEnterpriseRegister,
     EstadoAnnualRealEstateSection,
+    EstadoAnnualTaxArtifactMatrix,
+    EstadoAnnualTaxArtifactReview,
     EstadoAnnualTaxSourceBundle,
     EstadoAnnualTaxWorkbook,
     EstadoReglaTributariaAnual,
@@ -505,6 +509,93 @@ def _collect_annual_real_estate_issues(sections, items, processes, active_fiscal
     return dict(sorted(counts.items()))
 
 
+def _collect_annual_artifact_matrix_issues(matrices, items, processes, active_fiscal_company_ids: set[int]) -> dict[str, int]:
+    counts = Counter()
+    invalid_matrices = _count_invalid(matrices)
+    if invalid_matrices:
+        counts['artifact_matrix_invalid'] = invalid_matrices
+    invalid_items = _count_invalid(items)
+    if invalid_items:
+        counts['artifact_matrix_item_invalid'] = invalid_items
+    without_fiscal_config = _count_without_active_fiscal_config(matrices, active_fiscal_company_ids)
+    if without_fiscal_config:
+        counts['artifact_matrix_fiscal_config_missing'] = without_fiscal_config
+
+    prepared_matrices = matrices.filter(estado=EstadoAnnualTaxArtifactMatrix.PREPARED)
+    matrices_by_process = {}
+    for matrix in prepared_matrices:
+        matrices_by_process.setdefault(matrix.proceso_renta_anual_id, []).append(matrix)
+
+    active_item_counts = Counter()
+    ddjj_item_counts = Counter()
+    f22_item_counts = Counter()
+    warning_item_counts = Counter()
+    blocked_item_counts = Counter()
+    for item in items.filter(estado=EstadoRegistro.ACTIVE).select_related('matrix'):
+        active_item_counts[item.matrix_id] += 1
+        if item.target_kind == 'DDJJ':
+            ddjj_item_counts[item.matrix_id] += 1
+        if item.target_kind == 'F22':
+            f22_item_counts[item.matrix_id] += 1
+        warnings = item.warnings if isinstance(item.warnings, list) else []
+        if warnings or item.review_state == EstadoAnnualTaxArtifactReview.REQUIRES_REVIEW:
+            warning_item_counts[item.matrix_id] += 1
+        if item.review_state == EstadoAnnualTaxArtifactReview.BLOCKED:
+            blocked_item_counts[item.matrix_id] += 1
+
+    for process in processes:
+        if process.estado not in ANNUAL_TRACEABLE_STATES:
+            continue
+        process_matrices = matrices_by_process.get(process.id, [])
+        if not process_matrices:
+            counts['process_artifact_matrix_missing'] += 1
+
+        summary = process.resumen_anual if isinstance(process.resumen_anual, dict) else {}
+        matrix_summary = summary.get('annual_tax_artifact_matrices')
+        if not isinstance(matrix_summary, dict):
+            counts['process_artifact_matrix_summary_missing'] += 1
+        else:
+            by_id = matrix_summary.get('by_id') if isinstance(matrix_summary.get('by_id'), dict) else {}
+            try:
+                summary_total = int(matrix_summary.get('total') or 0)
+            except (TypeError, ValueError):
+                summary_total = -1
+            summary_ids = set(str(value) for value in (matrix_summary.get('ids') or []))
+            matrix_ids = set(str(matrix.id) for matrix in process_matrices)
+            if summary_total != len(process_matrices) or summary_ids != matrix_ids:
+                counts['process_artifact_matrix_summary_mismatch'] += 1
+            else:
+                for matrix in process_matrices:
+                    item_summary = by_id.get(str(matrix.id))
+                    if not isinstance(item_summary, dict):
+                        counts['process_artifact_matrix_summary_mismatch'] += 1
+                        break
+                    if (
+                        item_summary.get('id') != matrix.id
+                        or item_summary.get('hash_matriz') != matrix.hash_matriz
+                        or int(item_summary.get('items_total') or 0) != matrix.items_total
+                        or int(item_summary.get('ddjj_items_total') or 0) != matrix.ddjj_items_total
+                        or int(item_summary.get('f22_items_total') or 0) != matrix.f22_items_total
+                        or int(item_summary.get('active_items_total') or 0) != active_item_counts[matrix.id]
+                    ):
+                        counts['process_artifact_matrix_summary_mismatch'] += 1
+                        break
+
+        for matrix in process_matrices:
+            if active_item_counts[matrix.id] == 0:
+                counts['artifact_matrix_item_missing'] += 1
+            if f22_item_counts[matrix.id] == 0:
+                counts['artifact_matrix_f22_item_missing'] += 1
+            if ddjj_item_counts[matrix.id] == 0:
+                counts['artifact_matrix_ddjj_item_missing'] += 1
+            if warning_item_counts[matrix.id]:
+                counts['artifact_matrix_item_warning_review_required'] += warning_item_counts[matrix.id]
+            if blocked_item_counts[matrix.id]:
+                counts['artifact_matrix_item_blocked'] += blocked_item_counts[matrix.id]
+
+    return dict(sorted(counts.items()))
+
+
 def _collect_tax_year_rule_issues(processes, active_fiscal_configs) -> dict[str, int]:
     counts = Counter()
     fiscal_config_by_company_id = {
@@ -697,6 +788,22 @@ def collect_stage6_renta_anual_readiness(
     annual_real_estate_issues = _collect_annual_real_estate_issues(
         annual_real_estate_sections,
         annual_real_estate_items,
+        annual_processes,
+        active_fiscal_company_ids,
+    )
+    annual_tax_artifact_matrices = AnnualTaxArtifactMatrix.objects.select_related(
+        'empresa',
+        'proceso_renta_anual',
+        'source_bundle',
+        'rule_set',
+    )
+    annual_tax_artifact_matrix_items = AnnualTaxArtifactMatrixItem.objects.select_related(
+        'matrix',
+        'matrix__empresa',
+    )
+    annual_artifact_matrix_issues = _collect_annual_artifact_matrix_issues(
+        annual_tax_artifact_matrices,
+        annual_tax_artifact_matrix_items,
         annual_processes,
         active_fiscal_company_ids,
     )
@@ -1084,6 +1191,65 @@ def collect_stage6_renta_anual_readiness(
     ]:
         if annual_real_estate_issues.get(key):
             issues.append(_issue(code, message, count=annual_real_estate_issues[key]))
+    for key, code, message in [
+        (
+            'artifact_matrix_invalid',
+            'stage6.artifact_matrix_invalid',
+            'Existen matrices DDJJ/F22 que no pasan validacion de dominio.',
+        ),
+        (
+            'artifact_matrix_item_invalid',
+            'stage6.artifact_matrix_item_invalid',
+            'Existen items de matriz DDJJ/F22 que no pasan validacion de dominio o referencias.',
+        ),
+        (
+            'artifact_matrix_fiscal_config_missing',
+            'stage6.artifact_matrix_fiscal_config_missing',
+            'Existen matrices DDJJ/F22 para empresas sin ConfiguracionFiscalEmpresa activa propia.',
+        ),
+        (
+            'process_artifact_matrix_missing',
+            'stage6.process_artifact_matrix_missing',
+            'ProcesoRentaAnual trazable requiere matriz DDJJ/F22 preparada.',
+        ),
+        (
+            'process_artifact_matrix_summary_missing',
+            'stage6.process_artifact_matrix_summary_missing',
+            'ProcesoRentaAnual debe conservar resumen de matriz DDJJ/F22 en resumen_anual.',
+        ),
+        (
+            'process_artifact_matrix_summary_mismatch',
+            'stage6.process_artifact_matrix_summary_mismatch',
+            'ProcesoRentaAnual conserva resumen de matriz DDJJ/F22 desalineado con la matriz vigente.',
+        ),
+        (
+            'artifact_matrix_item_missing',
+            'stage6.artifact_matrix_item_missing',
+            'AnnualTaxArtifactMatrix preparada requiere items activos.',
+        ),
+        (
+            'artifact_matrix_f22_item_missing',
+            'stage6.artifact_matrix_f22_item_missing',
+            'AnnualTaxArtifactMatrix preparada requiere al menos un item F22.',
+        ),
+        (
+            'artifact_matrix_ddjj_item_missing',
+            'stage6.artifact_matrix_ddjj_item_missing',
+            'AnnualTaxArtifactMatrix preparada requiere al menos un item DDJJ.',
+        ),
+        (
+            'artifact_matrix_item_warning_review_required',
+            'stage6.artifact_matrix_item_warning_review_required',
+            'Existen items de matriz DDJJ/F22 con warnings o revision pendiente antes de cierre.',
+        ),
+        (
+            'artifact_matrix_item_blocked',
+            'stage6.artifact_matrix_item_blocked',
+            'Existen items de matriz DDJJ/F22 bloqueados.',
+        ),
+    ]:
+        if annual_artifact_matrix_issues.get(key):
+            issues.append(_issue(code, message, count=annual_artifact_matrix_issues[key]))
     if approved_closes.count() < 12:
         issues.append(
             _issue(
@@ -1497,6 +1663,16 @@ def collect_stage6_renta_anual_readiness(
                 'items_total': annual_real_estate_items.count(),
                 'active_items': annual_real_estate_items.filter(estado=EstadoRegistro.ACTIVE).count(),
                 **annual_real_estate_issues,
+            },
+            'annual_tax_artifact_matrices': {
+                'matrices_total': annual_tax_artifact_matrices.count(),
+                'prepared_matrices': annual_tax_artifact_matrices.filter(estado=EstadoAnnualTaxArtifactMatrix.PREPARED).count(),
+                'matrices_by_state': _count_by(annual_tax_artifact_matrices, 'estado'),
+                'items_total': annual_tax_artifact_matrix_items.count(),
+                'active_items': annual_tax_artifact_matrix_items.filter(estado=EstadoRegistro.ACTIVE).count(),
+                'items_by_target': _count_by(annual_tax_artifact_matrix_items, 'target_kind'),
+                'items_by_review_state': _count_by(annual_tax_artifact_matrix_items, 'review_state'),
+                **annual_artifact_matrix_issues,
             },
             'annual_documents': {
                 'ddjj_total': ddjj_preparations.count(),
