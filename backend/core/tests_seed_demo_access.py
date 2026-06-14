@@ -22,9 +22,11 @@ from core.management.commands.bootstrap_demo_tax_annual_flow import (
 from core.management.commands.bootstrap_demo_tax_monthly_flow import (
     Command as TaxMonthlyCommand,
 )
+from contabilidad.models import ConfiguracionFiscalEmpresa
 from core.models import Role, RoleScope, Scope, UserScopeAssignment
 from operacion.models import CuentaRecaudadora
 from patrimonio.models import Empresa, Propiedad, Socio
+from sii.models import AnnualTaxOfficialSource, EstadoAnnualTaxOfficialSource, TaxCodeMapping
 from users.models import User
 
 
@@ -434,6 +436,41 @@ class SeedDemoAccessCommandTests(TestCase):
         self.assertNotIn('992001', rendered_output)
         self.assertNotIn('992002', rendered_output)
         self.assertNotIn('992003', rendered_output)
+
+    def test_tax_annual_flow_links_demo_rules_and_mappings_to_official_sources(self):
+        call_command('bootstrap_demo_control_baseline', company_id=self.empresa.id, stdout=StringIO())
+        config = ConfiguracionFiscalEmpresa.objects.get(empresa=self.empresa)
+        command = TaxAnnualCommand(stdout=StringIO())
+
+        rule_set = command._ensure_tax_year_ruleset(
+            config=config,
+            anio_tributario=2027,
+            ddjj_codes=('1887', '1943'),
+        )
+
+        rule_set.full_clean()
+        self.assertIsNotNone(rule_set.official_source_id)
+        self.assertEqual(rule_set.official_source.estado, EstadoAnnualTaxOfficialSource.APPROVED)
+        self.assertEqual(rule_set.official_source.regime_code, config.regimen_tributario.codigo_regimen)
+
+        mappings = list(TaxCodeMapping.objects.filter(rule_set=rule_set).select_related('official_source'))
+        self.assertEqual(len(mappings), 6)
+        for mapping in mappings:
+            with self.subTest(destino=mapping.destino):
+                self.assertIsNotNone(mapping.official_source_id)
+                self.assertEqual(mapping.official_source.estado, EstadoAnnualTaxOfficialSource.APPROVED)
+                self.assertEqual(mapping.official_source.applies_to, mapping.destino)
+                self.assertEqual(mapping.official_source.regime_code, config.regimen_tributario.codigo_regimen)
+                mapping.full_clean()
+
+        self.assertEqual(AnnualTaxOfficialSource.objects.filter(source_key__startswith='demo-').count(), 7)
+        command._ensure_tax_year_ruleset(
+            config=config,
+            anio_tributario=2027,
+            ddjj_codes=('1887', '1943'),
+        )
+        self.assertEqual(AnnualTaxOfficialSource.objects.filter(source_key__startswith='demo-').count(), 7)
+        self.assertEqual(TaxCodeMapping.objects.filter(rule_set=rule_set).count(), 6)
 
     def test_control_activity_summary_sanitizes_ids_and_f29_warning(self):
         output = StringIO()

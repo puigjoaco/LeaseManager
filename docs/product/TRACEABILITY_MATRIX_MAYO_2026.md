@@ -84,6 +84,13 @@ readiness reporta faltas o incompatibilidades con codigos especificos, cerrando
 la brecha entre matriz oficial AT2026 y reglas locales sin automatizar
 presentacion SII ni criterio tributario final.
 
+Nota 2026-06-14: `bootstrap_demo_tax_annual_flow` queda alineado con ese gate:
+el baseline anual demo crea/repara `AnnualTaxOfficialSource` experta aprobada
+para el rule set y para cada mapping RLI/CPT/RAI/SAC/DDJJ/F22. Esto conserva
+el showcase local como preparacion controlada e idempotente, sin presentar SII,
+sin usar fuentes reales y sin dejar parametria demo que la readiness de Etapa 6
+clasifique como huerfana de fuente.
+
 Nota 2026-06-14: Etapa 6 materializa el skeleton RLI/CPT mediante
 `AnnualTaxWorkbook` y `AnnualTaxWorkbookLine`. La preparacion anual genera
 workbooks RLI y CPT desde `TaxCodeMapping` + `MonthlyTaxFact`, con hashes por

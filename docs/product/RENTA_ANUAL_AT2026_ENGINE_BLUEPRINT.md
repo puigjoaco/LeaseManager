@@ -203,6 +203,11 @@ contratos:
     `TaxYearRuleSet` y `TaxCodeMapping`, validacion de AT/destino/regimen y
     readiness bloqueante si una regla aprobada o mapping activo no tiene fuente
     revisada/aprobada compatible.
+14. `stage6-demo-official-sources`: baseline anual demo compatible con fuentes.
+    Implementado en `bootstrap_demo_tax_annual_flow`: crea/repara fuentes
+    expertas demo aprobadas para el rule set anual y para mappings
+    RLI/CPT/RAI/SAC/DDJJ/F22, de forma idempotente y sin declarar fuente SII
+    real ni calculo tributario final.
 
 ## Cobertura actual contra EDIG AT2026
 

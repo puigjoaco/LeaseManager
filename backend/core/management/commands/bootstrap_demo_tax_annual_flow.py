@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal, InvalidOperation
 import hashlib
 
@@ -19,9 +20,12 @@ from patrimonio.models import Empresa
 from sii.models import (
     CapacidadSII,
     DestinoMapeoTributarioAnual,
+    AnnualTaxOfficialSource,
+    EstadoAnnualTaxOfficialSource,
     EstadoReglaTributariaAnual,
     TaxCodeMapping,
     TaxYearRuleSet,
+    TipoAnnualTaxOfficialSource,
 )
 from sii.services import generate_annual_preparation
 
@@ -137,6 +141,11 @@ class Command(BaseCommand):
         hash_normativo = hashlib.sha256(
             f"demo-tax-year-ruleset-{anio_tributario}-{config.regimen_tributario_id}".encode("utf-8")
         ).hexdigest()
+        rule_source = self._ensure_official_source(
+            config=config,
+            anio_tributario=anio_tributario,
+            key="ruleset",
+        )
         rule_set = TaxYearRuleSet.objects.filter(
             anio_tributario=anio_tributario,
             regimen_tributario=config.regimen_tributario,
@@ -153,6 +162,7 @@ class Command(BaseCommand):
                     "fuente_ref": f"demo-tax-rule-source-at{anio_tributario}",
                     "hash_normativo": hash_normativo,
                     "responsable_aprobacion_ref": f"demo-tax-rule-reviewer-at{anio_tributario}",
+                    "official_source": rule_source,
                     "metadata": {"source": "bootstrap_demo_tax_annual_flow", "official": False},
                 },
             )
@@ -161,6 +171,7 @@ class Command(BaseCommand):
             rule_set.fuente_ref = f"demo-tax-rule-source-at{anio_tributario}"
             rule_set.hash_normativo = hash_normativo
             rule_set.responsable_aprobacion_ref = f"demo-tax-rule-reviewer-at{anio_tributario}"
+            rule_set.official_source = rule_source
             rule_set.metadata = {"source": "bootstrap_demo_tax_annual_flow", "official": False}
             rule_set.full_clean()
             rule_set.save(
@@ -169,10 +180,15 @@ class Command(BaseCommand):
                     "fuente_ref",
                     "hash_normativo",
                     "responsable_aprobacion_ref",
+                    "official_source",
                     "metadata",
                     "updated_at",
                 ]
             )
+        elif not rule_set.official_source_id:
+            rule_set.official_source = rule_source
+            rule_set.full_clean()
+            rule_set.save(update_fields=["official_source", "updated_at"])
 
         required_destinations = (
             DestinoMapeoTributarioAnual.RLI,
@@ -187,7 +203,13 @@ class Command(BaseCommand):
                 DestinoMapeoTributarioAnual.RLI: "monthly_tax_facts.rent_distributions_total_devengado",
                 DestinoMapeoTributarioAnual.CPT: "monthly_tax_facts.obligations_total_amount",
             }.get(destino, "")
-            TaxCodeMapping.objects.get_or_create(
+            mapping_source = self._ensure_official_source(
+                config=config,
+                anio_tributario=anio_tributario,
+                key=f"mapping-{destino.lower()}",
+                applies_to=destino,
+            )
+            mapping, _ = TaxCodeMapping.objects.get_or_create(
                 rule_set=rule_set,
                 destino=destino,
                 codigo_interno=f"demo.{destino.lower()}.controlled",
@@ -195,6 +217,7 @@ class Command(BaseCommand):
                 defaults={
                     "formula_ref": f"demo-formula-{destino.lower()}-at{anio_tributario}",
                     "evidencia_ref": f"demo-evidence-{destino.lower()}-at{anio_tributario}",
+                    "official_source": mapping_source,
                     "metadata": {
                         "source": "bootstrap_demo_tax_annual_flow",
                         **({"source_metric": source_metric} if source_metric else {}),
@@ -202,7 +225,53 @@ class Command(BaseCommand):
                     },
                 },
             )
+            if not mapping.official_source_id:
+                mapping.official_source = mapping_source
+                mapping.full_clean()
+                mapping.save(update_fields=["official_source", "updated_at"])
+        rule_set.full_clean()
         return rule_set
+
+    def _ensure_official_source(
+        self,
+        *,
+        config: ConfiguracionFiscalEmpresa,
+        anio_tributario: int,
+        key: str,
+        applies_to: str = "",
+    ) -> AnnualTaxOfficialSource:
+        source_key = f"demo-{key}-at{anio_tributario}"
+        source_hash = hashlib.sha256(
+            f"bootstrap-demo-official-source-{source_key}-{config.regimen_tributario_id}".encode("utf-8")
+        ).hexdigest()
+        defaults = {
+            "source_type": TipoAnnualTaxOfficialSource.EXPERT_REVIEW,
+            "title": f"Revision experta demo {key} AT{anio_tributario}",
+            "source_ref": f"demo-official-source-{key}-at{anio_tributario}",
+            "source_hash": source_hash,
+            "retrieved_on": date(anio_tributario, 1, 1),
+            "responsible_ref": f"demo-tax-source-reviewer-at{anio_tributario}",
+            "estado": EstadoAnnualTaxOfficialSource.APPROVED,
+            "applies_to": applies_to,
+            "regime_code": config.regimen_tributario.codigo_regimen,
+            "scope_note": "Fuente experta demo controlada para preparacion anual local.",
+            "metadata": {"source": "bootstrap_demo_tax_annual_flow", "official": False},
+        }
+        source, created = AnnualTaxOfficialSource.objects.get_or_create(
+            anio_tributario=anio_tributario,
+            source_key=source_key,
+            defaults=defaults,
+        )
+        if not created:
+            dirty_fields = []
+            for field_name, value in defaults.items():
+                if getattr(source, field_name) != value:
+                    setattr(source, field_name, value)
+                    dirty_fields.append(field_name)
+            if dirty_fields:
+                source.full_clean()
+                source.save(update_fields=[*dirty_fields, "updated_at"])
+        return source
 
     def _ensure_annual_cert_refs(self, *, empresa: Empresa, cert_prefix: str) -> int:
         updated = 0
