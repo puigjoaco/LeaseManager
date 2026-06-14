@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `stage6-real-estate-contribution-source`. |
-| Fuente exacta | `main` en `226bf65`, posterior al merge de PR #842. |
-| Brecha activa | Etapa 6 necesita distinguir bienes raices/arriendos preparados localmente de contribuciones/codigos F22 respaldados por fuente oficial/experta. |
-| Motivo de prioridad | `RENTA_ANUAL_OFFICIAL_SOURCE_GAPS_AT2026.md` deja `stage6-real-estate-official-source` como siguiente avance recomendado despues de materializar DDJJ por medio/layout. |
-| Worktree | `D:/Proyectos/LeaseManager-stage6-real-estate-contribution-source`. |
-| Rama | `codex/stage6-real-estate-contribution-source`. |
-| Estado | Implementado y validado localmente; pendiente commit, PR, CI, merge y limpieza. |
+| Frente activo | `stage6-real-estate-contribution-source` cerrado. |
+| Fuente exacta | `main` en `9662160`, posterior al merge de PR #843. |
+| Brecha activa | Cerrada por PR #843: bienes raices/arriendos quedan preparados localmente y contribuciones/codigos F22 requieren fuente oficial/experta trazable. |
+| Motivo de prioridad | Evitar que una reanudacion o compactacion reabra el paquete #843 como pendiente despues del merge. |
+| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager`. |
+| Rama | `main`. |
+| Estado | PR #843 mergeado, CI remoto en verde, rama remota eliminada y worktree tactico removido. |
 | Gate esperado | `scripts/run-stage6-readiness-gate.ps1` queda en `classification=parcial`; no cierra Etapa 6 ni presenta DDJJ/F22 sin fuente final, certificacion/formato, responsable, autorizacion y evidencia no sensible. |
-| Estado al cerrar paquete | Commit, PR, CI, merge y limpieza; main debe quedar sincronizado y sin worktree tactico de este frente. |
+| Estado al cerrar paquete | Cumplido: main sincronizado en `9662160` y sin worktree tactico `stage6-real-estate-contribution-source`. |
 | Bloqueos relacionados | Contribuciones/codigos F22 finales siguen bloqueados sin fuente SII/experta vigente, responsable y autorizacion explicita. |
-| Politica de reanudacion | Continuar este worktree hasta cerrar, pausar explicitamente o limpiar; no reabrir goal prompts ni EDIG. |
-| Siguiente accion | Empaquetar este frente con commit, PR, CI, merge y limpieza; despues reanudar desde `main` limpio con el siguiente paquete seguro de Etapa 6. |
+| Politica de reanudacion | No reabrir goal prompts, EDIG ni el frente #843; continuar solo desde el estado real de `main`, este cursor y las fuentes rectoras. |
+| Siguiente accion | Diagnosticar desde `main` limpio el siguiente paquete seguro de Etapa 6 segun stage card, gaps oficiales y trazabilidad; si requiere fuente externa, registrar una sola condicion de cierre y avanzar por preparacion local segura. |
 
 ## Actualizacion
 
