@@ -2498,6 +2498,14 @@ campos faltantes antes del writer. Contra el template real Inmobiliaria Puig
 confirma 12 meses, sin meses faltantes y con objetivos de comparacion, pero
 mantiene `ready_for_db_writer=false` por 132 campos normalizados pendientes.
 
+Nota 2026-06-15: Renta Anual/Etapa 6 agrega draft de valores AC2024 y aplica
+writer local controlado para Inmobiliaria Puig. `build_annual_tax_controlled_values_draft`
+extrae Libro Diario, Libro Mayor, F29 y remuneraciones desde fuentes permitidas,
+rellena 176 campos, deja `ready_for_db_writer=true` y `apply_annual_tax_controlled_db_load`
+materializa 12 `MonthlyTaxFact` normalizados en SQLite local ignorado. El gate
+queda parcial porque faltan capacidades anuales DDJJ/F22, source bundle en DB,
+proceso anual, DDJJ/F22/documento soporte y comparador contra outputs esperados.
+
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |
 | Gobierno documental | Fuente de verdad, AGENTS, README, cursor operativo | `docs/governance`, `AGENTS.md`, `ORDEN_DE_LECTURA.md`, `.gitignore`, `docs/product/EXECUTION_CURSOR_MAYO_2026.md` | 0 | resuelto_confirmado | PR con CI verde y docs consistentes | Mantener actualizado al cambiar fuentes; bloqueos y evidencia son controles operativos de cierre, no arquitectura de producto; el cursor gobierna reanudaciones, worktrees tacticos y metatareas cerradas; artefactos locales de herramienta como `.codex-spreadsheet/`, `.playwright-cli/`, capturas PNG en el root y archivos manuales `CONFIDENCIAL`/`NO_SUBIR` quedan ignorados para no ensuciar `main` ni confundirse con paquetes activos; acceptance ejecuta `assert-repo-hygiene.ps1 -IncludeUntracked` para detectar artefactos sensibles no versionados ni ignorados sin leer secretos. |

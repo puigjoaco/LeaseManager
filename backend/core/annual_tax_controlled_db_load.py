@@ -304,7 +304,13 @@ def _apply_month(
 
     f29_obj = None
     f29_payload = month_payload.get('f29')
-    if isinstance(f29_payload, dict) and f29_payload:
+    f29_no_declaration = (
+        isinstance(f29_payload, dict)
+        and f29_payload.get('estado_preparacion') == EstadoPreparacionTributaria.NOT_APPLICABLE
+        and isinstance(f29_payload.get('resumen'), dict)
+        and f29_payload['resumen'].get('no_declaration') is True
+    )
+    if isinstance(f29_payload, dict) and f29_payload and not f29_no_declaration:
         capability = empresa.capacidades_sii.filter(capacidad_key=CapacidadSII.F29_PREPARACION).first()
         if capability is None:
             raise ValueError(f'Mes {month} requiere CapacidadTributariaSII F29_PREPARACION para cargar F29.')

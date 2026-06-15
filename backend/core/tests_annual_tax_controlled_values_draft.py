@@ -1,0 +1,248 @@
+import json
+from io import StringIO
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+from django.core.management import call_command
+from django.core.management.base import CommandError
+from django.test import SimpleTestCase
+
+from core.annual_tax_controlled_db_load import CONTROLLED_DB_LOAD_SCHEMA_VERSION
+from core.annual_tax_controlled_package_template import CONTROLLED_DB_LOAD_TEMPLATE_SCHEMA_VERSION
+from core.annual_tax_controlled_values_draft import (
+    build_annual_tax_controlled_values_draft,
+    parse_f29_text,
+    parse_libro_diario_text,
+    parse_libro_mayor_text,
+    parse_payroll_text,
+)
+
+
+class AnnualTaxControlledValuesDraftTests(SimpleTestCase):
+    def _source_file(self, root: Path, relative_path: str, content: str) -> None:
+        path = root / relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding='utf-8')
+
+    def _manifest(self) -> dict:
+        return {
+            'schema_version': 'annual-tax-source-manifest.v1',
+            'source_root_ref': 'source-root-sha256:test',
+            'company_ref': 'inmobiliaria-puig',
+            'commercial_year': 2024,
+            'tax_year': 2025,
+            'files': [
+                {
+                    'path_ref': 'libro-diario-ref',
+                    'relative_path': '01_Libros_Anuales/Libro Diario 2024.txt',
+                    'category': 'annual_ledger_input',
+                    'artifact_key': 'libro_diario',
+                    'months': [],
+                },
+                {
+                    'path_ref': 'libro-mayor-ref',
+                    'relative_path': '01_Libros_Anuales/Libro Mayor 2024.txt',
+                    'category': 'annual_ledger_input',
+                    'artifact_key': 'libro_mayor',
+                    'months': [],
+                },
+                {
+                    'path_ref': 'f29-enero-ref',
+                    'relative_path': '06_Respaldos_Tributarios/01_F29_y_Comprobantes/2024-01 F29.txt',
+                    'category': 'f29_support_input',
+                    'artifact_key': 'f29_support_input',
+                    'months': [1],
+                },
+                {
+                    'path_ref': 'payroll-enero-ref',
+                    'relative_path': '05_Libro_Remuneraciones/01 Enero.txt',
+                    'category': 'payroll_support',
+                    'artifact_key': 'payroll_support',
+                    'months': [1],
+                },
+                {
+                    'path_ref': 'f22-final-ref',
+                    'relative_path': '08_F22_Renta_AT_2025/f22-final.txt',
+                    'category': 'f22_expected_output',
+                    'artifact_key': 'f22',
+                    'months': [],
+                },
+            ],
+        }
+
+    def _template(self) -> dict:
+        return {
+            'schema_version': CONTROLLED_DB_LOAD_TEMPLATE_SCHEMA_VERSION,
+            'comparison_targets': {
+                'f22_expected_output': [{'path_ref': 'f22-final-ref', 'category': 'f22_expected_output'}],
+            },
+            'package_draft': {
+                'schema_version': CONTROLLED_DB_LOAD_SCHEMA_VERSION,
+                'company_ref': 'inmobiliaria-puig',
+                'commercial_year': 2024,
+                'tax_year': 2025,
+                'source_manifest_hash': 'a' * 64,
+                'responsible_ref': 'pending-responsible-ref',
+                'approval_ref': 'pending-approval-ref',
+                'expected_outputs_used_as_inputs': False,
+                'annual_input_source_refs': {'annual_ledger_input': [{'path_ref': 'libro-diario-ref'}]},
+                'months': [
+                    {
+                        'month': 1,
+                        'source_ref': 'month-01-controlled',
+                        'input_source_refs': {
+                            'f29_support_input': [{'path_ref': 'f29-enero-ref'}],
+                            'payroll_support': [{'path_ref': 'payroll-enero-ref'}],
+                        },
+                        'ledger': {
+                            'libro_diario_ref': '',
+                            'libro_mayor_ref': '',
+                            'asientos_count': None,
+                            'cuentas_count': None,
+                            'total_debe': '',
+                            'total_haber': '',
+                        },
+                        'balance': {
+                            'balance_ref': '',
+                            'total_debe': '',
+                            'total_haber': '',
+                            'cuadrado': None,
+                        },
+                        'obligations': [],
+                        'f29': {'estado_preparacion': 'preparado', 'borrador_ref': '', 'resumen': {}},
+                        'payroll': {'source_ref': '', 'has_movements': None, 'resumen': {}},
+                    }
+                ],
+            },
+        }
+
+    def test_text_parsers_extract_controlled_monthly_values(self):
+        diario = parse_libro_diario_text(
+            '\n'.join(
+                [
+                    'Comprobantes MES DE ENERO',
+                    'TOTAL COMPROBANTE Nº 1 1.000 1.000',
+                    'TOTAL COMPROBANTE Nº 2 2.500 2.500',
+                    'Total ENERO 3.500 3.500',
+                ]
+            )
+        )
+        mayor = parse_libro_mayor_text(
+            '\n'.join(
+                [
+                    '1101001 Caja',
+                    'Total Mes de Enero . 1.000 500 500 DB',
+                    '2101001 Proveedores',
+                    'Total Mes de Enero . 2.500 3.000 500 CR',
+                ]
+            )
+        )
+        f29 = parse_f29_text(
+            'PERIODO [15] 202401\n'
+            '563 BASE IMPONIBLE 3.500 062 PPM NETO DETERMINADO 378\n'
+            '048 RET. IMP. UNICO TRAB. ART. 74 N 1 LIR 167.505'
+        )
+        payroll = parse_payroll_text('Total General : 4.000.000 0 3.166.637')
+
+        self.assertEqual(diario[1]['asientos_count'], 2)
+        self.assertEqual(diario[1]['total_debe'], 3500)
+        self.assertEqual(mayor[1]['cuentas_count'], 2)
+        self.assertEqual(mayor[1]['total_haber'], 3500)
+        self.assertEqual(f29['periodo'], '202401')
+        self.assertEqual(f29['codes']['062'], 378)
+        self.assertTrue(payroll['has_movements'])
+
+    def test_values_draft_fills_permitted_inputs_without_using_expected_outputs(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            self._source_file(
+                source_root,
+                '01_Libros_Anuales/Libro Diario 2024.txt',
+                'Comprobantes MES DE ENERO\n'
+                'TOTAL COMPROBANTE Nº 1 1.000 1.000\n'
+                'TOTAL COMPROBANTE Nº 2 2.500 2.500\n'
+                'Total ENERO 3.500 3.500\n',
+            )
+            self._source_file(
+                source_root,
+                '01_Libros_Anuales/Libro Mayor 2024.txt',
+                '1101001 Caja\nTotal Mes de Enero . 1.000 500 500 DB\n'
+                '2101001 Proveedores\nTotal Mes de Enero . 2.500 3.000 500 CR\n',
+            )
+            self._source_file(
+                source_root,
+                '06_Respaldos_Tributarios/01_F29_y_Comprobantes/2024-01 F29.txt',
+                'PERIODO [15] 202401\n563 BASE IMPONIBLE 3.500 062 PPM NETO DETERMINADO 378\n',
+            )
+            self._source_file(
+                source_root,
+                '05_Libro_Remuneraciones/01 Enero.txt',
+                'Total General : 4.000.000 0 3.166.637',
+            )
+
+            result = build_annual_tax_controlled_values_draft(
+                manifest=self._manifest(),
+                template=self._template(),
+                source_root=source_root,
+                responsible_ref='codex-local-review',
+                approval_ref='user-authorized-local-source-review',
+            )
+
+        month = result['package_draft']['months'][0]
+        self.assertEqual(result['values_draft_summary']['extraction_errors'], [])
+        self.assertFalse(result['values_draft_summary']['uses_expected_outputs_as_inputs'])
+        self.assertEqual(result['package_draft']['responsible_ref'], 'codex-local-review')
+        self.assertEqual(month['ledger']['asientos_count'], 2)
+        self.assertEqual(month['ledger']['cuentas_count'], 2)
+        self.assertEqual(month['ledger']['total_debe'], '3500.00')
+        self.assertTrue(month['balance']['cuadrado'])
+        self.assertEqual(month['f29']['borrador_ref'], 'f29-enero-ref')
+        self.assertEqual(month['obligations'][0]['tipo'], 'PPM')
+        self.assertTrue(month['payroll']['has_movements'])
+        rendered_package = json.dumps(result['package_draft'], ensure_ascii=True)
+        self.assertNotIn('f22_expected_output', rendered_package)
+
+    def test_command_outputs_values_draft_and_refuses_versioned_output_outside_local_evidence(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir) / 'source'
+            source_root.mkdir()
+            self._source_file(
+                source_root,
+                '01_Libros_Anuales/Libro Diario 2024.txt',
+                'Comprobantes MES DE ENERO\nTOTAL COMPROBANTE Nº 1 1.000 1.000\nTotal ENERO 1.000 1.000\n',
+            )
+            self._source_file(
+                source_root,
+                '01_Libros_Anuales/Libro Mayor 2024.txt',
+                '1101001 Caja\nTotal Mes de Enero . 1.000 1.000 0\n',
+            )
+            self._source_file(source_root, '06_Respaldos_Tributarios/01_F29_y_Comprobantes/2024-01 F29.txt', '')
+            self._source_file(source_root, '05_Libro_Remuneraciones/01 Enero.txt', 'Total General : 1.000')
+            manifest_path = Path(temp_dir) / 'manifest.json'
+            template_path = Path(temp_dir) / 'template.json'
+            manifest_path.write_text(json.dumps(self._manifest()), encoding='utf-8')
+            template_path.write_text(json.dumps(self._template()), encoding='utf-8')
+            stdout = StringIO()
+
+            call_command(
+                'build_annual_tax_controlled_values_draft',
+                manifest=str(manifest_path),
+                template=str(template_path),
+                source_root=str(source_root),
+                responsible_ref='codex-local-review',
+                approval_ref='user-authorized-local-source-review',
+                stdout=stdout,
+            )
+
+            result = json.loads(stdout.getvalue())
+            self.assertEqual(result['values_draft_summary']['schema_version'], 'annual-tax-controlled-values-draft.v1')
+
+            with self.assertRaisesMessage(CommandError, 'local-evidence'):
+                call_command(
+                    'build_annual_tax_controlled_values_draft',
+                    manifest=str(manifest_path),
+                    template=str(template_path),
+                    source_root=str(source_root),
+                    output='docs/ac2024-values-draft.json',
+                    stdout=StringIO(),
+                )

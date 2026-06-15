@@ -203,6 +203,63 @@ class AnnualTaxControlledDbLoadTests(TestCase):
                     stdout=StringIO(),
                 )
 
+    def test_command_accepts_template_wrapper_package_draft(self):
+        empresa = self._create_empresa()
+        with TemporaryDirectory() as temp_dir:
+            package_path = Path(temp_dir) / 'controlled-load-wrapper.json'
+            package_path.write_text(
+                json.dumps(
+                    {
+                        'schema_version': 'annual-tax-controlled-values-draft.v1',
+                        'package_draft': self._package(months=range(1, 2)),
+                        'comparison_targets': {
+                            'f22_expected_output': [
+                                {'path_ref': 'f22-final-controlado', 'category': 'f22_expected_output'}
+                            ],
+                        },
+                    }
+                ),
+                encoding='utf-8',
+            )
+            stdout = StringIO()
+
+            call_command(
+                'apply_annual_tax_controlled_db_load',
+                package=str(package_path),
+                empresa_id=empresa.id,
+                stdout=stdout,
+            )
+
+        result = json.loads(stdout.getvalue())
+        self.assertFalse(result['writes_database'])
+        self.assertEqual(result['months_validated'], [1])
+        self.assertEqual(CierreMensualContable.objects.filter(empresa=empresa).count(), 0)
+
+    def test_apply_skips_f29_object_for_controlled_no_declaration_month(self):
+        empresa = self._create_empresa()
+        package = self._package()
+        package['months'][1]['f29'] = {
+            'estado_preparacion': EstadoPreparacionTributaria.NOT_APPLICABLE,
+            'borrador_ref': '',
+            'resumen': {
+                'no_declaration': True,
+                'source': 'manifest.f29_no_declaration_months',
+            },
+        }
+
+        result = apply_annual_tax_controlled_db_load(
+            empresa=empresa,
+            package=package,
+            write_database=True,
+        )
+
+        self.assertTrue(result['ready_for_annual_generation'])
+        self.assertEqual(MonthlyTaxFact.objects.filter(empresa=empresa).count(), 12)
+        self.assertEqual(F29PreparacionMensual.objects.filter(empresa=empresa).count(), 11)
+        february = MonthlyTaxFact.objects.get(empresa=empresa, mes=2)
+        self.assertIsNone(february.f29_preparacion_id)
+        self.assertTrue(february.resumen_hecho['f29']['resumen']['no_declaration'])
+
     def test_command_apply_writes_only_when_explicit_apply_flag_is_present(self):
         empresa = self._create_empresa()
         with TemporaryDirectory() as temp_dir:

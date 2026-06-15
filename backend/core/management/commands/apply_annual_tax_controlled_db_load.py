@@ -68,6 +68,8 @@ class Command(BaseCommand):
             package = json.loads(package_path.read_text(encoding='utf-8'))
         except (OSError, ValueError, json.JSONDecodeError) as error:
             raise CommandError(f'Package invalido: {error}') from error
+        if isinstance(package, dict) and isinstance(package.get('package_draft'), dict):
+            package = package['package_draft']
 
         try:
             empresa = Empresa.objects.get(pk=options['empresa_id'])
