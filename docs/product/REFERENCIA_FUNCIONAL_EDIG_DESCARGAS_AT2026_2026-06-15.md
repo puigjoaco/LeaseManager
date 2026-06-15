@@ -50,6 +50,16 @@ El manifiesto completo queda en la base documental externa como
 `desktop-edig-file-inventory.csv`. La evidencia local temporal se genero en
 `local-evidence/edig-downloads-2026-06-15/`, ignorada por Git.
 
+Adicionalmente, al detectar que Remuneraciones no conservaba el descargable
+original de la actualizacion `1.0.222`, se bajo el enlace oficial EDIG a la
+base documental externa como
+`DESCARGAS_OFICIALES_PENDIENTES/EDIG_Remuneraciones_Actualizacion_1.0.222_descarga_sharepoint.bin`.
+Se dejo extension `.bin` para reducir riesgo de ejecucion accidental. El hash
+SHA-256 es `2F5FB8F0B5E3864701C7E4DED6875C9EA125742804E6ED07BCA21FE20FBF401F`
+y 7-Zip lo clasifica como instalador MSI/CAB con `Plantilla222.mdb`,
+`NEWEMPX222.mdb`, `NEWEMPRE222.MDB` y `REPORTES.mdb`, calzando con la carpeta
+`ediRemuneraciones/` ya expandida.
+
 ## Clasificacion por linea
 
 ### Contabilidad
@@ -122,11 +132,10 @@ Artefactos locales relevantes:
 Comparacion contra la pagina:
 
 - El instalador base esta presente.
-- La actualizacion `1.0.222` parece estar presente como carpeta ya expandida
+- La actualizacion `1.0.222` esta presente como carpeta ya expandida
   `ediRemuneraciones/`.
-- No se conserva localmente un EXE suelto de actualizacion `1.0.222`; si se
-  busca trazabilidad binaria perfecta, conviene descargar y archivar ese
-  artefacto original tambien.
+- El descargable oficial de actualizacion `1.0.222` tambien quedo archivado
+  fuera de Git como `.bin` no ejecutado, con hash SHA-256 y listado 7-Zip.
 
 Notas visuales relevantes:
 
