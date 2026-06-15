@@ -48,6 +48,13 @@ CPT, RAI, SAC, DDJJ, F22, plantillas E-DJ y export/preview). LeaseManager debe
 tratar Remuneraciones primero como `fuente anual laboral/previsional`
 importable o revisable dentro del source bundle anual; construir un payroll
 completo queda fuera del cierre automatico de Etapa 6 salvo ADR/gate propio.
+La iteracion SII 2026-06-15 confirma el mismo boundary: F22 AT2026 requiere
+certificacion de software que genera archivos y SII no certifica contenido ni
+consistencia tributaria; DDJJ 2026 se maneja por medios oficiales por
+formulario y EDIG aparece como casa software DDJJ, no como fuente normativa.
+Por tanto, no hace falta ejecutar EDIG para avanzar esta etapa. Cualquier
+ejecucion futura de `.exe` queda limitada a sandbox observacional con datos
+ficticios y una brecha concreta de UI/export previamente registrada.
 
 El inventario estatico read-only de `scripts/analyze-edig-at2026.ps1` clasifica
 senales funcionales por administracion, F22, F29/PPM, regimenes 14A/14D3/14D8/

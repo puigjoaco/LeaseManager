@@ -6,11 +6,36 @@ Este runbook permite observar EDIG AT2026 sin contaminar LeaseManager, sin
 ejecutar binarios en el root activo y sin usar datos reales. El objetivo es
 aprender el flujo funcional para disenar el motor propio de Renta Anual.
 
+Estado posterior al contraste SII 2026-06-15: la ejecucion de EDIG no es
+necesaria para continuar la arquitectura ni la implementacion de LeaseManager.
+La evidencia estatica y oficial ya confirma la union
+contabilidad/remuneraciones -> capa tributaria anual -> DDJJ/F22/export
+revisable. Este runbook queda como procedimiento excepcional para observar UI,
+mensajes de validacion o estructura de salida con datos ficticios, no para
+extraer reglas, formulas, tablas propietarias ni formatos finales.
+
 Nota: la extraccion estatica de metadata MDB con
 `scripts/extract-edig-mdb-schema.ps1` no ejecuta EDIG ni lee filas, y puede
 correr en el entorno local sobre copias temporales de MDB nucleo. La ejecucion
 interactiva de binarios EDIG, generacion de archivos o navegacion por pantallas
 queda limitada a la VM/sandbox de este runbook.
+
+## Condicion de entrada
+
+Solo ejecutar este runbook si una brecha concreta no puede resolverse con:
+
+- fuentes oficiales SII;
+- documentos EDIG no ejecutables;
+- esquemas MDB sin filas;
+- plantillas XLSX;
+- manuales PDF;
+- notas de version;
+- reportes estaticos;
+- revision experta.
+
+La brecha debe registrarse previamente con la pregunta exacta que se quiere
+observar. Si el objetivo es obtener reglas fiscales, copiar formulas o validar
+presentacion real, este runbook no aplica.
 
 ## Precondiciones
 

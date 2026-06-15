@@ -7,7 +7,7 @@ tributario final. Su objetivo es evitar que la Etapa 6 avance por inferencia,
 por EDIG, por automatizacion de navegador o por IA autonoma cuando la evidencia
 necesaria es una fuente SII vigente, una certificacion o una revision experta.
 
-Fecha de corte: 2026-06-14.
+Fecha de corte: 2026-06-15.
 
 EDIG AT2026 queda como referencia funcional no normativa: permite entender que
 un software de renta real separa contribuyente, regimen, contabilidad, F29/PPM,
@@ -28,6 +28,33 @@ Las fuentes SII revisadas muestran tres familias distintas:
 | DTE | Existen instructivos, web services y documentacion tecnica para factura/boleta electronica, sujetos a certificado digital y gates. | Integracion tecnica posible bajo Etapa 4, no prueba API F22/DDJJ. |
 | F29/DDJJ/F22 | El camino oficial visible es formato, upload, medios por formulario, certificacion y revision responsable. | Preparar paquete/export revisable; no presentar ni marcar formato oficial sin gate. |
 | Criterio tributario | Las instrucciones F22/DJ y reglas por regimen requieren interpretacion y responsabilidad. | Versionar fuentes y warnings; el cierre exige responsable experto/oficial. |
+
+## Confirmacion SII posterior al mapeo EDIG
+
+La iteracion del 2026-06-15 contra fuentes oficiales SII confirma que el
+mapeo EDIG va en la direccion correcta, pero no cambia el boundary:
+
+- F22 AT2026 se maneja como proceso de certificacion de software que genera
+  archivos para Declaracion Anual. SII acredita recepcion correcta de los
+  archivos enviados, pero no certifica contenido ni consistencia tributaria del
+  Formulario 22. LeaseManager puede preparar layout/export revisable, no
+  declarar calculo final autonomo.
+- DDJJ Renta 2026 tiene matriz oficial de medios por formulario: formulario
+  electronico, transferencia de archivos/importador, upload, software comercial
+  y asistentes. El hecho de que un formulario admita software comercial obliga
+  a modelar `AnnualTaxDDJJFormLayout`; no autoriza copiar plantillas EDIG ni
+  presentar sin certificacion/responsable.
+- La lista SII de casas software DDJJ 2026 incluye a EDIG para formularios
+  relevantes del mapeo local, entre ellos 1847, 1879, 1887, 1926, 1947, 1948 y
+  1949. Esto confirma a EDIG como benchmark funcional de DDJJ, no como fuente
+  normativa ni como prueba de una API F22/DDJJ publica.
+- F29 confirma el mismo patron: upload/certificacion de archivo, validacion en
+  sitio SII y responsabilidad de la casa de software por contenido,
+  consistencia y validaciones. Por eso F29 debe entrar al dossier anual como
+  fuente trazable controlada, no como presentacion automatica.
+- No se identifico una API REST general oficial para presentar F22/DDJJ desde
+  LeaseManager. El camino seguro sigue siendo archivo/layout certificado,
+  portal/upload supervisado o integracion formal futura bajo gate.
 
 ## Matriz de brechas
 
@@ -70,6 +97,27 @@ un export local en presentacion oficial.
 | Casas software DDJJ 2026 | `https://www.sii.cl/ayudas/ayudas_por_servicios/2120-casas_sw_2026-2171.html` | Evidencia de que el camino por archivo certificado existe por formulario, sin entregar logica fiscal. |
 | DJ1847 AT2026 | `https://www.sii.cl/ayudas/ayudas_por_servicios/renta/2026/instrucciones_dj1847.pdf` | Fuente prioritaria para balance 8 columnas, clasificador de cuentas, ajustes RLI y valores tributarios de activos/pasivos. |
 | Certificacion F29 | `https://www.sii.cl/ayudas/ayudas_por_servicios/2055-procesocertificacion-2056.html` | Fuente para entender archivo/upload F29 y validaciones; F29 alimenta renta, pero su presentacion sigue bajo gate. |
+
+## Decision sobre ejecutar EDIG
+
+Con la evidencia estatica actual no es necesario ejecutar EDIG para avanzar la
+arquitectura ni la implementacion propia. Ya estan cubiertos:
+
+- instaladores y actualizaciones por linea;
+- notas de version;
+- esquemas MDB sin filas;
+- manuales PDF F22/F29/Admin;
+- plantillas XLSX E-DJ;
+- reportes RPT;
+- contraste oficial SII sobre F22, F29, DDJJ y casas software.
+
+Ejecutar binarios EDIG solo seria util si falta observar comportamiento
+interactivo que no pueda inferirse de fuentes estaticas, por ejemplo nombres de
+archivos generados, secuencia exacta de pantallas, mensajes de validacion o
+estructura de salida con datos ficticios. Esa ejecucion no puede ocurrir en el
+root de desarrollo ni con datos reales; debe seguir el runbook sandbox y no
+puede usarse para copiar reglas, formulas, tablas propietarias o formatos
+finales.
 
 ## Brechas por capa EDIG -> LeaseManager -> SII
 

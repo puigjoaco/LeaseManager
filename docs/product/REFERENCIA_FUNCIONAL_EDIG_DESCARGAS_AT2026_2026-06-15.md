@@ -27,6 +27,14 @@ de Git mediante `.gitignore` y debe tratarse como material externo read-only.
 - Notas EDIG Contabilidad: `https://edig.cl/notas-de-versiones-software-contabilidad/`.
 - Notas EDIG Renta: `https://edig.cl/notas-version-renta/`.
 - Notas EDIG Remuneraciones: `https://edig.cl/notas-versiones-remuneraciones/`.
+- Confirmacion SII F22 AT2026:
+  `https://www.sii.cl/noticias/2026/060226noti02pcr.htm`.
+- Medios DDJJ Renta 2026:
+  `https://www.sii.cl/ayudas/ayudas_por_servicios/2120-medios_dj_renta_2026-2171.html`.
+- Casas software DDJJ 2026:
+  `https://www.sii.cl/ayudas/ayudas_por_servicios/2120-casas_sw_2026-2171.html`.
+- Certificacion F29:
+  `https://www.sii.cl/ayudas/ayudas_por_servicios/2055-procesocertificacion-2056.html`.
 
 La pagina de descargas declara instaladores y actualizaciones para:
 
@@ -35,6 +43,33 @@ La pagina de descargas declara instaladores y actualizaciones para:
 | Contabilidad | instalador, actualizacion `1.0.134`, notas de versiones |
 | Renta A.T. 2026 | master Renta 2026, actualizador Renta `1.4`, master F22, actualizacion F22 `1.1`, plantillas/importador E-DJ 2026, notas |
 | Remuneraciones | instalador, actualizacion `1.0.222`, notas |
+
+## Contraste oficial SII 2026-06-15
+
+La segunda iteracion posterior al inventario consolidado confirma con SII que
+la lectura funcional de EDIG es consistente con el camino oficial, pero no
+habilita copiar ni ejecutar EDIG como fuente normativa:
+
+- SII convoco a certificar softwares que generan archivos para Formulario 22
+  AT2026. La misma fuente explicita que SII acredita recepcion correcta, pero
+  no certifica contenido ni consistencia del F22. Por tanto, el boundary de
+  LeaseManager debe conservar `final_tax_calculation=false` y
+  `sii_submission=false` hasta revision responsable, formato/certificacion y
+  autorizacion.
+- La matriz SII de medios DDJJ Renta 2026 muestra que los formularios se
+  declaran por combinaciones de formulario electronico, transferencia,
+  importador, upload, software comercial y asistentes. Esto valida la capa
+  propia `AnnualTaxDDJJFormLayout`.
+- SII lista a EDIG como casa software DDJJ 2026 para formularios que tambien
+  aparecen en las plantillas locales EDIG, incluyendo 1847, 1879, 1887, 1926,
+  1947, 1948 y 1949. Esto confirma que EDIG es un benchmark funcional real
+  para DDJJ AT2026, no una fuente de reglas para LeaseManager.
+- F29 sigue el patron de upload/certificacion de archivo. Puede alimentar el
+  dossier anual como fuente controlada, pero no abre presentacion mensual ni
+  anual automatica.
+- No se identifico una API REST publica general para F22/DDJJ. El camino seguro
+  sigue siendo preparacion local revisable, export/layout certificable si
+  corresponde, y presentacion/gate externo supervisado.
 
 ## Evidencia externa archivada
 
