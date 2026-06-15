@@ -16,6 +16,11 @@ instaladores, no se versionan binarios, no se usan licencias, datos reales,
 RUTs, claves ni certificados, y cualquier ejecucion futura queda limitada al
 runbook `docs/operations/EDIG_AT2026_SANDBOX_RUNBOOK.md`.
 
+El usuario consolido posteriormente las tres lineas EDIG completas bajo
+`D:\Proyectos\10_ACTIVOS\LeaseManager\EDIG\`, incluyendo Renta AT2026 con
+master, actualizaciones y carpetas extraidas. Esa carpeta tambien queda fuera
+de Git mediante `.gitignore` y debe tratarse como material externo read-only.
+
 ## Fuentes verificadas
 
 - Pagina oficial EDIG: `https://edig.cl/descargas/`.
@@ -50,6 +55,43 @@ El manifiesto completo queda en la base documental externa como
 `desktop-edig-file-inventory.csv`. La evidencia local temporal se genero en
 `local-evidence/edig-downloads-2026-06-15/`, ignorada por Git.
 
+## Evidencia local consolidada posterior
+
+El 2026-06-15 se reinvento la carpeta consolidada
+`D:\Proyectos\10_ACTIVOS\LeaseManager\EDIG\` desde cero, una linea a la vez,
+sin ejecutar software ni instalar componentes. La evidencia local ignorada se
+genero en `local-evidence/edig-full-inventory-2026-06-15/`.
+
+| Linea EDIG | Estructura principal observada | Archivos | Tamano aprox. | EXE | MSI | MDB | RPT |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `EDIG CONTABILIDAD` | `Instalador eContabilidad 1.0.71`, `SYSCONT2001 1.0.134`, notas | 1.080 | 621.06 MB | 20 | 1 | 11 | parte de 1.467 globales |
+| `EDIG REMUNERACIONES` | `InseRemuneraciones`, `ediRemuneraciones`, notas | 837 | 297.00 MB | 28 | 1 | 11 | parte de 1.467 globales |
+| `EDIG RENTA` | `EDIG AT2026 SOFTWARE RENTA`, `ACTUALIZACION`, `ACTUALIZACION 1.1 F22`, `MASTER F22`, anexos E-DJ | 655 | 1.884.27 MB | 64 | 0 | 41 | parte de 1.467 globales |
+| Total | tres lineas EDIG completas | 2.572 | 2.802.33 MB | 112 | 2 | 63 | 1.467 |
+
+Ademas se calcularon hashes SHA-256 de artefactos ejecutables/base/archivo
+comprimido (`EXE`, `MSI`, `DLL`, `OCX`, `MDB`, `ZIP`, `RAR`) en evidencia local
+ignorada. Los archivos EDIG no se versionaron.
+
+La extraccion de esquemas MDB se hizo desde copias temporales y sin leer filas:
+
+| Linea EDIG | MDB analizados | Abiertos | Tablas | Columnas | Lectura funcional |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Contabilidad | 11 | 11 | 496 | 10.407 | cuentas, libros, F29, balance, reportes, certificados |
+| Remuneraciones | 11 | 11 | 586 | 10.343 | trabajadores, liquidaciones, Previred, LRE, DJ1887, centralizacion |
+| Renta | 41 | 40 | 867 | 15.304 | F22, DDJJ, regimenes, RLI/CPT/RAI/SAC, F29/PPM, import/export |
+
+El unico MDB no abierto fue un artefacto menor de limpieza (`GNClean.mdb`). No
+afecta la lectura funcional porque los MDB principales de Renta (`PRO26`,
+`F2226`, `Reg14`, `R14PARA26`, `DDJJAT26`, `F29LGH`) abrieron correctamente.
+
+Los PDFs de Renta/F22/F29/Admin se pudieron convertir a texto con Poppler para
+conteos e indices tematicos. Las plantillas XLSX E-DJ AT2026 se inspeccionaron
+solo por hojas, dimensiones y muestras estructurales: incluyen formularios y
+anexos como 1832, 1835, 1837, 1847, 1862, 1866, 1879, 1887, 1891, 1926 B/C,
+1929, 1945, 1946, 1947, 1948, 1949, comunas, paises, monedas, conceptos,
+balance de 8 columnas, ajustes tributarios, socios, accionistas y retiros.
+
 Adicionalmente, al detectar que Remuneraciones no conservaba el descargable
 original de la actualizacion `1.0.222`, se bajo el enlace oficial EDIG a la
 base documental externa como
@@ -67,8 +109,8 @@ y 7-Zip lo clasifica como instalador MSI/CAB con `Plantilla222.mdb`,
 Artefactos locales relevantes:
 
 - `Instalador eContabilidad 1.0.71/`.
-- `ediContabilidadVersion134.exe`.
-- `PDF Contabilidad + IFRS.pdf`.
+- `SYSCONT2001 1.0.134/`.
+- `NOTAS VERSIONES CONTABILIDAD.txt`.
 
 La actualizacion `1.0.134 (15/05/2026)` agrega habilitacion/configuracion de
 codigos SII y conceptos de partidas para la DJ1847 del balance de 8 columnas.
@@ -108,12 +150,16 @@ Notas AT2026 extraidas:
 - Renta `1.0`: regimenes con traspaso AT2025, Control de Rentas
   Empresariales, ISIF, Zona Franca/Navarino y Proyeccion Renta/F22.
 
-Senales estaticas de instaladores:
+Senales estaticas de carpetas extraidas:
 
 - `PRO26.MDB`, `Reg14.MDB`, `R14PARA26.MDB`.
+- `F2226.MDB`, `DDJJAT26.MDB`, `F29LGH.MDB`, `GnParDJ26.mdb`.
 - `eR14A26`, `eR14D326`, `eR14D826`, `eR14G26`.
 - `eRenta26`, `GNPRO26`, `GNDJ26`, `GNF2226`, `ImpDJ26`.
-- Reportes y plantillas para RLI, RAI, CPT, F29, F22 y E-DJ.
+- `MASTER F22`, `ACTUALIZACION`, `ACTUALIZACION 1.1 F22`.
+- Reportes y plantillas para RLI, RAI, CPT, F29, F22, DDJJ y E-DJ.
+- PDFs `f2226.pdf`, `f2225.pdf`, manuales F22/F29/Admin.
+- XLSX de importador E-DJ AT2026 y anexos.
 
 Lectura para LeaseManager: Renta anual requiere motor anual versionado por ano
 tributario y regimen, con RLI/CPT/RAI/SAC/DDJJ/F22 como capas revisables, no
@@ -165,9 +211,11 @@ Lectura para LeaseManager: Remuneraciones cierra el ciclo contable-tributario
 aunque exista un solo trabajador. Para v1 no implica crear un payroll completo
 si el alcance no lo requiere; como minimo, el motor anual debe poder recibir
 fuentes laborales/previsionales revisables: liquidaciones, LRE, Previred,
-DJ1887/certificados, impuesto unico y centralizacion contable. Un modulo de
-remuneraciones completo debe tratarse como frontera separada, con fuente legal
-y revision experta, no como deduccion desde EDIG.
+DJ1887/certificados, impuesto unico y centralizacion contable. Esa frontera
+debe modelarse como fuente anual laboral/previsional importable o revisable,
+no como deduccion desde EDIG ni como IA libre. Un modulo de remuneraciones
+completo debe tratarse como producto separado, con fuente legal, fuente DT/
+Previred/SII vigente y revision experta.
 
 ## Decision arquitectonica
 
