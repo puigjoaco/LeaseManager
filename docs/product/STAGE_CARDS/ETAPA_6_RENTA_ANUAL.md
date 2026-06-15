@@ -117,7 +117,8 @@ mas un paquete normalizado de entrada y el comparador de outputs esperados.
 paquete normalizado desde el manifiesto: prearma 12 meses, separa refs de
 entrada y `comparison_targets`, y deja los valores contables/tributarios vacios
 para parser o carga manual controlada. No escribe DB ni convierte outputs
-esperados en insumos.
+esperados en insumos. Los meses F29 marcados en el manifiesto como sin
+declaracion quedan modelados como `no_aplica`, no como documento faltante.
 `apply_annual_tax_controlled_db_load` materializa ese paquete normalizado en DB
 local/controlada solo con `--apply`: crea o actualiza cierres mensuales,
 LibroDiario, LibroMayor, BalanceComprobacion, obligaciones, F29 y

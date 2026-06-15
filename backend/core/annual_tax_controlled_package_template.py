@@ -88,8 +88,16 @@ def _source_manifest_hash(manifest: dict[str, Any]) -> str:
     )
 
 
-def _package_month(*, company_ref: str, commercial_year: int, month: int, refs: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
+def _package_month(
+    *,
+    company_ref: str,
+    commercial_year: int,
+    month: int,
+    refs: dict[str, list[dict[str, Any]]],
+    f29_no_declaration_months: set[int],
+) -> dict[str, Any]:
     month_ref = f'{company_ref}-AC{commercial_year}-{month:02d}-controlled-load'
+    f29_no_declaration = month in f29_no_declaration_months and not refs.get('f29_support_input')
     return {
         'month': month,
         'source_ref': month_ref,
@@ -110,9 +118,14 @@ def _package_month(*, company_ref: str, commercial_year: int, month: int, refs: 
         },
         'obligations': [],
         'f29': {
-            'estado_preparacion': 'preparado',
+            'estado_preparacion': 'no_aplica' if f29_no_declaration else 'preparado',
             'borrador_ref': '',
-            'resumen': {},
+            'resumen': {
+                'no_declaration': True,
+                'source': 'manifest.f29_no_declaration_months',
+            }
+            if f29_no_declaration
+            else {},
         },
         'payroll': {
             'source_ref': '',
@@ -132,16 +145,24 @@ def build_annual_tax_controlled_db_load_template(*, manifest: dict[str, Any]) ->
     tax_year = int(manifest.get('tax_year') or commercial_year + 1)
     source_manifest_hash = _source_manifest_hash(manifest)
     coverage = manifest.get('coverage') if isinstance(manifest.get('coverage'), dict) else {}
+    f29_no_declaration_months = {
+        int(month)
+        for month in coverage.get('f29_no_declaration_months') or []
+        if 1 <= int(month) <= 12
+    }
     missing_months_by_category = {
         category: [
             month
             for month in MONTHS
             if not _month_refs(grouped, month).get(category)
+            and not (category == 'f29_support_input' and month in f29_no_declaration_months)
         ]
         for category in MONTHLY_INPUT_CATEGORIES
     }
     comparison_targets = _comparison_refs(grouped)
     annual_inputs = _annual_refs(grouped)
+    monthly_input_refs_complete = all(not months for months in missing_months_by_category.values())
+    annual_ledger_refs_complete = bool(annual_inputs.get('annual_ledger_input'))
     package_draft = {
         'schema_version': CONTROLLED_DB_LOAD_SCHEMA_VERSION,
         'company_ref': company_ref,
@@ -158,6 +179,7 @@ def build_annual_tax_controlled_db_load_template(*, manifest: dict[str, Any]) ->
                 commercial_year=commercial_year,
                 month=month,
                 refs=_month_refs(grouped, month),
+                f29_no_declaration_months=f29_no_declaration_months,
             )
             for month in MONTHS
         ],
@@ -198,6 +220,8 @@ def build_annual_tax_controlled_db_load_template(*, manifest: dict[str, Any]) ->
             'input_categories_present': input_categories_present,
             'comparison_target_categories_present': comparison_categories_present,
             'missing_months_by_category': missing_months_by_category,
+            'monthly_input_refs_complete': monthly_input_refs_complete,
+            'annual_ledger_refs_complete': annual_ledger_refs_complete,
             'ready_for_writer': False,
             'reason_not_ready_for_writer': 'manual_values_required',
         },

@@ -90,6 +90,8 @@ class AnnualTaxControlledPackageTemplateTests(SimpleTestCase):
             template['summary']['missing_months_by_category']['payroll_support'],
             [],
         )
+        self.assertTrue(template['summary']['monthly_input_refs_complete'])
+        self.assertTrue(template['summary']['annual_ledger_refs_complete'])
 
     def test_template_reports_missing_monthly_support_without_failing_source_inventory(self):
         with TemporaryDirectory() as temp_dir:
@@ -102,7 +104,31 @@ class AnnualTaxControlledPackageTemplateTests(SimpleTestCase):
         template = build_annual_tax_controlled_db_load_template(manifest=manifest)
 
         self.assertEqual(template['summary']['missing_months_by_category']['payroll_support'], [3])
+        self.assertFalse(template['summary']['monthly_input_refs_complete'])
         self.assertFalse(template['summary']['ready_for_writer'])
+
+    def test_template_treats_controlled_no_declaration_f29_month_as_covered(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            self._build_complete_source_tree(source_root)
+            for path in (source_root / 'Ano_2024/06_Respaldos_Tributarios/01_F29_y_Comprobantes').glob('2024-02_*'):
+                path.unlink()
+            manifest = build_annual_tax_source_manifest(
+                source_root=source_root,
+                company_ref='inmobiliaria-puig',
+                commercial_year=2024,
+                tax_year=2025,
+                f29_no_declaration_months=[2],
+            )
+
+        template = build_annual_tax_controlled_db_load_template(manifest=manifest)
+        february = template['package_draft']['months'][1]
+
+        self.assertEqual(template['summary']['missing_months_by_category']['f29_support_input'], [])
+        self.assertTrue(template['summary']['monthly_input_refs_complete'])
+        self.assertEqual(february['month'], 2)
+        self.assertEqual(february['f29']['estado_preparacion'], 'no_aplica')
+        self.assertTrue(february['f29']['resumen']['no_declaration'])
 
     def test_command_outputs_template_and_refuses_versioned_output_outside_local_evidence(self):
         with TemporaryDirectory() as temp_dir:
