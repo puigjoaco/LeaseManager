@@ -83,7 +83,8 @@ class AnnualTaxControlledLoadPlanTests(SimpleTestCase):
             plan['summary']['missing_capabilities_after_plan'],
         )
         self.assertNotIn('controlled_accounting_db_writer', plan['summary']['missing_capabilities_after_plan'])
-        self.assertIn('expected_output_comparator', plan['summary']['missing_capabilities_after_plan'])
+        self.assertNotIn('expected_output_comparator', plan['summary']['missing_capabilities_after_plan'])
+        self.assertIn('expected_output_content_extractors', plan['summary']['missing_capabilities_after_plan'])
 
     def test_load_plan_blocks_manifest_without_file_list(self):
         with TemporaryDirectory() as temp_dir:

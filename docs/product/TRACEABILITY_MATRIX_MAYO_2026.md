@@ -123,8 +123,8 @@ modelos canonicos (`CierreMensualContable`, `LibroDiario`, `LibroMayor`,
 `MonthlyTaxFact`, `AnnualTaxTrialBalanceLine`) y confirma que Balance/RLI/CPT/
 RAI/DDJJ/F22 son comparacion, no insumo. La corrida real queda en
 `ready_for_db_load=false` porque faltan parser/carga manual controlada para
-libros anuales, F29 PDF y remuneraciones, ademas del writer DB local y el
-comparador de outputs esperados.
+libros anuales, F29 PDF y remuneraciones; pasos posteriores ya quedan
+trazados por writer DB local, run anual controlado y comparador de cobertura.
 
 Nota 2026-06-14: Etapa 6 agrega `AnnualTaxTrialBalance` como capa anual de
 balance de ocho columnas entre `BalanceComprobacion` y RLI/CPT/DJ1847.
@@ -2482,7 +2482,7 @@ acepta solo un paquete JSON normalizado, opera en dry-run salvo `--apply`,
 materializa cierres, libros, balance, obligaciones, F29 y MonthlyTaxFact, y
 rechaza Balance/RLI/CPT/RAI/DDJJ/F22 finales como insumos. La arquitectura aun
 no queda completa de punta a punta: faltan paquete normalizado desde fuentes
-AC2024 y comparador contra outputs esperados.
+AC2024, capa anual y comparacion contra outputs esperados.
 
 Nota 2026-06-15: Renta Anual/Etapa 6 agrega template de paquete normalizado
 AC2024/AT2025. `build_annual_tax_controlled_db_load_template` toma el
@@ -2504,7 +2504,7 @@ extrae Libro Diario, Libro Mayor, F29 y remuneraciones desde fuentes permitidas,
 rellena 176 campos, deja `ready_for_db_writer=true` y `apply_annual_tax_controlled_db_load`
 materializa 12 `MonthlyTaxFact` normalizados en SQLite local ignorado. El gate
 queda parcial porque faltan capacidades anuales DDJJ/F22, source bundle en DB,
-proceso anual, DDJJ/F22/documento soporte y comparador contra outputs esperados.
+proceso anual, DDJJ/F22/documento soporte y comparacion contra outputs esperados.
 
 Nota 2026-06-15: Renta Anual/Etapa 6 agrega run anual controlado AC2024/AT2025.
 `AnnualTaxSourceBundle` diferencia meses con obligacion declarada de meses con
@@ -2514,7 +2514,17 @@ TaxYearRuleSet, mappings, layouts, fuente de balance anual preview, bundle
 `snapshot_controlado`, ProcesoRentaAnual, DDJJ/F22, matriz, dossier, export y
 checklist sobre SQLite local ignorado. El gate ya no falla por falta de proceso
 anual, DDJJ/F22 o source bundle; queda parcial por revision tributaria, bienes
-raices/respaldo y comparador pendientes.
+raices/respaldo y comparador de contenido pendiente.
+
+Nota 2026-06-15: Renta Anual/Etapa 6 agrega comparador de cobertura de outputs
+esperados AC2024/AT2025. `compare_annual_tax_expected_outputs` lee el
+manifiesto y la DB local/controlada, no escribe DB, no usa SII real y mantiene
+Balance/RLI/CPT/RAI/DDJJ/F22 finales como comparacion, no como input. Contra
+SQLite local de Inmobiliaria Puig confirma cobertura completa de balance
+tributario, workbooks CPT/RLI, registros DIVIDENDOS/RAI/RETIROS/SAC, DDJJ
+1835/1837/1847/1887/1926/1948 y F22. La prueba espejo sigue parcial por
+warnings/revision y porque faltan extractores de contenido para igualdad de
+valores.
 
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |

@@ -54,7 +54,13 @@ REQUIRED_MIRROR_ARCHITECTURE_CAPABILITIES = (
     },
     {
         'key': 'expected_output_comparator',
-        'label': 'Comparador LeaseManager vs Balance/RLI/CPT/DDJJ/F22 definitivos',
+        'label': 'Comparador de cobertura LeaseManager vs Balance/RLI/CPT/DDJJ/F22 definitivos',
+        'status': 'implemented',
+        'evidence': 'compare_annual_tax_expected_outputs',
+    },
+    {
+        'key': 'expected_output_content_extractors',
+        'label': 'Extractores de contenido para igualdad de valores contra outputs definitivos',
         'status': 'missing',
         'evidence': 'pendiente',
     },
@@ -494,7 +500,7 @@ def _mirror_proof_readiness(coverage: dict[str, Any]) -> dict[str, Any]:
             'Construir paquete normalizado desde libros/F29/remuneraciones por parser o carga manual controlada.',
             'Aplicar writer DB local controlado sin copiar documentos al repo ni usar outputs esperados como input.',
             'Generar artefactos LeaseManager AT2025 desde inputs AC2024 cargados.',
-            'Implementar comparador contra outputs esperados sin usarlos como insumo de calculo.',
+            'Implementar extractores de contenido contra outputs esperados sin usarlos como insumo de calculo.',
         ]
         if source_ready
         else [

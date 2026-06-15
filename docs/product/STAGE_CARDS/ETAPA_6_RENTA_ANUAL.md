@@ -112,7 +112,8 @@ libros, balance, obligaciones, F29, hechos mensuales y balance tributario
 anual. Para Inmobiliaria Puig AC2024/AT2025 el plan confirma que los outputs
 esperados no se usan como input, pero `ready_for_db_load=false` hasta tener
 parser/carga manual controlada para libros anuales, F29 PDF y remuneraciones,
-mas un paquete normalizado de entrada y el comparador de outputs esperados.
+mas un paquete normalizado de entrada, capa anual generada y comparacion de
+outputs esperados.
 `build_annual_tax_controlled_db_load_template` crea el template seguro de ese
 paquete normalizado desde el manifiesto: prearma 12 meses, separa refs de
 entrada y `comparison_targets`, y deja los valores contables/tributarios vacios
@@ -139,7 +140,8 @@ queda `ready_for_db_writer=true` y permite aplicar el writer contra SQLite
 local/controlado para materializar 12 cierres mensuales, 12 libros diario/mayor,
 12 balances, 10 F29, 10 obligaciones y 12 `MonthlyTaxFact`. Esta carga no usa
 outputs finales como input y no declara cierre de renta; deja pendiente la
-capa anual, source bundle en DB, DDJJ/F22 generados y comparador.
+capa anual, source bundle en DB, DDJJ/F22 generados y comparacion contra
+outputs esperados.
 `MonthlyTaxFact` materializa la capa mensual anualizable: por cada empresa,
 ano comercial y mes normaliza el cierre aprobado, obligaciones mensuales,
 F29 si existe, distribuciones de arriendo y liquidacion de empresa, con
@@ -609,6 +611,11 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   `snapshot_controlado` y artefactos anuales locales sin usar SII real,
   credenciales ni outputs finales como input. Su salida sigue siendo revisable
   y `final_tax_calculation=false`.
+- `compare_annual_tax_expected_outputs` compara cobertura y trazabilidad de
+  Balance/RLI/CPT/RAI/DDJJ/F22 esperados contra artefactos anuales generados
+  por LeaseManager. No escribe DB, no hace igualdad numerica, no lee SII real y
+  no usa esos outputs como insumo de calculo; deja pendiente
+  `expected_output_content_extractors` para la comparacion de contenido.
 
 ```powershell
 scripts\run-stage6-readiness-gate.ps1 -PythonExe backend\.venv\Scripts\python.exe
