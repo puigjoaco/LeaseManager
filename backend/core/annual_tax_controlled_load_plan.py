@@ -240,7 +240,7 @@ def build_annual_tax_controlled_load_plan(*, manifest: dict[str, Any]) -> dict[s
             'normalized_source_package_not_ready' if not ready_for_db_load else 'expected_output_comparator_missing'
         ),
         'missing_capabilities_after_plan': [
-            'normalized_controlled_source_package_required' if not ready_for_db_load else '',
+            'normalized_controlled_source_package_values_required' if not ready_for_db_load else '',
             'expected_output_comparator',
         ],
     }
@@ -282,7 +282,7 @@ def build_annual_tax_controlled_load_plan(*, manifest: dict[str, Any]) -> dict[s
         'load_items': load_items,
         'blockers': sorted(set(blockers)),
         'next_actions': [
-            'Implementar parser/carga controlada para Libro Diario, Libro Mayor, Inventario y F29 PDF o carga manual controlada equivalente.',
+            'Generar y completar template de carga controlada para Libro Diario, Libro Mayor, Inventario, F29 PDF y remuneraciones.',
             'Aplicar writer DB local con apply_annual_tax_controlled_db_load sobre un paquete normalizado validado.',
             'Generar artefactos LeaseManager AT2025 desde esa DB local.',
             'Implementar comparador contra Balance/RLI/CPT/DDJJ/F22 definitivos sin usarlos como input de calculo.',

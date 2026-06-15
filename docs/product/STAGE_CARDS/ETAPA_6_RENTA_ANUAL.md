@@ -113,6 +113,11 @@ anual. Para Inmobiliaria Puig AC2024/AT2025 el plan confirma que los outputs
 esperados no se usan como input, pero `ready_for_db_load=false` hasta tener
 parser/carga manual controlada para libros anuales, F29 PDF y remuneraciones,
 mas un paquete normalizado de entrada y el comparador de outputs esperados.
+`build_annual_tax_controlled_db_load_template` crea el template seguro de ese
+paquete normalizado desde el manifiesto: prearma 12 meses, separa refs de
+entrada y `comparison_targets`, y deja los valores contables/tributarios vacios
+para parser o carga manual controlada. No escribe DB ni convierte outputs
+esperados en insumos.
 `apply_annual_tax_controlled_db_load` materializa ese paquete normalizado en DB
 local/controlada solo con `--apply`: crea o actualiza cierres mensuales,
 LibroDiario, LibroMayor, BalanceComprobacion, obligaciones, F29 y

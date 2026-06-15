@@ -79,7 +79,7 @@ class AnnualTaxControlledLoadPlanTests(SimpleTestCase):
         self.assertIn('contabilidad.LibroDiario', by_category['annual_ledger_input']['target_models'])
         self.assertIn('sii.AnnualTaxTrialBalanceLine', by_category['annual_ledger_input']['target_models'])
         self.assertIn(
-            'normalized_controlled_source_package_required',
+            'normalized_controlled_source_package_values_required',
             plan['summary']['missing_capabilities_after_plan'],
         )
         self.assertNotIn('controlled_accounting_db_writer', plan['summary']['missing_capabilities_after_plan'])
