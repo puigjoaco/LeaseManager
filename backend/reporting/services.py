@@ -28,7 +28,7 @@ from core.reference_validation import (
     redact_sensitive_payload,
     redact_sensitive_reference,
 )
-from core.company_accounting_progress import collect_company_accounting_progress
+from core.company_accounting_progress import collect_company_accounting_candidates, collect_company_accounting_progress
 from core.scope_access import ScopeAccess, scope_queryset_for_access
 from core.state_transition_audit_readiness import transition_event_has_transition_metadata
 from contabilidad.models import (
@@ -1597,6 +1597,39 @@ def build_company_accounting_progress_report(empresa_id, fiscal_year, access: Sc
             'empresa_id': scoped_empresa.id,
             'fiscal_year': fiscal_year,
             'ready_for_company_accounting_review': payload['ready_for_company_accounting_review'],
+        },
+    )
+    return payload
+
+
+def build_company_accounting_candidate_report(access: ScopeAccess | None = None):
+    access = access or ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
+    scoped_empresa_ids = list(
+        scope_queryset_for_access(
+            Empresa.objects.all(),
+            access,
+            company_paths=('id',),
+        ).values_list('id', flat=True)
+    )
+    payload = collect_company_accounting_candidates(empresa_ids=scoped_empresa_ids)
+    payload['trazabilidad'] = _traceability_payload(
+        report_type='company_accounting_candidates',
+        sources=[
+            'Empresa',
+            'ConfiguracionFiscalEmpresa',
+            'CierreMensualContable',
+            'BalanceComprobacion',
+            'F29PreparacionMensual',
+            'ProcesoRentaAnual',
+            'AnnualTaxTrialBalance',
+            'AnnualTaxWorkbook',
+            'AnnualTaxDossier',
+            'AnnualTaxExport',
+        ],
+        checks={
+            'companies_total': payload['summary']['companies_total'],
+            'candidate_companies': payload['summary']['candidate_companies'],
+            'candidate_years': payload['summary']['candidate_years'],
         },
     )
     return payload

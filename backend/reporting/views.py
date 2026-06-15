@@ -7,6 +7,7 @@ from core.scope_access import get_scope_access
 from .services import (
     ReportingTraceabilityError,
     build_annual_tax_summary,
+    build_company_accounting_candidate_report,
     build_company_accounting_progress_report,
     build_financial_monthly_summary,
     build_manual_resolution_summary,
@@ -155,6 +156,16 @@ class CompanyAccountingProgressView(APIView):
             )
         except Empresa.DoesNotExist as error:
             raise NotFound('Empresa no encontrada.') from error
+
+
+class CompanyAccountingCandidatesView(APIView):
+    permission_classes = [ReportingPermission]
+
+    def get(self, request):
+        return _traceable_response(
+            build_company_accounting_candidate_report,
+            access=get_scope_access(request.user),
+        )
 
 
 class AnnualTaxSummaryView(APIView):

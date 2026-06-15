@@ -125,6 +125,33 @@ type ReportingCompanyProgressSummary = {
   trazabilidad: ReportTraceability
 }
 
+type ReportingCompanyCandidatesSummary = {
+  candidates: Array<{
+    empresa: { id: number; razon_social: string; estado: string }
+    fiscal_config_active: boolean
+    recommended_fiscal_year: number | null
+    years: Array<{
+      fiscal_year: number
+      tax_year: number
+      signals: {
+        monthly_closes: number
+        monthly_balances: number
+        monthly_balances_squared: number
+        f29_monthly: number
+        annual_processes: number
+        annual_trial_balance: number
+        rli_cpt_workbooks: number
+        annual_dossier: number
+        annual_export: number
+      }
+      signal_count: number
+      recommended: boolean
+    }>
+  }>
+  summary: { companies_total: number; candidate_companies: number; candidate_years: number }
+  trazabilidad: ReportTraceability
+}
+
 type ReportingMigrationSummary = {
   total: number
   categorias: Array<{ category: string; total: number }>
@@ -183,6 +210,7 @@ export function ReportingWorkspace({
   reportingAnnualDraft,
   setReportingAnnualDraft,
   handleFetchAnnualSummary,
+  handleFetchCompanyCandidatesSummary,
   reportingCompanyProgressDraft,
   setReportingCompanyProgressDraft,
   handleFetchCompanyProgressSummary,
@@ -193,6 +221,7 @@ export function ReportingWorkspace({
   reportingPartnerSummary,
   reportingBooksSummary,
   reportingAnnualSummary,
+  reportingCompanyCandidatesSummary,
   reportingCompanyProgressSummary,
   reportingMigrationSummary,
   empresas,
@@ -217,6 +246,7 @@ export function ReportingWorkspace({
   reportingAnnualDraft: ReportingAnnualDraft
   setReportingAnnualDraft: Dispatch<SetStateAction<ReportingAnnualDraft>>
   handleFetchAnnualSummary: (event: FormEvent<HTMLFormElement>) => Promise<void>
+  handleFetchCompanyCandidatesSummary: (event: FormEvent<HTMLFormElement>) => Promise<void>
   reportingCompanyProgressDraft: ReportingCompanyProgressDraft
   setReportingCompanyProgressDraft: Dispatch<SetStateAction<ReportingCompanyProgressDraft>>
   handleFetchCompanyProgressSummary: (event: FormEvent<HTMLFormElement>) => Promise<void>
@@ -227,6 +257,7 @@ export function ReportingWorkspace({
   reportingPartnerSummary: ReportingPartnerSummary | null
   reportingBooksSummary: ReportingBooksSummary | null
   reportingAnnualSummary: ReportingAnnualSummary | null
+  reportingCompanyCandidatesSummary: ReportingCompanyCandidatesSummary | null
   reportingCompanyProgressSummary: ReportingCompanyProgressSummary | null
   reportingMigrationSummary: ReportingMigrationSummary | null
   empresas: EmpresaItem[]
@@ -320,6 +351,13 @@ export function ReportingWorkspace({
               </select>
               <input placeholder="Año tributario" value={reportingAnnualDraft.anio_tributario} onChange={(event) => setReportingAnnualDraft((current) => ({ ...current, anio_tributario: event.target.value }))} />
               <button type="submit" className="button-primary" disabled={isSubmitting}>Cargar anual</button>
+            </form>
+          </section>
+
+          <section className="panel">
+            <div className="section-heading"><div><h2>Candidatos contables</h2><p>Empresas y años con señales internas para medir primero.</p></div></div>
+            <form className="entity-form" onSubmit={handleFetchCompanyCandidatesSummary}>
+              <button type="submit" className="button-primary" disabled={isSubmitting}>Cargar candidatos</button>
             </form>
           </section>
 
@@ -454,6 +492,44 @@ export function ReportingWorkspace({
             { label: 'Borrador', render: (row) => row.borrador_ref || 'Sin ref' },
             { label: 'Estado', render: (row) => <Badge label={row.estado_preparacion} tone={toneFor(row.estado_preparacion)} /> },
             { label: 'Responsable', render: (row) => row.responsable_revision_ref || 'Sin responsable' },
+          ]} />
+        </>
+      ) : null}
+
+      {reportingCompanyCandidatesSummary ? (
+        <>
+          <TraceabilityBlock value={reportingCompanyCandidatesSummary.trazabilidad} />
+          <section className="metric-grid">
+            <Metric label="Empresas visibles" value={count(reportingCompanyCandidatesSummary.summary.companies_total)} tone="neutral" />
+            <Metric label="Con señales" value={count(reportingCompanyCandidatesSummary.summary.candidate_companies)} tone={reportingCompanyCandidatesSummary.summary.candidate_companies ? 'positive' : 'warning'} />
+            <Metric label="Años candidatos" value={count(reportingCompanyCandidatesSummary.summary.candidate_years)} tone="neutral" />
+          </section>
+          <TableBlock title="Candidatos para medir" subtitle="Años detectados desde cierres, balances, F29 y procesos anuales internos." rows={reportingCompanyCandidatesSummary.candidates.flatMap((candidate) => (
+            candidate.years.map((year) => ({
+              id: `${candidate.empresa.id}-${year.fiscal_year}`,
+              empresa_id: candidate.empresa.id,
+              empresa: candidate.empresa.razon_social,
+              fiscal_config_active: candidate.fiscal_config_active,
+              fiscal_year: year.fiscal_year,
+              tax_year: year.tax_year,
+              signal_count: year.signal_count,
+              recommended: year.recommended,
+              ...year.signals,
+            }))
+          ))} empty="No hay candidatos con señales contables internas." columns={[
+            { label: 'Empresa', render: (row) => row.empresa },
+            { label: 'Año', render: (row) => `${row.fiscal_year} / AT ${row.tax_year}` },
+            { label: 'Fiscal', render: (row) => <Badge label={row.fiscal_config_active ? 'activa' : 'faltante'} tone={row.fiscal_config_active ? 'positive' : 'warning'} /> },
+            { label: 'Señales', render: (row) => <Badge label={count(row.signal_count)} tone={row.recommended ? 'positive' : 'neutral'} /> },
+            { label: 'Cierres', render: (row) => count(row.monthly_closes) },
+            { label: 'Balances', render: (row) => `${count(row.monthly_balances_squared)} / ${count(row.monthly_balances)}` },
+            { label: 'F29', render: (row) => count(row.f29_monthly) },
+            { label: 'Anual', render: (row) => `${count(row.annual_processes)} / ${count(row.annual_trial_balance)} / ${count(row.rli_cpt_workbooks)} / ${count(row.annual_dossier)} / ${count(row.annual_export)}` },
+            { label: 'Acción', render: (row) => (
+              <button type="button" className="button-secondary" onClick={() => setReportingCompanyProgressDraft({ empresa_id: String(row.empresa_id), fiscal_year: String(row.fiscal_year) })}>
+                Usar
+              </button>
+            ) },
           ]} />
         </>
       ) : null}

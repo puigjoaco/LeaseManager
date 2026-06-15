@@ -103,13 +103,14 @@ function createManualResolutionDraft() {
   }
 }
 
-const REPORTING_REQUEST_KEYS = ['financial', 'partner', 'books', 'annual', 'companyProgress', 'migration'] as const
+const REPORTING_REQUEST_KEYS = ['financial', 'partner', 'books', 'annual', 'companyCandidates', 'companyProgress', 'migration'] as const
 type ReportingRequestKey = (typeof REPORTING_REQUEST_KEYS)[number]
 const INITIAL_REPORTING_QUERY_KEYS: Record<ReportingRequestKey, string | null> = {
   financial: null,
   partner: null,
   books: null,
   annual: null,
+  companyCandidates: null,
   companyProgress: null,
   migration: null,
 }
@@ -1636,6 +1637,33 @@ type ReportingCompanyAccountingProgress = {
   trazabilidad: ReportTraceability
 }
 
+type ReportingCompanyAccountingCandidates = {
+  candidates: Array<{
+    empresa: { id: number; razon_social: string; estado: string }
+    fiscal_config_active: boolean
+    recommended_fiscal_year: number | null
+    years: Array<{
+      fiscal_year: number
+      tax_year: number
+      signals: {
+        monthly_closes: number
+        monthly_balances: number
+        monthly_balances_squared: number
+        f29_monthly: number
+        annual_processes: number
+        annual_trial_balance: number
+        rli_cpt_workbooks: number
+        annual_dossier: number
+        annual_export: number
+      }
+      signal_count: number
+      recommended: boolean
+    }>
+  }>
+  summary: { companies_total: number; candidate_companies: number; candidate_years: number }
+  trazabilidad: ReportTraceability
+}
+
 type ReportingMigrationSummary = {
   status: string
   total: number
@@ -2213,6 +2241,7 @@ function App() {
   const [reportingPartnerSummary, setReportingPartnerSummary] = useState<ReportingPartnerSummary | null>(null)
   const [reportingBooksSummary, setReportingBooksSummary] = useState<ReportingBooksSummary | null>(null)
   const [reportingAnnualSummary, setReportingAnnualSummary] = useState<ReportingAnnualSummary | null>(null)
+  const [reportingCompanyCandidatesSummary, setReportingCompanyCandidatesSummary] = useState<ReportingCompanyAccountingCandidates | null>(null)
   const [reportingCompanyProgressSummary, setReportingCompanyProgressSummary] = useState<ReportingCompanyAccountingProgress | null>(null)
   const [reportingMigrationSummary, setReportingMigrationSummary] = useState<ReportingMigrationSummary | null>(null)
   const [reportingLoadedQueryKeys, setReportingLoadedQueryKeys] = useState<Record<ReportingRequestKey, string | null>>(INITIAL_REPORTING_QUERY_KEYS)
@@ -2261,6 +2290,7 @@ function App() {
     partner: 0,
     books: 0,
     annual: 0,
+    companyCandidates: 0,
     companyProgress: 0,
     migration: 0,
   })
@@ -2309,6 +2339,7 @@ function App() {
   const reportingPartnerQueryKey = useMemo(() => buildPartnerSummaryQueryKey(reportingPartnerDraft.socio_id), [reportingPartnerDraft.socio_id])
   const reportingBooksQueryKey = useMemo(() => buildBooksSummaryQueryKey(reportingBooksDraft), [reportingBooksDraft])
   const reportingAnnualQueryKey = useMemo(() => buildAnnualSummaryQueryKey(reportingAnnualDraft), [reportingAnnualDraft])
+  const reportingCompanyCandidatesQueryKey = 'all'
   const reportingCompanyProgressQueryKey = useMemo(() => buildCompanyProgressQueryKey(reportingCompanyProgressDraft), [reportingCompanyProgressDraft])
   const reportingMigrationQueryKey = useMemo(() => buildMigrationSummaryQueryKey(reportingMigrationDraft.status), [reportingMigrationDraft.status])
   const visibleReportingFinancialSummary =
@@ -2326,6 +2357,10 @@ function App() {
   const visibleReportingAnnualSummary =
     reportingLoadedQueryKeys.annual === reportingAnnualQueryKey
       ? reportingAnnualSummary
+      : null
+  const visibleReportingCompanyCandidatesSummary =
+    reportingLoadedQueryKeys.companyCandidates === reportingCompanyCandidatesQueryKey
+      ? reportingCompanyCandidatesSummary
       : null
   const visibleReportingCompanyProgressSummary =
     reportingLoadedQueryKeys.companyProgress === reportingCompanyProgressQueryKey
@@ -2861,6 +2896,7 @@ function App() {
     setReportingPartnerSummary(null)
     setReportingBooksSummary(null)
     setReportingAnnualSummary(null)
+    setReportingCompanyCandidatesSummary(null)
     setReportingCompanyProgressSummary(null)
     setReportingMigrationSummary(null)
     setReportingLoadedQueryKeys(INITIAL_REPORTING_QUERY_KEYS)
@@ -5419,6 +5455,18 @@ function App() {
     )
   }
 
+  async function handleFetchCompanyCandidatesSummary(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    await fetchReportingData<ReportingCompanyAccountingCandidates>(
+      'companyCandidates',
+      reportingCompanyCandidatesQueryKey,
+      '/api/v1/reporting/contabilidad/candidatos-progreso-empresa/',
+      setReportingCompanyCandidatesSummary,
+      () => setReportingCompanyCandidatesSummary(null),
+      'Candidatos de progreso contable cargados correctamente.',
+    )
+  }
+
   async function handleFetchMigrationSummary(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const query = new URLSearchParams({ status: reportingMigrationDraft.status, refresh: '1' })
@@ -7273,6 +7321,7 @@ function App() {
           reportingAnnualDraft={reportingAnnualDraft}
           setReportingAnnualDraft={setReportingAnnualDraft}
           handleFetchAnnualSummary={handleFetchAnnualSummary}
+          handleFetchCompanyCandidatesSummary={handleFetchCompanyCandidatesSummary}
           reportingCompanyProgressDraft={reportingCompanyProgressDraft}
           setReportingCompanyProgressDraft={setReportingCompanyProgressDraft}
           handleFetchCompanyProgressSummary={handleFetchCompanyProgressSummary}
@@ -7283,6 +7332,7 @@ function App() {
           reportingPartnerSummary={visibleReportingPartnerSummary}
           reportingBooksSummary={visibleReportingBooksSummary}
           reportingAnnualSummary={visibleReportingAnnualSummary}
+          reportingCompanyCandidatesSummary={visibleReportingCompanyCandidatesSummary}
           reportingCompanyProgressSummary={visibleReportingCompanyProgressSummary}
           reportingMigrationSummary={visibleReportingMigrationSummary}
           empresas={empresas}

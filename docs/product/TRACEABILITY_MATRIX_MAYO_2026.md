@@ -76,6 +76,13 @@ scope por empresa, no incluye RUT, agrega trazabilidad de fuentes y muestra
 porcentaje, fases, faltantes y bloqueos para que la primera empresa piloto se
 mida con `empresa_id` y `fiscal_year` antes de declarar avance real.
 
+Nota 2026-06-14: Reporting y CLI agregan selector de candidatos de progreso
+contable/renta en `contabilidad/candidatos-progreso-empresa/` y
+`audit_company_accounting_candidates`. Priorizan empresas y anos comerciales
+con senales internas de cierres, balances, F29, proceso anual, balance
+tributario, RLI/CPT, dossier y export local; no exponen RUT, no leen `.env`,
+no usan fuentes externas y no reemplazan el gate de cierre.
+
 Nota 2026-06-14: Etapa 6 agrega `AnnualTaxTrialBalance` como capa anual de
 balance de ocho columnas entre `BalanceComprobacion` y RLI/CPT/DJ1847.
 `generate_annual_preparation()` lo sincroniza desde el balance aprobado de

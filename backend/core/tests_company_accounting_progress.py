@@ -15,7 +15,7 @@ from contabilidad.models import (
     EstadoPreparacionTributaria,
 )
 from contabilidad.services import ensure_default_regime
-from core.company_accounting_progress import collect_company_accounting_progress
+from core.company_accounting_progress import collect_company_accounting_candidates, collect_company_accounting_progress
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Socio
 from sii.models import (
     AnnualTaxArtifactMatrix,
@@ -176,6 +176,186 @@ class CompanyAccountingProgressTests(TestCase):
         self.assertEqual(result['phases']['f29_monthly']['completed'], 1)
         self.assertIn('company_accounting.monthly_closes_missing', {issue['code'] for issue in result['issues']})
         self.assertNotIn('://', json.dumps(result))
+
+    def test_candidates_rank_company_years_without_exposing_rut(self):
+        empresa = self._create_empresa()
+        empresa_sin_senales = Empresa.objects.create(
+            razon_social='Empresa Sin Senales SpA',
+            rut='76666666-6',
+            estado='activa',
+        )
+        self._activate_fiscal_config(empresa)
+        f29_capability = self._create_f29_capability(empresa)
+
+        for month in (1, 2):
+            close = self._create_close(empresa, month, fiscal_year=2025)
+            BalanceComprobacion.objects.create(
+                empresa=empresa,
+                periodo=f'2025-{month:02d}',
+                estado_snapshot=EstadoCierreMensual.APPROVED,
+                storage_ref=f'candidate-balance-{month}',
+                resumen={'cuadrado': month == 1},
+            )
+            F29PreparacionMensual.objects.create(
+                empresa=empresa,
+                capacidad_tributaria=f29_capability,
+                cierre_mensual=close,
+                anio=2025,
+                mes=month,
+                estado_preparacion=EstadoPreparacionTributaria.PREPARED,
+                resumen_formulario={'source': 'candidate-test'},
+                borrador_ref=f'candidate-f29-{month}',
+                responsable_revision_ref='candidate-reviewer',
+            )
+        self._create_close(empresa, 1, fiscal_year=2024)
+        december_balance = BalanceComprobacion.objects.create(
+            empresa=empresa,
+            periodo='2025-12',
+            estado_snapshot=EstadoCierreMensual.APPROVED,
+            storage_ref='candidate-balance-december',
+            resumen={'cuadrado': True},
+        )
+        source_bundle = self._create_source_bundle(empresa)
+        config = ConfiguracionFiscalEmpresa.objects.get(empresa=empresa)
+        rule_set, official_source = self._create_rule_set(config)
+        process = ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=2026,
+            estado=EstadoPreparacionTributaria.PREPARED,
+            source_bundle=source_bundle,
+            fecha_preparacion=timezone.now(),
+            resumen_anual={'source': 'candidate-test'},
+        )
+        AnnualTaxTrialBalance.objects.create(
+            empresa=empresa,
+            proceso_renta_anual=process,
+            source_bundle=source_bundle,
+            rule_set=rule_set,
+            official_source=official_source,
+            source_balance=december_balance,
+            anio_tributario=2026,
+            anio_comercial=2025,
+            periodo_cierre='2025-12',
+            source_ref='candidate-trial-balance',
+            responsible_ref='candidate-reviewer',
+            lines_total=1,
+            resumen_balance={'source': 'candidate-test'},
+            hash_balance='9' * 64,
+            estado=EstadoAnnualTaxTrialBalance.PREPARED,
+        )
+        for kind in (TipoAnnualTaxWorkbook.RLI, TipoAnnualTaxWorkbook.CPT):
+            AnnualTaxWorkbook.objects.create(
+                empresa=empresa,
+                proceso_renta_anual=process,
+                source_bundle=source_bundle,
+                rule_set=rule_set,
+                anio_tributario=2026,
+                anio_comercial=2025,
+                tipo=kind,
+                source_ref=f'candidate-{kind.lower()}',
+                responsible_ref='candidate-reviewer',
+                resumen_workbook={'source': 'candidate-test', 'tipo': kind},
+                hash_workbook='a' * 64,
+                estado=EstadoAnnualTaxWorkbook.PREPARED,
+            )
+        matrix = AnnualTaxArtifactMatrix.objects.create(
+            empresa=empresa,
+            proceso_renta_anual=process,
+            source_bundle=source_bundle,
+            rule_set=rule_set,
+            anio_tributario=2026,
+            anio_comercial=2025,
+            source_ref='candidate-matrix',
+            responsible_ref='candidate-reviewer',
+            items_total=2,
+            ddjj_items_total=1,
+            f22_items_total=1,
+            resumen_matriz={'source': 'candidate-test'},
+            hash_matriz='b' * 64,
+            estado=EstadoAnnualTaxArtifactMatrix.PREPARED,
+        )
+        dossier = AnnualTaxDossier.objects.create(
+            empresa=empresa,
+            proceso_renta_anual=process,
+            source_bundle=source_bundle,
+            rule_set=rule_set,
+            artifact_matrix=matrix,
+            anio_tributario=2026,
+            anio_comercial=2025,
+            source_ref='candidate-dossier',
+            responsible_ref='candidate-reviewer',
+            dossier_ref='candidate-dossier-ref',
+            monthly_facts_total=2,
+            workbooks_total=2,
+            artifact_matrix_items_total=2,
+            resumen_dossier={'source': 'candidate-test'},
+            hash_dossier='c' * 64,
+            estado=EstadoAnnualTaxDossier.PREPARED,
+        )
+        AnnualTaxExport.objects.create(
+            empresa=empresa,
+            proceso_renta_anual=process,
+            dossier=dossier,
+            source_bundle=source_bundle,
+            rule_set=rule_set,
+            artifact_matrix=matrix,
+            official_format_source=official_source,
+            anio_tributario=2026,
+            anio_comercial=2025,
+            source_ref='candidate-export',
+            responsible_ref='candidate-reviewer',
+            export_ref='candidate-export-ref',
+            target_items_total=2,
+            ddjj_items_total=1,
+            f22_items_total=1,
+            export_payload={'source': 'candidate-test'},
+            hash_export='d' * 64,
+            estado=EstadoAnnualTaxExport.PREPARED,
+        )
+
+        result = collect_company_accounting_candidates(empresa_ids=[empresa.id, empresa_sin_senales.id])
+
+        self.assertEqual(result['summary']['companies_total'], 2)
+        self.assertEqual(result['summary']['candidate_companies'], 1)
+        self.assertEqual(result['summary']['candidate_years'], 2)
+        self.assertEqual(result['candidates'][0]['empresa']['id'], empresa.id)
+        self.assertEqual(result['candidates'][0]['recommended_fiscal_year'], 2025)
+        self.assertTrue(result['candidates'][0]['years'][0]['recommended'])
+        self.assertEqual(result['candidates'][0]['years'][0]['signals']['monthly_closes'], 2)
+        self.assertEqual(result['candidates'][0]['years'][0]['signals']['monthly_balances_squared'], 2)
+        self.assertEqual(result['candidates'][0]['years'][0]['signals']['f29_monthly'], 2)
+        self.assertEqual(result['candidates'][0]['years'][0]['signals']['annual_processes'], 1)
+        self.assertEqual(result['candidates'][0]['years'][0]['signals']['annual_trial_balance'], 1)
+        self.assertEqual(result['candidates'][0]['years'][0]['signals']['rli_cpt_workbooks'], 2)
+        self.assertEqual(result['candidates'][0]['years'][0]['signals']['annual_dossier'], 1)
+        self.assertEqual(result['candidates'][0]['years'][0]['signals']['annual_export'], 1)
+        self.assertEqual(result['candidates'][0]['years'][1]['fiscal_year'], 2024)
+        self.assertNotIn(empresa.rut, json.dumps(result))
+        self.assertNotIn(empresa_sin_senales.rut, json.dumps(result))
+
+    def test_candidates_command_outputs_empty_and_can_fail_on_empty(self):
+        stdout = StringIO()
+
+        call_command('audit_company_accounting_candidates', stdout=stdout)
+
+        result = json.loads(stdout.getvalue())
+        self.assertEqual(result['summary']['companies_total'], 0)
+        self.assertEqual(result['summary']['candidate_companies'], 0)
+        self.assertEqual(result['candidates'], [])
+
+        with self.assertRaisesMessage(CommandError, 'No hay candidatos'):
+            call_command(
+                'audit_company_accounting_candidates',
+                fail_on_empty=True,
+                stdout=StringIO(),
+            )
+
+    def test_candidates_command_refuses_versioned_output_outside_local_evidence(self):
+        with self.assertRaisesMessage(CommandError, 'local-evidence'):
+            call_command(
+                'audit_company_accounting_candidates',
+                output='docs/company-accounting-candidates.json',
+            )
 
     def test_downstream_annual_artifacts_do_not_count_without_prepared_process(self):
         empresa = self._create_empresa()
@@ -393,3 +573,21 @@ class CompanyAccountingProgressTests(TestCase):
                 fail_on_incomplete=True,
                 stdout=StringIO(),
             )
+
+    def test_candidates_command_outputs_candidates_without_rut(self):
+        empresa = self._create_empresa()
+        self._activate_fiscal_config(empresa)
+        self._create_close(empresa, 1, fiscal_year=2025)
+        stdout = StringIO()
+
+        call_command(
+            'audit_company_accounting_candidates',
+            stdout=stdout,
+        )
+
+        result = json.loads(stdout.getvalue())
+        self.assertEqual(result['summary']['companies_total'], 1)
+        self.assertEqual(result['summary']['candidate_companies'], 1)
+        self.assertEqual(result['candidates'][0]['empresa']['id'], empresa.id)
+        self.assertEqual(result['candidates'][0]['recommended_fiscal_year'], 2025)
+        self.assertNotIn(empresa.rut, stdout.getvalue())

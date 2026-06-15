@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     AnnualTaxSummaryView,
+    CompanyAccountingCandidatesView,
     CompanyAccountingProgressView,
     FinancialMonthlySummaryView,
     ManualResolutionSummaryView,
@@ -19,6 +20,7 @@ urlpatterns = [
     path('manual-resolutions/summary/', ManualResolutionSummaryView.as_view(), name='reporting-manual-resolutions-summary'),
     path('financiero/mensual/', FinancialMonthlySummaryView.as_view(), name='reporting-financiero-mensual'),
     path('contabilidad/libros-periodo/', PeriodBooksSummaryView.as_view(), name='reporting-libros-periodo'),
+    path('contabilidad/candidatos-progreso-empresa/', CompanyAccountingCandidatesView.as_view(), name='reporting-company-accounting-candidates'),
     path('contabilidad/progreso-empresa/', CompanyAccountingProgressView.as_view(), name='reporting-company-accounting-progress'),
     path('migracion/resoluciones-manuales/', MigrationManualResolutionSummaryView.as_view(), name='reporting-migration-manual-resolutions'),
     path('references/', ReportingReferenceOptionsView.as_view(), name='reporting-reference-options'),

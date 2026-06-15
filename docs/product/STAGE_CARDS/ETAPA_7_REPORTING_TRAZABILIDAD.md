@@ -136,6 +136,11 @@ externa final.
   El reporte conserva trazabilidad, respeta scope por empresa y no entrega RUT
   ni secretos; su resultado es diagnostico de preparacion para revision, no
   cierre ni presentacion tributaria.
+- Reporting expone `contabilidad/candidatos-progreso-empresa/` para listar
+  empresas y anos con senales internas de avance contable/renta, respetando
+  scope por empresa y sin RUT. La vista permite seleccionar un candidato y
+  cargarlo en `contabilidad/progreso-empresa/`; no afirma avance real contra
+  fuente externa ni reemplaza el gate de cierre.
 - Los endpoints de Reporting normalizan parametros de consulta antes de
   filtrar, validar o decidir cache: `periodo`, `mode`, `refresh`, `status`,
   `empresa_id`, `anio`, `mes` y `anio_tributario`. Esto evita que espacios

@@ -1150,6 +1150,56 @@ class ReportingAPITests(APITestCase):
         self.assertEqual(response.data['trazabilidad']['estado'], 'verificado')
         self.assertNotIn(empresa.rut, json.dumps(response.data))
 
+    def test_company_accounting_candidates_endpoint_lists_scoped_signal_years_without_rut(self):
+        _, empresa, _, _, _, _ = self._create_context('PROGCAND')
+        _, empresa_empty, _, _, _, _ = self._create_context('PROGEMPTY')
+        self._activate_fiscal_config(empresa)
+        close = CierreMensualContable.objects.create(
+            empresa=empresa,
+            anio=2026,
+            mes=1,
+            estado=EstadoCierreMensual.APPROVED,
+            fecha_preparacion=timezone.now(),
+            fecha_aprobacion=timezone.now(),
+        )
+        BalanceComprobacion.objects.create(
+            empresa=empresa,
+            periodo='2026-01',
+            estado_snapshot=EstadoCierreMensual.APPROVED,
+            storage_ref='candidate-balance-controlled',
+            resumen={'cuadrado': True},
+        )
+        F29PreparacionMensual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=CapacidadTributariaSII.objects.create(
+                empresa=empresa,
+                capacidad_key=CapacidadSII.F29_PREPARACION,
+                certificado_ref='candidate-f29-cert-controlled',
+                estado_gate='abierto',
+            ),
+            cierre_mensual=close,
+            anio=2026,
+            mes=1,
+            estado_preparacion=EstadoPreparacionTributaria.PREPARED,
+            resumen_formulario={'source': 'candidate-test'},
+            borrador_ref='candidate-f29-draft',
+            responsable_revision_ref='candidate-reviewer',
+        )
+
+        response = self.client.get(reverse('reporting-company-accounting-candidates'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['summary']['companies_total'], 2)
+        self.assertEqual(response.data['summary']['candidate_companies'], 1)
+        self.assertEqual(response.data['candidates'][0]['empresa']['id'], empresa.id)
+        self.assertEqual(response.data['candidates'][0]['recommended_fiscal_year'], 2026)
+        self.assertEqual(response.data['candidates'][0]['years'][0]['signals']['monthly_closes'], 1)
+        self.assertEqual(response.data['candidates'][0]['years'][0]['signals']['monthly_balances_squared'], 1)
+        self.assertEqual(response.data['candidates'][0]['years'][0]['signals']['f29_monthly'], 1)
+        self.assertEqual(response.data['trazabilidad']['estado'], 'verificado')
+        self.assertNotIn(empresa.rut, json.dumps(response.data))
+        self.assertNotIn(empresa_empty.rut, json.dumps(response.data))
+
     def test_company_accounting_progress_endpoint_respects_company_scope(self):
         _, empresa_a, _, _, _, _ = self._create_context('PROGSCOPEA')
         _, empresa_b, _, _, _, _ = self._create_context('PROGSCOPEB')
@@ -1166,6 +1216,31 @@ class ReportingAPITests(APITestCase):
 
         self.assertEqual(in_scope.status_code, status.HTTP_200_OK)
         self.assertEqual(out_of_scope.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_company_accounting_candidates_endpoint_respects_company_scope(self):
+        _, empresa_a, _, _, _, _ = self._create_context('PROGCANDSA')
+        _, empresa_b, _, _, _, _ = self._create_context('PROGCANDSB')
+        CierreMensualContable.objects.create(
+            empresa=empresa_a,
+            anio=2026,
+            mes=1,
+            estado=EstadoCierreMensual.APPROVED,
+        )
+        CierreMensualContable.objects.create(
+            empresa=empresa_b,
+            anio=2026,
+            mes=1,
+            estado=EstadoCierreMensual.APPROVED,
+        )
+        reviewer_client = self._create_scoped_reviewer_client(empresa_a)
+
+        response = reviewer_client.get(reverse('reporting-company-accounting-candidates'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['summary']['companies_total'], 1)
+        self.assertEqual(response.data['summary']['candidate_companies'], 1)
+        self.assertEqual(response.data['candidates'][0]['empresa']['id'], empresa_a.id)
+        self.assertNotIn(empresa_b.razon_social, json.dumps(response.data))
 
     def test_reporting_query_params_normalize_before_filtering(self):
         _, empresa, _, _, _, _ = self._create_context('QUERYNORM')
