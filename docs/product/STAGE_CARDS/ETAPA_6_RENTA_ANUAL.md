@@ -174,6 +174,11 @@ El mismo diagnostico queda disponible en Reporting como
 consulte con `empresa_id` y `fiscal_year` antes de iniciar afirmaciones de
 cierre anual. La vista conserva el boundary: no calcula renta final, no sube
 F22/DDJJ, no usa SII real y no reemplaza revision tributaria experta.
+El selector `audit_company_accounting_candidates` y la vista Reporting
+`contabilidad/candidatos-progreso-empresa/` priorizan empresas y anos con
+senales locales de cierre, balances, F29, proceso anual, balance tributario,
+RLI/CPT, dossier y export. Sirve para elegir que expediente revisar primero;
+no habilita calculo tributario final, upload SII ni presentacion autonoma.
 
 ## Gate
 

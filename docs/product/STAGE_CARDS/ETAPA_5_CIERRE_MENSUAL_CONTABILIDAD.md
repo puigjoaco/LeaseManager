@@ -169,6 +169,11 @@ contable o tributaria requiere criterio.
   faltantes, proximo bloqueo y trazabilidad sin RUT ni secretos. Esta vista
   permite medir una empresa piloto cuando exista fuente permitida, pero no
   reemplaza el gate de cierre ni una revision contable responsable.
+- `audit_company_accounting_candidates` y Reporting
+  `contabilidad/candidatos-progreso-empresa/` listan empresas y anos con
+  senales internas de cierre, balance, F29 y artefactos anuales para escoger
+  el primer caso a medir sin leer `.env`, DB historica, fuentes reales ni
+  integraciones externas. Es selector de avance, no evidencia de cierre.
 - Para cierre con fuente autorizada, el wrapper exige `-SourceKind
   snapshot_controlado` o `real_autorizado`, `-SourceLabel`,
   `-AuthorizationRef`, `-Stage3EvidenceRef`, `-LedgerProofRef`,
