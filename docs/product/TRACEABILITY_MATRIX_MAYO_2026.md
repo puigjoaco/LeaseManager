@@ -14,6 +14,17 @@ decide ni presenta renta/tributacion final de forma autonoma. La aprobacion o
 presentacion externa exige gate aplicable, responsable trazado y validacion
 experta/oficial cuando corresponda.
 
+Nota 2026-06-15: La iteracion posterior al mapeo completo EDIG se contrasta
+con SII. F22 AT2026 opera por certificacion de software que genera archivos y
+SII acredita recepcion, no contenido ni consistencia tributaria. DDJJ Renta
+2026 conserva medios oficiales por formulario y SII lista a EDIG como casa
+software DDJJ para formularios relevantes del inventario local. F29 mantiene el
+patron de upload/certificacion. La decision tecnica queda cerrada: no hace
+falta ejecutar binarios EDIG para avanzar LeaseManager; cualquier ejecucion
+futura solo puede ser sandbox observacional con datos ficticios y brecha
+concreta de UI/export. El camino sigue siendo capa anual revisable,
+responsable y gate SII, no API REST asumida ni presentacion autonoma.
+
 Nota 2026-06-13: La investigacion local de EDIG AT2026 queda mapeada como
 referencia funcional no normativa en
 `docs/product/RENTA_ANUAL_EDIG_AT2026_MAPPING.md`, con runbook de sandbox en
