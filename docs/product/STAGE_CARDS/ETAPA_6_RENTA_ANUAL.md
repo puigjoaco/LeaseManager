@@ -125,6 +125,13 @@ LibroDiario, LibroMayor, BalanceComprobacion, obligaciones, F29 y
 MonthlyTaxFact, rechazando refs sensibles y cualquier Balance/RLI/CPT/RAI/DDJJ/
 F22 final usado como input. Por defecto opera en dry-run para validar sin
 escribir DB.
+`audit_annual_tax_controlled_package_readiness` audita el template o paquete
+antes de aplicar el writer: confirma 12 meses, refs de control, valores de
+libros/balance, estado F29, estado laboral/previsional y ausencia de outputs
+finales usados como input. Contra el template real de Inmobiliaria Puig AC2024/
+AT2025 confirma que no faltan meses y que existen objetivos de comparacion,
+pero mantiene `ready_for_db_writer=false` hasta completar 132 campos
+normalizados; febrero y diciembre F29 `no_aplica` no cuentan como faltantes.
 `MonthlyTaxFact` materializa la capa mensual anualizable: por cada empresa,
 ano comercial y mes normaliza el cierre aprobado, obligaciones mensuales,
 F29 si existe, distribuciones de arriendo y liquidacion de empresa, con
