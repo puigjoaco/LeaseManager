@@ -14,6 +14,51 @@ from core.reference_validation import contains_sensitive_reference, redact_sensi
 
 MANIFEST_SCHEMA_VERSION = 'annual-tax-source-manifest.v1'
 EXPECTED_DDJJ_FORMS = ('1835', '1837', '1847', '1887', '1926', '1948')
+EXPECTED_ANNUAL_TAX_REGISTER_KEYS = (
+    'capital_propio',
+    'determinacion_rai',
+    'razonabilidad_cpt',
+    'renta_liquida',
+    'rentas_empresariales',
+)
+REQUIRED_MIRROR_ARCHITECTURE_CAPABILITIES = (
+    {
+        'key': 'source_inventory',
+        'label': 'Inventario externo AC/AT read-only',
+        'status': 'implemented',
+        'evidence': 'build_annual_tax_source_manifest',
+    },
+    {
+        'key': 'input_output_boundary',
+        'label': 'Separacion de insumos de calculo y outputs esperados',
+        'status': 'implemented',
+        'evidence': 'manifest.roles + expected_outputs_used_as_inputs=false',
+    },
+    {
+        'key': 'controlled_accounting_loader',
+        'label': 'Carga controlada de libros/cierres/hechos 2024 a DB local',
+        'status': 'missing',
+        'evidence': 'pendiente',
+    },
+    {
+        'key': 'monthly_tax_fact_normalization',
+        'label': 'Normalizacion mensual anualizable',
+        'status': 'implemented',
+        'evidence': 'MonthlyTaxFact + sync_monthly_tax_facts',
+    },
+    {
+        'key': 'annual_tax_generation_pipeline',
+        'label': 'Pipeline LeaseManager para balance tributario, workbooks, DDJJ, F22, dossier y export local',
+        'status': 'implemented',
+        'evidence': 'generate_annual_preparation',
+    },
+    {
+        'key': 'expected_output_comparator',
+        'label': 'Comparador LeaseManager vs Balance/RLI/CPT/DDJJ/F22 definitivos',
+        'status': 'missing',
+        'evidence': 'pendiente',
+    },
+)
 MONTHS = tuple(range(1, 13))
 SUPPORTED_EXTENSIONS = {
     '.csv',
@@ -28,6 +73,11 @@ SUPPORTED_EXTENSIONS = {
 }
 
 MONTH_PATTERN = re.compile(r'(?<!\d)(20\d{2})[-_ ]?(0[1-9]|1[0-2])(?=\D|$)')
+LEADING_MONTH_NAME_PATTERN = re.compile(
+    r'(?<!\d)(0[1-9]|1[0-2])\s+'
+    r'(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\b',
+    re.IGNORECASE,
+)
 DDJJ_PATTERN = re.compile(r'DJ[_ -]?(\d{4})(?!\d)', re.IGNORECASE)
 
 
@@ -40,9 +90,17 @@ CATEGORY_META = {
         'role': 'input',
         'layer': 'SII / F29 / obligaciones mensuales',
     },
-    'annual_books_input': {
+    'annual_ledger_input': {
         'role': 'input',
-        'layer': 'Contabilidad / libros anuales / balance',
+        'layer': 'Contabilidad / libros anuales transaccionales',
+    },
+    'annual_balance_expected_output': {
+        'role': 'expected_output',
+        'layer': 'Contabilidad / balance anual a comparar',
+    },
+    'annual_tax_register_expected_output': {
+        'role': 'expected_output',
+        'layer': 'Renta anual / RLI / CPT / RAI / registros empresariales',
     },
     'purchase_sales_books_support': {
         'role': 'support',
@@ -91,6 +149,8 @@ class SourceFile:
     layer: str
     months: tuple[int, ...]
     ddjj_forms: tuple[str, ...]
+    artifact_key: str
+    output_status: str
 
     def as_dict(self, *, include_relative_path: bool) -> dict[str, Any]:
         payload = {
@@ -103,6 +163,8 @@ class SourceFile:
             'layer': self.layer,
             'months': list(self.months),
             'ddjj_forms': list(self.ddjj_forms),
+            'artifact_key': self.artifact_key,
+            'output_status': self.output_status,
         }
         if include_relative_path:
             payload['relative_path'] = self.relative_path
@@ -137,6 +199,9 @@ def _extract_months(text: str, commercial_year: int) -> tuple[int, ...]:
     for year, month in MONTH_PATTERN.findall(text):
         if int(year) == commercial_year:
             months.add(int(month))
+    if str(commercial_year) in text:
+        for month, _month_name in LEADING_MONTH_NAME_PATTERN.findall(text):
+            months.add(int(month))
     return tuple(sorted(months))
 
 
@@ -144,8 +209,31 @@ def _extract_ddjj_forms(text: str) -> tuple[str, ...]:
     return tuple(sorted(set(DDJJ_PATTERN.findall(text))))
 
 
+def _normalize_for_match(value: str) -> str:
+    return (
+        value.lower()
+        .replace('\\', '/')
+        .replace(' ', '_')
+        .replace('-', '_')
+    )
+
+
+def _annual_tax_register_key(normalized_path: str) -> str:
+    if 'capital_propio' in normalized_path:
+        return 'capital_propio'
+    if 'determinacion_rai' in normalized_path or 'determinacion_de_rai' in normalized_path:
+        return 'determinacion_rai'
+    if 'razonabilidad_cpt' in normalized_path:
+        return 'razonabilidad_cpt'
+    if 'renta_liquida' in normalized_path:
+        return 'renta_liquida'
+    if 'rentas_empresariales' in normalized_path:
+        return 'rentas_empresariales'
+    return ''
+
+
 def _category_for(relative_path: str) -> str:
-    normalized = relative_path.lower().replace('\\', '/')
+    normalized = _normalize_for_match(relative_path)
     file_name = Path(relative_path).name.lower()
 
     if 'formulario_22' in normalized or 'f22' in normalized:
@@ -156,22 +244,12 @@ def _category_for(relative_path: str) -> str:
         return 'f29_support_input'
     if 'rcv' in normalized:
         return 'rcv_structured_input'
-    if any(
-        token in normalized
-        for token in (
-            'libros_anuales',
-            'libro_diario',
-            'libro_mayor',
-            'inventario',
-            'balance',
-            'capital_propio',
-            'renta_liquida',
-            'determinacion_rai',
-            'razonabilidad_cpt',
-            'rentas_empresariales',
-        )
-    ):
-        return 'annual_books_input'
+    if _annual_tax_register_key(normalized):
+        return 'annual_tax_register_expected_output'
+    if 'balance' in normalized:
+        return 'annual_balance_expected_output'
+    if 'libro_diario' in normalized or 'libro_mayor' in normalized or 'inventario' in normalized:
+        return 'annual_ledger_input'
     if 'libro_compra' in normalized or 'libro_venta' in normalized:
         return 'purchase_sales_books_support'
     if 'remuneracion' in normalized or 'honorario' in normalized:
@@ -183,6 +261,46 @@ def _category_for(relative_path: str) -> str:
     if 'certificado' in normalized or 'sii' in normalized or 'tributario' in normalized:
         return 'tax_certificate_support'
     return 'unclassified_support'
+
+
+def _artifact_key_for(category: str, relative_path: str, ddjj_forms: tuple[str, ...]) -> str:
+    normalized = _normalize_for_match(relative_path)
+    if category == 'ddjj_expected_output':
+        return f'dj_{ddjj_forms[0]}' if ddjj_forms else 'ddjj_metadata'
+    if category == 'f22_expected_output':
+        return 'f22'
+    if category == 'annual_balance_expected_output':
+        return 'balance_general'
+    if category == 'annual_tax_register_expected_output':
+        return _annual_tax_register_key(normalized) or 'annual_tax_register'
+    if category == 'annual_ledger_input':
+        if 'libro_diario' in normalized:
+            return 'libro_diario'
+        if 'libro_mayor' in normalized:
+            return 'libro_mayor'
+        if 'inventario' in normalized:
+            return 'libro_inventario'
+    return category
+
+
+def _output_status_for(category: str, relative_path: str) -> str:
+    normalized = _normalize_for_match(relative_path)
+    if category not in {
+        'ddjj_expected_output',
+        'f22_expected_output',
+        'annual_balance_expected_output',
+        'annual_tax_register_expected_output',
+    }:
+        return ''
+    if 'rechazada' in normalized or 'rechazado' in normalized:
+        return 'rejected'
+    if 'anulada' in normalized or 'anulado' in normalized:
+        return 'annulled'
+    if 'aceptada' in normalized or 'aceptado' in normalized:
+        return 'accepted'
+    if category == 'f22_expected_output':
+        return 'final'
+    return 'baseline'
 
 
 def _iter_source_files(source_root: Path) -> list[Path]:
@@ -223,6 +341,7 @@ def _coverage(files: list[SourceFile], *, f29_no_declaration_months: tuple[int, 
         {
             form
             for item in by_category.get('ddjj_expected_output', [])
+            if item.output_status == 'accepted'
             for form in item.ddjj_forms
         }
     )
@@ -232,6 +351,18 @@ def _coverage(files: list[SourceFile], *, f29_no_declaration_months: tuple[int, 
     f29_no_declaration = _normalize_months(f29_no_declaration_months)
     f29_controlled_months = sorted(set(f29_months).union(f29_no_declaration))
     purchase_sales_months = months_for('purchase_sales_books_support')
+    annual_ledger_keys = sorted({item.artifact_key for item in by_category.get('annual_ledger_input', []) if item.artifact_key})
+    missing_ledger_keys = [key for key in ('libro_diario', 'libro_mayor', 'libro_inventario') if key not in annual_ledger_keys]
+    annual_tax_register_keys = sorted(
+        {
+            item.artifact_key
+            for item in by_category.get('annual_tax_register_expected_output', [])
+            if item.artifact_key in EXPECTED_ANNUAL_TAX_REGISTER_KEYS
+        }
+    )
+    missing_tax_register_keys = [
+        key for key in EXPECTED_ANNUAL_TAX_REGISTER_KEYS if key not in annual_tax_register_keys
+    ]
 
     checks = [
         {
@@ -249,9 +380,23 @@ def _coverage(files: list[SourceFile], *, f29_no_declaration_months: tuple[int, 
             'missing_months': [month for month in MONTHS if month not in f29_controlled_months],
         },
         {
-            'key': 'annual_books',
-            'status': 'ready' if by_category.get('annual_books_input') else 'missing',
-            'files': len(by_category.get('annual_books_input', [])),
+            'key': 'annual_ledger_inputs',
+            'status': 'ready' if not missing_ledger_keys else 'partial',
+            'artifact_keys': annual_ledger_keys,
+            'missing_artifact_keys': missing_ledger_keys,
+            'files': len(by_category.get('annual_ledger_input', [])),
+        },
+        {
+            'key': 'annual_balance_expected_output',
+            'status': 'ready' if by_category.get('annual_balance_expected_output') else 'missing',
+            'files': len(by_category.get('annual_balance_expected_output', [])),
+        },
+        {
+            'key': 'annual_tax_register_expected_outputs',
+            'status': 'ready' if not missing_tax_register_keys else 'partial',
+            'artifact_keys': annual_tax_register_keys,
+            'missing_artifact_keys': missing_tax_register_keys,
+            'files': len(by_category.get('annual_tax_register_expected_output', [])),
         },
         {
             'key': 'purchase_sales_books',
@@ -285,7 +430,14 @@ def _coverage(files: list[SourceFile], *, f29_no_declaration_months: tuple[int, 
     ready_for_mirror_source_bundle = all(
         check['status'] == 'ready'
         for check in checks
-        if check['key'] in {'rcv_12_months', 'annual_books', 'ddjj_expected_outputs', 'f22_expected_output'}
+        if check['key'] in {
+            'rcv_12_months',
+            'annual_ledger_inputs',
+            'annual_balance_expected_output',
+            'annual_tax_register_expected_outputs',
+            'ddjj_expected_outputs',
+            'f22_expected_output',
+        }
     )
 
     return {
@@ -298,6 +450,55 @@ def _coverage(files: list[SourceFile], *, f29_no_declaration_months: tuple[int, 
         'purchase_sales_months': purchase_sales_months,
         'ddjj_forms': ddjj_forms,
         'missing_ddjj_forms': missing_ddjj,
+        'annual_ledger_keys': annual_ledger_keys,
+        'missing_annual_ledger_keys': missing_ledger_keys,
+        'annual_tax_register_keys': annual_tax_register_keys,
+        'missing_annual_tax_register_keys': missing_tax_register_keys,
+    }
+
+
+def _mirror_proof_readiness(coverage: dict[str, Any]) -> dict[str, Any]:
+    source_ready = bool(coverage.get('ready_for_mirror_source_bundle'))
+    implemented_capabilities = [
+        item['key'] for item in REQUIRED_MIRROR_ARCHITECTURE_CAPABILITIES if item['status'] == 'implemented'
+    ]
+    missing_capabilities = [
+        item['key'] for item in REQUIRED_MIRROR_ARCHITECTURE_CAPABILITIES if item['status'] != 'implemented'
+    ]
+    return {
+        'source_documentation_confirmed_for_ac2024_at2025': source_ready,
+        'architecture_complete_for_mirror_run': source_ready and not missing_capabilities,
+        'ready_to_start_controlled_processing': source_ready and not missing_capabilities,
+        'implemented_capabilities': implemented_capabilities,
+        'missing_capabilities': missing_capabilities,
+        'capabilities': list(REQUIRED_MIRROR_ARCHITECTURE_CAPABILITIES),
+        'input_policy': {
+            'calculation_inputs': [
+                'annual_ledger_input',
+                'rcv_structured_input',
+                'f29_support_input',
+                'purchase_sales_books_support',
+                'payroll_support',
+                'real_estate_support',
+                'tax_certificate_support',
+            ],
+            'comparison_only_outputs': [
+                'annual_balance_expected_output',
+                'annual_tax_register_expected_output',
+                'ddjj_expected_output',
+                'f22_expected_output',
+            ],
+            'expected_outputs_used_as_inputs': False,
+        },
+        'next_actions': [
+            'Implementar loader controlado desde manifiesto hacia DB local sin copiar documentos al repo.',
+            'Generar artefactos LeaseManager AT2025 desde inputs AC2024 cargados.',
+            'Implementar comparador contra outputs esperados sin usarlos como insumo de calculo.',
+        ]
+        if source_ready
+        else [
+            'Completar fuentes AC2024/AT2025 minimas antes de iniciar procesamiento.',
+        ],
     }
 
 
@@ -327,6 +528,7 @@ def build_annual_tax_source_manifest(
         relative_path, path_ref = _safe_relative_path(raw_relative_path)
         category = _category_for(raw_relative_path)
         meta = CATEGORY_META[category]
+        ddjj_forms = _extract_ddjj_forms(raw_relative_path)
         source_files.append(
             SourceFile(
                 relative_path=relative_path,
@@ -338,7 +540,9 @@ def build_annual_tax_source_manifest(
                 role=meta['role'],
                 layer=meta['layer'],
                 months=_extract_months(raw_relative_path, commercial_year),
-                ddjj_forms=_extract_ddjj_forms(raw_relative_path),
+                ddjj_forms=ddjj_forms,
+                artifact_key=_artifact_key_for(category, raw_relative_path, ddjj_forms),
+                output_status=_output_status_for(category, raw_relative_path),
             )
         )
 
@@ -395,9 +599,21 @@ def build_annual_tax_source_manifest(
         'source_refs_hash': source_refs_hash,
         'approved_close_months': [],
         'obligation_months': coverage['f29_controlled_months'],
+        'calculation_input_categories': [
+            category
+            for category, meta in sorted(CATEGORY_META.items())
+            if meta['role'] == 'input'
+        ],
+        'comparison_target_categories': [
+            category
+            for category, meta in sorted(CATEGORY_META.items())
+            if meta['role'] == 'expected_output'
+        ],
+        'expected_outputs_used_as_inputs': False,
         'manual_review_required': [
             'internal_monthly_closes',
-            'annual_books_pdf_extraction_or_controlled_manual_load',
+            'annual_ledger_pdf_extraction_or_controlled_manual_load',
+            'comparison_against_expected_outputs_without_using_them_as_inputs',
             'expert_tax_review_before_final_close',
         ],
     }
@@ -439,6 +655,7 @@ def build_annual_tax_source_manifest(
             'role_counts': role_counts,
         },
         'coverage': coverage,
+        'mirror_proof_readiness': _mirror_proof_readiness(coverage),
         'annual_tax_source_bundle_draft': bundle_payload,
     }
     if include_file_list:

@@ -99,6 +99,13 @@ borrador no sensible de `AnnualTaxSourceBundle`. Este manifiesto confirma si
 existen fuentes suficientes para una prueba espejo desde libros cerrados, pero
 no crea cierres mensuales ni hechos tributarios en DB y no reemplaza revision
 experta.
+Para evitar una prueba circular, el manifiesto separa explicitamente inputs de
+calculo y objetivos de comparacion: Libro Diario, Libro Mayor, Libro
+Inventario, RCV, F29, compra/venta y remuneraciones pueden alimentar carga
+controlada; Balance General, RLI, CPT, RAI, Capital Propio, Rentas
+Empresariales, DDJJ y F22 quedan como salidas esperadas/baseline. LeaseManager
+no puede declarar que genero esos artefactos si antes los uso como insumo de
+calculo.
 `MonthlyTaxFact` materializa la capa mensual anualizable: por cada empresa,
 ano comercial y mes normaliza el cierre aprobado, obligaciones mensuales,
 F29 si existe, distribuciones de arriendo y liquidacion de empresa, con

@@ -107,11 +107,14 @@ comando inventaria una carpeta externa en modo read-only, clasifica archivos
 como entradas, soportes o salidas esperadas, calcula hashes y produce un
 borrador no sensible de `AnnualTaxSourceBundle`. La corrida local contra
 `Ano_2024` confirma entrada minima para espejo desde libros cerrados: RCV 12/12,
-F29 12/12 controlado considerando meses sin declaracion, DDJJ objetivo
-1835/1837/1847/1887/1926/1948 completas y F22 presente. No carga DB, no copia
-documentos y no cierra renta: el siguiente paso es transformar ese manifiesto
-en carga controlada de cierres/hechos mensuales antes de ejecutar el auditor de
-progreso por empresa.
+F29 12/12 controlado considerando meses sin declaracion, libros
+Diario/Mayor/Inventario como inputs, compra/venta 12/12, Balance General y
+registros RLI/CPT/RAI/Capital Propio/Rentas Empresariales como objetivos de
+comparacion, DDJJ 1835/1837/1847/1887/1926/1948 aceptadas y F22 presente. No
+carga DB, no copia documentos y no cierra renta: el siguiente paso es
+transformar ese manifiesto en carga controlada de cierres/hechos mensuales y
+generar artefactos LeaseManager para compararlos contra esos outputs esperados,
+sin usarlos como input de calculo.
 
 Nota 2026-06-14: Etapa 6 agrega `AnnualTaxTrialBalance` como capa anual de
 balance de ocho columnas entre `BalanceComprobacion` y RLI/CPT/DJ1847.

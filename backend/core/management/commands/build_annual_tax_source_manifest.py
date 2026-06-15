@@ -106,7 +106,14 @@ class Command(BaseCommand):
             missing = [
                 check['key']
                 for check in manifest['coverage']['checks']
-                if check['key'] in {'rcv_12_months', 'annual_books', 'ddjj_expected_outputs', 'f22_expected_output'}
+                if check['key'] in {
+                    'rcv_12_months',
+                    'annual_ledger_inputs',
+                    'annual_balance_expected_output',
+                    'annual_tax_register_expected_outputs',
+                    'ddjj_expected_outputs',
+                    'f22_expected_output',
+                }
                 and check['status'] != 'ready'
             ]
             raise CommandError(
