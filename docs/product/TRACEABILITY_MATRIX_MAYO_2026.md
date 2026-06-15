@@ -116,6 +116,16 @@ transformar ese manifiesto en carga controlada de cierres/hechos mensuales y
 generar artefactos LeaseManager para compararlos contra esos outputs esperados,
 sin usarlos como input de calculo.
 
+Nota 2026-06-15: Se agrega `build_annual_tax_controlled_load_plan` como plan
+ejecutable previo al loader DB. El plan mapea el manifiesto AC2024/AT2025 hacia
+modelos canonicos (`CierreMensualContable`, `LibroDiario`, `LibroMayor`,
+`BalanceComprobacion`, `ObligacionTributariaMensual`, `F29PreparacionMensual`,
+`MonthlyTaxFact`, `AnnualTaxTrialBalanceLine`) y confirma que Balance/RLI/CPT/
+RAI/DDJJ/F22 son comparacion, no insumo. La corrida real queda en
+`ready_for_db_load=false` porque faltan parser/carga manual controlada para
+libros anuales, F29 PDF y remuneraciones, ademas del writer DB local y el
+comparador de outputs esperados.
+
 Nota 2026-06-14: Etapa 6 agrega `AnnualTaxTrialBalance` como capa anual de
 balance de ocho columnas entre `BalanceComprobacion` y RLI/CPT/DJ1847.
 `generate_annual_preparation()` lo sincroniza desde el balance aprobado de
