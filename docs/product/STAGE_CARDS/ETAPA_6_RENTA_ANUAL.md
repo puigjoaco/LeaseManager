@@ -30,6 +30,16 @@ automatica. Cualquier ejecucion de EDIG solo puede ocurrir en la VM/sandbox
 descrita en `docs/operations/EDIG_AT2026_SANDBOX_RUNBOOK.md`, con datos
 ficticios, red controlada y sin credenciales reales.
 
+`docs/product/REFERENCIA_FUNCIONAL_EDIG_DESCARGAS_AT2026_2026-06-15.md`
+registra la revision posterior de la pagina oficial de descargas EDIG y de las
+carpetas externas archivadas para Contabilidad, Renta AT2026 y
+Remuneraciones. La conclusion adicional es que Remuneraciones cierra el ciclo
+laboral/previsional que alimenta la renta anual: LRE, Previred, liquidaciones,
+impuesto unico, DJ1887, certificados y centralizacion contable deben modelarse
+como fuentes revisables del dossier anual. Esto no abre un payroll completo por
+defecto ni autoriza reglas laborales/tributarias desde EDIG; solo fija una
+brecha de fuente y diseno para una capa laboral/previsional controlada.
+
 El inventario estatico read-only de `scripts/analyze-edig-at2026.ps1` clasifica
 senales funcionales por administracion, F22, F29/PPM, regimenes 14A/14D3/14D8/
 14G, RLI, CPT, RAI, SAC, DDJJ, balance, bienes raices/arriendos,

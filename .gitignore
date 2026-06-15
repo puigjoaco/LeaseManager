@@ -18,7 +18,13 @@ frontend/dist/
 frontend/.env
 scripts/node_modules/
 # Material manual / evidencia externa no producto
-EDIG AT2026 SOFTWARE RENTA/
+/EDIG AT2026 SOFTWARE RENTA/
+/EDIG CONTABILIDAD/
+/EDIG RENTA/
+/EDIG REMUNERACIONES/
+/EDIG contabilidad/
+/EDIG renta/
+/EDIG remuneraciones/
 Joaquin Ingreso Manual/
 HANDOFF/
 docs/HANDOFF_GREENFIELD_*.md
