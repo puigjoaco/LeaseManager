@@ -179,11 +179,19 @@ El selector `audit_company_accounting_candidates` y la vista Reporting
 senales locales de cierre, balances, F29, proceso anual, balance tributario,
 RLI/CPT, dossier y export. Sirve para elegir que expediente revisar primero;
 no habilita calculo tributario final, upload SII ni presentacion autonoma.
+Tanto el selector como el auditor por empresa exponen si la configuracion
+fiscal activa pertenece al regimen automatizable v1
+`EmpresaContabilidadCompletaV1`; si no corresponde, conservan las senales
+locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
 
 ## Gate
 
 - Cierres mensuales completos.
 - Reglas tributarias validadas.
+- `ConfiguracionFiscalEmpresa` activa de la empresa dentro del regimen
+  automatizable v1 `EmpresaContabilidadCompletaV1`; otros regimenes pueden
+  existir como dato operativo, pero no habilitan automatizacion contable/renta
+  sin gate, ADR y validacion oficial/experta.
 - `TaxYearRuleSet` aprobado para el ano tributario y regimen fiscal de la
   empresa, con `hash_normativo`, fuente y responsable no sensibles, y enlace a
   `AnnualTaxOfficialSource` revisada/aprobada del mismo AT y regimen

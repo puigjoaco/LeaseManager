@@ -61,6 +61,7 @@ from sii.models import (
     F22PreparacionAnual,
     MonthlyTaxFact,
     ProcesoRentaAnual,
+    SII_AUTOMATED_REGIME_CODE,
     TaxCodeMapping,
     TaxYearRuleSet,
     TipoAnnualEnterpriseRegister,
@@ -1262,6 +1263,11 @@ def collect_stage6_renta_anual_readiness(
     active_fiscal_configs = fiscal_configs.filter(estado=EstadoRegistro.ACTIVE)
     active_fiscal_company_ids = set(active_fiscal_configs.values_list('empresa_id', flat=True))
     invalid_active_fiscal_configs = _count_invalid(active_fiscal_configs)
+    unsupported_active_fiscal_configs = sum(
+        1
+        for config in active_fiscal_configs
+        if getattr(config.regimen_tributario, 'codigo_regimen', '') != SII_AUTOMATED_REGIME_CODE
+    )
 
     capabilities = CapacidadTributariaSII.objects.select_related('empresa')
     open_capabilities = capabilities.filter(estado_gate=EstadoGateSII.OPEN)
@@ -1571,6 +1577,14 @@ def collect_stage6_renta_anual_readiness(
                 'stage6.fiscal_config_invalid',
                 'Existen configuraciones fiscales activas que no pasan validacion de dominio.',
                 count=invalid_active_fiscal_configs,
+            )
+        )
+    if unsupported_active_fiscal_configs:
+        issues.append(
+            _issue(
+                'stage6.fiscal_config_unsupported_regime',
+                'Existen configuraciones fiscales activas fuera del regimen fiscal automatizable del v1.',
+                count=unsupported_active_fiscal_configs,
             )
         )
     if open_ddjj_capabilities.count() == 0:
@@ -2619,6 +2633,8 @@ def collect_stage6_renta_anual_readiness(
                 'configs_total': fiscal_configs.count(),
                 'active_configs': active_fiscal_configs.count(),
                 'invalid_active_configs': invalid_active_fiscal_configs,
+                'unsupported_active_regime': unsupported_active_fiscal_configs,
+                'supported_regime_code': SII_AUTOMATED_REGIME_CODE,
             },
             'annual_capabilities': {
                 'total': capabilities.count(),

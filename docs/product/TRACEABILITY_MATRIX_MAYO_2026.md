@@ -83,6 +83,13 @@ con senales internas de cierres, balances, F29, proceso anual, balance
 tributario, RLI/CPT, dossier y export local; no exponen RUT, no leen `.env`,
 no usan fuentes externas y no reemplazan el gate de cierre.
 
+Nota 2026-06-14: Progreso contable/renta y readiness Etapa 6 explicitan el
+boundary de regimen soportado. Una `ConfiguracionFiscalEmpresa` activa fuera de
+`EmpresaContabilidadCompletaV1` puede aparecer como dato operativo y conservar
+senales locales, pero bloquea `ready_for_company_accounting_review` y
+`ready_for_stage6_renta_anual` con issues especificos hasta que exista gate,
+ADR y validacion oficial/experta para ampliar el regimen automatizable.
+
 Nota 2026-06-14: Etapa 6 agrega `AnnualTaxTrialBalance` como capa anual de
 balance de ocho columnas entre `BalanceComprobacion` y RLI/CPT/DJ1847.
 `generate_annual_preparation()` lo sincroniza desde el balance aprobado de
