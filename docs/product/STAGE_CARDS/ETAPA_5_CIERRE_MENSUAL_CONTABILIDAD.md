@@ -164,6 +164,11 @@ contable o tributaria requiere criterio.
   significa listo para revision responsable, no cierre contable/tributario
   legal. Es un reporte de progreso; no abre gates, no lee fuentes externas y
   no declara cierre de Etapa 5/6.
+- Reporting expone el mismo diagnostico en
+  `contabilidad/progreso-empresa/`, con scope por empresa, porcentaje, fases,
+  faltantes, proximo bloqueo y trazabilidad sin RUT ni secretos. Esta vista
+  permite medir una empresa piloto cuando exista fuente permitida, pero no
+  reemplaza el gate de cierre ni una revision contable responsable.
 - Para cierre con fuente autorizada, el wrapper exige `-SourceKind
   snapshot_controlado` o `real_autorizado`, `-SourceLabel`,
   `-AuthorizationRef`, `-Stage3EvidenceRef`, `-LedgerProofRef`,

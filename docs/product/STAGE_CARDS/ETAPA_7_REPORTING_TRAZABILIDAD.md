@@ -130,6 +130,12 @@ externa final.
   `control_cierre_mensual`, unificando por empresa cierre contable, banco
   cuadrado, movimientos bancarios no resueltos, obligaciones mensuales, F29
   cuando aplica y bloqueadores del periodo sin llamar bancos ni SII.
+- Reporting expone `contabilidad/progreso-empresa/` en API y backoffice para
+  medir por empresa y ano comercial configuracion fiscal, doce cierres,
+  balances, F29, proceso anual, balance anual, RLI/CPT, dossier y export local.
+  El reporte conserva trazabilidad, respeta scope por empresa y no entrega RUT
+  ni secretos; su resultado es diagnostico de preparacion para revision, no
+  cierre ni presentacion tributaria.
 - Los endpoints de Reporting normalizan parametros de consulta antes de
   filtrar, validar o decidir cache: `periodo`, `mode`, `refresh`, `status`,
   `empresa_id`, `anio`, `mes` y `anio_tributario`. Esto evita que espacios

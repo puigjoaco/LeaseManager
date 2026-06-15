@@ -169,6 +169,11 @@ responder el avance de una empresa piloto sin leer datos reales por defecto ni
 confundir preparacion tecnica con cierre tributario. La bandera
 `ready_for_company_accounting_review` solo significa lista para revision
 responsable.
+El mismo diagnostico queda disponible en Reporting como
+`contabilidad/progreso-empresa/`, para que el avance de una empresa piloto se
+consulte con `empresa_id` y `fiscal_year` antes de iniciar afirmaciones de
+cierre anual. La vista conserva el boundary: no calcula renta final, no sube
+F22/DDJJ, no usa SII real y no reemplaza revision tributaria experta.
 
 ## Gate
 

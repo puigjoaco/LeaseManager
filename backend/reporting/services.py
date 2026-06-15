@@ -28,6 +28,7 @@ from core.reference_validation import (
     redact_sensitive_payload,
     redact_sensitive_reference,
 )
+from core.company_accounting_progress import collect_company_accounting_progress
 from core.scope_access import ScopeAccess, scope_queryset_for_access
 from core.state_transition_audit_readiness import transition_event_has_transition_metadata
 from contabilidad.models import (
@@ -1566,6 +1567,39 @@ def build_period_books_summary(empresa_id, periodo, access: ScopeAccess | None =
             'resumen': redact_sensitive_payload(balance.resumen) if balance else {},
         },
     }
+
+
+def build_company_accounting_progress_report(empresa_id, fiscal_year, access: ScopeAccess | None = None):
+    access = access or ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
+    scoped_empresa = scope_queryset_for_access(
+        Empresa.objects.filter(pk=empresa_id),
+        access,
+        company_paths=('id',),
+    ).first()
+    if scoped_empresa is None:
+        raise Empresa.DoesNotExist
+
+    payload = collect_company_accounting_progress(empresa_id=scoped_empresa.id, fiscal_year=fiscal_year)
+    payload['trazabilidad'] = _traceability_payload(
+        report_type='company_accounting_progress',
+        sources=[
+            'ConfiguracionFiscalEmpresa',
+            'CierreMensualContable',
+            'BalanceComprobacion',
+            'F29PreparacionMensual',
+            'ProcesoRentaAnual',
+            'AnnualTaxTrialBalance',
+            'AnnualTaxWorkbook',
+            'AnnualTaxDossier',
+            'AnnualTaxExport',
+        ],
+        checks={
+            'empresa_id': scoped_empresa.id,
+            'fiscal_year': fiscal_year,
+            'ready_for_company_accounting_review': payload['ready_for_company_accounting_review'],
+        },
+    )
+    return payload
 
 
 def build_annual_tax_summary(anio_tributario, empresa_id=None, access: ScopeAccess | None = None):

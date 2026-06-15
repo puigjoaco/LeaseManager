@@ -1060,11 +1060,19 @@ class ReportingAPITests(APITestCase):
     def test_period_books_and_annual_summary_return_400_for_invalid_query_params(self):
         books_missing = self.client.get(reverse('reporting-libros-periodo'))
         annual_invalid = self.client.get(f"{reverse('reporting-tributario-anual')}?anio_tributario=x&empresa_id=y")
+        progress_missing = self.client.get(reverse('reporting-company-accounting-progress'))
+        progress_invalid = self.client.get(
+            f"{reverse('reporting-company-accounting-progress')}?empresa_id=x&fiscal_year=y"
+        )
 
         self.assertEqual(books_missing.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(books_missing.data['empresa_id'], 'Este parametro es obligatorio.')
         self.assertEqual(annual_invalid.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(annual_invalid.data['anio_tributario'], 'Debe ser un entero valido.')
+        self.assertEqual(progress_missing.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(progress_missing.data['empresa_id'], 'Este parametro es obligatorio.')
+        self.assertEqual(progress_invalid.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(progress_invalid.data['empresa_id'], 'Debe ser un entero valido.')
 
     def test_partner_summary_returns_404_when_partner_does_not_exist(self):
         socio, _, _, _, _, _ = self._create_context('PARTNER404')
@@ -1088,6 +1096,76 @@ class ReportingAPITests(APITestCase):
         self.assertEqual(response.data['trazabilidad']['estado'], 'verificado')
         self.assertEqual(response.data['libro_diario']['estado_snapshot'], 'aprobado')
         self.assertTrue(response.data['balance_comprobacion']['resumen']['cuadrado'])
+
+    def test_company_accounting_progress_endpoint_returns_objective_progress_without_rut(self):
+        _, empresa, _, _, _, _ = self._create_context('PROGRESS')
+        self._activate_fiscal_config(empresa)
+        close = CierreMensualContable.objects.create(
+            empresa=empresa,
+            anio=2026,
+            mes=1,
+            estado=EstadoCierreMensual.APPROVED,
+            fecha_preparacion=timezone.now(),
+            fecha_aprobacion=timezone.now(),
+        )
+        BalanceComprobacion.objects.create(
+            empresa=empresa,
+            periodo='2026-01',
+            estado_snapshot=EstadoCierreMensual.APPROVED,
+            storage_ref='balance-progress-controlled',
+            resumen={'cuadrado': True},
+        )
+        F29PreparacionMensual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=CapacidadTributariaSII.objects.create(
+                empresa=empresa,
+                capacidad_key=CapacidadSII.F29_PREPARACION,
+                certificado_ref='progress-f29-cert-controlled',
+                estado_gate='abierto',
+            ),
+            cierre_mensual=close,
+            anio=2026,
+            mes=1,
+            estado_preparacion=EstadoPreparacionTributaria.PREPARED,
+            resumen_formulario={'source': 'progress-test'},
+            borrador_ref='progress-f29-draft',
+            responsable_revision_ref='progress-reviewer',
+        )
+
+        response = self.client.get(
+            reverse('reporting-company-accounting-progress'),
+            {'empresa_id': empresa.id, 'fiscal_year': 2026},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['empresa']['id'], empresa.id)
+        self.assertEqual(response.data['fiscal_year'], 2026)
+        self.assertEqual(response.data['tax_year'], 2027)
+        self.assertEqual(response.data['classification'], 'parcial')
+        self.assertFalse(response.data['ready_for_company_accounting_review'])
+        self.assertEqual(response.data['next_blocking_phase'], 'monthly_closes')
+        self.assertEqual(response.data['phases']['monthly_closes']['completed'], 1)
+        self.assertEqual(response.data['phases']['monthly_balances_squared']['completed'], 1)
+        self.assertEqual(response.data['phases']['f29_monthly']['completed'], 1)
+        self.assertEqual(response.data['trazabilidad']['estado'], 'verificado')
+        self.assertNotIn(empresa.rut, json.dumps(response.data))
+
+    def test_company_accounting_progress_endpoint_respects_company_scope(self):
+        _, empresa_a, _, _, _, _ = self._create_context('PROGSCOPEA')
+        _, empresa_b, _, _, _, _ = self._create_context('PROGSCOPEB')
+        reviewer_client = self._create_scoped_reviewer_client(empresa_a)
+
+        in_scope = reviewer_client.get(
+            reverse('reporting-company-accounting-progress'),
+            {'empresa_id': empresa_a.id, 'fiscal_year': 2026},
+        )
+        out_of_scope = reviewer_client.get(
+            reverse('reporting-company-accounting-progress'),
+            {'empresa_id': empresa_b.id, 'fiscal_year': 2026},
+        )
+
+        self.assertEqual(in_scope.status_code, status.HTTP_200_OK)
+        self.assertEqual(out_of_scope.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_reporting_query_params_normalize_before_filtering(self):
         _, empresa, _, _, _, _ = self._create_context('QUERYNORM')
