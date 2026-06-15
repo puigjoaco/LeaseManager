@@ -2430,6 +2430,16 @@ Si falta fuente o valor por propiedad, el item queda con warning
 readiness bloquea el cierre sin convertir la seccion inmobiliaria en calculo
 fiscal final.
 
+Nota 2026-06-15: La carpeta consolidada `EDIG/` se inventario completa como
+referencia funcional no normativa y queda ignorada por Git. La evidencia local
+confirma tres lineas separadas: Contabilidad produce libros, F29, balance de
+ocho columnas y DJ1847; Remuneraciones produce liquidaciones, Previred, LRE,
+DJ1887, certificados y centralizacion contable; Renta transforma esas fuentes
+en RLI/CPT/RAI/SAC/DDJJ/F22 mediante una capa anual intermedia. Esto refuerza
+que Etapa 6 debe aceptar fuente laboral/previsional revisable cuando aplique,
+pero no habilita payroll completo, copia de EDIG, reglas fiscales propias ni
+presentacion SII automatica.
+
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |
 | Gobierno documental | Fuente de verdad, AGENTS, README, cursor operativo | `docs/governance`, `AGENTS.md`, `ORDEN_DE_LECTURA.md`, `.gitignore`, `docs/product/EXECUTION_CURSOR_MAYO_2026.md` | 0 | resuelto_confirmado | PR con CI verde y docs consistentes | Mantener actualizado al cambiar fuentes; bloqueos y evidencia son controles operativos de cierre, no arquitectura de producto; el cursor gobierna reanudaciones, worktrees tacticos y metatareas cerradas; artefactos locales de herramienta como `.codex-spreadsheet/`, `.playwright-cli/`, capturas PNG en el root y archivos manuales `CONFIDENCIAL`/`NO_SUBIR` quedan ignorados para no ensuciar `main` ni confundirse con paquetes activos; acceptance ejecuta `assert-repo-hygiene.ps1 -IncludeUntracked` para detectar artefactos sensibles no versionados ni ignorados sin leer secretos. |

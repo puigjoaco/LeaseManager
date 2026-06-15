@@ -18,6 +18,7 @@ frontend/dist/
 frontend/.env
 scripts/node_modules/
 # Material manual / evidencia externa no producto
+/EDIG/
 /EDIG AT2026 SOFTWARE RENTA/
 /EDIG CONTABILIDAD/
 /EDIG RENTA/

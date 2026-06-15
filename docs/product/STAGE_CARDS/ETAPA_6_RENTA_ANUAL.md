@@ -40,6 +40,15 @@ como fuentes revisables del dossier anual. Esto no abre un payroll completo por
 defecto ni autoriza reglas laborales/tributarias desde EDIG; solo fija una
 brecha de fuente y diseno para una capa laboral/previsional controlada.
 
+La revision consolidada posterior de `D:\Proyectos\10_ACTIVOS\LeaseManager\EDIG`
+confirma las tres lineas completas: Contabilidad (libros, F29, balance de ocho
+columnas, DJ1847), Remuneraciones (trabajadores, liquidaciones, Previred, LRE,
+DJ1887 y centralizacion contable) y Renta (regimenes 14A/14D3/14D8/14G, RLI,
+CPT, RAI, SAC, DDJJ, F22, plantillas E-DJ y export/preview). LeaseManager debe
+tratar Remuneraciones primero como `fuente anual laboral/previsional`
+importable o revisable dentro del source bundle anual; construir un payroll
+completo queda fuera del cierre automatico de Etapa 6 salvo ADR/gate propio.
+
 El inventario estatico read-only de `scripts/analyze-edig-at2026.ps1` clasifica
 senales funcionales por administracion, F22, F29/PPM, regimenes 14A/14D3/14D8/
 14G, RLI, CPT, RAI, SAC, DDJJ, balance, bienes raices/arriendos,
@@ -81,6 +90,12 @@ F29 si existe, distribuciones de arriendo y liquidacion de empresa, con
 `hash_hecho` del resumen mensual, refs no sensibles y exposicion redactada en
 API/snapshot/admin. Esto mantiene la union contabilidad -> renta como
 transformacion trazable, no como salto directo desde asientos a F22.
+Si existen trabajadores, sueldo empresarial o DJ1887 aplicable, los hechos
+mensuales/anuales deben recibir una fuente laboral/previsional revisable
+externa o propia: liquidaciones resumidas, cotizaciones, Previred, LRE, DJ1887,
+certificados, impuesto unico y asiento/centralizacion contable. Sin esa fuente
+la preparacion anual conserva warning de fuente laboral no cargada cuando el
+caso lo requiera; no se inventan remuneraciones desde EDIG ni desde IA libre.
 `AnnualTaxTrialBalance` y `AnnualTaxTrialBalanceLine` materializan la capa
 anual de balance de ocho columnas entre contabilidad y RLI/CPT/DJ1847: toman
 un `BalanceComprobacion` aprobado de diciembre, una fuente oficial/experta
