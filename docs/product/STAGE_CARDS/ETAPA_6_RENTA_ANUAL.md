@@ -91,6 +91,14 @@ no sensibles desde cierres mensuales, obligaciones PPM/F29 y configuracion
 fiscal, conserva hash SHA-256 del payload anual normalizado y se enlaza al
 `ProcesoRentaAnual` para que DDJJ/F22 partan desde un dossier revisable, no
 desde inferencia libre ni automatizacion tributaria autonoma.
+`build_annual_tax_source_manifest` prepara la entrada controlada previa al
+bundle para pilotos historicos como Inmobiliaria Puig AC2024/AT2025: lee una
+carpeta externa en modo read-only, clasifica archivos como entradas, soportes o
+salidas esperadas, calcula hashes, no copia documentos al repo y emite un
+borrador no sensible de `AnnualTaxSourceBundle`. Este manifiesto confirma si
+existen fuentes suficientes para una prueba espejo desde libros cerrados, pero
+no crea cierres mensuales ni hechos tributarios en DB y no reemplaza revision
+experta.
 `MonthlyTaxFact` materializa la capa mensual anualizable: por cada empresa,
 ano comercial y mes normaliza el cierre aprobado, obligaciones mensuales,
 F29 si existe, distribuciones de arriendo y liquidacion de empresa, con

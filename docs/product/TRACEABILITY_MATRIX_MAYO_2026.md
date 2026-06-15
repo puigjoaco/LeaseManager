@@ -101,6 +101,18 @@ senales locales, pero bloquea `ready_for_company_accounting_review` y
 `ready_for_stage6_renta_anual` con issues especificos hasta que exista gate,
 ADR y validacion oficial/experta para ampliar el regimen automatizable.
 
+Nota 2026-06-15: Para Inmobiliaria Puig AC2024/AT2025 se agrega
+`build_annual_tax_source_manifest` como paso previo a la prueba espejo. El
+comando inventaria una carpeta externa en modo read-only, clasifica archivos
+como entradas, soportes o salidas esperadas, calcula hashes y produce un
+borrador no sensible de `AnnualTaxSourceBundle`. La corrida local contra
+`Ano_2024` confirma entrada minima para espejo desde libros cerrados: RCV 12/12,
+F29 12/12 controlado considerando meses sin declaracion, DDJJ objetivo
+1835/1837/1847/1887/1926/1948 completas y F22 presente. No carga DB, no copia
+documentos y no cierra renta: el siguiente paso es transformar ese manifiesto
+en carga controlada de cierres/hechos mensuales antes de ejecutar el auditor de
+progreso por empresa.
+
 Nota 2026-06-14: Etapa 6 agrega `AnnualTaxTrialBalance` como capa anual de
 balance de ocho columnas entre `BalanceComprobacion` y RLI/CPT/DJ1847.
 `generate_annual_preparation()` lo sincroniza desde el balance aprobado de

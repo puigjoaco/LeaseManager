@@ -1,0 +1,144 @@
+import json
+from io import StringIO
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+from django.core.management import call_command
+from django.core.management.base import CommandError
+from django.test import SimpleTestCase
+
+from core.annual_tax_source_manifest import build_annual_tax_source_manifest, payload_hash
+
+
+class AnnualTaxSourceManifestTests(SimpleTestCase):
+    def _write(self, root: Path, relative_path: str, content: str = 'controlled-test-source') -> None:
+        target = root / relative_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding='utf-8')
+
+    def _build_complete_source_tree(self, root: Path) -> None:
+        for month in range(1, 13):
+            self._write(
+                root,
+                f'Ano_2024/06_Respaldos_Tributarios/02_RCV_SII/01_Resumenes/2024-{month:02d}_RCV_Resumen_Compra_Registro.csv',
+                'Tipo Documento;Monto Total\nFactura;1000\n',
+            )
+            self._write(
+                root,
+                f'Ano_2024/06_Respaldos_Tributarios/01_F29_y_Comprobantes/2024-{month:02d}_F29_Comprobante.pdf',
+            )
+            self._write(
+                root,
+                f'Ano_2024/02_Libro_Compra/2024-{month:02d}_Libro_Compra.pdf',
+            )
+            self._write(
+                root,
+                f'Ano_2024/03_Libro_Venta/2024-{month:02d}_Libro_Venta.pdf',
+            )
+
+        self._write(root, 'Ano_2024/01_Libros_Anuales/Balance_General_2024.pdf')
+        self._write(root, 'Ano_2024/01_Libros_Anuales/Libro_Diario_2024.pdf')
+        self._write(root, 'Ano_2024/01_Libros_Anuales/Libro_Mayor_2024.pdf')
+        self._write(root, 'Ano_2024/01_Libros_Anuales/Inventario_2024.pdf')
+        for form in ('1835', '1837', '1847', '1887', '1926', '1948'):
+            self._write(root, f'Ano_2024/07_DDJJ_AT_2025/AT_2025_DJ_{form}_Aceptada.pdf')
+        self._write(root, 'Ano_2024/08_F22_Renta_AT_2025/AT_2025_Formulario_22_Compacto.pdf')
+
+    def test_manifest_classifies_sources_and_builds_bundle_draft_without_absolute_paths(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            self._build_complete_source_tree(source_root)
+
+            manifest = build_annual_tax_source_manifest(
+                source_root=source_root,
+                company_ref='inmobiliaria-puig',
+                commercial_year=2024,
+                tax_year=2025,
+            )
+
+        rendered = json.dumps(manifest, ensure_ascii=True)
+        bundle = manifest['annual_tax_source_bundle_draft']
+        resumen = bundle['resumen_fuentes']
+
+        self.assertTrue(manifest['coverage']['ready_for_mirror_source_bundle'])
+        self.assertEqual(manifest['coverage']['rcv_months'], list(range(1, 13)))
+        self.assertEqual(manifest['coverage']['f29_months'], list(range(1, 13)))
+        self.assertEqual(manifest['coverage']['missing_ddjj_forms'], [])
+        self.assertEqual(manifest['summary']['category_counts']['ddjj_expected_output'], 6)
+        self.assertEqual(manifest['summary']['category_counts']['f22_expected_output'], 1)
+        self.assertEqual(bundle['source_kind'], 'snapshot_controlado')
+        self.assertEqual(bundle['estado_sugerido'], 'borrador')
+        self.assertEqual(bundle['hash_fuentes'], payload_hash(resumen))
+        self.assertEqual(resumen['approved_close_months'], [])
+        self.assertIn('internal_monthly_closes', resumen['manual_review_required'])
+        self.assertNotIn(str(source_root), rendered)
+        self.assertFalse(manifest['safety']['contains_absolute_source_paths'])
+        self.assertFalse(manifest['safety']['copied_source_files'])
+        self.assertFalse(manifest['safety']['uses_sii_real'])
+
+    def test_manifest_redacts_sensitive_relative_paths_but_keeps_path_ref_and_classification(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            self._write(
+                source_root,
+                'token-folder/Ano_2024/06_Respaldos_Tributarios/02_RCV_SII/2024-01_RCV_Resumen.csv',
+            )
+
+            manifest = build_annual_tax_source_manifest(
+                source_root=source_root,
+                company_ref='inmobiliaria-puig',
+                commercial_year=2024,
+                tax_year=2025,
+            )
+
+        file_payload = manifest['files'][0]
+        self.assertEqual(file_payload['relative_path'], '<redacted-sensitive-reference>')
+        self.assertTrue(file_payload['path_ref'].startswith('file-path-sha256:'))
+        self.assertEqual(file_payload['category'], 'rcv_structured_input')
+        self.assertEqual(file_payload['months'], [1])
+
+    def test_command_outputs_manifest_and_refuses_versioned_output_outside_local_evidence(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            self._build_complete_source_tree(source_root)
+            stdout = StringIO()
+
+            call_command(
+                'build_annual_tax_source_manifest',
+                source_root=str(source_root),
+                company_ref='inmobiliaria-puig',
+                commercial_year=2024,
+                tax_year=2025,
+                summary_only=True,
+                fail_on_incomplete=True,
+                stdout=stdout,
+            )
+
+        result = json.loads(stdout.getvalue())
+        self.assertTrue(result['coverage']['ready_for_mirror_source_bundle'])
+        self.assertNotIn('files', result)
+
+        with self.assertRaisesMessage(CommandError, 'local-evidence'):
+            call_command(
+                'build_annual_tax_source_manifest',
+                source_root='.',
+                company_ref='inmobiliaria-puig',
+                commercial_year=2024,
+                output='docs/ac2024-source-manifest.json',
+            )
+
+    def test_command_can_fail_on_incomplete_required_mirror_inputs(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            self._write(source_root, 'Ano_2024/01_Libros_Anuales/Balance_General_2024.pdf')
+
+            with self.assertRaisesMessage(CommandError, 'Manifiesto incompleto'):
+                call_command(
+                    'build_annual_tax_source_manifest',
+                    source_root=str(source_root),
+                    company_ref='inmobiliaria-puig',
+                    commercial_year=2024,
+                    tax_year=2025,
+                    fail_on_incomplete=True,
+                    stdout=StringIO(),
+                )
