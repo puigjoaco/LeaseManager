@@ -23,6 +23,7 @@ from contabilidad.models import (
     EstadoPreparacionTributaria,
     NaturalezaCuenta,
     ObligacionTributariaMensual,
+    RegimenTributarioEmpresa,
 )
 from contabilidad.services import ensure_default_regime
 from core.stage6_renta_anual_readiness import collect_stage6_renta_anual_readiness
@@ -141,6 +142,25 @@ class Stage6RentaAnualReadinessTests(TestCase):
         return ConfiguracionFiscalEmpresa.objects.create(
             empresa=empresa,
             regimen_tributario=ensure_default_regime(),
+            afecta_iva_arriendo=False,
+            tasa_iva='0.00',
+            tasa_ppm_vigente='10.00',
+            aplica_ppm=True,
+            ddjj_habilitadas=['1887'],
+            inicio_ejercicio=date(2025, 1, 1),
+            moneda_funcional='CLP',
+            estado='activa',
+        )
+
+    def _activate_unsupported_fiscal_config(self, empresa):
+        regime = RegimenTributarioEmpresa.objects.create(
+            codigo_regimen='RegimenManualNoAutomatizableV1',
+            descripcion='Regimen manual no automatizable en v1',
+            estado='activa',
+        )
+        return ConfiguracionFiscalEmpresa.objects.create(
+            empresa=empresa,
+            regimen_tributario=regime,
             afecta_iva_arriendo=False,
             tasa_iva='0.00',
             tasa_ppm_vigente='10.00',
@@ -706,6 +726,24 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertIn('stage6.tax_support_document_missing', issue_codes)
         self.assertIn('stage6.fiscal_rule_ref_missing', issue_codes)
         self.assertNotIn('://', json.dumps(result))
+
+    def test_active_fiscal_config_with_unsupported_regime_is_blocking(self):
+        empresa = self._create_active_empresa(nombre='UnsupportedStage6Co', rut='67676767-6')
+        self._activate_unsupported_fiscal_config(empresa)
+
+        result = collect_stage6_renta_anual_readiness()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.fiscal_config_unsupported_regime', issue_codes)
+        self.assertNotIn('stage6.fiscal_config_missing', issue_codes)
+        self.assertEqual(result['sections']['fiscal_setup']['active_configs'], 1)
+        self.assertEqual(result['sections']['fiscal_setup']['unsupported_active_regime'], 1)
+        self.assertEqual(
+            result['sections']['fiscal_setup']['supported_regime_code'],
+            'EmpresaContabilidadCompletaV1',
+        )
+        self.assertNotIn(empresa.rut, json.dumps(result))
 
     def test_annual_status_updated_event_without_transition_metadata_is_blocking(self):
         AuditEvent.objects.create(

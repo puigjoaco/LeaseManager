@@ -111,6 +111,12 @@ type ReportingCompanyProgressSummary = {
   classification: string
   progress_percent: number
   ready_for_company_accounting_review: boolean
+  fiscal_config: {
+    active: boolean
+    regime_code: string
+    supported: boolean
+    supported_regime_code: string
+  }
   phases: Record<string, {
     label: string
     status: string
@@ -129,6 +135,9 @@ type ReportingCompanyCandidatesSummary = {
   candidates: Array<{
     empresa: { id: number; razon_social: string; estado: string }
     fiscal_config_active: boolean
+    fiscal_regime_code: string
+    fiscal_regime_supported: boolean
+    supported_fiscal_regime_code: string
     recommended_fiscal_year: number | null
     years: Array<{
       fiscal_year: number
@@ -148,7 +157,7 @@ type ReportingCompanyCandidatesSummary = {
       recommended: boolean
     }>
   }>
-  summary: { companies_total: number; candidate_companies: number; candidate_years: number }
+  summary: { companies_total: number; candidate_companies: number; candidate_years: number; unsupported_fiscal_regime_companies: number }
   trazabilidad: ReportTraceability
 }
 
@@ -503,6 +512,7 @@ export function ReportingWorkspace({
             <Metric label="Empresas visibles" value={count(reportingCompanyCandidatesSummary.summary.companies_total)} tone="neutral" />
             <Metric label="Con señales" value={count(reportingCompanyCandidatesSummary.summary.candidate_companies)} tone={reportingCompanyCandidatesSummary.summary.candidate_companies ? 'positive' : 'warning'} />
             <Metric label="Años candidatos" value={count(reportingCompanyCandidatesSummary.summary.candidate_years)} tone="neutral" />
+            <Metric label="Régimen no soportado" value={count(reportingCompanyCandidatesSummary.summary.unsupported_fiscal_regime_companies)} tone={reportingCompanyCandidatesSummary.summary.unsupported_fiscal_regime_companies ? 'danger' : 'positive'} />
           </section>
           <TableBlock title="Candidatos para medir" subtitle="Años detectados desde cierres, balances, F29 y procesos anuales internos." rows={reportingCompanyCandidatesSummary.candidates.flatMap((candidate) => (
             candidate.years.map((year) => ({
@@ -510,6 +520,8 @@ export function ReportingWorkspace({
               empresa_id: candidate.empresa.id,
               empresa: candidate.empresa.razon_social,
               fiscal_config_active: candidate.fiscal_config_active,
+              fiscal_regime_code: candidate.fiscal_regime_code,
+              fiscal_regime_supported: candidate.fiscal_regime_supported,
               fiscal_year: year.fiscal_year,
               tax_year: year.tax_year,
               signal_count: year.signal_count,
@@ -519,7 +531,7 @@ export function ReportingWorkspace({
           ))} empty="No hay candidatos con señales contables internas." columns={[
             { label: 'Empresa', render: (row) => row.empresa },
             { label: 'Año', render: (row) => `${row.fiscal_year} / AT ${row.tax_year}` },
-            { label: 'Fiscal', render: (row) => <Badge label={row.fiscal_config_active ? 'activa' : 'faltante'} tone={row.fiscal_config_active ? 'positive' : 'warning'} /> },
+            { label: 'Fiscal', render: (row) => <Badge label={!row.fiscal_config_active ? 'faltante' : row.fiscal_regime_supported ? 'soportada' : 'no soportada'} tone={!row.fiscal_config_active ? 'warning' : row.fiscal_regime_supported ? 'positive' : 'danger'} /> },
             { label: 'Señales', render: (row) => <Badge label={count(row.signal_count)} tone={row.recommended ? 'positive' : 'neutral'} /> },
             { label: 'Cierres', render: (row) => count(row.monthly_closes) },
             { label: 'Balances', render: (row) => `${count(row.monthly_balances_squared)} / ${count(row.monthly_balances)}` },
@@ -544,6 +556,7 @@ export function ReportingWorkspace({
             <Metric label="Avance" value={`${reportingCompanyProgressSummary.progress_percent}%`} tone={progressTone(reportingCompanyProgressSummary)} />
             <Metric label="Clasificación" value={reportingCompanyProgressSummary.classification} tone={progressTone(reportingCompanyProgressSummary)} />
             <Metric label="Bloqueos" value={count(reportingCompanyProgressSummary.issue_counts.blocking)} tone={reportingCompanyProgressSummary.issue_counts.blocking ? 'warning' : 'positive'} />
+            <Metric label="Régimen" value={reportingCompanyProgressSummary.fiscal_config.regime_code || 'Sin configuración'} tone={!reportingCompanyProgressSummary.fiscal_config.active ? 'warning' : reportingCompanyProgressSummary.fiscal_config.supported ? 'positive' : 'danger'} />
           </section>
           <section className="panel">
             <div className="section-heading">

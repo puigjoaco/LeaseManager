@@ -1623,6 +1623,12 @@ type ReportingCompanyAccountingProgress = {
   classification: string
   progress_percent: number
   ready_for_company_accounting_review: boolean
+  fiscal_config: {
+    active: boolean
+    regime_code: string
+    supported: boolean
+    supported_regime_code: string
+  }
   phases: Record<string, {
     label: string
     status: string
@@ -1641,6 +1647,9 @@ type ReportingCompanyAccountingCandidates = {
   candidates: Array<{
     empresa: { id: number; razon_social: string; estado: string }
     fiscal_config_active: boolean
+    fiscal_regime_code: string
+    fiscal_regime_supported: boolean
+    supported_fiscal_regime_code: string
     recommended_fiscal_year: number | null
     years: Array<{
       fiscal_year: number
@@ -1660,7 +1669,7 @@ type ReportingCompanyAccountingCandidates = {
       recommended: boolean
     }>
   }>
-  summary: { companies_total: number; candidate_companies: number; candidate_years: number }
+  summary: { companies_total: number; candidate_companies: number; candidate_years: number; unsupported_fiscal_regime_companies: number }
   trazabilidad: ReportTraceability
 }
 

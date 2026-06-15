@@ -23,6 +23,7 @@ from sii.models import (
     EstadoAnnualTaxWorkbook,
     F29PreparacionMensual,
     ProcesoRentaAnual,
+    SII_AUTOMATED_REGIME_CODE,
     TipoAnnualTaxWorkbook,
 )
 
@@ -181,6 +182,9 @@ def collect_company_accounting_candidates(*, empresa_ids: list[int] | None = Non
                 'estado': empresa.estado,
             },
             'fiscal_config_active': False,
+            'fiscal_regime_code': '',
+            'fiscal_regime_supported': False,
+            'supported_fiscal_regime_code': SII_AUTOMATED_REGIME_CODE,
             'recommended_fiscal_year': None,
             'years': {},
         }
@@ -212,11 +216,15 @@ def collect_company_accounting_candidates(*, empresa_ids: list[int] | None = Non
             }
         return years[fiscal_year]
 
-    for empresa_id in ConfiguracionFiscalEmpresa.objects.filter(
+    for config in ConfiguracionFiscalEmpresa.objects.select_related('regimen_tributario').filter(
         empresa_id__in=company_ids,
         estado='activa',
-    ).values_list('empresa_id', flat=True):
-        company_payloads[empresa_id]['fiscal_config_active'] = True
+    ):
+        regime_code = getattr(config.regimen_tributario, 'codigo_regimen', '') or ''
+        payload = company_payloads[config.empresa_id]
+        payload['fiscal_config_active'] = True
+        payload['fiscal_regime_code'] = regime_code
+        payload['fiscal_regime_supported'] = regime_code == SII_AUTOMATED_REGIME_CODE
 
     close_months: dict[tuple[int, int], set[int]] = defaultdict(set)
     for item in CierreMensualContable.objects.filter(
@@ -356,6 +364,11 @@ def collect_company_accounting_candidates(*, empresa_ids: list[int] | None = Non
             'companies_total': len(company_payloads),
             'candidate_companies': len(candidates),
             'candidate_years': sum(len(candidate['years']) for candidate in candidates),
+            'unsupported_fiscal_regime_companies': sum(
+                1
+                for candidate in candidates
+                if candidate['fiscal_config_active'] and not candidate['fiscal_regime_supported']
+            ),
         },
     }
 
@@ -364,10 +377,46 @@ def collect_company_accounting_progress(*, empresa_id: int, fiscal_year: int) ->
     empresa = Empresa.objects.get(pk=empresa_id)
     tax_year = fiscal_year + 1
 
-    fiscal_config_ready = ConfiguracionFiscalEmpresa.objects.filter(
-        empresa=empresa,
-        estado='activa',
-    ).exists()
+    active_fiscal_config = (
+        ConfiguracionFiscalEmpresa.objects.select_related('regimen_tributario')
+        .filter(
+            empresa=empresa,
+            estado='activa',
+        )
+        .first()
+    )
+    fiscal_config_active = active_fiscal_config is not None
+    fiscal_regime_code = ''
+    if active_fiscal_config is not None:
+        fiscal_regime_code = getattr(active_fiscal_config.regimen_tributario, 'codigo_regimen', '') or ''
+    fiscal_regime_supported = fiscal_regime_code == SII_AUTOMATED_REGIME_CODE
+
+    if not fiscal_config_active:
+        fiscal_config_phase = _single_phase(
+            key='fiscal_config',
+            label='Configuracion fiscal activa soportada',
+            exists=False,
+            blocking_issue_code='company_accounting.fiscal_config_missing',
+            message='La empresa requiere ConfiguracionFiscalEmpresa activa antes de revision contable/renta.',
+        )
+    elif not fiscal_regime_supported:
+        fiscal_config_phase = ProgressPhase(
+            key='fiscal_config',
+            label='Configuracion fiscal activa soportada',
+            expected=1,
+            completed=0,
+            missing=[fiscal_regime_code or 'regimen_sin_codigo'],
+            blocking_issue_code='company_accounting.fiscal_config_unsupported_regime',
+            message='La empresa tiene una configuracion fiscal activa fuera del regimen automatizable del v1.',
+        )
+    else:
+        fiscal_config_phase = _single_phase(
+            key='fiscal_config',
+            label='Configuracion fiscal activa soportada',
+            exists=True,
+            blocking_issue_code='company_accounting.fiscal_config_missing',
+            message='La empresa requiere ConfiguracionFiscalEmpresa activa antes de revision contable/renta.',
+        )
 
     approved_close_months = set(
         CierreMensualContable.objects.filter(
@@ -433,13 +482,7 @@ def collect_company_accounting_progress(*, empresa_id: int, fiscal_year: int) ->
         ).exists()
 
     phases = [
-        _single_phase(
-            key='fiscal_config',
-            label='Configuracion fiscal activa',
-            exists=fiscal_config_ready,
-            blocking_issue_code='company_accounting.fiscal_config_missing',
-            message='La empresa requiere ConfiguracionFiscalEmpresa activa antes de revision contable/renta.',
-        ),
+        fiscal_config_phase,
         _month_phase(
             key='monthly_closes',
             label='Cierres mensuales aprobados',
@@ -524,6 +567,12 @@ def collect_company_accounting_progress(*, empresa_id: int, fiscal_year: int) ->
         'classification': _classification(phases),
         'progress_percent': _progress_percent(phases),
         'ready_for_company_accounting_review': all(phase.ready for phase in phases),
+        'fiscal_config': {
+            'active': fiscal_config_active,
+            'regime_code': fiscal_regime_code,
+            'supported': fiscal_regime_supported,
+            'supported_regime_code': SII_AUTOMATED_REGIME_CODE,
+        },
         'phases': {phase.key: phase.as_dict() for phase in phases},
         'issue_counts': {
             'blocking': len(issues),

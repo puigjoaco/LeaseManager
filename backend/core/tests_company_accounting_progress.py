@@ -13,6 +13,7 @@ from contabilidad.models import (
     ConfiguracionFiscalEmpresa,
     EstadoCierreMensual,
     EstadoPreparacionTributaria,
+    RegimenTributarioEmpresa,
 )
 from contabilidad.services import ensure_default_regime
 from core.company_accounting_progress import collect_company_accounting_candidates, collect_company_accounting_progress
@@ -65,6 +66,25 @@ class CompanyAccountingProgressTests(TestCase):
         return ConfiguracionFiscalEmpresa.objects.create(
             empresa=empresa,
             regimen_tributario=ensure_default_regime(),
+            afecta_iva_arriendo=False,
+            tasa_iva='0.00',
+            tasa_ppm_vigente='10.00',
+            aplica_ppm=True,
+            ddjj_habilitadas=['1887'],
+            inicio_ejercicio=date(2025, 1, 1),
+            moneda_funcional='CLP',
+            estado='activa',
+        )
+
+    def _activate_unsupported_fiscal_config(self, empresa):
+        regime = RegimenTributarioEmpresa.objects.create(
+            codigo_regimen='RegimenManualNoAutomatizableV1',
+            descripcion='Regimen manual no automatizable en v1',
+            estado='activa',
+        )
+        return ConfiguracionFiscalEmpresa.objects.create(
+            empresa=empresa,
+            regimen_tributario=regime,
             afecta_iva_arriendo=False,
             tasa_iva='0.00',
             tasa_ppm_vigente='10.00',
@@ -176,6 +196,25 @@ class CompanyAccountingProgressTests(TestCase):
         self.assertEqual(result['phases']['f29_monthly']['completed'], 1)
         self.assertIn('company_accounting.monthly_closes_missing', {issue['code'] for issue in result['issues']})
         self.assertNotIn('://', json.dumps(result))
+
+    def test_unsupported_fiscal_regime_blocks_company_progress_review(self):
+        empresa = self._create_empresa()
+        config = self._activate_unsupported_fiscal_config(empresa)
+        self._create_close(empresa, 1, fiscal_year=2025)
+
+        result = collect_company_accounting_progress(empresa_id=empresa.id, fiscal_year=2025)
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertEqual(result['classification'], 'parcial')
+        self.assertFalse(result['ready_for_company_accounting_review'])
+        self.assertEqual(result['next_blocking_phase'], 'fiscal_config')
+        self.assertFalse(result['phases']['fiscal_config']['ready'])
+        self.assertEqual(result['phases']['fiscal_config']['missing'], [config.regimen_tributario.codigo_regimen])
+        self.assertTrue(result['fiscal_config']['active'])
+        self.assertFalse(result['fiscal_config']['supported'])
+        self.assertEqual(result['fiscal_config']['regime_code'], config.regimen_tributario.codigo_regimen)
+        self.assertIn('company_accounting.fiscal_config_unsupported_regime', issue_codes)
+        self.assertNotIn(empresa.rut, json.dumps(result))
 
     def test_candidates_rank_company_years_without_exposing_rut(self):
         empresa = self._create_empresa()
@@ -332,6 +371,23 @@ class CompanyAccountingProgressTests(TestCase):
         self.assertEqual(result['candidates'][0]['years'][1]['fiscal_year'], 2024)
         self.assertNotIn(empresa.rut, json.dumps(result))
         self.assertNotIn(empresa_sin_senales.rut, json.dumps(result))
+
+    def test_candidates_surface_unsupported_fiscal_regime_without_hiding_signals(self):
+        empresa = self._create_empresa()
+        config = self._activate_unsupported_fiscal_config(empresa)
+        self._create_close(empresa, 1, fiscal_year=2025)
+
+        result = collect_company_accounting_candidates(empresa_ids=[empresa.id])
+        candidate = result['candidates'][0]
+
+        self.assertEqual(result['summary']['candidate_companies'], 1)
+        self.assertEqual(result['summary']['unsupported_fiscal_regime_companies'], 1)
+        self.assertTrue(candidate['fiscal_config_active'])
+        self.assertFalse(candidate['fiscal_regime_supported'])
+        self.assertEqual(candidate['fiscal_regime_code'], config.regimen_tributario.codigo_regimen)
+        self.assertEqual(candidate['recommended_fiscal_year'], 2025)
+        self.assertEqual(candidate['years'][0]['signals']['monthly_closes'], 1)
+        self.assertNotIn(empresa.rut, json.dumps(result))
 
     def test_candidates_command_outputs_empty_and_can_fail_on_empty(self):
         stdout = StringIO()
