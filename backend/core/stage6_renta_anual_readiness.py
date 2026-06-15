@@ -155,7 +155,19 @@ def _annual_summary_is_traceable(summary: Any) -> bool:
     if not isinstance(summary, dict):
         return False
     obligations = summary.get('obligaciones')
-    return _annual_summary_fiscal_year(summary) is not None and isinstance(obligations, list) and bool(obligations)
+    if _annual_summary_fiscal_year(summary) is None:
+        return False
+    if isinstance(obligations, list) and bool(obligations):
+        return True
+    monthly_facts = summary.get('annual_tax_monthly_facts')
+    if not isinstance(monthly_facts, dict):
+        return False
+    try:
+        fact_months = sorted({int(month) for month in monthly_facts.get('months') or []})
+        fact_total = int(monthly_facts.get('total') or 0)
+    except (TypeError, ValueError):
+        return False
+    return fact_months == list(range(1, 13)) and fact_total == 12
 
 
 def _annual_summary_fiscal_year(summary: Any) -> int | None:

@@ -599,6 +599,16 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   ref, responsable, evidencia y payload anual redactados; el admin es solo
   lectura para preservar que la checklist proviene del motor anual y no de una
   edicion manual opaca.
+- `AnnualTaxSourceBundle` acepta como trazabilidad anual completa los 12
+  `MonthlyTaxFact` normalizados aun si algunos meses no tienen F29/obligacion
+  por no declaracion controlada; no se deben inventar obligaciones para cerrar
+  el ano.
+- `run_annual_tax_controlled_mirror` prepara la prueba espejo AC2024/AT2025
+  desde la DB local controlada: valida 12 hechos mensuales, crea capacidades
+  DDJJ/F22 locales, rule set/mappings/layouts, source bundle
+  `snapshot_controlado` y artefactos anuales locales sin usar SII real,
+  credenciales ni outputs finales como input. Su salida sigue siendo revisable
+  y `final_tax_calculation=false`.
 
 ```powershell
 scripts\run-stage6-readiness-gate.ps1 -PythonExe backend\.venv\Scripts\python.exe

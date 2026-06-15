@@ -549,6 +549,11 @@ def build_annual_tax_source_summary(empresa, fiscal_year, config, rule_set):
         liquidacion__anio=fiscal_year,
         liquidacion__estado__in=[EstadoLiquidacionMensual.PREPARED, EstadoLiquidacionMensual.APPROVED],
     ).select_related('liquidacion')
+    monthly_facts = MonthlyTaxFact.objects.filter(
+        empresa=empresa,
+        anio=fiscal_year,
+        estado=EstadoMonthlyTaxFact.NORMALIZED,
+    ).order_by('mes')
     obligation_months = sorted(set(obligations.values_list('mes', flat=True)))
     obligation_total = sum((item.monto_calculado for item in obligations), 0)
     f29_traceable_states = {
@@ -568,6 +573,8 @@ def build_annual_tax_source_summary(empresa, fiscal_year, config, rule_set):
         'obligations_total': obligations.count(),
         'obligations_total_amount': str(obligation_total),
         'obligations_by_type': sorted(set(obligations.values_list('obligacion_tipo', flat=True))),
+        'monthly_tax_fact_months': sorted(set(monthly_facts.values_list('mes', flat=True))),
+        'monthly_tax_facts_total': monthly_facts.count(),
         'f29_preparations_total': f29s.count(),
         'f29_traceable_months': sorted(
             set(
@@ -3228,6 +3235,7 @@ def freeze_annual_tax_source_bundle(
     responsible_ref='',
 ):
     fiscal_year = anio_tributario - 1
+    sync_monthly_tax_facts(empresa, fiscal_year)
     summary = build_annual_tax_source_summary(empresa, fiscal_year, config, rule_set)
     source_label = str(source_label or f'annual-source-{empresa.id}-at{anio_tributario}-{source_kind}').strip()
     responsible_ref = str(responsible_ref or 'system-annual-source-bundle').strip()

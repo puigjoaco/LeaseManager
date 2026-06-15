@@ -2506,6 +2506,16 @@ materializa 12 `MonthlyTaxFact` normalizados en SQLite local ignorado. El gate
 queda parcial porque faltan capacidades anuales DDJJ/F22, source bundle en DB,
 proceso anual, DDJJ/F22/documento soporte y comparador contra outputs esperados.
 
+Nota 2026-06-15: Renta Anual/Etapa 6 agrega run anual controlado AC2024/AT2025.
+`AnnualTaxSourceBundle` diferencia meses con obligacion declarada de meses con
+hecho tributario mensual normalizado, permitiendo F29 `no_aplica` sin inventar
+obligaciones. `run_annual_tax_controlled_mirror` crea capacidades DDJJ/F22,
+TaxYearRuleSet, mappings, layouts, fuente de balance anual preview, bundle
+`snapshot_controlado`, ProcesoRentaAnual, DDJJ/F22, matriz, dossier, export y
+checklist sobre SQLite local ignorado. El gate ya no falla por falta de proceso
+anual, DDJJ/F22 o source bundle; queda parcial por revision tributaria, bienes
+raices/respaldo y comparador pendientes.
+
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |
 | Gobierno documental | Fuente de verdad, AGENTS, README, cursor operativo | `docs/governance`, `AGENTS.md`, `ORDEN_DE_LECTURA.md`, `.gitignore`, `docs/product/EXECUTION_CURSOR_MAYO_2026.md` | 0 | resuelto_confirmado | PR con CI verde y docs consistentes | Mantener actualizado al cambiar fuentes; bloqueos y evidencia son controles operativos de cierre, no arquitectura de producto; el cursor gobierna reanudaciones, worktrees tacticos y metatareas cerradas; artefactos locales de herramienta como `.codex-spreadsheet/`, `.playwright-cli/`, capturas PNG en el root y archivos manuales `CONFIDENCIAL`/`NO_SUBIR` quedan ignorados para no ensuciar `main` ni confundirse con paquetes activos; acceptance ejecuta `assert-repo-hygiene.ps1 -IncludeUntracked` para detectar artefactos sensibles no versionados ni ignorados sin leer secretos. |
