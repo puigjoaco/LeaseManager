@@ -25,6 +25,15 @@ futura solo puede ser sandbox observacional con datos ficticios y brecha
 concreta de UI/export. El camino sigue siendo capa anual revisable,
 responsable y gate SII, no API REST asumida ni presentacion autonoma.
 
+Nota 2026-06-15: La prueba espejo Inmobiliaria Puig AC2024/AT2025 agrega
+extractor de identidad para outputs esperados externos read-only. El
+comparador anual ya no se queda solo en cobertura: con `--source-root` reconoce
+senales de DDJJ aceptadas 1835/1837/1847/1887/1926/1948, F22, Balance y
+registros tributarios esperados, sin guardar texto bruto ni usar esas salidas
+como input de calculo. La conclusion espejo sigue pendiente de extractores de
+igualdad de valores, revision responsable de artefactos generados y gates de
+Etapa 6.
+
 Nota 2026-06-13: La investigacion local de EDIG AT2026 queda mapeada como
 referencia funcional no normativa en
 `docs/product/RENTA_ANUAL_EDIG_AT2026_MAPPING.md`, con runbook de sandbox en
@@ -2514,7 +2523,7 @@ TaxYearRuleSet, mappings, layouts, fuente de balance anual preview, bundle
 `snapshot_controlado`, ProcesoRentaAnual, DDJJ/F22, matriz, dossier, export y
 checklist sobre SQLite local ignorado. El gate ya no falla por falta de proceso
 anual, DDJJ/F22 o source bundle; queda parcial por revision tributaria, bienes
-raices/respaldo y comparador de contenido pendiente.
+raices/respaldo y comparador de valores pendiente.
 
 Nota 2026-06-15: Renta Anual/Etapa 6 agrega comparador de cobertura de outputs
 esperados AC2024/AT2025. `compare_annual_tax_expected_outputs` lee el
@@ -2523,8 +2532,7 @@ Balance/RLI/CPT/RAI/DDJJ/F22 finales como comparacion, no como input. Contra
 SQLite local de Inmobiliaria Puig confirma cobertura completa de balance
 tributario, workbooks CPT/RLI, registros DIVIDENDOS/RAI/RETIROS/SAC, DDJJ
 1835/1837/1847/1887/1926/1948 y F22. La prueba espejo sigue parcial por
-warnings/revision y porque faltan extractores de contenido para igualdad de
-valores.
+warnings/revision y porque faltan extractores de igualdad de valores.
 
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |

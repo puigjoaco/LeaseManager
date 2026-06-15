@@ -114,6 +114,28 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
             'months': months,
         }
 
+    def _expected_relative_path(self, category: str, artifact_key: str) -> str:
+        return f'expected/{category}/{artifact_key}.txt'
+
+    def _write_expected_output_sources(self, source_root: Path, manifest: dict):
+        for item in manifest['files']:
+            relative_path = item['relative_path']
+            path = source_root / relative_path
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if item['category'] == 'ddjj_expected_output':
+                form = item['ddjj_forms'][0]
+                path.write_text(
+                    f'Declaracion Jurada {form} Aceptada Folio 88{form} controlada\n',
+                    encoding='utf-8',
+                )
+            elif item['category'] == 'f22_expected_output':
+                path.write_text('Formulario 22 Folio 348868325 controlado\n', encoding='utf-8')
+            else:
+                path.write_text(
+                    f'{item["artifact_key"]} AC2024 AT2025 total 1000 1000 controlado\n',
+                    encoding='utf-8',
+                )
+
     def _manifest(self):
         files = [
             {
@@ -121,6 +143,10 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
                 'role': 'expected_output',
                 'path_ref': 'expected-output-balance-general-ref',
                 'artifact_key': 'balance_general',
+                'relative_path': self._expected_relative_path(
+                    'annual_balance_expected_output',
+                    'balance_general',
+                ),
                 'output_status': '',
             },
             {
@@ -128,6 +154,7 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
                 'role': 'expected_output',
                 'path_ref': 'expected-output-f22-ref',
                 'artifact_key': 'f22',
+                'relative_path': self._expected_relative_path('f22_expected_output', 'f22'),
                 'output_status': '',
             },
         ]
@@ -138,6 +165,10 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
                     'role': 'expected_output',
                     'path_ref': f'expected-output-{key}-ref',
                     'artifact_key': key,
+                    'relative_path': self._expected_relative_path(
+                        'annual_tax_register_expected_output',
+                        key,
+                    ),
                     'output_status': '',
                 }
             )
@@ -148,6 +179,10 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
                     'role': 'expected_output',
                     'path_ref': f'expected-output-dj-{form}-ref',
                     'artifact_key': f'dj_{form}',
+                    'relative_path': self._expected_relative_path(
+                        'ddjj_expected_output',
+                        f'dj_{form}',
+                    ),
                     'ddjj_forms': [form],
                     'output_status': 'accepted',
                 }
@@ -180,27 +215,49 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
             write_database=True,
         )
 
-    def test_comparator_matches_generated_coverage_without_using_expected_outputs_as_inputs(self):
+    def test_comparator_matches_generated_coverage_and_identity_without_using_expected_outputs_as_inputs(self):
         empresa = self._create_empresa()
         self._load_and_generate_annual_layer(empresa)
 
-        result = compare_annual_tax_expected_outputs(
-            empresa=empresa,
-            commercial_year=2024,
-            tax_year=2025,
-            manifest=self._manifest(),
-        )
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            manifest = self._manifest()
+            self._write_expected_output_sources(source_root, manifest)
+
+            result = compare_annual_tax_expected_outputs(
+                empresa=empresa,
+                commercial_year=2024,
+                tax_year=2025,
+                manifest=manifest,
+                source_root=source_root,
+            )
 
         self.assertTrue(result['summary']['coverage_ready_for_content_comparison'])
+        self.assertTrue(result['summary']['content_identity_extractors_ready'])
+        self.assertFalse(result['summary']['value_equality_extractors_ready'])
         self.assertFalse(result['summary']['ready_for_mirror_conclusion'])
-        self.assertIn('expected_output_content_extractors_missing', result['summary']['blockers'])
+        self.assertIn('expected_output_value_extractors_missing', result['summary']['blockers'])
+        self.assertNotIn('expected_output_identity_extractors_not_run', result['summary']['blockers'])
         self.assertFalse(result['safety']['uses_expected_outputs_as_inputs'])
         self.assertTrue(result['safety']['expected_outputs_used_as_comparison_only'])
-        self.assertFalse(result['comparison_scope']['content_comparison_performed'])
+        self.assertFalse(result['safety']['stores_raw_expected_output_text'])
+        self.assertTrue(result['comparison_scope']['content_identity_extraction_performed'])
+        self.assertTrue(result['comparison_scope']['content_comparison_performed'])
+        self.assertFalse(result['comparison_scope']['numeric_equality_performed'])
+        self.assertEqual(result['comparison_scope']['level'], 'coverage_traceability_and_identity')
         self.assertTrue(result['matches']['annual_balance_expected_output']['matched'])
         self.assertEqual(result['matches']['annual_tax_register_expected_output']['missing_artifact_keys'], [])
         self.assertEqual(result['matches']['ddjj_expected_output']['missing_forms'], [])
         self.assertTrue(result['matches']['f22_expected_output']['matched'])
+        self.assertTrue(result['matches']['ddjj_content_identity']['matched'])
+        self.assertTrue(result['matches']['f22_content_identity']['matched'])
+        self.assertTrue(result['matches']['annual_balance_content_identity']['matched'])
+        self.assertTrue(result['matches']['annual_tax_register_content_identity']['matched'])
+        self.assertTrue(result['expected_output_content_signals']['summary']['identity_signals_ready'])
+        self.assertFalse(
+            result['expected_output_content_signals']['summary']['value_equality_extractors_ready']
+        )
+        self.assertEqual(result['expected_output_content_signals']['summary']['extraction_errors_total'], 0)
 
     def test_comparator_reports_missing_annual_process_as_blocker(self):
         empresa = self._create_empresa()
@@ -215,6 +272,8 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
         self.assertFalse(result['summary']['coverage_ready_for_content_comparison'])
         self.assertIn('annual_process_missing', result['summary']['blockers'])
         self.assertIn('expected_output_coverage_mismatch', result['summary']['blockers'])
+        self.assertIn('expected_output_identity_extractors_not_run', result['summary']['blockers'])
+        self.assertIn('expected_output_value_extractors_missing', result['summary']['blockers'])
 
     def test_command_writes_comparison_and_refuses_versioned_output_outside_local_evidence(self):
         empresa = self._create_empresa()
@@ -222,9 +281,13 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
 
         with TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
+            source_root = temp_path / 'source'
+            source_root.mkdir()
+            manifest = self._manifest()
+            self._write_expected_output_sources(source_root, manifest)
             manifest_path = temp_path / 'manifest.json'
             output_path = temp_path / 'comparison.json'
-            manifest_path.write_text(json.dumps(self._manifest(), ensure_ascii=True), encoding='utf-8')
+            manifest_path.write_text(json.dumps(manifest, ensure_ascii=True), encoding='utf-8')
             stdout = StringIO()
 
             call_command(
@@ -233,6 +296,7 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
                 commercial_year=2024,
                 tax_year=2025,
                 manifest=str(manifest_path),
+                source_root=str(source_root),
                 output=str(output_path),
                 stdout=stdout,
             )
@@ -240,6 +304,8 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
 
             self.assertEqual(stdout.getvalue(), '')
             self.assertTrue(result['summary']['coverage_ready_for_content_comparison'])
+            self.assertTrue(result['summary']['content_identity_extractors_ready'])
+            self.assertFalse(result['summary']['value_equality_extractors_ready'])
 
             with self.assertRaisesMessage(CommandError, 'local-evidence'):
                 call_command(

@@ -613,9 +613,12 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   y `final_tax_calculation=false`.
 - `compare_annual_tax_expected_outputs` compara cobertura y trazabilidad de
   Balance/RLI/CPT/RAI/DDJJ/F22 esperados contra artefactos anuales generados
-  por LeaseManager. No escribe DB, no hace igualdad numerica, no lee SII real y
-  no usa esos outputs como insumo de calculo; deja pendiente
-  `expected_output_content_extractors` para la comparacion de contenido.
+  por LeaseManager. Con `--source-root`, `extract_expected_output_content_signals`
+  agrega identidad de DDJJ aceptadas, F22, Balance y registros tributarios desde
+  una fuente externa read-only. No escribe DB, no guarda texto bruto, no hace
+  igualdad numerica, no lee SII real y no usa esos outputs como insumo de
+  calculo; deja pendiente `expected_output_value_extractors` para igualdad de
+  valores.
 
 ```powershell
 scripts\run-stage6-readiness-gate.ps1 -PythonExe backend\.venv\Scripts\python.exe

@@ -59,8 +59,14 @@ REQUIRED_MIRROR_ARCHITECTURE_CAPABILITIES = (
         'evidence': 'compare_annual_tax_expected_outputs',
     },
     {
-        'key': 'expected_output_content_extractors',
-        'label': 'Extractores de contenido para igualdad de valores contra outputs definitivos',
+        'key': 'expected_output_identity_extractors',
+        'label': 'Extractores de identidad de outputs definitivos',
+        'status': 'implemented',
+        'evidence': 'extract_expected_output_content_signals',
+    },
+    {
+        'key': 'expected_output_value_extractors',
+        'label': 'Extractores de valores para igualdad numerica contra outputs definitivos',
         'status': 'missing',
         'evidence': 'pendiente',
     },
@@ -500,7 +506,7 @@ def _mirror_proof_readiness(coverage: dict[str, Any]) -> dict[str, Any]:
             'Construir paquete normalizado desde libros/F29/remuneraciones por parser o carga manual controlada.',
             'Aplicar writer DB local controlado sin copiar documentos al repo ni usar outputs esperados como input.',
             'Generar artefactos LeaseManager AT2025 desde inputs AC2024 cargados.',
-            'Implementar extractores de contenido contra outputs esperados sin usarlos como insumo de calculo.',
+            'Implementar extractores de valores contra outputs esperados sin usarlos como insumo de calculo.',
         ]
         if source_ready
         else [

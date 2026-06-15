@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+from pathlib import Path
 from typing import Any
 
 from contabilidad.models import EstadoPreparacionTributaria
 from core.annual_tax_controlled_load_plan import COMPARISON_ONLY_CATEGORIES
+from core.annual_tax_expected_output_content import extract_expected_output_content_signals
 from core.annual_tax_source_manifest import EXPECTED_DDJJ_FORMS, EXPECTED_ANNUAL_TAX_REGISTER_KEYS
 from sii.models import (
     AnnualEnterpriseRegisterSet,
@@ -265,6 +267,7 @@ def compare_annual_tax_expected_outputs(
     commercial_year: int,
     tax_year: int,
     manifest: dict[str, Any],
+    source_root: Path | None = None,
 ) -> dict[str, Any]:
     if tax_year != commercial_year + 1:
         raise ValueError('tax_year debe ser commercial_year + 1.')
@@ -284,21 +287,72 @@ def compare_annual_tax_expected_outputs(
         'ddjj_expected_output': _compare_ddjj(grouped.get('ddjj_expected_output', []), inventory),
         'f22_expected_output': _compare_f22(grouped.get('f22_expected_output', []), inventory),
     }
+    coverage_match_keys = tuple(matches.keys())
 
-    coverage_ready = bool(inventory['process_present']) and all(item['matched'] for item in matches.values())
-    content_comparison_extractors_ready = False
+    content_signals = None
+    content_identity_ready = False
+    value_equality_extractors_ready = False
+    if source_root is not None:
+        content_signals = extract_expected_output_content_signals(source_root=source_root, manifest=manifest)
+        content_summary = content_signals['summary']
+        content_ddjj_forms = set(content_summary['accepted_ddjj_forms_from_content'])
+        generated_forms = set(inventory['prepared_ddjj_forms'])
+        matches['ddjj_content_identity'] = {
+            'expected_forms_from_content': sorted(content_ddjj_forms),
+            'generated_forms': sorted(generated_forms),
+            'missing_forms': sorted(content_ddjj_forms - generated_forms),
+            'accepted_folios_by_form': content_summary['accepted_ddjj_folios_by_form'],
+            'matched': bool(content_ddjj_forms) and not (content_ddjj_forms - generated_forms),
+        }
+        matches['f22_content_identity'] = {
+            'expected_folios_from_content': content_summary['f22_folios_from_content'],
+            'generated_f22_present': bool(inventory['prepared_f22']),
+            'official_folio_generated': False,
+            'matched': bool(content_summary['f22_folios_from_content']) and bool(inventory['prepared_f22']),
+        }
+        matches['annual_balance_content_identity'] = {
+            'expected_text_extractable': bool(content_summary['balance_text_extractable']),
+            'generated_trial_balance_present': int(inventory['prepared_trial_balance_count']) > 0,
+            'matched': bool(content_summary['balance_text_extractable'])
+            and int(inventory['prepared_trial_balance_count']) > 0,
+        }
+        matches['annual_tax_register_content_identity'] = {
+            'expected_register_keys_with_text': content_summary['annual_tax_register_keys_with_text'],
+            'generated_workbook_types': inventory['prepared_workbook_types'],
+            'generated_enterprise_register_types': inventory['prepared_enterprise_register_types'],
+            'missing_expected_register_text': sorted(
+                set(EXPECTED_ANNUAL_TAX_REGISTER_KEYS) - set(content_summary['annual_tax_register_keys_with_text'])
+            ),
+            'matched': set(content_summary['annual_tax_register_keys_with_text'])
+            >= set(EXPECTED_ANNUAL_TAX_REGISTER_KEYS),
+        }
+        content_identity_ready = (
+            bool(content_summary['identity_signals_ready'])
+            and matches['ddjj_content_identity']['matched']
+            and matches['f22_content_identity']['matched']
+            and matches['annual_balance_content_identity']['matched']
+            and matches['annual_tax_register_content_identity']['matched']
+        )
+
+    coverage_ready = bool(inventory['process_present']) and all(matches[key]['matched'] for key in coverage_match_keys)
     review_warning_counts = inventory['review_warning_counts']
     review_blockers_total = int(inventory['review_blockers_total'])
 
     blockers = []
     if not inventory['process_present']:
         blockers.append('annual_process_missing')
-    if not all(item['matched'] for item in matches.values()):
+    if not all(matches[key]['matched'] for key in coverage_match_keys):
         blockers.append('expected_output_coverage_mismatch')
     if review_warning_counts or review_blockers_total:
         blockers.append('generated_artifacts_require_review')
-    if not content_comparison_extractors_ready:
-        blockers.append('expected_output_content_extractors_missing')
+    if source_root is None:
+        blockers.append('expected_output_identity_extractors_not_run')
+    elif content_signals and content_signals['extraction_errors']:
+        blockers.append('expected_output_identity_extraction_errors')
+    elif not content_identity_ready:
+        blockers.append('expected_output_identity_mismatch')
+    if not value_equality_extractors_ready:
+        blockers.append('expected_output_value_extractors_missing')
 
     return {
         'schema_version': EXPECTED_OUTPUT_COMPARISON_SCHEMA_VERSION,
@@ -307,8 +361,9 @@ def compare_annual_tax_expected_outputs(
         'tax_year': tax_year,
         'source_manifest_hash': manifest.get('hash_manifest') or manifest.get('source_manifest_hash') or '',
         'comparison_scope': {
-            'level': 'coverage_and_traceability',
-            'content_comparison_performed': False,
+            'level': 'coverage_traceability_and_identity' if source_root is not None else 'coverage_and_traceability',
+            'content_identity_extraction_performed': source_root is not None,
+            'content_comparison_performed': source_root is not None,
             'numeric_equality_performed': False,
             'categories': sorted(COMPARISON_ONLY_CATEGORIES),
         },
@@ -321,13 +376,16 @@ def compare_annual_tax_expected_outputs(
             for category, files in sorted(grouped.items())
         },
         'generated_inventory': inventory,
+        'expected_output_content_signals': content_signals,
         'matches': matches,
         'summary': {
             'coverage_ready_for_content_comparison': coverage_ready,
-            'content_comparison_extractors_ready': content_comparison_extractors_ready,
+            'content_identity_extractors_ready': content_identity_ready,
+            'value_equality_extractors_ready': value_equality_extractors_ready,
             'ready_for_mirror_conclusion': (
                 coverage_ready
-                and content_comparison_extractors_ready
+                and content_identity_ready
+                and value_equality_extractors_ready
                 and not review_warning_counts
                 and review_blockers_total == 0
             ),
@@ -340,5 +398,6 @@ def compare_annual_tax_expected_outputs(
             'uses_expected_outputs_as_inputs': False,
             'expected_outputs_used_as_comparison_only': True,
             'final_tax_calculation': False,
+            'stores_raw_expected_output_text': False,
         },
     }

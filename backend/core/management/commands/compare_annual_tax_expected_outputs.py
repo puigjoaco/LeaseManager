@@ -44,6 +44,11 @@ class Command(BaseCommand):
         parser.add_argument('--commercial-year', required=True, type=int, help='Año comercial fuente.')
         parser.add_argument('--tax-year', required=True, type=int, help='Año tributario destino.')
         parser.add_argument('--manifest', required=True, help='Ruta al manifiesto annual-tax-source-manifest.v1.')
+        parser.add_argument(
+            '--source-root',
+            default='',
+            help='Root externo read-only para extraer identidad de contenido de outputs esperados.',
+        )
         parser.add_argument('--output', default='', help='Ruta opcional para escribir JSON de comparacion.')
         parser.add_argument(
             '--fail-on-coverage-mismatch',
@@ -57,6 +62,7 @@ class Command(BaseCommand):
         if options['output']:
             output_path = _resolve_path(options['output'])
             _validate_output_path(output_path)
+        source_root = _resolve_path(options['source_root']) if options['source_root'] else None
 
         try:
             manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
@@ -76,6 +82,7 @@ class Command(BaseCommand):
                 commercial_year=options['commercial_year'],
                 tax_year=options['tax_year'],
                 manifest=manifest,
+                source_root=source_root,
             )
         except ValueError as error:
             raise CommandError(f'Comparacion anual invalida: {error}') from error
