@@ -2476,6 +2476,14 @@ que Etapa 6 debe aceptar fuente laboral/previsional revisable cuando aplique,
 pero no habilita payroll completo, copia de EDIG, reglas fiscales propias ni
 presentacion SII automatica.
 
+Nota 2026-06-15: Renta Anual/Etapa 6 agrega writer DB local controlado para la
+prueba espejo Inmobiliaria Puig AC2024/AT2025. `apply_annual_tax_controlled_db_load`
+acepta solo un paquete JSON normalizado, opera en dry-run salvo `--apply`,
+materializa cierres, libros, balance, obligaciones, F29 y MonthlyTaxFact, y
+rechaza Balance/RLI/CPT/RAI/DDJJ/F22 finales como insumos. La arquitectura aun
+no queda completa de punta a punta: faltan paquete normalizado desde fuentes
+AC2024 y comparador contra outputs esperados.
+
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |
 | Gobierno documental | Fuente de verdad, AGENTS, README, cursor operativo | `docs/governance`, `AGENTS.md`, `ORDEN_DE_LECTURA.md`, `.gitignore`, `docs/product/EXECUTION_CURSOR_MAYO_2026.md` | 0 | resuelto_confirmado | PR con CI verde y docs consistentes | Mantener actualizado al cambiar fuentes; bloqueos y evidencia son controles operativos de cierre, no arquitectura de producto; el cursor gobierna reanudaciones, worktrees tacticos y metatareas cerradas; artefactos locales de herramienta como `.codex-spreadsheet/`, `.playwright-cli/`, capturas PNG en el root y archivos manuales `CONFIDENCIAL`/`NO_SUBIR` quedan ignorados para no ensuciar `main` ni confundirse con paquetes activos; acceptance ejecuta `assert-repo-hygiene.ps1 -IncludeUntracked` para detectar artefactos sensibles no versionados ni ignorados sin leer secretos. |

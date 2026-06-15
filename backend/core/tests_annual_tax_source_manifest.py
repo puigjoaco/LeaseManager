@@ -69,10 +69,10 @@ class AnnualTaxSourceManifestTests(SimpleTestCase):
         self.assertTrue(manifest['coverage']['ready_for_mirror_source_bundle'])
         self.assertTrue(mirror['source_documentation_confirmed_for_ac2024_at2025'])
         self.assertFalse(mirror['architecture_complete_for_mirror_run'])
-        self.assertFalse(mirror['ready_to_start_controlled_processing'])
+        self.assertTrue(mirror['ready_to_start_controlled_processing'])
         self.assertEqual(
             mirror['missing_capabilities'],
-            ['controlled_accounting_loader', 'expected_output_comparator'],
+            ['expected_output_comparator'],
         )
         self.assertFalse(mirror['input_policy']['expected_outputs_used_as_inputs'])
         self.assertEqual(manifest['coverage']['rcv_months'], list(range(1, 13)))
@@ -202,9 +202,10 @@ class AnnualTaxSourceManifestTests(SimpleTestCase):
         self.assertTrue(result['coverage']['ready_for_mirror_source_bundle'])
         self.assertNotIn('files', result)
         self.assertFalse(result['mirror_proof_readiness']['architecture_complete_for_mirror_run'])
+        self.assertTrue(result['mirror_proof_readiness']['ready_to_start_controlled_processing'])
         self.assertEqual(
             result['mirror_proof_readiness']['missing_capabilities'],
-            ['controlled_accounting_loader', 'expected_output_comparator'],
+            ['expected_output_comparator'],
         )
 
         with self.assertRaisesMessage(CommandError, 'local-evidence'):

@@ -78,7 +78,11 @@ class AnnualTaxControlledLoadPlanTests(SimpleTestCase):
         self.assertEqual(by_category['annual_ledger_input']['status'], 'blocked')
         self.assertIn('contabilidad.LibroDiario', by_category['annual_ledger_input']['target_models'])
         self.assertIn('sii.AnnualTaxTrialBalanceLine', by_category['annual_ledger_input']['target_models'])
-        self.assertIn('controlled_accounting_db_writer', plan['summary']['missing_capabilities_after_plan'])
+        self.assertIn(
+            'normalized_controlled_source_package_required',
+            plan['summary']['missing_capabilities_after_plan'],
+        )
+        self.assertNotIn('controlled_accounting_db_writer', plan['summary']['missing_capabilities_after_plan'])
         self.assertIn('expected_output_comparator', plan['summary']['missing_capabilities_after_plan'])
 
     def test_load_plan_blocks_manifest_without_file_list(self):

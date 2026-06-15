@@ -112,7 +112,13 @@ libros, balance, obligaciones, F29, hechos mensuales y balance tributario
 anual. Para Inmobiliaria Puig AC2024/AT2025 el plan confirma que los outputs
 esperados no se usan como input, pero `ready_for_db_load=false` hasta tener
 parser/carga manual controlada para libros anuales, F29 PDF y remuneraciones,
-mas un writer DB local y el comparador de outputs esperados.
+mas un paquete normalizado de entrada y el comparador de outputs esperados.
+`apply_annual_tax_controlled_db_load` materializa ese paquete normalizado en DB
+local/controlada solo con `--apply`: crea o actualiza cierres mensuales,
+LibroDiario, LibroMayor, BalanceComprobacion, obligaciones, F29 y
+MonthlyTaxFact, rechazando refs sensibles y cualquier Balance/RLI/CPT/RAI/DDJJ/
+F22 final usado como input. Por defecto opera en dry-run para validar sin
+escribir DB.
 `MonthlyTaxFact` materializa la capa mensual anualizable: por cada empresa,
 ano comercial y mes normaliza el cierre aprobado, obligaciones mensuales,
 F29 si existe, distribuciones de arriendo y liquidacion de empresa, con

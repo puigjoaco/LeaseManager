@@ -37,8 +37,8 @@ REQUIRED_MIRROR_ARCHITECTURE_CAPABILITIES = (
     {
         'key': 'controlled_accounting_loader',
         'label': 'Carga controlada de libros/cierres/hechos 2024 a DB local',
-        'status': 'missing',
-        'evidence': 'pendiente',
+        'status': 'implemented',
+        'evidence': 'apply_annual_tax_controlled_db_load',
     },
     {
         'key': 'monthly_tax_fact_normalization',
@@ -468,7 +468,7 @@ def _mirror_proof_readiness(coverage: dict[str, Any]) -> dict[str, Any]:
     return {
         'source_documentation_confirmed_for_ac2024_at2025': source_ready,
         'architecture_complete_for_mirror_run': source_ready and not missing_capabilities,
-        'ready_to_start_controlled_processing': source_ready and not missing_capabilities,
+        'ready_to_start_controlled_processing': source_ready and 'controlled_accounting_loader' not in missing_capabilities,
         'implemented_capabilities': implemented_capabilities,
         'missing_capabilities': missing_capabilities,
         'capabilities': list(REQUIRED_MIRROR_ARCHITECTURE_CAPABILITIES),
@@ -491,7 +491,8 @@ def _mirror_proof_readiness(coverage: dict[str, Any]) -> dict[str, Any]:
             'expected_outputs_used_as_inputs': False,
         },
         'next_actions': [
-            'Implementar loader controlado desde manifiesto hacia DB local sin copiar documentos al repo.',
+            'Construir paquete normalizado desde libros/F29/remuneraciones por parser o carga manual controlada.',
+            'Aplicar writer DB local controlado sin copiar documentos al repo ni usar outputs esperados como input.',
             'Generar artefactos LeaseManager AT2025 desde inputs AC2024 cargados.',
             'Implementar comparador contra outputs esperados sin usarlos como insumo de calculo.',
         ]
