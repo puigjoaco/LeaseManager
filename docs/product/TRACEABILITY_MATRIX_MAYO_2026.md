@@ -2704,6 +2704,19 @@ warnings/revision de artefactos generados y gates finales; la comparacion v5 ya
 cubre semantica documental DDJJ/F22 y presencia de 138/138 valores comparables
 sin usar outputs finales como input.
 
+Nota 2026-06-16: la corrida controlada real AC2024/AT2025 desde la fuente
+externa de Inmobiliaria Puig confirma que el paquete detallado ya puede entrar
+al writer DB (`ready_for_db_writer=true`) y que LeaseManager genera una capa
+anual preliminar completa en SQLite local ignorada: 12 `MonthlyTaxFact`, 10
+F29/obligaciones, `AnnualTaxSourceBundle`, workbooks, registros empresariales,
+matriz, dossier, export, DDJJ y F22 preparados. El gate unico queda parcial,
+no por falta de pipeline, sino por limites correctos de cierre: fuente
+societaria/ownership no cargada como snapshot independiente, bienes raices sin
+items, artefactos con warnings/revision pendiente y checklist no completado.
+Esto fija la proxima accion objetiva: completar snapshot controlado de
+ownership/bienes raices y revisar artefactos anuales, no reabrir goal prompts,
+EDIG ni metatareas ya cerradas.
+
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |
 | Gobierno documental | Fuente de verdad, AGENTS, README, cursor operativo | `docs/governance`, `AGENTS.md`, `ORDEN_DE_LECTURA.md`, `.gitignore`, `docs/product/EXECUTION_CURSOR_MAYO_2026.md` | 0 | resuelto_confirmado | PR con CI verde y docs consistentes | Mantener actualizado al cambiar fuentes; bloqueos y evidencia son controles operativos de cierre, no arquitectura de producto; el cursor gobierna reanudaciones, worktrees tacticos y metatareas cerradas; artefactos locales de herramienta como `.codex-spreadsheet/`, `.playwright-cli/`, capturas PNG en el root y archivos manuales `CONFIDENCIAL`/`NO_SUBIR` quedan ignorados para no ensuciar `main` ni confundirse con paquetes activos; acceptance ejecuta `assert-repo-hygiene.ps1 -IncludeUntracked` para detectar artefactos sensibles no versionados ni ignorados sin leer secretos. |
