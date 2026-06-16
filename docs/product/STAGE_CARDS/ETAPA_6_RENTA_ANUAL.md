@@ -270,6 +270,8 @@ responsable no sensible de warnings de linea sin borrar advertencias ni
 promover calculo final. Esta capa no declara calculo tributario final; deja
 importes, origenes y advertencias listos para revision antes de avanzar a
 RAI/SAC/DDJJ/F22.
+Los resumenes y checklist solo consideran revisados los warnings con referencia
+no sensible; una URL, token o valor sensible no despeja la revision pendiente.
 `AnnualEnterpriseRegisterSet` y `AnnualEnterpriseRegisterMovement` materializan
 la siguiente capa: registros RAI, SAC, retiros y dividendos por proceso anual,
 con saldos iniciales/finales, movimientos trazados a RLI/CPT o participaciones
@@ -529,6 +531,11 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   `final_tax_calculation` como verdaderos. Si el checklist conserva items
   incompletos, warnings o bloqueos, readiness exige revision responsable antes
   de cualquier cierre.
+- Para workbooks RLI/CPT y registros empresariales, el checklist distingue
+  `warnings_total` de `warnings_pending_review_total`: los warnings ya
+  revisados con referencia no sensible quedan visibles como advertencia
+  historica, pero no mantienen el item en `warning` ni disparan
+  `stage6.tax_review_checklist_warning_review_required`.
 - La matriz `stage6-official-source-gaps` debe mantenerse alineada con fuentes
   SII vigentes antes de promover cualquier warning de regla, medio DDJJ,
   mapping DJ1847/RLI/CPT, contribucion o formato F22 a estado cerrable.
@@ -734,6 +741,9 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   payload y en los hashes; readiness solo deja de bloquearlos cuando el item
   queda `listo_revision`, la referencia existe y dossier/export/checklist se
   regeneran sin abrir formato oficial, presentacion SII ni calculo final.
+- `AnnualTaxReviewChecklist` propaga esa misma regla de warnings pendientes para
+  RLI/CPT y registros empresariales: una revision responsable no sensible
+  completa el item de checklist aunque el warning total siga auditado.
 - La API/snapshot/admin de SII exponen `AnnualTaxDossier` con source,
   responsable, dossier ref y payload anual redactados; el admin es solo lectura
   para preservar que el dossier proviene del motor anual y no de edicion manual

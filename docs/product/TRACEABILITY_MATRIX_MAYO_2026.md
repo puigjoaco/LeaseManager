@@ -84,6 +84,14 @@ movimiento y del registro, y `audit_stage6_renta_anual_readiness` solo bloquea
 sin revision trazada. Los warnings no se eliminan ni se convierten en calculo
 tributario final; API, admin y snapshot exponen la referencia redactada.
 
+Nota 2026-06-16: `AnnualTaxReviewChecklist` alinea workbooks RLI/CPT y
+registros empresariales con la misma semantica de revision: el item queda en
+`warning` solo si `warnings_pending_review_total > 0`. `warnings_total` sigue
+visible en el payload para auditoria, pero los warnings revisados con referencia
+no sensible ya no disparan `stage6.tax_review_checklist_warning_review_required`.
+Workbooks tambien usan referencia no sensible para contar warnings revisados,
+evitando que URLs, tokens o refs sensibles despejen el bloqueo.
+
 Nota 2026-06-15: La iteracion posterior al mapeo completo EDIG se contrasta
 con SII. F22 AT2026 opera por certificacion de software que genera archivos y
 SII acredita recepcion, no contenido ni consistencia tributaria. DDJJ Renta

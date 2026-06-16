@@ -1237,7 +1237,7 @@ def summarize_annual_tax_workbooks(process):
         for line in active_lines:
             warnings = line.warnings if isinstance(line.warnings, list) else []
             warning_count += len(warnings)
-            if warnings and has_text(line.warning_review_ref):
+            if warnings and is_non_sensitive_reference(line.warning_review_ref):
                 warning_reviewed_count += len(warnings)
             elif warnings:
                 warning_pending_review_count += len(warnings)
@@ -3452,7 +3452,9 @@ def _annual_tax_review_checklist_summary(process, rule_set, source_bundle, dossi
     matrix_warnings = _summary_warning_total(matrix_summary)
     matrix_pending_warnings = _summary_metric_total(matrix_summary, 'warnings_pending_review_total')
     workbook_warnings = _summary_warning_total(workbook_summary, key='by_type')
+    workbook_pending_warnings = _summary_metric_total(workbook_summary, 'warnings_pending_review_total', key='by_type')
     register_warnings = _summary_warning_total(register_summary, key='by_type')
+    register_pending_warnings = _summary_metric_total(register_summary, 'warnings_pending_review_total', key='by_type')
     real_estate_warnings = _summary_warning_total(real_estate_summary)
     ddjj_layout_missing = len(ddjj_layout_summary.get('missing_form_codes') or []) if isinstance(ddjj_layout_summary, dict) else 0
     ddjj_layout_warnings = _summary_warning_total(ddjj_layout_summary, key='by_form_code')
@@ -3483,14 +3485,22 @@ def _annual_tax_review_checklist_summary(process, rule_set, source_bundle, dossi
         _checklist_item(
             'workbooks_rli_cpt',
             'Workbooks RLI y CPT preparados',
-            'warning' if workbook_warnings else ('complete' if {TipoAnnualTaxWorkbook.RLI, TipoAnnualTaxWorkbook.CPT}.issubset(workbook_types) else 'blocking'),
-            details={'types': sorted(workbook_types), 'warnings_total': workbook_warnings},
+            'warning' if workbook_pending_warnings else ('complete' if {TipoAnnualTaxWorkbook.RLI, TipoAnnualTaxWorkbook.CPT}.issubset(workbook_types) else 'blocking'),
+            details={
+                'types': sorted(workbook_types),
+                'warnings_total': workbook_warnings,
+                'warnings_pending_review_total': workbook_pending_warnings,
+            },
         ),
         _checklist_item(
             'enterprise_registers',
             'Registros empresariales preparados',
-            'warning' if register_warnings else ('complete' if register_types else 'blocking'),
-            details={'types': sorted(register_types), 'warnings_total': register_warnings},
+            'warning' if register_pending_warnings else ('complete' if register_types else 'blocking'),
+            details={
+                'types': sorted(register_types),
+                'warnings_total': register_warnings,
+                'warnings_pending_review_total': register_pending_warnings,
+            },
         ),
         _checklist_item(
             'real_estate_support',
