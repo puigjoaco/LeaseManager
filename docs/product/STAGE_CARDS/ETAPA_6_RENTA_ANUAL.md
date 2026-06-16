@@ -450,9 +450,11 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   existir registros RAI, SAC, retiros y dividendos.
 - `AnnualEnterpriseRegisterMovement` activo requiere origen, monto, signo,
   `formula_ref`, `evidencia_ref`, `source_payload` y `hash_movimiento`
-  coherente. Movimientos con warnings bloquean readiness hasta revision
-  tributaria; retiros/dividendos pueden conservar movimientos cero trazados a
-  participaciones activas mientras no existan eventos propios.
+  coherente. Movimientos con warnings bloquean readiness mientras no tengan
+  `warning_review_ref` no sensible; las revisiones conservan warnings dentro
+  del hash y no convierten el registro en calculo final. Retiros/dividendos
+  pueden conservar movimientos cero trazados a participaciones activas mientras
+  no existan eventos propios.
 - `AnnualRealEstateSection` preparada requiere proceso anual, bundle y rule
   set coherentes, `resumen_seccion` y `hash_seccion` coherentes. Para tratar un
   proceso anual como trazable debe existir una seccion preparada y su resumen
@@ -704,9 +706,10 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   redactados; el admin es solo lectura para preservar que RLI/CPT provienen del
   normalizador anual y no de edicion manual opaca.
 - La API/snapshot/admin de SII exponen `AnnualEnterpriseRegisterSet` y
-  `AnnualEnterpriseRegisterMovement` con refs, warnings y payloads redactados;
-  el admin es solo lectura para preservar que RAI/SAC/retiros/dividendos
-  provienen del motor anual y no de edicion manual opaca.
+  `AnnualEnterpriseRegisterMovement` con refs, `warning_review_ref`, warnings y
+  payloads redactados; el admin es solo lectura para preservar que
+  RAI/SAC/retiros/dividendos provienen del motor anual y no de edicion manual
+  opaca.
 - La API/snapshot/admin de SII exponen `AnnualRealEstateSection` y
   `AnnualRealEstateItem` con refs, warnings y payloads redactados; el snapshot
   redacta rol/direccion de propiedad y el admin es solo lectura para preservar

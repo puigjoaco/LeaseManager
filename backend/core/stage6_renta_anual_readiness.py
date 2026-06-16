@@ -506,11 +506,19 @@ def _collect_annual_enterprise_register_issues(registers, movements, processes, 
 
     active_movement_counts = Counter()
     warning_movement_counts = Counter()
+    warning_reviewed_counts = Counter()
+    warning_pending_counts = Counter()
+    warning_pending_movement_counts = Counter()
     for movement in movements.filter(estado=EstadoRegistro.ACTIVE).select_related('register_set'):
         active_movement_counts[movement.register_set_id] += 1
         warnings = movement.warnings if isinstance(movement.warnings, list) else []
         if warnings:
-            warning_movement_counts[movement.register_set_id] += 1
+            warning_movement_counts[movement.register_set_id] += len(warnings)
+            if _non_sensitive_reference(movement.warning_review_ref):
+                warning_reviewed_counts[movement.register_set_id] += len(warnings)
+            else:
+                warning_pending_counts[movement.register_set_id] += len(warnings)
+                warning_pending_movement_counts[movement.register_set_id] += 1
 
     for process in processes:
         if process.estado not in ANNUAL_TRACEABLE_STATES:
@@ -548,6 +556,9 @@ def _collect_annual_enterprise_register_issues(registers, movements, processes, 
                         or str(type_summary.get('movimientos_total_clp')) != str(register.movimientos_total_clp)
                         or str(type_summary.get('saldo_final_clp')) != str(register.saldo_final_clp)
                         or int(type_summary.get('movements_total') or 0) != active_movement_counts[register.id]
+                        or int(type_summary.get('warnings_total') or 0) != warning_movement_counts[register.id]
+                        or int(type_summary.get('warnings_reviewed_total') or 0) != warning_reviewed_counts[register.id]
+                        or int(type_summary.get('warnings_pending_review_total') or 0) != warning_pending_counts[register.id]
                     ):
                         counts['process_enterprise_register_summary_mismatch'] += 1
                         break
@@ -555,8 +566,8 @@ def _collect_annual_enterprise_register_issues(registers, movements, processes, 
         for register in process_registers.values():
             if active_movement_counts[register.id] == 0:
                 counts['enterprise_register_movement_missing'] += 1
-            if warning_movement_counts[register.id]:
-                counts['enterprise_register_movement_warning_review_required'] += warning_movement_counts[register.id]
+            if warning_pending_movement_counts[register.id]:
+                counts['enterprise_register_movement_warning_review_required'] += warning_pending_movement_counts[register.id]
 
     return dict(sorted(counts.items()))
 

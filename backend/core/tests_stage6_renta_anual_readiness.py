@@ -90,6 +90,7 @@ from sii.services import (
     summarize_annual_tax_review_checklists,
     summarize_annual_tax_trial_balances,
     summarize_annual_tax_workbooks,
+    mark_annual_enterprise_register_warnings_reviewed,
     mark_annual_tax_artifact_matrix_warnings_reviewed,
     mark_annual_tax_workbook_warnings_reviewed,
     sync_annual_enterprise_registers,
@@ -1083,6 +1084,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
                     'monto_clp': str(movement.monto_clp),
                     'formula_ref': movement.formula_ref,
                     'evidencia_ref': movement.evidencia_ref,
+                    'warning_review_ref': movement.warning_review_ref,
                     'warnings': movement.warnings,
                     'source_payload': movement.source_payload,
                 },
@@ -1099,6 +1101,106 @@ class Stage6RentaAnualReadinessTests(TestCase):
 
         self.assertFalse(result['ready_for_stage6_renta_anual'])
         self.assertIn('stage6.enterprise_register_movement_warning_review_required', issue_codes)
+
+    def test_reviewed_enterprise_register_movement_warning_stops_blocking_registers(self):
+        self._create_valid_local_matrix()
+        process = ProcesoRentaAnual.objects.get()
+        movement = AnnualEnterpriseRegisterMovement.objects.select_related('register_set').get(register_set__tipo_registro='RAI')
+        movement.warnings = ['opening_balance_requires_expert_review']
+        movement.hash_movimiento = hashlib.sha256(
+            json.dumps(
+                {
+                    'register_set_id': movement.register_set_id,
+                    'source_workbook_line_id': movement.source_workbook_line_id,
+                    'codigo_interno': movement.codigo_interno,
+                    'origen': movement.origen,
+                    'signo': movement.signo,
+                    'monto_clp': str(movement.monto_clp),
+                    'formula_ref': movement.formula_ref,
+                    'evidencia_ref': movement.evidencia_ref,
+                    'warning_review_ref': movement.warning_review_ref,
+                    'warnings': movement.warnings,
+                    'source_payload': movement.source_payload,
+                },
+                sort_keys=True,
+                separators=(',', ':'),
+                ensure_ascii=True,
+                default=str,
+            ).encode('utf-8')
+        ).hexdigest()
+        movement.save(update_fields=['warnings', 'hash_movimiento', 'updated_at'])
+
+        acknowledgement = mark_annual_enterprise_register_warnings_reviewed(
+            process,
+            warning_review_ref='tax-review-stage6-enterprise-warning-001',
+        )
+        process.resumen_anual = {
+            **process.resumen_anual,
+            'annual_enterprise_registers': summarize_annual_enterprise_registers(process),
+        }
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+
+        movement.refresh_from_db()
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+        register_summary = summarize_annual_enterprise_registers(process)['by_type']['RAI']
+
+        self.assertEqual(acknowledgement['reviewed_warnings_total'], 1)
+        self.assertEqual(acknowledgement['reviewed_movements_total'], 1)
+        self.assertEqual(movement.warning_review_ref, 'tax-review-stage6-enterprise-warning-001')
+        self.assertEqual(register_summary['warnings_total'], 1)
+        self.assertEqual(register_summary['warnings_reviewed_total'], 1)
+        self.assertEqual(register_summary['warnings_pending_review_total'], 0)
+        self.assertNotIn('stage6.enterprise_register_movement_warning_review_required', issue_codes)
+        self.assertNotIn('stage6.process_enterprise_register_summary_mismatch', issue_codes)
+
+    def test_sensitive_enterprise_register_warning_review_ref_remains_blocking(self):
+        self._create_valid_local_matrix()
+        process = ProcesoRentaAnual.objects.get()
+        movement = AnnualEnterpriseRegisterMovement.objects.select_related('register_set').get(register_set__tipo_registro='RAI')
+        movement.warnings = ['opening_balance_requires_expert_review']
+        movement.warning_review_ref = 'https://sii.example.test/review?token=secret'
+        movement.hash_movimiento = hashlib.sha256(
+            json.dumps(
+                {
+                    'register_set_id': movement.register_set_id,
+                    'source_workbook_line_id': movement.source_workbook_line_id,
+                    'codigo_interno': movement.codigo_interno,
+                    'origen': movement.origen,
+                    'signo': movement.signo,
+                    'monto_clp': str(movement.monto_clp),
+                    'formula_ref': movement.formula_ref,
+                    'evidencia_ref': movement.evidencia_ref,
+                    'warning_review_ref': movement.warning_review_ref,
+                    'warnings': movement.warnings,
+                    'source_payload': movement.source_payload,
+                },
+                sort_keys=True,
+                separators=(',', ':'),
+                ensure_ascii=True,
+                default=str,
+            ).encode('utf-8')
+        ).hexdigest()
+        AnnualEnterpriseRegisterMovement.objects.filter(pk=movement.pk).update(
+            warnings=movement.warnings,
+            warning_review_ref=movement.warning_review_ref,
+            hash_movimiento=movement.hash_movimiento,
+        )
+        process.resumen_anual = {
+            **process.resumen_anual,
+            'annual_enterprise_registers': summarize_annual_enterprise_registers(process),
+        }
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+        register_summary = summarize_annual_enterprise_registers(process)['by_type']['RAI']
+
+        self.assertEqual(register_summary['warnings_total'], 1)
+        self.assertEqual(register_summary['warnings_reviewed_total'], 0)
+        self.assertEqual(register_summary['warnings_pending_review_total'], 1)
+        self.assertIn('stage6.enterprise_register_movement_warning_review_required', issue_codes)
+        self.assertNotIn('stage6.process_enterprise_register_summary_mismatch', issue_codes)
 
     def test_enterprise_register_summary_hash_mismatch_is_blocking(self):
         self._create_valid_local_matrix()

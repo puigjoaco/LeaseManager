@@ -578,7 +578,7 @@ class AnnualEnterpriseRegisterSetSerializer(RedactSensitiveSiiFieldsMixin, seria
 
 
 class AnnualEnterpriseRegisterMovementSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
-    redacted_reference_fields = ('formula_ref', 'evidencia_ref')
+    redacted_reference_fields = ('formula_ref', 'evidencia_ref', 'warning_review_ref')
     redacted_payload_fields = ('warnings', 'source_payload')
 
     class Meta:
@@ -593,6 +593,7 @@ class AnnualEnterpriseRegisterMovementSerializer(RedactSensitiveSiiFieldsMixin, 
             'monto_clp',
             'formula_ref',
             'evidencia_ref',
+            'warning_review_ref',
             'warnings',
             'source_payload',
             'hash_movimiento',

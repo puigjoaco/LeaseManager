@@ -4079,6 +4079,7 @@ class SiiAPITests(APITestCase):
         AnnualEnterpriseRegisterMovement.objects.filter(pk=movement.pk).update(
             formula_ref='https://sii.example.test/register-formula?token=secret',
             evidencia_ref='Bearer movement-secret',
+            warning_review_ref='https://sii.example.test/register-warning-review?token=secret',
             warnings=['https://sii.example.test/register-warning?token=secret'],
             source_payload={'api_key': 'secret-movement-value'},
         )
@@ -4092,6 +4093,7 @@ class SiiAPITests(APITestCase):
         self.assertNotIn('secret-register-value', json.dumps(register_admin.resumen_registro_redacted(register)))
         self.assertEqual(movement_admin.formula_ref_redacted(movement), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(movement_admin.evidencia_ref_redacted(movement), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(movement_admin.warning_review_ref_redacted(movement), REDACTED_SENSITIVE_REFERENCE)
         self.assertNotIn('secret-movement-value', json.dumps(movement_admin.source_payload_redacted(movement)))
 
         register_response = self.client.get(reverse('sii-annual-enterprise-register-list'))
@@ -4122,8 +4124,10 @@ class SiiAPITests(APITestCase):
         self.assertEqual(snapshot_register_data['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(movement_data['formula_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(movement_data['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(movement_data['warning_review_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_movement_data['formula_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_movement_data['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_movement_data['warning_review_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertNotIn('token=secret', serialized_payload)
         self.assertNotIn('register-secret', serialized_payload)
         self.assertNotIn('movement-secret', serialized_payload)
