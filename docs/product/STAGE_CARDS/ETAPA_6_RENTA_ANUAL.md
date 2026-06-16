@@ -118,6 +118,17 @@ candidatos, pero no los usa como input de calculo ni desbloquea la prueba anual
 hasta que una fuente suficiente sea revisada y convertida en snapshot
 controlado de socios/participaciones vigentes. Las escrituras de propiedades no
 se clasifican como ownership societario.
+Desde 2026-06-16 el manifiesto separa la entrada operativa al piloto del cierre
+del objetivo. Si RCV, F29 controlado, libros anuales, remuneraciones, Balance,
+registros tributarios, DDJJ y F22 estan cubiertos, y falta
+`ownership_source_input` pero existen `ownership_source_candidate`, entonces
+`ready_for_closed_books_mirror_pilot=true` y
+`ready_to_start_closed_books_pilot=true`: se puede iniciar el piloto desde
+libros cerrados y preparar la revision ownership. En paralelo,
+`ready_for_mirror_source_bundle=false`,
+`source_documentation_confirmed_for_ac2024_at2025=false` y
+`ready_for_objective_completion=false` siguen bloqueando cualquier conclusion
+de equivalencia final, presentacion SII o cierre tributario autonomo.
 `review_annual_tax_ownership_candidates` revisa esos candidatos sin guardar
 texto crudo, RUTs ni nombres: en la evidencia real AC2024/AT2025 los PDFs no
 son extraibles por `pdftotext`, por lo que 10 quedan como candidatos legales

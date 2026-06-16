@@ -153,7 +153,7 @@ class AnnualTaxMirrorProofTests(TestCase):
     def _expected_relative_path(self, category: str, artifact_key: str) -> str:
         return f'expected/{category}/{artifact_key}.txt'
 
-    def _manifest(self, *, ready=True):
+    def _manifest(self, *, ready=True, closed_books_pilot_ready=None):
         files = [
             {
                 'category': 'annual_balance_expected_output',
@@ -195,7 +195,7 @@ class AnnualTaxMirrorProofTests(TestCase):
                     'output_status': 'accepted',
                 }
             )
-        return {
+        manifest = {
             'schema_version': 'annual-tax-source-manifest.v1',
             'hash_manifest': 'b' * 64,
             'company_ref': 'inmobiliaria-puig',
@@ -213,6 +213,22 @@ class AnnualTaxMirrorProofTests(TestCase):
             },
             'files': files,
         }
+        if closed_books_pilot_ready is not None:
+            manifest['coverage']['ready_for_closed_books_mirror_pilot'] = closed_books_pilot_ready
+            manifest['coverage']['mirror_source_bundle_blockers'] = [] if ready else ['ownership_source_missing']
+            manifest['coverage']['closed_books_mirror_pilot_blockers'] = (
+                [] if closed_books_pilot_ready else ['ownership_source_missing_or_candidate_absent']
+            )
+            manifest['mirror_proof_readiness'].update(
+                {
+                    'closed_books_pilot_ready_for_ac2024_at2025': closed_books_pilot_ready,
+                    'architecture_entry_ready_for_closed_books_pilot': closed_books_pilot_ready,
+                    'ready_to_start_closed_books_pilot': closed_books_pilot_ready,
+                    'source_blockers': [] if ready else ['ownership_source_missing'],
+                    'missing_capabilities': [] if ready else ['expected_output_value_equality_completion'],
+                }
+            )
+        return manifest
 
     def _write_expected_output_sources(self, source_root: Path, manifest: dict):
         for item in manifest['files']:
@@ -281,8 +297,11 @@ class AnnualTaxMirrorProofTests(TestCase):
             result = audit_annual_tax_mirror_proof(**self._proof_kwargs(empresa, manifest, source_root))
 
         self.assertEqual(result['summary']['classification'], 'parcial')
+        self.assertEqual(result['summary']['entry_classification'], 'piloto_habilitado')
+        self.assertTrue(result['summary']['ready_for_closed_books_pilot'])
         self.assertFalse(result['summary']['ready_for_architecture_proof'])
         self.assertFalse(result['summary']['ready_for_objective_completion'])
+        self.assertTrue(result['checks']['closed_books_pilot_entry_ready'])
         self.assertTrue(result['checks']['source_documentation_confirmed'])
         self.assertFalse(result['checks']['comparison_ready_for_mirror_conclusion'])
         self.assertFalse(result['checks']['stage6_ready_for_renta_anual'])
@@ -318,10 +337,34 @@ class AnnualTaxMirrorProofTests(TestCase):
             result = audit_annual_tax_mirror_proof(**self._proof_kwargs(empresa, manifest, source_root))
 
         self.assertEqual(result['summary']['classification'], 'parcial')
+        self.assertEqual(result['summary']['entry_classification'], 'entrada_bloqueada')
+        self.assertFalse(result['summary']['ready_for_closed_books_pilot'])
         self.assertFalse(result['summary']['ready_for_architecture_proof'])
         self.assertFalse(result['summary']['ready_for_objective_completion'])
+        self.assertFalse(result['checks']['closed_books_pilot_entry_ready'])
+        self.assertIn('closed_books_pilot_entry_not_ready', result['summary']['blockers'])
         self.assertIn('source_documentation_not_confirmed', result['summary']['blockers'])
         self.assertIn('comparison.generated_artifacts_require_review', result['summary']['blockers'])
+
+    def test_mirror_proof_allows_closed_books_pilot_without_false_objective_completion(self):
+        empresa = self._create_empresa()
+        self._load_and_generate_annual_layer(empresa)
+
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            manifest = self._manifest(ready=False, closed_books_pilot_ready=True)
+            self._write_expected_output_sources(source_root, manifest)
+            result = audit_annual_tax_mirror_proof(**self._proof_kwargs(empresa, manifest, source_root))
+
+        self.assertEqual(result['summary']['classification'], 'parcial')
+        self.assertEqual(result['summary']['entry_classification'], 'piloto_habilitado')
+        self.assertTrue(result['summary']['ready_for_closed_books_pilot'])
+        self.assertFalse(result['summary']['ready_for_objective_completion'])
+        self.assertTrue(result['checks']['closed_books_pilot_entry_ready'])
+        self.assertFalse(result['checks']['source_documentation_confirmed'])
+        self.assertIn('source_documentation_not_confirmed', result['summary']['blockers'])
+        self.assertIn('source.ownership_source_missing', result['summary']['blockers'])
+        self.assertNotIn('closed_books_pilot_entry_not_ready', result['summary']['blockers'])
 
     def test_command_writes_proof_and_refuses_versioned_output(self):
         empresa = self._create_empresa()
