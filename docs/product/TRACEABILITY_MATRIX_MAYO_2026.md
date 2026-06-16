@@ -742,6 +742,15 @@ Nota 2026-06-10: Los comandos demo de Compliance reducen su salida humana.
 mantienen validacion/persistencia, pero stdout queda limitado a confirmaciones,
 conteos y resumen de cantidad de campos.
 
+Nota 2026-06-16: El gate local de Compliance incorpora
+`-BootstrapDemoPolicies` para sembrar explicitamente la linea base canonica de
+retencion en DB SQLite bajo `local-evidence/`. El switch rechaza fuentes
+evidenciales `snapshot_controlado`/`real_autorizado`, rechaza SQLite fuera de
+`local-evidence/`, ejecuta `bootstrap_demo_compliance_policies`, exige cinco
+politicas activas y verifica que no queden issues de politicas o holds
+faltantes. El resultado sigue parcial en fuentes `local`/`fixture`/`demo`;
+`BLK-010` solo se cierra con fuente autorizada y refs finales no sensibles.
+
 Nota 2026-06-10: El control `security.admin_mfa_control` tambien bloquea
 descripciones sensibles. `PlatformSetting.clean()` rechaza `description` con
 URLs, tokens o credenciales para evitar que una nota visible en Django admin
@@ -2057,6 +2066,13 @@ candidatos `PoliticaRetencionDatos`, ejecuta `full_clean()` sobre todo el set
 canonico y solo aplica cambios dentro de una transaccion si no hay campos
 invalidos o sensibles, evitando escrituras parciales desde parametros de
 bootstrap.
+
+Nota 2026-06-16: `run-compliance-data-readiness-gate.ps1` agrega
+`-BootstrapDemoPolicies` para fuentes locales/demo. El wrapper puede sembrar la
+linea base canonica de cinco politicas de retencion antes de auditar, valida que
+no falten holds tributarios/documentales y mantiene `ready_for_compliance_data=false`
+para fuentes no evidenciales; el switch queda prohibido para
+`snapshot_controlado` y `real_autorizado`.
 
 Nota 2026-05-27: SII cierra superficie admin para refs y payloads
 tributarios sensibles heredados. Los admins de capacidades SII, DTE, F29,

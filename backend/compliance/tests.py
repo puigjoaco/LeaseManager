@@ -1,9 +1,11 @@
 from datetime import timedelta
+from io import StringIO
 from unittest.mock import patch
 
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.core.management import call_command
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
@@ -17,6 +19,7 @@ from compliance.audit import (
     EXPORT_PREPARED_EVENT_TYPE,
     EXPORT_REVOKED_EVENT_TYPE,
 )
+from core.compliance_data_readiness import collect_compliance_data_readiness
 from core.models import Role, Scope, UserScopeAssignment
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from reporting.tests import ReportingAPITests
@@ -1520,3 +1523,35 @@ class ComplianceAPITests(APITestCase):
         self.assertIn('evento_inicio', responses[1].data)
         self.assertIn('permite_purga_fisica', responses[1].data)
         self.assertNotIn('token=secret', str(responses[1].data))
+
+    def test_bootstrap_demo_compliance_policies_creates_canonical_baseline(self):
+        call_command('bootstrap_demo_compliance_policies', stdout=StringIO())
+
+        policies = {
+            policy.categoria_dato: policy
+            for policy in PoliticaRetencionDatos.objects.filter(estado='activa')
+        }
+
+        self.assertEqual(set(policies), set(CategoriaDato.values))
+        self.assertTrue(policies[CategoriaDato.TAX].requiere_hold)
+        self.assertTrue(policies[CategoriaDato.DOCUMENT].requiere_hold)
+        self.assertFalse(policies[CategoriaDato.SECRET].permite_purga_fisica)
+        for policy in policies.values():
+            policy.full_clean()
+
+    def test_bootstrapped_demo_policies_clear_retention_readiness_without_closing_gate(self):
+        call_command('bootstrap_demo_compliance_policies', stdout=StringIO())
+
+        result = collect_compliance_data_readiness(
+            source_kind='demo',
+            source_label='compliance-demo-baseline',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_compliance_data'])
+        self.assertEqual(result['classification'], 'parcial')
+        self.assertIn('compliance.source_kind_not_authorized', issue_codes)
+        self.assertNotIn('compliance.retention_policy_missing', issue_codes)
+        self.assertNotIn('compliance.retention_hold_missing', issue_codes)
+        self.assertEqual(result['sections']['retention_policies']['active_total'], len(CategoriaDato.values))
+        self.assertEqual(result['sections']['retention_policies']['missing_active_categories'], [])

@@ -26,6 +26,8 @@ param(
 
     [switch]$RunMigrations,
 
+    [switch]$BootstrapDemoPolicies,
+
     [switch]$RequireReady
 )
 
@@ -117,6 +119,7 @@ $isAuthorizedSourceKind = $authorizedSourceKinds -contains $SourceKind
 Assert-Condition (Test-Path $pythonExe) "No existe el Python del backend en $pythonExe"
 Assert-Condition (Test-NonSensitiveReference $SourceLabel) 'SourceLabel debe ser una etiqueta no sensible.'
 Assert-Condition (-not ($SourceKind -eq 'real_autorizado' -and $shouldRunMigrations)) 'No se ejecutan migraciones contra real_autorizado desde este gate.'
+Assert-Condition (-not ($BootstrapDemoPolicies.IsPresent -and $isAuthorizedSourceKind)) 'BootstrapDemoPolicies solo puede usarse en fuentes local/fixture/demo, no en fuentes evidenciales.'
 if (-not [string]::IsNullOrWhiteSpace($AsOfDate)) {
     Assert-Condition ($AsOfDate -match '^\d{4}-\d{2}-\d{2}$') 'AsOfDate debe usar formato ISO YYYY-MM-DD.'
 }
@@ -136,6 +139,7 @@ Write-Host "Compliance data readiness gate" -ForegroundColor Cyan
 Write-Host "Source kind: $SourceKind"
 Write-Host "Source label: $($SourceLabel.Trim())"
 Write-Host "Run migrations: $shouldRunMigrations"
+Write-Host "Bootstrap demo policies: $($BootstrapDemoPolicies.IsPresent)"
 Write-Host "Require ready: $($RequireReady.IsPresent)"
 Write-Host "Output: $resolvedOutput"
 
@@ -145,6 +149,12 @@ $previousCacheUrl = $env:DJANGO_CACHE_URL
 $resolvedDatabaseUrl = Resolve-DatabaseUrl $DatabaseUrl $repoRoot
 if ($resolvedDatabaseUrl -ne $DatabaseUrl) {
     Write-Host "Database URL: SQLite relativa resuelta contra el root del repo."
+}
+if ($BootstrapDemoPolicies) {
+    Assert-Condition ($resolvedDatabaseUrl -match '^sqlite:///(?<Path>[^?]+)(\?.*)?$') 'BootstrapDemoPolicies solo puede operar sobre SQLite local bajo local-evidence/.'
+    $bootstrapDbPath = [System.Uri]::UnescapeDataString($Matches['Path']) -replace '/', '\'
+    Assert-Condition ($bootstrapDbPath -ne ':memory:') 'BootstrapDemoPolicies requiere SQLite de archivo bajo local-evidence/, no :memory:.'
+    Assert-Condition (Test-PathInsideDirectory $bootstrapDbPath $localEvidenceRoot) 'BootstrapDemoPolicies solo puede escribir SQLite bajo local-evidence/.'
 }
 $env:DATABASE_URL = $resolvedDatabaseUrl
 $env:DJANGO_CACHE_URL = 'locmem://compliance-data-readiness-gate'
@@ -157,6 +167,11 @@ try {
     if ($shouldRunMigrations) {
         & $pythonExe manage.py migrate --noinput
         Assert-Condition ($LASTEXITCODE -eq 0) 'manage.py migrate fallo para readiness Compliance.'
+    }
+
+    if ($BootstrapDemoPolicies) {
+        & $pythonExe manage.py bootstrap_demo_compliance_policies
+        Assert-Condition ($LASTEXITCODE -eq 0) 'bootstrap_demo_compliance_policies fallo.'
     }
 
     $auditArgs = @(
@@ -233,6 +248,11 @@ else {
     Assert-Condition ($audit.source_kind_authorized_for_close -eq $false) 'La fuente local/fixture/demo no puede quedar autorizada para cierre.'
     Assert-Condition ($audit.ready_for_compliance_data -eq $false) 'La fuente local/fixture/demo no puede cerrar Compliance.'
     Assert-Condition ($issueCodes -contains 'compliance.source_kind_not_authorized') 'La auditoria local debe reportar compliance.source_kind_not_authorized.'
+    if ($BootstrapDemoPolicies) {
+        Assert-Condition ($audit.sections.retention_policies.active_total -eq 5) 'BootstrapDemoPolicies debe dejar cinco politicas activas canonicas.'
+        Assert-Condition (-not ($issueCodes -contains 'compliance.retention_policy_missing')) 'BootstrapDemoPolicies no debe dejar politicas canonicas faltantes.'
+        Assert-Condition (-not ($issueCodes -contains 'compliance.retention_hold_missing')) 'BootstrapDemoPolicies no debe dejar holds canonicos faltantes.'
+    }
 }
 if ($RequireReady) {
     Assert-Condition ($audit.ready_for_compliance_data -eq $true) 'RequireReady exige ready_for_compliance_data=true.'
