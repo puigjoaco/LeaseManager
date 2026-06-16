@@ -730,6 +730,7 @@ def _enterprise_movement_integrity_payload(movement):
         'monto_clp': str(movement.monto_clp),
         'formula_ref': movement.formula_ref,
         'evidencia_ref': movement.evidencia_ref,
+        'warning_review_ref': movement.warning_review_ref,
         'warnings': movement.warnings,
         'source_payload': movement.source_payload,
     }
@@ -2449,6 +2450,7 @@ class AnnualEnterpriseRegisterMovement(OperationalSIITextNormalizationMixin, Tim
     monto_clp = models.DecimalField(max_digits=16, decimal_places=2, default=0)
     formula_ref = models.CharField(max_length=255, blank=True)
     evidencia_ref = models.CharField(max_length=255, blank=True)
+    warning_review_ref = models.CharField(max_length=255, blank=True)
     warnings = models.JSONField(default=list, blank=True)
     source_payload = models.JSONField(default=dict, blank=True)
     hash_movimiento = models.CharField(max_length=64, blank=True)
@@ -2472,6 +2474,7 @@ class AnnualEnterpriseRegisterMovement(OperationalSIITextNormalizationMixin, Tim
         errors = {}
         _add_non_sensitive_reference_error(errors, self, 'formula_ref')
         _add_non_sensitive_reference_error(errors, self, 'evidencia_ref')
+        _add_non_sensitive_reference_error(errors, self, 'warning_review_ref')
         _add_non_sensitive_payload_error(errors, 'warnings', self.warnings)
         _add_non_sensitive_payload_error(errors, 'source_payload', self.source_payload)
         if self.warnings and not isinstance(self.warnings, list):

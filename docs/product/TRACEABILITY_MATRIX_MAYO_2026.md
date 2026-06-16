@@ -75,6 +75,15 @@ revision trazada. Los warnings permanecen en payload/hash y siguen fluyendo a
 matriz/artefactos como preparacion revisable; esto no habilita calculo
 tributario final, formato oficial ni presentacion SII.
 
+Nota 2026-06-16: Los movimientos de registros empresariales anuales distinguen
+warnings totales, revisados y pendientes. El campo
+`AnnualEnterpriseRegisterMovement.warning_review_ref` conserva una revision
+responsable no sensible para movimientos RAI/SAC con warnings, entra al hash del
+movimiento y del registro, y `audit_stage6_renta_anual_readiness` solo bloquea
+`enterprise_register_movement_warning_review_required` cuando quedan warnings
+sin revision trazada. Los warnings no se eliminan ni se convierten en calculo
+tributario final; API, admin y snapshot exponen la referencia redactada.
+
 Nota 2026-06-15: La iteracion posterior al mapeo completo EDIG se contrasta
 con SII. F22 AT2026 opera por certificacion de software que genera archivos y
 SII acredita recepcion, no contenido ni consistencia tributaria. DDJJ Renta

@@ -1265,9 +1265,15 @@ def summarize_annual_enterprise_registers(process):
     for register in registers:
         active_movements = register.movements.filter(estado=EstadoRegistro.ACTIVE).order_by('codigo_interno', 'origen')
         warning_count = 0
+        warning_reviewed_count = 0
+        warning_pending_review_count = 0
         for movement in active_movements:
             warnings = movement.warnings if isinstance(movement.warnings, list) else []
             warning_count += len(warnings)
+            if warnings and is_non_sensitive_reference(movement.warning_review_ref):
+                warning_reviewed_count += len(warnings)
+            elif warnings:
+                warning_pending_review_count += len(warnings)
         by_type[register.tipo_registro] = {
             'id': register.id,
             'hash_registro': register.hash_registro,
@@ -1276,6 +1282,8 @@ def summarize_annual_enterprise_registers(process):
             'saldo_final_clp': str(register.saldo_final_clp),
             'movements_total': active_movements.count(),
             'warnings_total': warning_count,
+            'warnings_reviewed_total': warning_reviewed_count,
+            'warnings_pending_review_total': warning_pending_review_count,
         }
     return {
         'total': registers.count(),
@@ -1810,6 +1818,26 @@ def _save_enterprise_movement(
 ):
     warnings = warnings or []
     source_payload = source_payload or {}
+    existing_movement = AnnualEnterpriseRegisterMovement.objects.filter(
+        register_set=register,
+        codigo_interno=codigo_interno,
+        origen=origen,
+    ).first()
+    existing_warnings = (
+        existing_movement.warnings
+        if existing_movement is not None and isinstance(existing_movement.warnings, list)
+        else []
+    )
+    warning_review_ref = (
+        existing_movement.warning_review_ref
+        if (
+            warnings
+            and existing_warnings == warnings
+            and existing_movement is not None
+            and is_non_sensitive_reference(existing_movement.warning_review_ref)
+        )
+        else ''
+    )
     movement_payload = {
         'register_set_id': register.id,
         'source_workbook_line_id': getattr(source_workbook_line, 'id', None),
@@ -1819,6 +1847,7 @@ def _save_enterprise_movement(
         'monto_clp': str(monto),
         'formula_ref': formula_ref,
         'evidencia_ref': evidencia_ref,
+        'warning_review_ref': warning_review_ref,
         'warnings': warnings,
         'source_payload': source_payload,
     }
@@ -1832,6 +1861,7 @@ def _save_enterprise_movement(
             'monto_clp': monto,
             'formula_ref': formula_ref,
             'evidencia_ref': evidencia_ref,
+            'warning_review_ref': warning_review_ref,
             'warnings': warnings,
             'source_payload': source_payload,
             'hash_movimiento': _source_bundle_hash(movement_payload),
@@ -1845,6 +1875,22 @@ def _save_enterprise_movement(
         raise ValueError(f'AnnualEnterpriseRegisterMovement no cumple validacion de dominio: {reason}') from error
     movement.save()
     return movement
+
+
+def _enterprise_movement_hash_payload(movement):
+    return {
+        'register_set_id': movement.register_set_id,
+        'source_workbook_line_id': movement.source_workbook_line_id,
+        'codigo_interno': movement.codigo_interno,
+        'origen': movement.origen,
+        'signo': movement.signo,
+        'monto_clp': str(movement.monto_clp),
+        'formula_ref': movement.formula_ref,
+        'evidencia_ref': movement.evidencia_ref,
+        'warning_review_ref': movement.warning_review_ref,
+        'warnings': movement.warnings,
+        'source_payload': movement.source_payload,
+    }
 
 
 def _sync_workbook_backed_enterprise_register(register, register_type, source_lines, target_mapping):
@@ -2028,6 +2074,16 @@ def _finalize_enterprise_register(register, fiscal_year, *, source):
         for movement in active_movements
         if isinstance(movement.warnings, list)
     )
+    warning_reviewed_count = sum(
+        len(movement.warnings or [])
+        for movement in active_movements
+        if (
+            isinstance(movement.warnings, list)
+            and movement.warnings
+            and is_non_sensitive_reference(movement.warning_review_ref)
+        )
+    )
+    warning_pending_review_count = warning_count - warning_reviewed_count
     movement_total = _sum_decimal(movement.monto_clp for movement in active_movements)
     register.saldo_inicial_clp = Decimal('0.00')
     register.movimientos_total_clp = movement_total
@@ -2045,6 +2101,8 @@ def _finalize_enterprise_register(register, fiscal_year, *, source):
         'saldo_final_clp': str(register.saldo_final_clp),
         'movements_total': len(active_movements),
         'warnings_total': warning_count,
+        'warnings_reviewed_total': warning_reviewed_count,
+        'warnings_pending_review_total': warning_pending_review_count,
         'movement_hashes': [movement.hash_movimiento for movement in active_movements],
         'source': source,
         'final_tax_calculation': False,
@@ -2057,6 +2115,44 @@ def _finalize_enterprise_register(register, fiscal_year, *, source):
         reason = _first_validation_error(error)
         raise ValueError(f'AnnualEnterpriseRegisterSet no cumple validacion de dominio: {reason}') from error
     register.save()
+
+
+def mark_annual_enterprise_register_warnings_reviewed(process, *, warning_review_ref):
+    warning_review_ref = _ensure_non_sensitive_reference(warning_review_ref, 'warning_review_ref')
+    if not warning_review_ref:
+        raise ValueError('warning_review_ref es obligatorio para revisar warnings de registros empresariales.')
+
+    reviewed_register_ids = set()
+    reviewed_movements_total = 0
+    reviewed_warnings_total = 0
+    for movement in AnnualEnterpriseRegisterMovement.objects.filter(
+        register_set__proceso_renta_anual=process,
+        estado=EstadoRegistro.ACTIVE,
+    ).select_related('register_set'):
+        warnings = movement.warnings if isinstance(movement.warnings, list) else []
+        if not warnings:
+            continue
+        movement.warning_review_ref = warning_review_ref
+        movement.hash_movimiento = _source_bundle_hash(_enterprise_movement_hash_payload(movement))
+        movement.full_clean()
+        movement.save(update_fields=['warning_review_ref', 'hash_movimiento', 'updated_at'])
+        reviewed_register_ids.add(movement.register_set_id)
+        reviewed_movements_total += 1
+        reviewed_warnings_total += len(warnings)
+
+    fiscal_year = process.anio_tributario - 1
+    for register in AnnualEnterpriseRegisterSet.objects.filter(id__in=reviewed_register_ids):
+        _finalize_enterprise_register(register, fiscal_year, source='AnnualEnterpriseRegisterMovement warning review')
+
+    return {
+        'process_id': process.id,
+        'warning_review_ref': warning_review_ref,
+        'reviewed_registers_total': len(reviewed_register_ids),
+        'reviewed_movements_total': reviewed_movements_total,
+        'reviewed_warnings_total': reviewed_warnings_total,
+        'final_tax_calculation': False,
+        'sii_submission': False,
+    }
 
 
 def _quantize_clp(value):
