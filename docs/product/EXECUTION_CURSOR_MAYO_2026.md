@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `ac2024-architecture-proof-gate`. |
-| Fuente exacta | `main` posterior al merge de PR #859 (`2883fa65`), con boundary explicito para progreso contable/renta y el paquete AC2024 de selector anual, ownership, respaldo tributario, bienes raices y Stage 6 controlado. |
-| Brecha activa | Falta un gate unico que conteste si Inmobiliaria Puig AC2024/AT2025 tiene fuente documentada, arquitectura espejo, comparacion de outputs esperados, readiness Etapa 6 y boundary de seguridad sin convertir outputs finales en input. |
-| Motivo de prioridad | Evita seguir mirando senales separadas y evita cierres falsos: el resultado debe distinguir fuente lista, arquitectura lista, comparacion lista, readiness lista, seguridad y revision pendiente. |
-| Worktree | Paquete actual en `D:/Proyectos/10_ACTIVOS/LeaseManager-ac2024-architecture-proof-gate`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
-| Rama | `codex/ac2024-architecture-proof-gate`, rebasada sobre `main` limpio `2883fa65`. |
-| Estado | Implementado `audit_annual_tax_mirror_proof` y comando `audit_annual_tax_mirror_proof`: combinan manifiesto/fuente, comparador de outputs esperados, readiness Etapa 6 y boundary de seguridad. El test sintetico demuestra que, si hay artefactos generados con revision pendiente, el gate queda `classification=parcial` y `ready_for_objective_completion=false` aunque la fuente y seguridad esten OK. No usa `.env`, SII real, credenciales, DB historica, EDIG ejecutable ni outputs finales como input. |
-| Gate esperado | Ejecutar focal `core.tests_annual_tax_mirror_proof`, suite impactada de comparator/mirror/readiness, `manage.py check`, `makemigrations --check --dry-run`, higiene y diff. Si se aplica contra fuente real/autorizada futura, escribir salida solo bajo `local-evidence/` y usar `--fail-on-incomplete` para impedir cierre falso. |
+| Frente activo | `main-clean-next-traceable-front`. |
+| Fuente exacta | `main` posterior al merge de PR #860 (`5fecfd2f`) y PR #859 (`2883fa65`). |
+| Brecha activa | No hay paquete tactico abierto. La prueba espejo Inmobiliaria Puig AC2024/AT2025 ya tiene gate unico integrado: `audit_annual_tax_mirror_proof` combina fuente/manifiesto, comparador de outputs esperados, readiness Etapa 6 y boundary de seguridad. |
+| Motivo de prioridad | Evitar reabrir paquetes cerrados o metatareas. La siguiente decision debe salir del estado real del repo y trazabilidad, no de contexto auxiliar viejo. |
+| Worktree | Ningun worktree tactico activo despues de PR #860. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `main` limpio despues de PR #860. Para el proximo paquete no trivial abrir worktree hermano `codex/...` desde `main`. |
+| Estado | PR #860 cerro el gate espejo AC2024/AT2025. El gate distingue fuente documentada, arquitectura espejo, comparacion lista, readiness lista, seguridad y revision pendiente; no declara completitud si quedan artefactos con revision responsable. No usa `.env`, SII real, credenciales, DB historica, EDIG ejecutable ni outputs finales como input. |
+| Gate esperado | Para AC2024/AT2025 controlado o autorizado, ejecutar `audit_annual_tax_mirror_proof` con salida bajo `local-evidence/` y `--fail-on-incomplete` si se quiere impedir cierre falso. Para otros frentes, elegir el siguiente paquete trazable y proporcional desde `main` limpio. |
 | Estado al cerrar paquete | No reabrir prompts de goal, boundary contable de PR #859, selector anual, ownership, respaldo tributario, bienes raices, DDJJ/F22 semantico, Balance General, RLI/CPT/RAI/SAC ni EDIG como bloqueo general salvo bug nuevo. El gate espejo queda como punto unico para decir preparado, parcial o bloqueado. |
 | Bloqueos relacionados | Sin autorizacion o fuente real no se debe presentar SII, declarar calculo tributario final ni afirmar cierre productivo. El bloqueo externo queda como condicion de cierre real/productivo, no como freno para seguir por el siguiente frente seguro. |
 | Politica de reanudacion | No reabrir goal prompts, EDIG ni paquetes mergeados. No usar `.env`, secretos, DB real, produccion, SII real ni integraciones externas sin autorizacion explicita. Si falta fuente externa, continuar con preparacion local segura y trazable. |
-| Siguiente accion | Completar validacion/documentacion/PR/CI/merge de este gate; despues volver a `main` limpio y continuar el siguiente frente trazable desbloqueado o pedir una unica autorizacion concreta si el usuario quiere revision con fuente real/autorizada. |
+| Siguiente accion | Continuar con el siguiente frente trazable desbloqueado desde `main` limpio. Si el usuario quiere convertir AC2024/AT2025 desde prueba controlada a revision con fuente real/autorizada, pedir una unica autorizacion concreta y correr el gate espejo; si no, avanzar por preparacion local segura. |
 
 ## Actualizacion
 
