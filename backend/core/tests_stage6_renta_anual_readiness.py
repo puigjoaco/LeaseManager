@@ -742,6 +742,163 @@ class Stage6RentaAnualReadinessTests(TestCase):
             ).encode('utf-8')
         ).hexdigest()
 
+    def _workbook_line_hash(self, line):
+        return hashlib.sha256(
+            json.dumps(
+                {
+                    'workbook_id': line.workbook_id,
+                    'mapping_id': line.mapping_id,
+                    'codigo_interno': line.codigo_interno,
+                    'codigo_destino': line.codigo_destino,
+                    'origen': line.origen,
+                    'signo': line.signo,
+                    'monto_clp': str(line.monto_clp),
+                    'formula_ref': line.formula_ref,
+                    'evidencia_ref': line.evidencia_ref,
+                    'warning_review_ref': line.warning_review_ref,
+                    'warnings': line.warnings,
+                    'source_payload': line.source_payload,
+                },
+                sort_keys=True,
+                separators=(',', ':'),
+                ensure_ascii=True,
+                default=str,
+            ).encode('utf-8')
+        ).hexdigest()
+
+    def _enterprise_movement_hash(self, movement):
+        return hashlib.sha256(
+            json.dumps(
+                {
+                    'register_set_id': movement.register_set_id,
+                    'source_workbook_line_id': movement.source_workbook_line_id,
+                    'codigo_interno': movement.codigo_interno,
+                    'origen': movement.origen,
+                    'signo': movement.signo,
+                    'monto_clp': str(movement.monto_clp),
+                    'formula_ref': movement.formula_ref,
+                    'evidencia_ref': movement.evidencia_ref,
+                    'warning_review_ref': movement.warning_review_ref,
+                    'warnings': movement.warnings,
+                    'source_payload': movement.source_payload,
+                },
+                sort_keys=True,
+                separators=(',', ':'),
+                ensure_ascii=True,
+                default=str,
+            ).encode('utf-8')
+        ).hexdigest()
+
+    def _seed_generated_warning_review_candidates(self):
+        self._create_valid_local_matrix()
+        process = ProcesoRentaAnual.objects.get()
+
+        line = AnnualTaxWorkbookLine.objects.select_related('workbook', 'mapping').get(workbook__tipo='RLI')
+        line.warnings = ['source_metric_requires_responsible_review']
+        line.warning_review_ref = ''
+        line.hash_linea = self._workbook_line_hash(line)
+        line.save(update_fields=['warnings', 'warning_review_ref', 'hash_linea', 'updated_at'])
+
+        movement = AnnualEnterpriseRegisterMovement.objects.select_related('register_set').get(
+            register_set__tipo_registro='RAI'
+        )
+        movement.warnings = ['movement_requires_responsible_review']
+        movement.warning_review_ref = ''
+        movement.hash_movimiento = self._enterprise_movement_hash(movement)
+        movement.save(update_fields=['warnings', 'warning_review_ref', 'hash_movimiento', 'updated_at'])
+
+        item = AnnualTaxArtifactMatrixItem.objects.select_related('matrix').get(
+            target_kind='F22',
+            target_code='F22-PREVIEW',
+        )
+        item.warnings = ['artifact_requires_responsible_review']
+        item.review_state = EstadoAnnualTaxArtifactReview.REQUIRES_REVIEW
+        item.warning_review_ref = ''
+        item.hash_item = self._artifact_matrix_item_hash(item)
+        item.save(update_fields=['warnings', 'review_state', 'warning_review_ref', 'hash_item', 'updated_at'])
+
+        process.resumen_anual = {
+            **process.resumen_anual,
+            'annual_tax_workbooks': summarize_annual_tax_workbooks(process),
+            'annual_enterprise_registers': summarize_annual_enterprise_registers(process),
+            'annual_tax_artifact_matrices': summarize_annual_tax_artifact_matrices(process),
+        }
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+        return process, line, movement, item
+
+    def test_mark_generated_warnings_reviewed_dry_run_does_not_write(self):
+        process, line, movement, item = self._seed_generated_warning_review_candidates()
+        stdout = StringIO()
+
+        call_command(
+            'mark_annual_tax_generated_warnings_reviewed',
+            process_id=process.id,
+            warning_review_ref='tax-review-stage6-generated-chain-001',
+            stdout=stdout,
+        )
+        result = json.loads(stdout.getvalue())
+        line.refresh_from_db()
+        movement.refresh_from_db()
+        item.refresh_from_db()
+
+        self.assertFalse(result['applied'])
+        self.assertEqual(result['before']['pending_warnings_total'], 3)
+        self.assertEqual(result['after']['pending_warnings_total'], 3)
+        self.assertEqual(line.warning_review_ref, '')
+        self.assertEqual(movement.warning_review_ref, '')
+        self.assertEqual(item.warning_review_ref, '')
+        self.assertEqual(item.review_state, EstadoAnnualTaxArtifactReview.REQUIRES_REVIEW)
+
+    def test_mark_generated_warnings_reviewed_rejects_sensitive_ref(self):
+        process, _, _, _ = self._seed_generated_warning_review_candidates()
+
+        with self.assertRaises(CommandError):
+            call_command(
+                'mark_annual_tax_generated_warnings_reviewed',
+                process_id=process.id,
+                warning_review_ref='https://sii.example.test/review?token=secret',
+                apply=True,
+                stdout=StringIO(),
+            )
+
+    def test_mark_generated_warnings_reviewed_apply_refreshes_review_chain(self):
+        process, line, movement, item = self._seed_generated_warning_review_candidates()
+        stdout = StringIO()
+
+        call_command(
+            'mark_annual_tax_generated_warnings_reviewed',
+            process_id=process.id,
+            warning_review_ref='tax-review-stage6-generated-chain-001',
+            apply=True,
+            fail_on_pending=True,
+            stdout=stdout,
+        )
+        result = json.loads(stdout.getvalue())
+        line.refresh_from_db()
+        movement.refresh_from_db()
+        item.refresh_from_db()
+        process.refresh_from_db()
+        checklist = AnnualTaxReviewChecklist.objects.get(proceso_renta_anual=process)
+        stage6_result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in stage6_result['issues']}
+
+        self.assertTrue(result['applied'])
+        self.assertEqual(result['before']['pending_warnings_total'], 3)
+        self.assertEqual(result['after']['pending_warnings_total'], 0)
+        self.assertEqual(line.warning_review_ref, 'tax-review-stage6-generated-chain-001')
+        self.assertEqual(movement.warning_review_ref, 'tax-review-stage6-generated-chain-001')
+        self.assertEqual(item.warning_review_ref, 'tax-review-stage6-generated-chain-001')
+        self.assertEqual(item.review_state, EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW)
+        self.assertEqual(checklist.warnings_total, 0)
+        self.assertEqual(checklist.completed_items_total, checklist.items_total)
+        self.assertNotIn('stage6.tax_workbook_line_warning_review_required', issue_codes)
+        self.assertNotIn('stage6.enterprise_register_movement_warning_review_required', issue_codes)
+        self.assertNotIn('stage6.artifact_matrix_item_warning_review_required', issue_codes)
+        self.assertNotIn('stage6.tax_dossier_review_required', issue_codes)
+        self.assertNotIn('stage6.tax_export_review_required', issue_codes)
+        self.assertNotIn('stage6.tax_review_checklist_incomplete', issue_codes)
+        self.assertNotIn('stage6.tax_review_checklist_warning_review_required', issue_codes)
+
     def test_empty_database_reports_partial_without_sensitive_values(self):
         result = collect_stage6_renta_anual_readiness()
         issue_codes = {issue['code'] for issue in result['issues']}

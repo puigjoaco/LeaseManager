@@ -21,6 +21,7 @@ from core.annual_tax_source_manifest import EXPECTED_ANNUAL_TAX_REGISTER_KEYS, E
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from patrimonio.models import Empresa
 from sii.models import CapacidadSII, CapacidadTributariaSII, EstadoGateSII, ProcesoRentaAnual
+from sii.services import mark_annual_tax_generated_warnings_reviewed
 
 
 class AnnualTaxExpectedOutputComparatorTests(TestCase):
@@ -348,6 +349,41 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
         self.assertTrue(result['expected_output_value_signals']['summary']['target_value_presence_ready'])
         self.assertTrue(result['expected_output_value_signals']['summary']['value_equality_extractors_ready'])
         self.assertEqual(result['expected_output_value_signals']['summary']['missing_targets_total'], 0)
+
+    def test_reviewed_generated_artifact_chain_unlocks_mirror_conclusion_without_final_tax_claim(self):
+        empresa = self._create_empresa()
+        self._load_and_generate_annual_layer(empresa)
+        process = ProcesoRentaAnual.objects.get(empresa=empresa, anio_tributario=2025)
+
+        acknowledgement = mark_annual_tax_generated_warnings_reviewed(
+            process,
+            warning_review_ref='stage6-generated-artifact-review-ac2024-at2025',
+            apply=True,
+        )
+
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            manifest = self._manifest()
+            self._write_expected_output_sources(source_root, manifest)
+
+            result = compare_annual_tax_expected_outputs(
+                empresa=empresa,
+                commercial_year=2024,
+                tax_year=2025,
+                manifest=manifest,
+                source_root=source_root,
+            )
+
+        self.assertTrue(acknowledgement['ready_for_generated_artifact_review'])
+        self.assertTrue(acknowledgement['safety']['writes_database'])
+        self.assertFalse(acknowledgement['safety']['uses_sii_real'])
+        self.assertFalse(acknowledgement['safety']['sii_submission'])
+        self.assertFalse(acknowledgement['safety']['final_tax_calculation'])
+        self.assertEqual(acknowledgement['after']['pending_warnings_total'], 0)
+        self.assertTrue(result['summary']['ready_for_mirror_conclusion'])
+        self.assertNotIn('generated_artifacts_require_review', result['summary']['blockers'])
+        self.assertFalse(result['safety']['uses_expected_outputs_as_inputs'])
+        self.assertFalse(result['safety']['final_tax_calculation'])
         compared_target_keys = {
             item['target_key']
             for item in result['expected_output_value_signals']['comparisons']

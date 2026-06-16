@@ -778,6 +778,12 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
 - `AnnualTaxReviewChecklist` propaga esa misma regla de warnings pendientes para
   RLI/CPT y registros empresariales: una revision responsable no sensible
   completa el item de checklist aunque el warning total siga auditado.
+- `mark_annual_tax_generated_warnings_reviewed` registra una revision responsable
+  no sensible sobre la cadena generada completa: lineas RLI/CPT, movimientos
+  RAI/SAC y matriz DDJJ/F22. Sin `--apply` opera como dry-run; con `--apply`
+  recalcula hashes y regenera dossier, export y checklist. Los warnings quedan
+  en payload/hash para auditoria y la accion no habilita formato oficial,
+  presentacion SII ni calculo tributario final.
 - La API/snapshot/admin de SII exponen `AnnualTaxDossier` con source,
   responsable, dossier ref y payload anual redactados; el admin es solo lectura
   para preservar que el dossier proviene del motor anual y no de edicion manual

@@ -6,6 +6,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.db import transaction
 from django.db.models import Q
 
 from contabilidad.models import (
@@ -3075,6 +3076,185 @@ def mark_annual_tax_artifact_matrix_warnings_reviewed(matrix, *, warning_review_
         'sii_submission': False,
     }
 
+
+def _pending_generated_warning_review_summary(process):
+    workbook_pending_lines_total = 0
+    workbook_pending_warnings_total = 0
+    for line in AnnualTaxWorkbookLine.objects.filter(
+        workbook__proceso_renta_anual=process,
+        workbook__estado=EstadoAnnualTaxWorkbook.PREPARED,
+        estado=EstadoRegistro.ACTIVE,
+    ):
+        warnings = line.warnings if isinstance(line.warnings, list) else []
+        if warnings and not is_non_sensitive_reference(line.warning_review_ref):
+            workbook_pending_lines_total += 1
+            workbook_pending_warnings_total += len(warnings)
+
+    enterprise_pending_movements_total = 0
+    enterprise_pending_warnings_total = 0
+    for movement in AnnualEnterpriseRegisterMovement.objects.filter(
+        register_set__proceso_renta_anual=process,
+        register_set__estado=EstadoAnnualEnterpriseRegister.PREPARED,
+        estado=EstadoRegistro.ACTIVE,
+    ):
+        warnings = movement.warnings if isinstance(movement.warnings, list) else []
+        if warnings and not is_non_sensitive_reference(movement.warning_review_ref):
+            enterprise_pending_movements_total += 1
+            enterprise_pending_warnings_total += len(warnings)
+
+    artifact_pending_items_total = 0
+    artifact_pending_warnings_total = 0
+    for item in AnnualTaxArtifactMatrixItem.objects.filter(
+        matrix__proceso_renta_anual=process,
+        matrix__estado=EstadoAnnualTaxArtifactMatrix.PREPARED,
+        estado=EstadoRegistro.ACTIVE,
+    ):
+        warnings = item.warnings if isinstance(item.warnings, list) else []
+        if warnings and (
+            item.review_state != EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW
+            or not is_non_sensitive_reference(item.warning_review_ref)
+        ):
+            artifact_pending_items_total += 1
+            artifact_pending_warnings_total += len(warnings)
+
+    return {
+        'workbook_pending_lines_total': workbook_pending_lines_total,
+        'workbook_pending_warnings_total': workbook_pending_warnings_total,
+        'enterprise_pending_movements_total': enterprise_pending_movements_total,
+        'enterprise_pending_warnings_total': enterprise_pending_warnings_total,
+        'artifact_pending_items_total': artifact_pending_items_total,
+        'artifact_pending_warnings_total': artifact_pending_warnings_total,
+        'pending_warnings_total': (
+            workbook_pending_warnings_total
+            + enterprise_pending_warnings_total
+            + artifact_pending_warnings_total
+        ),
+    }
+
+
+def summarize_annual_tax_generated_warning_review(process):
+    return _pending_generated_warning_review_summary(process)
+
+
+def _refresh_annual_review_process_summary(process, *, rule_set, source_bundle):
+    summary = process.resumen_anual if isinstance(process.resumen_anual, dict) else {}
+    process.resumen_anual = {
+        **summary,
+        'annual_tax_workbooks': summarize_annual_tax_workbooks(process),
+        'annual_enterprise_registers': summarize_annual_enterprise_registers(process),
+        'annual_tax_artifact_matrices': summarize_annual_tax_artifact_matrices(process),
+    }
+    process.save(update_fields=['resumen_anual', 'updated_at'])
+
+    sync_annual_tax_dossier(process, rule_set, source_bundle)
+    process.resumen_anual = {
+        **process.resumen_anual,
+        'annual_tax_dossiers': summarize_annual_tax_dossiers(process),
+    }
+    process.save(update_fields=['resumen_anual', 'updated_at'])
+
+    sync_annual_tax_export(process, rule_set, source_bundle)
+    process.resumen_anual = {
+        **process.resumen_anual,
+        'annual_tax_exports': summarize_annual_tax_exports(process),
+    }
+    process.save(update_fields=['resumen_anual', 'updated_at'])
+
+    sync_annual_tax_review_checklist(process, rule_set, source_bundle)
+    process.resumen_anual = {
+        **process.resumen_anual,
+        'annual_tax_review_checklists': summarize_annual_tax_review_checklists(process),
+    }
+    process.save(update_fields=['resumen_anual', 'updated_at'])
+    return sync_annual_tax_support_document(process)
+
+
+def mark_annual_tax_generated_warnings_reviewed(process, *, warning_review_ref, apply=False):
+    warning_review_ref = _ensure_non_sensitive_reference(warning_review_ref, 'warning_review_ref')
+    if not warning_review_ref:
+        raise ValueError('warning_review_ref es obligatorio para revisar warnings generados de renta anual.')
+
+    before = _pending_generated_warning_review_summary(process)
+    if not apply:
+        return {
+            'process_id': process.id,
+            'applied': False,
+            'warning_review_ref': warning_review_ref,
+            'before': before,
+            'after': before,
+            'workbooks': {},
+            'enterprise_registers': {},
+            'artifact_matrices': [],
+            'ready_for_generated_artifact_review': before['pending_warnings_total'] == 0,
+            'safety': {
+                'writes_database': False,
+                'uses_sii_real': False,
+                'uses_credentials': False,
+                'official_format': False,
+                'sii_submission': False,
+                'final_tax_calculation': False,
+            },
+        }
+
+    with transaction.atomic():
+        dossier = AnnualTaxDossier.objects.select_related('source_bundle', 'rule_set').filter(
+            proceso_renta_anual=process,
+            estado=EstadoAnnualTaxDossier.PREPARED,
+        ).first()
+        if dossier is None:
+            raise ValueError('ProcesoRentaAnual requiere AnnualTaxDossier preparado antes de revisar la cadena generada.')
+        source_bundle = dossier.source_bundle
+        rule_set = dossier.rule_set
+
+        workbooks = mark_annual_tax_workbook_warnings_reviewed(
+            process,
+            warning_review_ref=warning_review_ref,
+        )
+        enterprise_registers = mark_annual_enterprise_register_warnings_reviewed(
+            process,
+            warning_review_ref=warning_review_ref,
+        )
+        matrix_results = []
+        for matrix in AnnualTaxArtifactMatrix.objects.filter(
+            proceso_renta_anual=process,
+            estado=EstadoAnnualTaxArtifactMatrix.PREPARED,
+        ).order_by('id'):
+            matrix_results.append(
+                mark_annual_tax_artifact_matrix_warnings_reviewed(
+                    matrix,
+                    warning_review_ref=warning_review_ref,
+                )
+            )
+
+        process.refresh_from_db()
+        support_document = _refresh_annual_review_process_summary(
+            process,
+            rule_set=rule_set,
+            source_bundle=source_bundle,
+        )
+        process.refresh_from_db()
+        after = _pending_generated_warning_review_summary(process)
+
+    return {
+        'process_id': process.id,
+        'applied': True,
+        'warning_review_ref': warning_review_ref,
+        'before': before,
+        'after': after,
+        'workbooks': workbooks,
+        'enterprise_registers': enterprise_registers,
+        'artifact_matrices': matrix_results,
+        'support_document_id': support_document.id,
+        'ready_for_generated_artifact_review': after['pending_warnings_total'] == 0,
+        'safety': {
+            'writes_database': True,
+            'uses_sii_real': False,
+            'uses_credentials': False,
+            'official_format': False,
+            'sii_submission': False,
+            'final_tax_calculation': False,
+        },
+    }
 
 def sync_annual_tax_artifact_matrix(process, rule_set, source_bundle, config):
     fiscal_year = process.anio_tributario - 1
