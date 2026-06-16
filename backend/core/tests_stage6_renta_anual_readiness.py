@@ -948,6 +948,55 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage6_renta_anual'])
         self.assertIn('stage6.tax_workbook_line_warning_review_required', issue_codes)
 
+    def test_sensitive_annual_tax_workbook_warning_review_ref_remains_blocking(self):
+        self._create_valid_local_matrix()
+        process = ProcesoRentaAnual.objects.get()
+        line = AnnualTaxWorkbookLine.objects.select_related('workbook', 'mapping').get(workbook__tipo='RLI')
+        line.warnings = ['source_metric_missing_or_unsupported']
+        line.warning_review_ref = 'https://sii.example.test/review?token=secret'
+        line.hash_linea = hashlib.sha256(
+            json.dumps(
+                {
+                    'workbook_id': line.workbook_id,
+                    'mapping_id': line.mapping_id,
+                    'codigo_interno': line.codigo_interno,
+                    'codigo_destino': line.codigo_destino,
+                    'origen': line.origen,
+                    'signo': line.signo,
+                    'monto_clp': str(line.monto_clp),
+                    'formula_ref': line.formula_ref,
+                    'evidencia_ref': line.evidencia_ref,
+                    'warning_review_ref': line.warning_review_ref,
+                    'warnings': line.warnings,
+                    'source_payload': line.source_payload,
+                },
+                sort_keys=True,
+                separators=(',', ':'),
+                ensure_ascii=True,
+                default=str,
+            ).encode('utf-8')
+        ).hexdigest()
+        AnnualTaxWorkbookLine.objects.filter(pk=line.pk).update(
+            warnings=line.warnings,
+            warning_review_ref=line.warning_review_ref,
+            hash_linea=line.hash_linea,
+        )
+        process.resumen_anual = {
+            **process.resumen_anual,
+            'annual_tax_workbooks': summarize_annual_tax_workbooks(process),
+        }
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+        workbook_summary = summarize_annual_tax_workbooks(process)['by_type']['RLI']
+
+        self.assertEqual(workbook_summary['warnings_total'], 1)
+        self.assertEqual(workbook_summary['warnings_reviewed_total'], 0)
+        self.assertEqual(workbook_summary['warnings_pending_review_total'], 1)
+        self.assertIn('stage6.tax_workbook_line_warning_review_required', issue_codes)
+        self.assertNotIn('stage6.process_tax_workbook_summary_mismatch', issue_codes)
+
     def test_reviewed_annual_tax_workbook_line_warning_stops_blocking_workbooks(self):
         self._create_valid_local_matrix()
         line = AnnualTaxWorkbookLine.objects.select_related('workbook', 'mapping').get(workbook__tipo='RLI')
@@ -991,15 +1040,30 @@ class Stage6RentaAnualReadinessTests(TestCase):
             'annual_tax_workbooks': summarize_annual_tax_workbooks(process),
         }
         process.save(update_fields=['resumen_anual', 'updated_at'])
+        source_bundle = AnnualTaxSourceBundle.objects.get()
+        rule_set = TaxYearRuleSet.objects.get()
+        sync_annual_tax_review_checklist(process, rule_set, source_bundle)
+        process.resumen_anual = {
+            **process.resumen_anual,
+            'annual_tax_review_checklists': summarize_annual_tax_review_checklists(process),
+        }
+        process.save(update_fields=['resumen_anual', 'updated_at'])
 
         result = self._collect_with_final_refs()
         issue_codes = {issue['code'] for issue in result['issues']}
         workbook_summary = summarize_annual_tax_workbooks(process)['by_type']['RLI']
+        checklist = AnnualTaxReviewChecklist.objects.get()
+        workbook_item = next(item for item in checklist.review_payload['items'] if item['code'] == 'workbooks_rli_cpt')
 
         self.assertEqual(workbook_summary['warnings_total'], 1)
         self.assertEqual(workbook_summary['warnings_reviewed_total'], 1)
         self.assertEqual(workbook_summary['warnings_pending_review_total'], 0)
+        self.assertEqual(checklist.warnings_total, 0)
+        self.assertEqual(workbook_item['status'], 'complete')
+        self.assertEqual(workbook_item['details']['warnings_total'], 1)
+        self.assertEqual(workbook_item['details']['warnings_pending_review_total'], 0)
         self.assertNotIn('stage6.tax_workbook_line_warning_review_required', issue_codes)
+        self.assertNotIn('stage6.tax_review_checklist_warning_review_required', issue_codes)
 
     def test_annual_tax_workbook_summary_hash_mismatch_is_blocking(self):
         self._create_valid_local_matrix()
@@ -1139,11 +1203,21 @@ class Stage6RentaAnualReadinessTests(TestCase):
             'annual_enterprise_registers': summarize_annual_enterprise_registers(process),
         }
         process.save(update_fields=['resumen_anual', 'updated_at'])
+        source_bundle = AnnualTaxSourceBundle.objects.get()
+        rule_set = TaxYearRuleSet.objects.get()
+        sync_annual_tax_review_checklist(process, rule_set, source_bundle)
+        process.resumen_anual = {
+            **process.resumen_anual,
+            'annual_tax_review_checklists': summarize_annual_tax_review_checklists(process),
+        }
+        process.save(update_fields=['resumen_anual', 'updated_at'])
 
         movement.refresh_from_db()
         result = self._collect_with_final_refs()
         issue_codes = {issue['code'] for issue in result['issues']}
         register_summary = summarize_annual_enterprise_registers(process)['by_type']['RAI']
+        checklist = AnnualTaxReviewChecklist.objects.get()
+        register_item = next(item for item in checklist.review_payload['items'] if item['code'] == 'enterprise_registers')
 
         self.assertEqual(acknowledgement['reviewed_warnings_total'], 1)
         self.assertEqual(acknowledgement['reviewed_movements_total'], 1)
@@ -1151,7 +1225,12 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertEqual(register_summary['warnings_total'], 1)
         self.assertEqual(register_summary['warnings_reviewed_total'], 1)
         self.assertEqual(register_summary['warnings_pending_review_total'], 0)
+        self.assertEqual(checklist.warnings_total, 0)
+        self.assertEqual(register_item['status'], 'complete')
+        self.assertEqual(register_item['details']['warnings_total'], 1)
+        self.assertEqual(register_item['details']['warnings_pending_review_total'], 0)
         self.assertNotIn('stage6.enterprise_register_movement_warning_review_required', issue_codes)
+        self.assertNotIn('stage6.tax_review_checklist_warning_review_required', issue_codes)
         self.assertNotIn('stage6.process_enterprise_register_summary_mismatch', issue_codes)
 
     def test_sensitive_enterprise_register_warning_review_ref_remains_blocking(self):
