@@ -118,6 +118,13 @@ candidatos, pero no los usa como input de calculo ni desbloquea la prueba anual
 hasta que una fuente suficiente sea revisada y convertida en snapshot
 controlado de socios/participaciones vigentes. Las escrituras de propiedades no
 se clasifican como ownership societario.
+`review_annual_tax_ownership_candidates` revisa esos candidatos sin guardar
+texto crudo, RUTs ni nombres: en la evidencia real AC2024/AT2025 los PDFs no
+son extraibles por `pdftotext`, por lo que 10 quedan como candidatos legales
+para OCR/revision manual, 3 se excluyen por nulos/sin efecto y 2 quedan como
+soporte de aportes/propiedades. El resultado permite avanzar a snapshot
+controlado, pero no cierra la fuente ownership ni crea socios/porcentajes por
+inferencia.
 `build_annual_tax_controlled_load_plan` traduce ese manifiesto a un plan de
 carga contra modelos canonicos de LeaseManager sin escribir DB: cierres,
 libros, balance, obligaciones, F29, hechos mensuales y balance tributario

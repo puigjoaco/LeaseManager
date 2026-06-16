@@ -2561,6 +2561,15 @@ hasta convertir una fuente suficiente en snapshot controlado de socios y
 participaciones vigentes. Las escrituras de propiedades no se clasifican como
 ownership societario.
 
+Nota 2026-06-15: `review_annual_tax_ownership_candidates` revisa esos
+candidatos sin texto bruto, RUTs ni nombres en el JSON. La corrida real
+AC2024/AT2025 confirma que los PDFs no entregan capa de texto util por
+`pdftotext`; quedan 10 documentos legales como
+`manual_review_required_legal_candidate`, 3 documentos nulos/sin efecto
+excluidos y 2 aportes/propiedades como soporte. Esto permite avanzar a OCR o
+revision manual controlada para preparar el snapshot, pero no cierra
+`ownership_source_input` ni genera socios/porcentajes automaticamente.
+
 Nota 2026-06-15: `audit_annual_tax_controlled_package_readiness` separa readiness
 de writer DB y readiness anual. El draft AC2024/AT2025 v3 queda con
 `ready_for_db_writer=true` y `missing_paths_count=0`, pero
