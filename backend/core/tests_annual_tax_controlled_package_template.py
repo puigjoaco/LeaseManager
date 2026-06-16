@@ -77,6 +77,10 @@ class AnnualTaxControlledPackageTemplateTests(SimpleTestCase):
         self.assertFalse(package['expected_outputs_used_as_inputs'])
         self.assertEqual(len(package['months']), 12)
         self.assertIn('annual_ledger_input', package['annual_input_source_refs'])
+        self.assertTrue(package['labor_previsional']['required'])
+        self.assertEqual(package['labor_previsional']['required_by_ddjj_forms'], ['1887'])
+        self.assertEqual(package['labor_previsional']['monthly_support_months'], list(range(1, 13)))
+        self.assertEqual(len(package['labor_previsional']['source_refs']), 12)
         self.assertIn('annual_balance_expected_output', template['comparison_targets'])
         self.assertIn('ddjj_expected_output', template['comparison_targets'])
         self.assertIn('f22_expected_output', template['comparison_targets'])
@@ -93,6 +97,8 @@ class AnnualTaxControlledPackageTemplateTests(SimpleTestCase):
         )
         self.assertTrue(template['summary']['monthly_input_refs_complete'])
         self.assertTrue(template['summary']['annual_ledger_refs_complete'])
+        self.assertTrue(template['summary']['labor_previsional_required'])
+        self.assertTrue(template['summary']['labor_previsional_source_present'])
 
     def test_template_reports_missing_monthly_support_without_failing_source_inventory(self):
         with TemporaryDirectory() as temp_dir:
@@ -105,6 +111,9 @@ class AnnualTaxControlledPackageTemplateTests(SimpleTestCase):
         template = build_annual_tax_controlled_db_load_template(manifest=manifest)
 
         self.assertEqual(template['summary']['missing_months_by_category']['payroll_support'], [3])
+        self.assertTrue(template['summary']['labor_previsional_required'])
+        self.assertTrue(template['summary']['labor_previsional_source_present'])
+        self.assertEqual(template['package_draft']['labor_previsional']['monthly_support_months'], [1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12])
         self.assertFalse(template['summary']['monthly_input_refs_complete'])
         self.assertFalse(template['summary']['ready_for_writer'])
 

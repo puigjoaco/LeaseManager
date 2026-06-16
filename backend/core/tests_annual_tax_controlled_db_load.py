@@ -301,6 +301,24 @@ class AnnualTaxControlledDbLoadTests(TestCase):
         self.assertEqual(AnnualTaxOfficialSource.objects.count(), 0)
         self.assertEqual(MonthlyTaxFact.objects.filter(empresa=empresa).count(), 0)
 
+    def test_apply_rejects_required_labor_previsional_without_source(self):
+        empresa = self._create_empresa()
+        package = self._with_ownership(self._package())
+        package['labor_previsional'] = {
+            'required': True,
+            'required_by_ddjj_forms': ['1887'],
+            'source_ref': '',
+        }
+
+        with self.assertRaisesMessage(ValueError, 'labor_previsional.source_ref'):
+            apply_annual_tax_controlled_db_load(
+                empresa=empresa,
+                package=package,
+                write_database=True,
+            )
+
+        self.assertEqual(MonthlyTaxFact.objects.filter(empresa=empresa).count(), 0)
+
     def test_apply_rejects_expected_outputs_as_inputs_without_writing(self):
         empresa = self._create_empresa()
         package = self._package(months=range(1, 2))

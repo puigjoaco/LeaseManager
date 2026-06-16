@@ -194,6 +194,7 @@ def build_annual_tax_controlled_load_plan(*, manifest: dict[str, Any]) -> dict[s
         else {}
     )
     grouped = _files_by_category(manifest)
+    labor_previsional_required = bool(coverage.get('labor_previsional_required'))
     categories = sorted(set(CATEGORY_TARGETS).union(grouped))
     load_items = [_category_item(category, grouped.get(category, [])) for category in categories]
 
@@ -223,6 +224,8 @@ def build_annual_tax_controlled_load_plan(*, manifest: dict[str, Any]) -> dict[s
         }
         and item['files_total'] == 0
     ]
+    if labor_previsional_required and not grouped.get('payroll_support'):
+        missing_required_files.append('payroll_support')
     blockers = []
     if not files:
         blockers.append('manifest_file_list_missing')
@@ -232,6 +235,8 @@ def build_annual_tax_controlled_load_plan(*, manifest: dict[str, Any]) -> dict[s
         blockers.append('expected_outputs_misclassified_as_calculation_input')
     if missing_required_files:
         blockers.append('required_source_categories_missing')
+    if labor_previsional_required and not grouped.get('payroll_support'):
+        blockers.append('labor_previsional_source_missing')
     if blocking_items:
         blockers.append('calculation_input_parsers_or_manual_load_required')
 
@@ -246,6 +251,10 @@ def build_annual_tax_controlled_load_plan(*, manifest: dict[str, Any]) -> dict[s
         'calculation_input_categories': [item['category'] for item in calculation_items if item['files_total']],
         'comparison_target_categories': [item['category'] for item in comparison_items if item['files_total']],
         'blocking_input_categories': [item['category'] for item in blocking_items],
+        'missing_required_source_categories': sorted(set(missing_required_files)),
+        'labor_previsional_required': labor_previsional_required,
+        'labor_previsional_source_present': bool(grouped.get('payroll_support')),
+        'labor_previsional_required_by_ddjj_forms': coverage.get('labor_previsional_required_by_ddjj_forms') or [],
         'ready_for_db_load': ready_for_db_load,
         'ready_for_mirror_generation': False,
         'reason_not_ready_for_mirror_generation': (

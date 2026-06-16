@@ -217,6 +217,39 @@ def _validate_real_estate_snapshot(real_estate: Any, *, commercial_year: int) ->
             raise ValueError('real_estate.properties[].codigo_f22 debe ser una referencia no sensible.')
 
 
+def _validate_labor_previsional_source(labor_previsional: Any) -> dict[str, Any]:
+    if labor_previsional in (None, {}):
+        return {'present': False, 'required': False, 'required_by_ddjj_forms': []}
+    if not isinstance(labor_previsional, dict):
+        raise ValueError('labor_previsional debe ser un objeto JSON cuando se informa.')
+
+    required = labor_previsional.get('required') is True
+    forms = [
+        str(form or '').strip()
+        for form in (labor_previsional.get('required_by_ddjj_forms') or [])
+        if str(form or '').strip()
+    ]
+    source_ref = str(labor_previsional.get('source_ref') or '').strip()
+    if required:
+        if '1887' not in forms:
+            raise ValueError('labor_previsional.required_by_ddjj_forms debe incluir 1887 cuando required=true.')
+        if not source_ref:
+            raise ValueError('labor_previsional.source_ref es obligatorio.')
+        if not is_non_sensitive_reference(source_ref):
+            raise ValueError('labor_previsional.source_ref debe ser una referencia no sensible.')
+    elif source_ref and not is_non_sensitive_reference(source_ref):
+        raise ValueError('labor_previsional.source_ref debe ser una referencia no sensible.')
+
+    return {
+        'present': True,
+        'required': required,
+        'required_by_ddjj_forms': forms,
+        'source_ref': source_ref,
+        'monthly_support_months': labor_previsional.get('monthly_support_months') or [],
+        'final_tax_calculation': False,
+    }
+
+
 def _validate_package(payload: dict[str, Any]) -> tuple[int, int, str, str, str]:
     if not isinstance(payload, dict):
         raise ValueError('El paquete de carga debe ser un objeto JSON.')
@@ -242,6 +275,7 @@ def _validate_package(payload: dict[str, Any]) -> tuple[int, int, str, str, str]
         raise ValueError('commercial_year y tax_year deben formar un par AC/AT valido.')
     _validate_ownership_snapshot(payload.get('ownership'), commercial_year=commercial_year)
     _validate_real_estate_snapshot(payload.get('real_estate'), commercial_year=commercial_year)
+    _validate_labor_previsional_source(payload.get('labor_previsional'))
 
     months = payload.get('months')
     if not isinstance(months, list) or not months:
@@ -704,6 +738,7 @@ def apply_annual_tax_controlled_db_load(*, empresa, package: dict[str, Any], wri
     else:
         ownership_summary = {'present': bool(package.get('ownership')), 'participants_loaded': 0}
         real_estate_summary = {'present': bool(package.get('real_estate')), 'properties_loaded': 0}
+    labor_previsional_summary = _validate_labor_previsional_source(package.get('labor_previsional'))
 
     blockers = []
     if not complete_12_months:
@@ -723,6 +758,7 @@ def apply_annual_tax_controlled_db_load(*, empresa, package: dict[str, Any], wri
         'expected_outputs_used_as_inputs': False,
         'ownership_snapshot': ownership_summary,
         'real_estate_snapshot': real_estate_summary,
+        'labor_previsional_source': labor_previsional_summary,
         'created_updated': counts,
         'ready_for_annual_generation': write_database and complete_12_months and not blockers,
         'blockers': blockers,

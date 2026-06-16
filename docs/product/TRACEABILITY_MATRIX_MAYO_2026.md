@@ -26,6 +26,15 @@ gates. `ready_for_company_accounting_review` significa paquete local preparado
 para revision responsable, no cierre contable, calculo de renta final ni
 presentacion SII.
 
+Nota 2026-06-16: DJ1887/remuneraciones queda como boundary de fuente
+laboral-previsional para Etapa 6. Si el manifiesto AC/AT detecta DJ1887
+aceptada, `labor_previsional_source` pasa a requerido: falta de
+`payroll_support` bloquea `ready_for_mirror_source_bundle`, el plan reporta
+`labor_previsional_source_missing`, el template arrastra
+`labor_previsional.required=true` y readiness/writer rechazan paquetes sin
+`labor_previsional.source_ref` no sensible. No se implementa payroll completo,
+no se usa EDIG/SII real y no se convierte DJ1887 final en input de calculo.
+
 Nota 2026-06-15: La iteracion posterior al mapeo completo EDIG se contrasta
 con SII. F22 AT2026 opera por certificacion de software que genera archivos y
 SII acredita recepcion, no contenido ni consistencia tributaria. DDJJ Renta

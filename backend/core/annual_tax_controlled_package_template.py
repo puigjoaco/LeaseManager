@@ -65,6 +65,24 @@ def _annual_refs(grouped: dict[str, list[dict[str, Any]]]) -> dict[str, list[dic
     }
 
 
+def _labor_previsional_section(
+    *,
+    coverage: dict[str, Any],
+    grouped: dict[str, list[dict[str, Any]]],
+) -> dict[str, Any]:
+    required = bool(coverage.get('labor_previsional_required'))
+    source_refs = [_file_ref(item) for item in grouped.get('payroll_support', [])]
+    return {
+        'required': required,
+        'required_by_ddjj_forms': coverage.get('labor_previsional_required_by_ddjj_forms') or [],
+        'source_ref': '',
+        'source_refs': source_refs,
+        'monthly_support_months': coverage.get('payroll_support_months') or [],
+        'status': 'pending_source_review' if required else 'not_required_by_manifest',
+        'final_tax_calculation': False,
+    }
+
+
 def _comparison_refs(grouped: dict[str, list[dict[str, Any]]]) -> dict[str, list[dict[str, Any]]]:
     return {
         category: [_file_ref(item) for item in grouped.get(category, [])]
@@ -161,6 +179,7 @@ def build_annual_tax_controlled_db_load_template(*, manifest: dict[str, Any]) ->
     }
     comparison_targets = _comparison_refs(grouped)
     annual_inputs = _annual_refs(grouped)
+    labor_previsional = _labor_previsional_section(coverage=coverage, grouped=grouped)
     monthly_input_refs_complete = all(not months for months in missing_months_by_category.values())
     annual_ledger_refs_complete = bool(annual_inputs.get('annual_ledger_input'))
     package_draft = {
@@ -173,6 +192,7 @@ def build_annual_tax_controlled_db_load_template(*, manifest: dict[str, Any]) ->
         'approval_ref': 'pending-approval-ref',
         'expected_outputs_used_as_inputs': False,
         'annual_input_source_refs': annual_inputs,
+        'labor_previsional': labor_previsional,
         'months': [
             _package_month(
                 company_ref=company_ref,
@@ -222,6 +242,9 @@ def build_annual_tax_controlled_db_load_template(*, manifest: dict[str, Any]) ->
             'missing_months_by_category': missing_months_by_category,
             'monthly_input_refs_complete': monthly_input_refs_complete,
             'annual_ledger_refs_complete': annual_ledger_refs_complete,
+            'labor_previsional_required': labor_previsional['required'],
+            'labor_previsional_source_present': bool(labor_previsional['source_refs']),
+            'labor_previsional_required_by_ddjj_forms': labor_previsional['required_by_ddjj_forms'],
             'ready_for_writer': False,
             'reason_not_ready_for_writer': 'manual_values_required',
         },
@@ -230,6 +253,7 @@ def build_annual_tax_controlled_db_load_template(*, manifest: dict[str, Any]) ->
             'Revisar/transcribir BalanceComprobacion mensual cuadrado desde fuente AC2024 controlada.',
             'Completar obligaciones mensuales PPM/F29 desde fuente AC2024 controlada.',
             'Completar fuente laboral/previsional mensual si aplica a DJ1887/remuneraciones.',
+            'Completar labor_previsional.source_ref con una referencia no sensible si DJ1887/remuneraciones aplica.',
             'Reemplazar responsible_ref y approval_ref pendientes por referencias no sensibles antes de aplicar writer.',
         ],
         'package_draft': package_draft,

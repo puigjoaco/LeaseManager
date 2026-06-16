@@ -227,6 +227,48 @@ def _validate_ownership_for_annual_generation(
     return {'present': True, 'participants_count': valid_participants}
 
 
+def _validate_labor_previsional_source(
+    *,
+    package: dict[str, Any],
+    missing_paths: list[str],
+    invalid_paths: list[str],
+    blockers: set[str],
+) -> dict[str, Any]:
+    labor = package.get('labor_previsional')
+    if labor in (None, {}):
+        return {'present': False, 'required': False, 'required_by_ddjj_forms': []}
+    if not isinstance(labor, dict):
+        blockers.add('labor_previsional_source_invalid')
+        _add_invalid(invalid_paths, '$.labor_previsional')
+        return {'present': False, 'required': False, 'required_by_ddjj_forms': []}
+
+    required = labor.get('required') is True
+    forms = [
+        str(form or '').strip()
+        for form in (labor.get('required_by_ddjj_forms') or [])
+        if str(form or '').strip()
+    ]
+    if required:
+        if '1887' not in forms:
+            blockers.add('labor_previsional_source_invalid')
+            _add_invalid(invalid_paths, '$.labor_previsional.required_by_ddjj_forms')
+        if not _non_sensitive_text(labor.get('source_ref')):
+            blockers.add('labor_previsional_source_missing')
+            _add_missing(missing_paths, '$.labor_previsional.source_ref')
+    elif labor.get('source_ref') not in (None, '') and not _non_sensitive_text(labor.get('source_ref')):
+        blockers.add('labor_previsional_source_invalid')
+        _add_invalid(invalid_paths, '$.labor_previsional.source_ref')
+
+    return {
+        'present': True,
+        'required': required,
+        'required_by_ddjj_forms': forms,
+        'source_ref_present': _non_sensitive_text(labor.get('source_ref')),
+        'monthly_support_months': labor.get('monthly_support_months') or [],
+        'source_refs_count': len(labor.get('source_refs') or []) if isinstance(labor.get('source_refs'), list) else 0,
+    }
+
+
 def _validate_month(
     *,
     month_payload: dict[str, Any],
@@ -389,6 +431,12 @@ def audit_annual_tax_controlled_package_readiness(*, payload: dict[str, Any]) ->
         invalid_paths=annual_generation_invalid_paths,
         blockers=annual_generation_blockers,
     )
+    labor_previsional_summary = _validate_labor_previsional_source(
+        package=package,
+        missing_paths=missing_paths,
+        invalid_paths=invalid_paths,
+        blockers=blockers,
+    )
 
     annual_refs = package.get('annual_input_source_refs')
     if not isinstance(annual_refs, dict) or not annual_refs.get('annual_ledger_input'):
@@ -462,6 +510,7 @@ def audit_annual_tax_controlled_package_readiness(*, payload: dict[str, Any]) ->
             'annual_generation_invalid_paths_count': len(annual_generation_invalid_paths),
             'comparison_targets_present': comparison_targets_present,
             'ownership_snapshot': ownership_summary,
+            'labor_previsional_source': labor_previsional_summary,
         },
         'safety': {
             'writes_database': False,
