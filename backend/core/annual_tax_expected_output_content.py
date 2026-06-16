@@ -202,6 +202,33 @@ def _blocking_document_semantic_extraction_errors(
     return blocking_errors
 
 
+def _blocking_value_extraction_errors(
+    extraction_errors: list[dict[str, str]],
+    *,
+    generated_targets: list[dict[str, Any]],
+    expected_by_key: dict[tuple[str, str], set[str]],
+) -> list[dict[str, str]]:
+    required_keys = {
+        (
+            str(target.get('category') or '').strip(),
+            str(target.get('artifact_key') or '').strip(),
+        )
+        for target in generated_targets
+        if str(target.get('category') or '').strip() in VALUE_EXTRACTABLE_CATEGORIES
+        and str(target.get('artifact_key') or '').strip()
+        and str(target.get('amount_token') or '').strip()
+    }
+    blocking_errors: list[dict[str, str]] = []
+    for error in extraction_errors:
+        key = (
+            str(error.get('category') or '').strip(),
+            str(error.get('artifact_key') or '').strip(),
+        )
+        if key in required_keys and key not in expected_by_key:
+            blocking_errors.append(error)
+    return blocking_errors
+
+
 def extract_expected_output_content_signals(*, source_root: Path, manifest: dict[str, Any]) -> dict[str, Any]:
     source_root = source_root.expanduser().resolve()
     if not source_root.exists() or not source_root.is_dir():
@@ -418,7 +445,12 @@ def extract_expected_output_value_signals(
     unsupported_expected_categories = sorted(
         expected_categories - VALUE_EXTRACTABLE_CATEGORIES - semantic_supported_categories
     )
-    target_value_presence_ready = bool(comparisons) and not missing_targets and not extraction_errors
+    blocking_extraction_errors = _blocking_value_extraction_errors(
+        extraction_errors,
+        generated_targets=generated_targets,
+        expected_by_key=expected_by_key,
+    )
+    target_value_presence_ready = bool(comparisons) and not missing_targets and not blocking_extraction_errors
 
     return {
         'schema_version': 'annual-tax-expected-output-values.v1',
@@ -440,8 +472,10 @@ def extract_expected_output_value_signals(
             'skipped_generated_targets_total': skipped_generated_targets,
             'target_value_presence_ready': target_value_presence_ready,
             'value_equality_extractors_ready': target_value_presence_ready and not unsupported_expected_categories,
+            'blocking_extraction_errors_total': len(blocking_extraction_errors),
         },
         'extraction_errors': extraction_errors,
+        'blocking_extraction_errors': blocking_extraction_errors,
         'safety': {
             'writes_database': False,
             'uses_sii_real': False,

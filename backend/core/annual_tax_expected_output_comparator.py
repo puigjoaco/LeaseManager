@@ -778,7 +778,7 @@ def compare_annual_tax_expected_outputs(
         blockers.append('expected_output_document_semantic_mismatch')
     if source_root is None:
         blockers.append('expected_output_value_extractors_not_run')
-    elif value_signals and value_signals['extraction_errors']:
+    elif value_signals and value_signals['summary'].get('blocking_extraction_errors_total', 0):
         blockers.append('expected_output_value_extraction_errors')
     elif value_signals and value_signals['summary']['missing_targets_total']:
         blockers.append('expected_output_value_mismatch')
