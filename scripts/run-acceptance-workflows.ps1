@@ -70,6 +70,7 @@ $stage4ReadinessScript = Join-Path $PSScriptRoot 'run-stage4-readiness-gate.ps1'
 $stage5ReadinessScript = Join-Path $PSScriptRoot 'run-stage5-readiness-gate.ps1'
 $stage5DocumentsReadinessScript = Join-Path $PSScriptRoot 'run-stage5-documents-readiness-gate.ps1'
 $stage6ReadinessScript = Join-Path $PSScriptRoot 'run-stage6-readiness-gate.ps1'
+$stage6MirrorProofScript = Join-Path $PSScriptRoot 'run-stage6-mirror-proof-gate.ps1'
 $stage7ReadinessScript = Join-Path $PSScriptRoot 'run-stage7-readiness-gate.ps1'
 $complianceDataReadinessScript = Join-Path $PSScriptRoot 'run-compliance-data-readiness-gate.ps1'
 $restoreRehearsalScript = Join-Path $PSScriptRoot 'run-postgres-restore-rehearsal.ps1'
@@ -348,6 +349,23 @@ if (-not $OnlySmoke) {
         Assert-Condition ($stage6Readiness.ready_for_stage6_renta_anual -eq $false) 'El guard Etapa 6 local no puede cerrar Renta anual.'
         Assert-Condition ($stage6Readiness.classification -eq 'parcial') 'El guard Etapa 6 local debe quedar parcial.'
         Assert-Condition ($stage6IssueCodes -contains 'stage6.source_kind_not_authorized') 'El guard Etapa 6 local debe reportar source_kind_not_authorized.'
+
+        Step "Stage 6 mirror proof output guard"
+        Assert-ReadinessOutputGuard $stage6MirrorProofScript 'Stage 6 mirror proof gate' 'stage6_mirror_proof_forbidden.json' @{
+            EmpresaId = 1
+            CommercialYear = 2024
+            TaxYear = 2025
+            ManifestPath = 'local-evidence\stage6\acceptance\missing-mirror-proof-manifest.json'
+            SourceKind = 'snapshot_controlado'
+            SourceLabel = 'stage6-mirror-proof-acceptance'
+            AuthorizationRef = 'stage-six-mirror-proof-authz'
+            Stage5EvidenceRef = 'stage-five-proof-ref'
+            Stage4SiiEvidenceRef = 'stage-four-sii-proof-ref'
+            FiscalRuleRef = 'fiscal-rule-proof-ref'
+            CertificatesProofRef = 'certificates-proof-ref'
+            ResponsibleRef = 'stage-six-proof-owner'
+            DatabaseUrl = 'sqlite:///:memory:'
+        }
 
         Step "Stage 7 readiness guard"
         Assert-Condition (Test-Path $stage7ReadinessScript) "No existe el guard de readiness Etapa 7 en $stage7ReadinessScript"
