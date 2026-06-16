@@ -174,6 +174,11 @@ contable o tributaria requiere criterio.
   `no_aplica` + `no_declaration=true` cuenta como cobertura F29 mensual
   controlada. No crea un `F29PreparacionMensual` ficticio; solo evita tratar
   una ausencia declarada/controlada como dato faltante.
+- El mismo diagnostico solo cuenta `ProcesoRentaAnual` preparado o superior si
+  esta enlazado a un `AnnualTaxSourceBundle` congelado. Un proceso anual
+  huerfano o con source bundle no congelado queda como
+  `company_accounting.annual_process_source_bundle_missing`, porque la capa
+  anual debe ser trazable antes de considerarse lista para revision responsable.
 - Reporting expone el mismo diagnostico en
   `contabilidad/progreso-empresa/`, con scope por empresa, porcentaje, fases,
   faltantes, proximo bloqueo y trazabilidad sin RUT ni secretos. Esta vista

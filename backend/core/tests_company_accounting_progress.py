@@ -439,6 +439,23 @@ class CompanyAccountingProgressTests(TestCase):
         self.assertEqual(result['candidates'][0]['years'][0]['signals']['f29_monthly'], 1)
         self.assertNotIn(empresa.rut, json.dumps(result))
 
+    def test_candidates_ignore_annual_process_without_frozen_source_bundle(self):
+        empresa = self._create_empresa()
+        self._activate_fiscal_config(empresa)
+        self._create_close(empresa, 1)
+        ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=2026,
+            estado=EstadoPreparacionTributaria.PREPARED,
+            resumen_anual={'source': 'company-accounting-progress-test'},
+        )
+
+        result = collect_company_accounting_candidates(empresa_ids=[empresa.id])
+
+        self.assertEqual(result['candidates'][0]['years'][0]['signals']['monthly_closes'], 1)
+        self.assertEqual(result['candidates'][0]['years'][0]['signals']['annual_processes'], 0)
+        self.assertNotIn(empresa.rut, json.dumps(result))
+
     def test_candidates_surface_unsupported_fiscal_regime_without_hiding_signals(self):
         empresa = self._create_empresa()
         config = self._activate_unsupported_fiscal_config(empresa)
@@ -524,6 +541,26 @@ class CompanyAccountingProgressTests(TestCase):
         self.assertEqual(result['phases']['annual_trial_balance']['completed'], 0)
         self.assertIn('company_accounting.annual_process_missing', {issue['code'] for issue in result['issues']})
         self.assertIn('company_accounting.annual_trial_balance_missing', {issue['code'] for issue in result['issues']})
+
+    def test_progress_requires_annual_process_frozen_source_bundle(self):
+        empresa = self._create_empresa()
+        self._activate_fiscal_config(empresa)
+        ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=2026,
+            estado=EstadoPreparacionTributaria.PREPARED,
+            resumen_anual={'source': 'company-accounting-progress-test'},
+        )
+
+        result = collect_company_accounting_progress(empresa_id=empresa.id, fiscal_year=2025)
+
+        self.assertFalse(result['phases']['annual_process']['ready'])
+        self.assertEqual(result['phases']['annual_process']['missing'], ['source_bundle_congelado'])
+        self.assertIn(
+            'company_accounting.annual_process_source_bundle_missing',
+            {issue['code'] for issue in result['issues']},
+        )
+        self.assertNotIn(empresa.rut, json.dumps(result))
 
     def test_complete_local_layers_are_ready_for_review_not_close(self):
         empresa = self._create_empresa()

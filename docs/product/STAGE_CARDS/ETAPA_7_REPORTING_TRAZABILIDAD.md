@@ -141,6 +141,11 @@ externa final.
   scope por empresa y sin RUT. La vista permite seleccionar un candidato y
   cargarlo en `contabilidad/progreso-empresa/`; no afirma avance real contra
   fuente externa ni reemplaza el gate de cierre.
+- Para esas senales de progreso, un `ProcesoRentaAnual` preparado o superior
+  solo cuenta si esta enlazado a un `AnnualTaxSourceBundle` congelado. Reporting
+  no debe presentar un proceso anual huerfano como avance listo para revision:
+  conserva `company_accounting.annual_process_source_bundle_missing` hasta que
+  exista fuente anual congelada y trazable.
 - Los endpoints de Reporting normalizan parametros de consulta antes de
   filtrar, validar o decidir cache: `periodo`, `mode`, `refresh`, `status`,
   `empresa_id`, `anio`, `mes` y `anio_tributario`. Esto evita que espacios

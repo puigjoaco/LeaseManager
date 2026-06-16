@@ -35,6 +35,14 @@ ficticio. En el caso Inmobiliaria Puig AC2024/AT2025, los meses sin declaracion
 normalizados dejan de bloquear `f29_monthly`; el siguiente bloqueo operativo
 queda en `annual_process` cuando la fuente controlada los carga con esa forma.
 
+Nota 2026-06-16: La senal `annual_process` del progreso contable/renta exige
+trazabilidad anual completa. `audit_company_accounting_progress` y
+`audit_company_accounting_candidates` solo cuentan un `ProcesoRentaAnual`
+preparado o superior si esta enlazado a un `AnnualTaxSourceBundle` congelado.
+Un proceso preparado sin source bundle congelado conserva la brecha
+`company_accounting.annual_process_source_bundle_missing`; no desbloquea
+revision contable/renta ni cierre tributario final por si solo.
+
 Nota 2026-06-16: DJ1887/remuneraciones queda como boundary de fuente
 laboral-previsional para Etapa 6. Si el manifiesto AC/AT detecta DJ1887
 aceptada, `labor_previsional_source` pasa a requerido: falta de
