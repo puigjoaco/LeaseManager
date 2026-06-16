@@ -17,6 +17,8 @@ from core.annual_tax_controlled_values_draft import (
     parse_libro_mayor_annual_trial_balance_lines,
     parse_libro_mayor_text,
     parse_payroll_text,
+    parse_real_estate_contribution_history_json,
+    parse_real_estate_registry_json,
 )
 
 
@@ -204,6 +206,55 @@ class AnnualTaxControlledValuesDraftTests(SimpleTestCase):
         self.assertEqual(inventario['lines'][0]['clasificador_dj1847'], 'CPT-CASH-ASSET')
         self.assertEqual(inventario['lines'][1]['inventario_pasivo_clp'], '700.00')
         self.assertEqual(inventario['lines'][2]['resultado_perdida_clp'], '300.00')
+        real_estate = parse_real_estate_registry_json(
+            {
+                'properties': [
+                    [
+                        '',
+                        'Providencia',
+                        '00031-00243',
+                        'Nva Lyon 45 LC 41 B',
+                        'COMERCIO',
+                        '12345',
+                        '67890',
+                        '2026',
+                        '50.00 %',
+                        '$ 12.345.678',
+                        'Ver',
+                        '',
+                    ]
+                ]
+            },
+            registry_ref='real-estate-registry-ref',
+        )
+        contributions = parse_real_estate_contribution_history_json(
+            {
+                'response': {
+                    'body': {
+                        'data': [
+                            {
+                                'fechaPago': '02/05/2024',
+                                'propiedad': [
+                                    {
+                                        'comuna': 15103,
+                                        'manzana': 31,
+                                        'predio': 243,
+                                        'rol': None,
+                                        'valorCuota': 12000,
+                                    }
+                                ],
+                            }
+                        ]
+                    }
+                }
+            },
+            commercial_year=2024,
+            source_ref='real-estate-history-ref',
+        )
+
+        self.assertEqual(real_estate[0]['tipo_inmueble'], 'local')
+        self.assertEqual(real_estate[0]['source_payload']['rol_tail_key'], '31-243')
+        self.assertEqual(contributions['15103-31-243']['amount'], 12000)
 
     def test_values_draft_fills_permitted_inputs_without_using_expected_outputs(self):
         with TemporaryDirectory() as temp_dir:
@@ -269,6 +320,142 @@ class AnnualTaxControlledValuesDraftTests(SimpleTestCase):
         self.assertFalse(labor['final_tax_calculation'])
         self.assertTrue(result['values_draft_summary']['labor_previsional_source_ref_ready'])
         self.assertEqual(result['values_draft_summary']['labor_previsional_reviewed_source_refs_count'], 1)
+        rendered_package = json.dumps(result['package_draft'], ensure_ascii=True)
+        self.assertNotIn('f22_expected_output', rendered_package)
+
+    def test_values_draft_materializes_real_estate_from_controlled_support(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            self._source_file(
+                source_root,
+                '06_Respaldos_Tributarios/03_Bienes_Raices_y_Contribuciones/00_REGISTRO_BIENES_RAICES.json',
+                json.dumps(
+                    {
+                        'properties': [
+                            [
+                                '',
+                                'Providencia',
+                                '00031-00243',
+                                'Nva Lyon 45 LC 41 B',
+                                'COMERCIO',
+                                '12345',
+                                '67890',
+                                '2026',
+                                '50.00 %',
+                                '$ 12.345.678',
+                                'Ver',
+                                '',
+                            ],
+                            [
+                                '',
+                                'Temuco',
+                                '00090-00047',
+                                'Bulnes 443 LC 19',
+                                'COMERCIO',
+                                '12345',
+                                '67890',
+                                '2026',
+                                '100.00 %',
+                                '$ 4.000.000',
+                                'Ver',
+                                '',
+                            ],
+                        ]
+                    }
+                ),
+            )
+            self._source_file(
+                source_root,
+                '06_Respaldos_Tributarios/03_Bienes_Raices_y_Contribuciones/Historial_Pagos/00031-00243.json',
+                json.dumps(
+                    {
+                        'response': {
+                            'body': {
+                                'data': [
+                                    {
+                                        'fechaPago': '02/05/2024',
+                                        'propiedad': [
+                                            {
+                                                'comuna': 15103,
+                                                'manzana': 31,
+                                                'predio': 243,
+                                                'rol': None,
+                                                'valorCuota': 12000,
+                                            }
+                                        ],
+                                    },
+                                    {
+                                        'fechaPago': '15/09/2024',
+                                        'propiedad': [
+                                            {
+                                                'comuna': 15103,
+                                                'manzana': 31,
+                                                'predio': 243,
+                                                'rol': None,
+                                                'valorCuota': 13000,
+                                            }
+                                        ],
+                                    },
+                                    {
+                                        'fechaPago': '15/09/2023',
+                                        'propiedad': [
+                                            {
+                                                'comuna': 15103,
+                                                'manzana': 31,
+                                                'predio': 243,
+                                                'rol': None,
+                                                'valorCuota': 99999,
+                                            }
+                                        ],
+                                    },
+                                ]
+                            }
+                        }
+                    }
+                ),
+            )
+            manifest = self._manifest()
+            manifest['files'].extend(
+                [
+                    {
+                        'path_ref': 'real-estate-registry-ref',
+                        'relative_path': '06_Respaldos_Tributarios/03_Bienes_Raices_y_Contribuciones/00_REGISTRO_BIENES_RAICES.json',
+                        'category': 'real_estate_support',
+                        'artifact_key': 'real_estate_support',
+                        'months': [],
+                    },
+                    {
+                        'path_ref': 'real-estate-history-ref',
+                        'relative_path': '06_Respaldos_Tributarios/03_Bienes_Raices_y_Contribuciones/Historial_Pagos/00031-00243.json',
+                        'category': 'real_estate_support',
+                        'artifact_key': 'real_estate_support',
+                        'months': [],
+                    },
+                ]
+            )
+
+            result = build_annual_tax_controlled_values_draft(
+                manifest=manifest,
+                template=self._template(),
+                source_root=source_root,
+                responsible_ref='codex-local-review',
+                approval_ref='user-authorized-local-source-review',
+            )
+
+        real_estate = result['package_draft']['real_estate']
+        properties = real_estate['properties']
+        self.assertTrue(real_estate['source_ref'].startswith('real-estate-reviewed-'))
+        self.assertEqual(real_estate['as_of'], '2024-12-31')
+        self.assertEqual(len(properties), 2)
+        self.assertEqual(properties[0]['tipo_inmueble'], 'local')
+        self.assertEqual(properties[0]['contribuciones_clp'], '25000.00')
+        self.assertEqual(properties[0]['contribuciones_evidence_ref'], 'real-estate-history-ref')
+        self.assertEqual(properties[0]['source_payload']['contribuciones_source'], 'historial_pagos_sii')
+        self.assertEqual(properties[1]['contribuciones_clp'], '0.00')
+        self.assertEqual(properties[1]['source_payload']['contribuciones_source'], 'not_found_for_commercial_year')
+        self.assertFalse(real_estate['source_payload']['final_tax_calculation'])
+        self.assertTrue(result['values_draft_summary']['real_estate_source_ref_ready'])
+        self.assertEqual(result['values_draft_summary']['real_estate_properties_count'], 2)
         rendered_package = json.dumps(result['package_draft'], ensure_ascii=True)
         self.assertNotIn('f22_expected_output', rendered_package)
 

@@ -61,6 +61,17 @@ alinea el hash de RAI/SAC con el payload canonico del modelo y elimina el falso
 La prueba espejo conserva comparador completo y queda pendiente por
 `stage6.real_estate_item_missing`.
 
+Nota 2026-06-16: `build_annual_tax_controlled_values_draft` ya materializa
+`real_estate_support` como `package.real_estate`: registro estructurado de
+bienes raices, codigos internos estables, tipo de inmueble, evidencia por
+`path_ref` e historiales de pago filtrados solo por `commercial_year`. En la
+fuente real AC2024/AT2025 detecta 6 propiedades y 0 pagos AC2024 verificables,
+sin usar outputs esperados como input ni declarar calculo final. El writer
+valida el paquete en dry-run, pero la escritura de `Propiedad` activa en la DB
+piloto requiere primero snapshot `ownership` con participaciones completas; por
+eso el siguiente cierre real debe completar ownership controlado antes de
+intentar despejar `stage6.real_estate_item_missing` en la corrida real.
+
 Nota 2026-06-16: El auditor de progreso contable/renta distingue F29 faltante
 de mes controlado sin declaracion. Si existe `MonthlyTaxFact` normalizado con
 F29 `no_aplica` y `no_declaration=true`, el mes cuenta como cobertura F29

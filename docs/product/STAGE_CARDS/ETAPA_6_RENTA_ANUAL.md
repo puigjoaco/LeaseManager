@@ -195,36 +195,34 @@ draft real v3, `ready_for_db_writer=true` y `ready_for_annual_generation=false`
 por `ownership_snapshot_missing`. Febrero y diciembre F29 `no_aplica` no cuentan
 como faltantes.
 `build_annual_tax_controlled_values_draft` completa ese paquete desde fuentes
-AC2024 permitidas y read-only: Libro Diario, Libro Mayor, Libro Inventario, F29
-y libros de remuneraciones. La corrida real de Inmobiliaria Puig rellena 180
-campos, queda `ready_for_db_writer=true` y permite aplicar el writer contra
-SQLite local/controlado para materializar 12 cierres mensuales, 12 libros
-diario/mayor, 12 balances, 10 F29, 10 obligaciones y 12 `MonthlyTaxFact`. El
-Libro Inventario se conserva como lineas de balance anual en diciembre para que
-el mirror genere `AnnualTaxTrialBalanceLine` desde cuentas controladas reales de
-entrada. Esta carga no usa outputs finales como input y no declara cierre de
-renta; las comparaciones posteriores cubren valores comparables y semantica
-DDJJ/F22, pero queda pendiente revision responsable y gates finales.
+AC2024 permitidas y read-only: Libro Diario, Libro Mayor, Libro Inventario, F29,
+libros de remuneraciones y soporte de bienes raices. La corrida real de
+Inmobiliaria Puig rellena valores contables/laborales y ahora tambien genera
+`package.real_estate` desde el registro estructurado de bienes raices,
+respaldos por `path_ref` e historiales de pago filtrados por `commercial_year`.
+En AC2024/AT2025 detecta 6 propiedades y 0 pagos AC2024 verificables, sin usar
+outputs finales como input ni declarar calculo fiscal. La aplicacion de
+propiedades a DB sigue condicionada por `ownership`: el dominio de Patrimonio
+rechaza `Propiedad` activa si la empresa no tiene participaciones completas.
+El Libro Inventario se conserva como lineas de balance anual en diciembre para
+que el mirror genere `AnnualTaxTrialBalanceLine` desde cuentas controladas
+reales de entrada.
 El selector de libros anuales queda acotado al `commercial_year`: si el
 manifiesto contiene artefactos de otros anos, carpetas historicas o respaldos
 pendientes con el mismo `artifact_key`, el draft prioriza la fuente anual
 canonica compatible y no usa copias posteriores como insumo AC2024. Con
 `ownership` local controlado desde fuente societaria revisada, la prueba espejo
-AC2024/AT2025 ya pasa writer y mirror anual (`ready_for_annual_generation=true`)
-y genera ProcesoRentaAnual, DDJJ/F22 preparados, matriz, dossier, export y
-checklist. El mirror tambien emite `TaxSupportDocument` como
-`DocumentoEmitido` de tipo `respaldo_tributario`, usando el generador PDF
-canonico de Documentos con preview auditada y checksum de contenido. El gate
-Etapa 6 queda resuelto en prueba local controlada cuando el paquete incluye
-`real_estate`: el writer materializa `Propiedad` y fuente experta/controlada de
-contribuciones, y el mirror genera `AnnualRealEstateItem` con snapshot congelado
-en la seccion anual de bienes raices. La corrida AC2024/AT2025 con SQLite local
-ignorada queda `classification=resuelto_confirmado` y
-`ready_for_stage6_renta_anual=true`, sin convertir el expediente en
-presentacion SII real ni calculo tributario final. Ownership, respaldo
-tributario, bienes raices, DDJJ/F22 semantico, Balance General y
-RLI/CPT/RAI/SAC comparables no deben reabrirse como bloqueo general salvo bug
-nuevo.
+AC2024/AT2025 puede pasar writer y mirror anual
+(`ready_for_annual_generation=true`) y generar ProcesoRentaAnual, DDJJ/F22
+preparados, matriz, dossier, export y checklist. El mirror tambien emite
+`TaxSupportDocument` como `DocumentoEmitido` de tipo `respaldo_tributario`,
+usando el generador PDF canonico de Documentos con preview auditada y checksum
+de contenido. La seccion de bienes raices queda lista para
+`AnnualRealEstateItem` cuando el paquete incluye `real_estate` y la DB ya tiene
+ownership suficiente para materializar `Propiedad`; en la corrida real actual,
+ese es el prerequisito que falta antes de despejar
+`stage6.real_estate_item_missing`. Esto no convierte el expediente en
+presentacion SII real ni calculo tributario final.
 `audit_annual_tax_mirror_proof` es el gate local de conclusion para esta prueba
 espejo: combina readiness de fuente/manifiesto, arquitectura espejo, comparador
 de outputs esperados, readiness Etapa 6 y boundary de seguridad. Debe quedar
@@ -268,7 +266,8 @@ previo a persistencia. Esto evita falsos `stage6.enterprise_register_movement_in
 por diferencias de representacion decimal/textual y mantiene RAI/SAC trazables
 al payload canonico validado por el modelo. En la prueba AC2024/AT2025 el
 readiness queda sin movimientos empresariales invalidos y el siguiente bloqueo
-real es `stage6.real_estate_item_missing`.
+real pasa por bienes raices, condicionado por cargar `ownership` controlado
+antes de escribir `Propiedad` activa.
 `MonthlyTaxFact` materializa la capa mensual anualizable: por cada empresa,
 ano comercial y mes normaliza el cierre aprobado, obligaciones mensuales,
 F29 si existe, distribuciones de arriendo y liquidacion de empresa, con
