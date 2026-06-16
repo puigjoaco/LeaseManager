@@ -413,6 +413,66 @@ def _first_ref(refs: list[dict[str, Any]]) -> dict[str, Any] | None:
     return refs[0] if refs else None
 
 
+def _normalized_manifest_path(item: dict[str, Any]) -> str:
+    return str(item.get('relative_path') or '').strip().replace('\\', '/').casefold()
+
+
+def _explicit_ano_years(path: str) -> set[int]:
+    return {int(year) for year in re.findall(r'(?:^|/)ano_(\d{4})(?:/|$)', path)}
+
+
+def _candidate_matches_commercial_year(item: dict[str, Any], commercial_year: int) -> bool:
+    if not commercial_year:
+        return True
+    path = _normalized_manifest_path(item)
+    explicit_years = _explicit_ano_years(path)
+    if explicit_years:
+        return commercial_year in explicit_years
+    candidate_years = {int(year) for year in re.findall(r'(?<!\d)(20\d{2})(?!\d)', path)}
+    return not candidate_years or commercial_year in candidate_years
+
+
+def _annual_ledger_candidate_score(item: dict[str, Any], commercial_year: int) -> tuple[int, str]:
+    path = _normalized_manifest_path(item)
+    score = 0
+    if commercial_year and f'ano_{commercial_year}/' in path:
+        score += 1000
+    if '01_libros_anuales/' in path:
+        score += 300
+    elif 'libros_anuales/' in path:
+        score += 200
+    if commercial_year and str(commercial_year) in Path(path).name:
+        score += 100
+    if any(marker in path for marker in ('pendiente_auditoria', 'ano_historico', 'no_presentar')):
+        score -= 500
+    if any(marker in path for marker in ('gmail', 'documentacion_modificada', 'respaldo')):
+        score -= 100
+    return score, path
+
+
+def _select_annual_ledger_ref(manifest: dict[str, Any], artifact_key: str) -> str:
+    commercial_year = int(manifest.get('commercial_year') or 0)
+    candidates = [
+        item
+        for item in manifest.get('files') or []
+        if isinstance(item, dict)
+        and item.get('category') == 'annual_ledger_input'
+        and item.get('artifact_key') == artifact_key
+        and item.get('path_ref')
+    ]
+    if not candidates:
+        return ''
+    compatible = [item for item in candidates if _candidate_matches_commercial_year(item, commercial_year)]
+    if not compatible and commercial_year:
+        return ''
+    ranked = sorted(
+        compatible or candidates,
+        key=lambda item: _annual_ledger_candidate_score(item, commercial_year),
+        reverse=True,
+    )
+    return str(ranked[0].get('path_ref') or '')
+
+
 def _obligations_from_f29(*, codes: dict[str, int], source_ref: str) -> list[dict[str, Any]]:
     obligations: list[dict[str, Any]] = []
     ppm = codes.get('062')
@@ -446,9 +506,9 @@ def _extract_annual_ledger_sources(
 ) -> tuple[dict[int, dict[str, Any]], dict[int, dict[str, Any]], dict[str, Any], dict[str, str], list[str]]:
     errors: list[str] = []
     ledger_refs = {
-        item.get('artifact_key'): item.get('path_ref')
-        for item in manifest.get('files') or []
-        if item.get('category') == 'annual_ledger_input'
+        'libro_diario': _select_annual_ledger_ref(manifest, 'libro_diario'),
+        'libro_mayor': _select_annual_ledger_ref(manifest, 'libro_mayor'),
+        'libro_inventario': _select_annual_ledger_ref(manifest, 'libro_inventario'),
     }
     diario_by_month: dict[int, dict[str, Any]] = {}
     mayor_by_month: dict[int, dict[str, Any]] = {}

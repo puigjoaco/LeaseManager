@@ -75,6 +75,18 @@ DDJJ/F22 y 138/138 targets de valores comparables presentes, sin categorias
 esperadas sin soporte. La prueba espejo sigue parcial por revision de artefactos
 generados/responsable y gates finales, no por DDJJ/F22 semantico.
 
+Nota 2026-06-15: El patch posterior a PR #856 corrige la seleccion de libros
+anuales cuando el manifiesto contiene varios anos o fuentes pendientes. El draft
+AC2024 ahora selecciona insumos compatibles con `commercial_year`, vuelve a 180
+campos llenos y 0 errores de extraccion. Con snapshot `ownership` local
+controlado desde evidencia societaria revisada, el paquete queda
+`ready_for_db_writer=true` y `ready_for_annual_generation=true`; el writer carga
+12 meses y el mirror genera ProcesoRentaAnual, DDJJ/F22 preparados, matriz,
+dossier, export y checklist con source bundle `snapshot_controlado`. El gate
+Etapa 6 queda parcial por solo dos bloqueos concretos: item anual de bienes
+raices y respaldo tributario usable. No reabrir ownership, DDJJ/F22 semantico,
+Balance ni RLI/CPT/RAI/SAC comparable salvo bug nuevo.
+
 Nota 2026-06-13: La investigacion local de EDIG AT2026 queda mapeada como
 referencia funcional no normativa en
 `docs/product/RENTA_ANUAL_EDIG_AT2026_MAPPING.md`, con runbook de sandbox en

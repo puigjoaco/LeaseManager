@@ -256,6 +256,97 @@ class AnnualTaxControlledValuesDraftTests(SimpleTestCase):
         rendered_package = json.dumps(result['package_draft'], ensure_ascii=True)
         self.assertNotIn('f22_expected_output', rendered_package)
 
+    def test_values_draft_prefers_commercial_year_annual_books_over_later_candidates(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            self._source_file(
+                source_root,
+                '01_Libros_Anuales/Libro Diario 2024.txt',
+                'Comprobantes MES DE ENERO\n'
+                'TOTAL COMPROBANTE Nº 1 1.000 1.000\n'
+                'TOTAL COMPROBANTE Nº 2 2.500 2.500\n'
+                'Total ENERO 3.500 3.500\n',
+            )
+            self._source_file(
+                source_root,
+                '01_Libros_Anuales/Libro Mayor 2024.txt',
+                '1101001 Caja\nTotal Mes de Enero . 1.000 500 500 DB\n'
+                '2101001 Proveedores\nTotal Mes de Enero . 2.500 3.000 500 CR\n',
+            )
+            self._source_file(
+                source_root,
+                '01_Libros_Anuales/Libro Inventario 2024.txt',
+                'DETALLE DE ACTIVOS\n'
+                '1101001 Caja\nDESCRIPCION TOTAL\nSALDO CONTABLE AL 31/12/2024 1.000\n',
+            )
+            self._source_file(
+                source_root,
+                '06_Respaldos_Tributarios/01_F29_y_Comprobantes/2024-01 F29.txt',
+                'PERIODO [15] 202401\n563 BASE IMPONIBLE 3.500 062 PPM NETO DETERMINADO 378\n',
+            )
+            self._source_file(
+                source_root,
+                '05_Libro_Remuneraciones/01 Enero.txt',
+                'Total General : 4.000.000 0 3.166.637',
+            )
+            self._source_file(
+                source_root,
+                'Ano_2025/60_RESPALDOS_RECIBIDOS_PENDIENTES_AUDITORIA/Libro_Diario_2024_Gmail.txt',
+                'Comprobantes MES DE ENERO\nTOTAL COMPROBANTE Nº 99 99.000 99.000\nTotal ENERO 99.000 99.000\n',
+            )
+            self._source_file(
+                source_root,
+                'Ano_2025/60_RESPALDOS_RECIBIDOS_PENDIENTES_AUDITORIA/Libro_Mayor_2024_Gmail.txt',
+                '1101001 Caja\nTotal Mes de Enero . 99.000 99.000 0\n',
+            )
+            self._source_file(
+                source_root,
+                'Ano_HISTORICO/Lo que falto en el inventario.txt',
+                'DETALLE DE ACTIVOS\n1101001 Caja\nSALDO CONTABLE AL 31/12/2024 99.000\n',
+            )
+            manifest = self._manifest()
+            manifest['files'].extend(
+                [
+                    {
+                        'path_ref': 'later-pending-diario-ref',
+                        'relative_path': 'Ano_2025/60_RESPALDOS_RECIBIDOS_PENDIENTES_AUDITORIA/Libro_Diario_2024_Gmail.txt',
+                        'category': 'annual_ledger_input',
+                        'artifact_key': 'libro_diario',
+                        'months': [],
+                    },
+                    {
+                        'path_ref': 'later-pending-mayor-ref',
+                        'relative_path': 'Ano_2025/60_RESPALDOS_RECIBIDOS_PENDIENTES_AUDITORIA/Libro_Mayor_2024_Gmail.txt',
+                        'category': 'annual_ledger_input',
+                        'artifact_key': 'libro_mayor',
+                        'months': [],
+                    },
+                    {
+                        'path_ref': 'historic-inventario-ref',
+                        'relative_path': 'Ano_HISTORICO/Lo que falto en el inventario.txt',
+                        'category': 'annual_ledger_input',
+                        'artifact_key': 'libro_inventario',
+                        'months': [],
+                    },
+                ]
+            )
+
+            result = build_annual_tax_controlled_values_draft(
+                manifest=manifest,
+                template=self._template(),
+                source_root=source_root,
+                responsible_ref='codex-local-review',
+                approval_ref='user-authorized-local-source-review',
+            )
+
+        month = result['package_draft']['months'][0]
+        self.assertEqual(result['values_draft_summary']['extraction_errors'], [])
+        self.assertEqual(month['ledger']['libro_diario_ref'], 'libro-diario-ref#month=01')
+        self.assertEqual(month['ledger']['libro_mayor_ref'], 'libro-mayor-ref#month=01')
+        self.assertEqual(month['ledger']['asientos_count'], 2)
+        self.assertEqual(month['ledger']['total_debe'], '3500.00')
+        self.assertEqual(month['balance']['balance_ref'], 'libro-mayor-ref#month=01')
+
     def test_values_draft_attaches_inventory_lines_to_december_balance(self):
         with TemporaryDirectory() as temp_dir:
             source_root = Path(temp_dir)
