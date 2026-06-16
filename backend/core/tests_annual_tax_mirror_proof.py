@@ -292,6 +292,20 @@ class AnnualTaxMirrorProofTests(TestCase):
         self.assertFalse(result['safety']['uses_expected_outputs_as_inputs'])
         self.assertTrue(result['safety']['expected_outputs_used_as_comparison_only'])
         self.assertFalse(result['safety']['final_tax_calculation'])
+        evidence = result['comparison_generated_artifact_evidence']
+        self.assertGreater(evidence['process']['process_id'], 0)
+        self.assertGreater(evidence['process']['source_bundle_id'], 0)
+        self.assertEqual(len(evidence['process']['source_bundle_hash']), 64)
+        self.assertEqual(len(evidence['artifact_matrix']['hash_matriz']), 64)
+        self.assertEqual(len(evidence['dossier']['hash_dossier']), 64)
+        self.assertEqual(len(evidence['annual_export']['hash_export']), 64)
+        self.assertEqual(len(evidence['review_checklist']['hash_checklist']), 64)
+        self.assertFalse(evidence['annual_export']['official_format'])
+        self.assertFalse(evidence['annual_export']['sii_submission'])
+        self.assertFalse(evidence['annual_export']['final_tax_calculation'])
+        rendered_evidence = json.dumps(evidence, default=str).lower()
+        for forbidden in ('source_payload', 'export_payload', 'review_payload', 'resumen_', 'password', 'secret', 'token'):
+            self.assertNotIn(forbidden, rendered_evidence)
 
     def test_mirror_proof_reports_source_gap_without_masking_artifact_review(self):
         empresa = self._create_empresa()

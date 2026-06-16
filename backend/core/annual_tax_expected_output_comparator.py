@@ -15,6 +15,7 @@ from core.annual_tax_expected_output_content import (
     value_ref_for_clp_amount_token,
 )
 from core.annual_tax_source_manifest import EXPECTED_DDJJ_FORMS, EXPECTED_ANNUAL_TAX_REGISTER_KEYS
+from core.reference_validation import redact_sensitive_reference
 from sii.models import (
     AnnualEnterpriseRegisterSet,
     AnnualEnterpriseRegisterMovement,
@@ -111,6 +112,165 @@ def _generated_process(empresa, tax_year: int) -> ProcesoRentaAnual | None:
     )
 
 
+def _safe_reference(value: Any) -> str:
+    return redact_sensitive_reference(value)
+
+
+def _hash_or_blank(value: Any) -> str:
+    text = str(value or '').strip()
+    return text if len(text) == 64 else ''
+
+
+def _generated_artifact_evidence(
+    *,
+    process: ProcesoRentaAnual,
+    trial_balances,
+    workbooks,
+    registers,
+    ddjj: DDJJPreparacionAnual | None,
+    f22: F22PreparacionAnual | None,
+    matrix: AnnualTaxArtifactMatrix | None,
+    dossier: AnnualTaxDossier | None,
+    annual_export: AnnualTaxExport | None,
+    checklist: AnnualTaxReviewChecklist | None,
+) -> dict[str, Any]:
+    source_bundle = process.source_bundle
+    evidence = {
+        'process': {
+            'process_id': process.id,
+            'process_state': process.estado,
+            'source_bundle_id': process.source_bundle_id,
+            'source_bundle_hash': _hash_or_blank(getattr(source_bundle, 'hash_fuentes', '')),
+            'ddjj_package_ref': _safe_reference(process.paquete_ddjj_ref),
+            'f22_draft_ref': _safe_reference(process.borrador_f22_ref),
+        },
+        'trial_balances': [
+            {
+                'id': item.id,
+                'source_bundle_id': item.source_bundle_id,
+                'rule_set_id': item.rule_set_id,
+                'official_source_id': item.official_source_id,
+                'source_balance_id': item.source_balance_id,
+                'periodo_cierre': item.periodo_cierre,
+                'source_ref': _safe_reference(item.source_ref),
+                'lines_total': item.lines_total,
+                'warnings_total': item.warnings_total,
+                'hash_balance': _hash_or_blank(item.hash_balance),
+            }
+            for item in trial_balances
+        ],
+        'workbooks_by_type': {
+            str(item.tipo): {
+                'id': item.id,
+                'source_bundle_id': item.source_bundle_id,
+                'rule_set_id': item.rule_set_id,
+                'source_ref': _safe_reference(item.source_ref),
+                'lines_total': item.lines.count(),
+                'hash_workbook': _hash_or_blank(item.hash_workbook),
+            }
+            for item in workbooks
+        },
+        'enterprise_registers_by_type': {
+            str(item.tipo_registro): {
+                'id': item.id,
+                'source_bundle_id': item.source_bundle_id,
+                'rule_set_id': item.rule_set_id,
+                'source_ref': _safe_reference(item.source_ref),
+                'movements_total': item.movements.count(),
+                'hash_registro': _hash_or_blank(item.hash_registro),
+            }
+            for item in registers
+        },
+        'ddjj': {
+            'id': ddjj.id,
+            'estado_preparacion': ddjj.estado_preparacion,
+            'paquete_ref': _safe_reference(ddjj.paquete_ref),
+        }
+        if ddjj
+        else None,
+        'f22': {
+            'id': f22.id,
+            'estado_preparacion': f22.estado_preparacion,
+            'borrador_ref': _safe_reference(f22.borrador_ref),
+        }
+        if f22
+        else None,
+        'artifact_matrix': {
+            'id': matrix.id,
+            'source_bundle_id': matrix.source_bundle_id,
+            'rule_set_id': matrix.rule_set_id,
+            'items_total': matrix.items_total,
+            'ddjj_items_total': matrix.ddjj_items_total,
+            'f22_items_total': matrix.f22_items_total,
+            'warnings_total': int(
+                (matrix.resumen_matriz if isinstance(matrix.resumen_matriz, dict) else {}).get(
+                    'warnings_total',
+                    0,
+                )
+                or 0
+            ),
+            'warnings_pending_review_total': int(
+                (matrix.resumen_matriz if isinstance(matrix.resumen_matriz, dict) else {}).get(
+                    'warnings_pending_review_total',
+                    0,
+                )
+                or 0
+            ),
+            'review_state_counts': (
+                matrix.resumen_matriz.get('review_state_counts', {})
+                if isinstance(matrix.resumen_matriz, dict)
+                else {}
+            ),
+            'hash_matriz': _hash_or_blank(matrix.hash_matriz),
+        }
+        if matrix
+        else None,
+        'dossier': {
+            'id': dossier.id,
+            'artifact_matrix_id': dossier.artifact_matrix_id,
+            'dossier_ref': _safe_reference(dossier.dossier_ref),
+            'review_state': dossier.review_state,
+            'warnings_total': dossier.warnings_total,
+            'hash_dossier': _hash_or_blank(dossier.hash_dossier),
+        }
+        if dossier
+        else None,
+        'annual_export': {
+            'id': annual_export.id,
+            'dossier_id': annual_export.dossier_id,
+            'artifact_matrix_id': annual_export.artifact_matrix_id,
+            'export_ref': _safe_reference(annual_export.export_ref),
+            'review_state': annual_export.review_state,
+            'target_items_total': annual_export.target_items_total,
+            'ddjj_items_total': annual_export.ddjj_items_total,
+            'f22_items_total': annual_export.f22_items_total,
+            'warnings_total': annual_export.warnings_total,
+            'official_format': annual_export.official_format,
+            'sii_submission': annual_export.sii_submission,
+            'final_tax_calculation': annual_export.final_tax_calculation,
+            'hash_export': _hash_or_blank(annual_export.hash_export),
+        }
+        if annual_export
+        else None,
+        'review_checklist': {
+            'id': checklist.id,
+            'dossier_id': checklist.dossier_id,
+            'annual_export_id': checklist.annual_export_id,
+            'artifact_matrix_id': checklist.artifact_matrix_id,
+            'checklist_ref': _safe_reference(checklist.checklist_ref),
+            'evidence_ref': _safe_reference(checklist.evidence_ref),
+            'items_total': checklist.items_total,
+            'completed_items_total': checklist.completed_items_total,
+            'blockers_total': checklist.blockers_total,
+            'warnings_total': checklist.warnings_total,
+            'hash_checklist': _hash_or_blank(checklist.hash_checklist),
+        }
+        if checklist
+        else None,
+    }
+    return evidence
+
+
 def _generated_inventory(process: ProcesoRentaAnual | None) -> dict[str, Any]:
     if process is None:
         return {
@@ -126,19 +286,26 @@ def _generated_inventory(process: ProcesoRentaAnual | None) -> dict[str, Any]:
             'review_checklist_present': False,
             'review_warning_counts': {},
             'review_blockers_total': 0,
+            'generated_artifact_evidence': {},
         }
 
-    trial_balances = AnnualTaxTrialBalance.objects.filter(
-        proceso_renta_anual=process,
-        estado=EstadoAnnualTaxTrialBalance.PREPARED,
+    trial_balances = list(
+        AnnualTaxTrialBalance.objects.filter(
+            proceso_renta_anual=process,
+            estado=EstadoAnnualTaxTrialBalance.PREPARED,
+        )
     )
-    workbooks = AnnualTaxWorkbook.objects.filter(
-        proceso_renta_anual=process,
-        estado=EstadoAnnualTaxWorkbook.PREPARED,
+    workbooks = list(
+        AnnualTaxWorkbook.objects.filter(
+            proceso_renta_anual=process,
+            estado=EstadoAnnualTaxWorkbook.PREPARED,
+        )
     )
-    registers = AnnualEnterpriseRegisterSet.objects.filter(
-        proceso_renta_anual=process,
-        estado=EstadoAnnualEnterpriseRegister.PREPARED,
+    registers = list(
+        AnnualEnterpriseRegisterSet.objects.filter(
+            proceso_renta_anual=process,
+            estado=EstadoAnnualEnterpriseRegister.PREPARED,
+        )
     )
     ddjj = DDJJPreparacionAnual.objects.filter(
         proceso_renta_anual=process,
@@ -192,7 +359,7 @@ def _generated_inventory(process: ProcesoRentaAnual | None) -> dict[str, Any]:
         'process_id': process.id,
         'process_state': process.estado,
         'source_bundle_id': process.source_bundle_id,
-        'prepared_trial_balance_count': trial_balances.count(),
+        'prepared_trial_balance_count': len(trial_balances),
         'prepared_workbook_types': sorted({str(item.tipo) for item in workbooks}),
         'prepared_enterprise_register_types': sorted({str(item.tipo_registro) for item in registers}),
         'prepared_ddjj_forms': prepared_ddjj_forms,
@@ -203,6 +370,18 @@ def _generated_inventory(process: ProcesoRentaAnual | None) -> dict[str, Any]:
         'review_checklist_present': checklist is not None,
         'review_warning_counts': dict(sorted((key, value) for key, value in review_warning_counts.items() if value)),
         'review_blockers_total': review_blockers_total,
+        'generated_artifact_evidence': _generated_artifact_evidence(
+            process=process,
+            trial_balances=trial_balances,
+            workbooks=workbooks,
+            registers=registers,
+            ddjj=ddjj,
+            f22=f22,
+            matrix=matrix,
+            dossier=dossier,
+            annual_export=annual_export,
+            checklist=checklist,
+        ),
     }
 
 

@@ -122,6 +122,10 @@ def audit_annual_tax_mirror_proof(
             'blockers': sorted(set(blockers)),
         },
         'comparison_summary': comparison['summary'],
+        'comparison_generated_artifact_evidence': comparison['generated_inventory'].get(
+            'generated_artifact_evidence',
+            {},
+        ),
         'stage6_summary': {
             'classification': readiness['classification'],
             'ready_for_stage6_renta_anual': readiness['ready_for_stage6_renta_anual'],

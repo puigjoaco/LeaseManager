@@ -536,6 +536,16 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   revisados con referencia no sensible quedan visibles como advertencia
   historica, pero no mantienen el item en `warning` ni disparan
   `stage6.tax_review_checklist_warning_review_required`.
+- Las revisiones de warnings de workbooks, matriz DDJJ/F22 y dossier solo
+  cuentan como revisadas cuando `warning_review_ref` es una referencia no
+  sensible. URLs, tokens, credenciales o refs sensibles heredadas se mantienen
+  como warnings pendientes, bloquean readiness y no pueden propagarse al
+  dossier/export como evidencia valida.
+- El mirror proof expone `comparison_generated_artifact_evidence` con ids,
+  hashes, conteos y refs redactadas de balance anual, RLI/CPT, registros,
+  DDJJ/F22, matriz, dossier, export y checklist. No incluye payloads crudos,
+  `resumen_*`, textos esperados, montos crudos ni secretos; sirve para ubicar
+  que artefacto generado falta revisar sin convertirlo en calculo final.
 - La matriz `stage6-official-source-gaps` debe mantenerse alineada con fuentes
   SII vigentes antes de promover cualquier warning de regla, medio DDJJ,
   mapping DJ1847/RLI/CPT, contribucion o formato F22 a estado cerrable.
