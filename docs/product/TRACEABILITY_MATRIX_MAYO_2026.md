@@ -113,6 +113,16 @@ El draft controlado de valores consolida `labor_previsional.source_ref` solo
 cuando los `payroll_support` esperados fueron revisados exitosamente, dejando
 `final_tax_calculation=false` y sin abrir presentacion SII.
 
+Nota 2026-06-16: La prueba real AC2024/AT2025 confirma esa regla contra todos
+los respaldos laborales esperados, no solo contra el primer archivo mensual.
+`build_annual_tax_controlled_values_draft` revisa los 112
+`labor_previsional.source_refs`, genera `labor_previsional.source_ref` no
+sensible, conserva `final_tax_calculation=false` y deja
+`audit_annual_tax_controlled_package_readiness.ready_for_db_writer=true`. La
+generacion anual sigue correctamente bloqueada por `ownership_snapshot_missing`;
+esa es la proxima brecha real antes de afirmar equivalencia final contra F22,
+DDJJ, Balance, RLI/CPT/RAI/SAC esperados.
+
 Nota 2026-06-16: RLI/CPT distingue warnings totales de warnings pendientes de
 revision. `AnnualTaxWorkbookLine.warning_review_ref` conserva una revision
 responsable no sensible para lineas con warnings, recalcula hash de linea y

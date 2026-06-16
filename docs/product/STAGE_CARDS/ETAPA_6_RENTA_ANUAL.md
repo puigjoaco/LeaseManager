@@ -190,14 +190,15 @@ aplicable al writer, pero la generacion anual/mirror queda bloqueada si falta
 `ownership` como snapshot patrimonial controlado para registros de retiros y
 dividendos. Contra el template real de Inmobiliaria Puig AC2024/AT2025 confirma
 que no faltan meses y que existen objetivos de comparacion, pero mantiene
-`ready_for_db_writer=false` hasta completar 132 campos normalizados; contra el
-draft real v3, `ready_for_db_writer=true` y `ready_for_annual_generation=false`
-por `ownership_snapshot_missing`. Febrero y diciembre F29 `no_aplica` no cuentan
-como faltantes.
+`ready_for_db_writer=false` hasta completar los valores normalizados; contra el
+draft real post revision laboral completa, `ready_for_db_writer=true` y
+`ready_for_annual_generation=false` por `ownership_snapshot_missing`. Febrero y
+diciembre F29 `no_aplica` no cuentan como faltantes.
 `build_annual_tax_controlled_values_draft` completa ese paquete desde fuentes
 AC2024 permitidas y read-only: Libro Diario, Libro Mayor, Libro Inventario, F29,
 libros de remuneraciones y soporte de bienes raices. La corrida real de
-Inmobiliaria Puig rellena valores contables/laborales y ahora tambien genera
+Inmobiliaria Puig rellena valores contables/laborales, revisa 112 respaldos
+laborales esperados para generar `labor_previsional.source_ref`, y genera
 `package.real_estate` desde el registro estructurado de bienes raices,
 respaldos por `path_ref` e historiales de pago filtrados por `commercial_year`.
 En AC2024/AT2025 detecta 6 propiedades y 0 pagos AC2024 verificables, sin usar

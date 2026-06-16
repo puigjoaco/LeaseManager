@@ -499,6 +499,69 @@ class AnnualTaxControlledValuesDraftTests(SimpleTestCase):
         self.assertFalse(result['values_draft_summary']['labor_previsional_source_ref_ready'])
         self.assertEqual(result['values_draft_summary']['labor_previsional_reviewed_source_refs_count'], 0)
 
+    def test_values_draft_reviews_all_expected_labor_refs_before_source_ref(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            self._source_file(
+                source_root,
+                '01_Libros_Anuales/Libro Diario 2024.txt',
+                'Comprobantes MES DE ENERO\nTOTAL COMPROBANTE Nº 1 1.000 1.000\nTotal ENERO 1.000 1.000\n',
+            )
+            self._source_file(
+                source_root,
+                '01_Libros_Anuales/Libro Mayor 2024.txt',
+                '1101001 Caja\nTotal Mes de Enero . 1.000 1.000 0 DB\n',
+            )
+            self._source_file(
+                source_root,
+                '01_Libros_Anuales/Libro Inventario 2024.txt',
+                'DETALLE DE ACTIVOS\n1101001 Caja\nSALDO CONTABLE AL 31/12/2024 1.000\n',
+            )
+            self._source_file(
+                source_root,
+                '06_Respaldos_Tributarios/01_F29_y_Comprobantes/2024-01 F29.txt',
+                'PERIODO [15] 202401\n563 BASE IMPONIBLE 1.000 062 PPM NETO DETERMINADO 10\n',
+            )
+            self._source_file(
+                source_root,
+                '05_Libro_Remuneraciones/01 Enero.txt',
+                'Total General : 4.000.000 0 3.166.637',
+            )
+            self._source_file(
+                source_root,
+                '05_Libro_Remuneraciones/01 Enero Certificado.txt',
+                'Total General : 120.000 120.000',
+            )
+            manifest = self._manifest()
+            manifest['files'].append(
+                {
+                    'path_ref': 'payroll-enero-certificado-ref',
+                    'relative_path': '05_Libro_Remuneraciones/01 Enero Certificado.txt',
+                    'category': 'payroll_support',
+                    'artifact_key': 'payroll_support',
+                    'months': [1],
+                }
+            )
+            template = self._template()
+            template['package_draft']['labor_previsional']['source_refs'].append(
+                {'path_ref': 'payroll-enero-certificado-ref'}
+            )
+
+            result = build_annual_tax_controlled_values_draft(
+                manifest=manifest,
+                template=template,
+                source_root=source_root,
+                responsible_ref='codex-local-review',
+                approval_ref='user-authorized-local-source-review',
+            )
+
+        labor = result['package_draft']['labor_previsional']
+        self.assertTrue(labor['source_ref'].startswith('labor-previsional-reviewed-'))
+        self.assertEqual(labor['reviewed_source_refs_count'], 2)
+        self.assertTrue(result['values_draft_summary']['labor_previsional_source_ref_ready'])
+        self.assertEqual(result['values_draft_summary']['labor_previsional_reviewed_source_refs_count'], 2)
+        self.assertEqual(result['values_draft_summary']['extraction_errors'], [])
+
     def test_values_draft_prefers_commercial_year_annual_books_over_later_candidates(self):
         with TemporaryDirectory() as temp_dir:
             source_root = Path(temp_dir)
