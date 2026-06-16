@@ -134,14 +134,16 @@ AT2025 confirma que no faltan meses y que existen objetivos de comparacion,
 pero mantiene `ready_for_db_writer=false` hasta completar 132 campos
 normalizados; febrero y diciembre F29 `no_aplica` no cuentan como faltantes.
 `build_annual_tax_controlled_values_draft` completa ese paquete desde fuentes
-AC2024 permitidas y read-only: Libro Diario, Libro Mayor, F29 y libros de
-remuneraciones. La corrida real de Inmobiliaria Puig rellena 176 campos,
-queda `ready_for_db_writer=true` y permite aplicar el writer contra SQLite
-local/controlado para materializar 12 cierres mensuales, 12 libros diario/mayor,
-12 balances, 10 F29, 10 obligaciones y 12 `MonthlyTaxFact`. Esta carga no usa
-outputs finales como input y no declara cierre de renta; deja pendiente la
-capa anual, source bundle en DB, DDJJ/F22 generados y comparacion contra
-outputs esperados.
+AC2024 permitidas y read-only: Libro Diario, Libro Mayor, Libro Inventario, F29
+y libros de remuneraciones. La corrida real de Inmobiliaria Puig rellena 180
+campos, queda `ready_for_db_writer=true` y permite aplicar el writer contra
+SQLite local/controlado para materializar 12 cierres mensuales, 12 libros
+diario/mayor, 12 balances, 10 F29, 10 obligaciones y 12 `MonthlyTaxFact`. El
+Libro Inventario se conserva como lineas de balance anual en diciembre para que
+el mirror genere `AnnualTaxTrialBalanceLine` desde cuentas controladas reales de
+entrada. Esta carga no usa outputs finales como input y no declara cierre de
+renta; deja pendiente la reconciliacion semantica de RLI/CPT/RAI/SAC, DDJJ/F22
+y revision responsable.
 `MonthlyTaxFact` materializa la capa mensual anualizable: por cada empresa,
 ano comercial y mes normaliza el cierre aprobado, obligaciones mensuales,
 F29 si existe, distribuciones de arriendo y liquidacion de empresa, con

@@ -17,6 +17,7 @@ from core.annual_tax_controlled_mirror_run import run_annual_tax_controlled_mirr
 from patrimonio.models import Empresa
 from sii.models import (
     AnnualTaxSourceBundle,
+    AnnualTaxTrialBalanceLine,
     CapacidadSII,
     CapacidadTributariaSII,
     DDJJPreparacionAnual,
@@ -119,10 +120,10 @@ class AnnualTaxControlledMirrorRunTests(TestCase):
             'months': months,
         }
 
-    def _load_monthly_package(self, empresa):
+    def _load_monthly_package(self, empresa, package=None):
         return apply_annual_tax_controlled_db_load(
             empresa=empresa,
-            package=self._package(),
+            package=package or self._package(),
             write_database=True,
         )
 
@@ -169,6 +170,46 @@ class AnnualTaxControlledMirrorRunTests(TestCase):
         self.assertEqual(bundle.source_label, 'inmobiliaria-puig-ac2024-controlled-writer')
         self.assertEqual(bundle.resumen_fuentes['monthly_tax_fact_months'], list(range(1, 13)))
         self.assertEqual(bundle.resumen_fuentes['obligation_months'], [1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
+
+    def test_controlled_mirror_uses_december_inventory_lines_for_trial_balance(self):
+        empresa = self._create_empresa()
+        package = self._package()
+        package['months'][11]['balance']['annual_inventory_ref'] = 'libro-inventario-ref'
+        package['months'][11]['balance']['lineas_balance_8_columnas_source'] = 'libro_inventario'
+        package['months'][11]['balance']['lineas_balance_8_columnas'] = [
+            {
+                'codigo_cuenta': '1101001',
+                'nombre_cuenta': 'Caja',
+                'clasificador_dj1847': 'CPT-CASH-ASSET',
+                'sumas_debe_clp': '1000.00',
+                'saldo_deudor_clp': '1000.00',
+                'inventario_activo_clp': '1000.00',
+                'formula_ref': 'libro-inventario-saldo-contable',
+                'evidencia_ref': 'libro-inventario-2024-controlled',
+            },
+            {
+                'codigo_cuenta': '3101001',
+                'nombre_cuenta': 'Capital',
+                'clasificador_dj1847': 'CPT-EQUITY',
+                'sumas_haber_clp': '700.00',
+                'saldo_acreedor_clp': '700.00',
+                'inventario_pasivo_clp': '700.00',
+                'formula_ref': 'libro-inventario-saldo-contable',
+                'evidencia_ref': 'libro-inventario-2024-controlled',
+            },
+        ]
+        self._load_monthly_package(empresa, package=package)
+
+        run_annual_tax_controlled_mirror(
+            **self._mirror_kwargs(empresa),
+            write_database=True,
+        )
+
+        trial_lines = AnnualTaxTrialBalanceLine.objects.order_by('codigo_cuenta')
+        self.assertGreaterEqual(trial_lines.count(), 3)
+        self.assertTrue(trial_lines.filter(codigo_cuenta='1101001', clasificador_dj1847='CPT-CASH-ASSET').exists())
+        self.assertTrue(trial_lines.filter(codigo_cuenta='3101001', clasificador_dj1847='CPT-EQUITY').exists())
+        self.assertTrue(trial_lines.filter(clasificador_dj1847='RLI-LEASE-REVENUE').exists())
 
     def test_command_dry_run_writes_output_only_under_local_evidence(self):
         empresa = self._create_empresa()

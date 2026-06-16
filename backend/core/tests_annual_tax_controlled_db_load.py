@@ -260,6 +260,36 @@ class AnnualTaxControlledDbLoadTests(TestCase):
         self.assertIsNone(february.f29_preparacion_id)
         self.assertTrue(february.resumen_hecho['f29']['resumen']['no_declaration'])
 
+    def test_apply_preserves_december_inventory_lines_for_annual_trial_balance(self):
+        empresa = self._create_empresa()
+        package = self._package()
+        package['months'][11]['balance']['annual_inventory_ref'] = 'libro-inventario-ref'
+        package['months'][11]['balance']['lineas_balance_8_columnas_source'] = 'libro_inventario'
+        package['months'][11]['balance']['annual_inventory_totals'] = {'activos': 1000, 'pasivos': 700}
+        package['months'][11]['balance']['lineas_balance_8_columnas'] = [
+            {
+                'codigo_cuenta': '1101001',
+                'nombre_cuenta': 'Caja',
+                'clasificador_dj1847': 'CPT-CASH-ASSET',
+                'sumas_debe_clp': '1000.00',
+                'saldo_deudor_clp': '1000.00',
+                'inventario_activo_clp': '1000.00',
+                'formula_ref': 'libro-inventario-saldo-contable',
+                'evidencia_ref': 'libro-inventario-2024-controlled',
+            }
+        ]
+
+        apply_annual_tax_controlled_db_load(
+            empresa=empresa,
+            package=package,
+            write_database=True,
+        )
+
+        december_balance = BalanceComprobacion.objects.get(empresa=empresa, periodo='2024-12')
+        self.assertEqual(december_balance.resumen['annual_inventory_ref'], 'libro-inventario-ref')
+        self.assertEqual(december_balance.resumen['lineas_balance_8_columnas_source'], 'libro_inventario')
+        self.assertEqual(len(december_balance.resumen['lineas_balance_8_columnas']), 1)
+
     def test_command_apply_writes_only_when_explicit_apply_flag_is_present(self):
         empresa = self._create_empresa()
         with TemporaryDirectory() as temp_dir:

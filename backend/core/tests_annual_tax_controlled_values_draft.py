@@ -13,6 +13,7 @@ from core.annual_tax_controlled_values_draft import (
     build_annual_tax_controlled_values_draft,
     parse_f29_text,
     parse_libro_diario_text,
+    parse_libro_inventario_text,
     parse_libro_mayor_text,
     parse_payroll_text,
 )
@@ -44,6 +45,13 @@ class AnnualTaxControlledValuesDraftTests(SimpleTestCase):
                     'relative_path': '01_Libros_Anuales/Libro Mayor 2024.txt',
                     'category': 'annual_ledger_input',
                     'artifact_key': 'libro_mayor',
+                    'months': [],
+                },
+                {
+                    'path_ref': 'libro-inventario-ref',
+                    'relative_path': '01_Libros_Anuales/Libro Inventario 2024.txt',
+                    'category': 'annual_ledger_input',
+                    'artifact_key': 'libro_inventario',
                     'months': [],
                 },
                 {
@@ -85,7 +93,13 @@ class AnnualTaxControlledValuesDraftTests(SimpleTestCase):
                 'responsible_ref': 'pending-responsible-ref',
                 'approval_ref': 'pending-approval-ref',
                 'expected_outputs_used_as_inputs': False,
-                'annual_input_source_refs': {'annual_ledger_input': [{'path_ref': 'libro-diario-ref'}]},
+                'annual_input_source_refs': {
+                    'annual_ledger_input': [
+                        {'path_ref': 'libro-diario-ref'},
+                        {'path_ref': 'libro-mayor-ref'},
+                        {'path_ref': 'libro-inventario-ref'},
+                    ]
+                },
                 'months': [
                     {
                         'month': 1,
@@ -143,6 +157,21 @@ class AnnualTaxControlledValuesDraftTests(SimpleTestCase):
             '048 RET. IMP. UNICO TRAB. ART. 74 N 1 LIR 167.505'
         )
         payroll = parse_payroll_text('Total General : 4.000.000 0 3.166.637')
+        inventario = parse_libro_inventario_text(
+            '\n'.join(
+                [
+                    'DETALLE DE ACTIVOS',
+                    '1101001 Caja',
+                    'DESCRIPCION TOTAL',
+                    'SALDO CONTABLE AL 31/12/2024 1.000',
+                    'DETALLE DE PASIVOS',
+                    '3101001 Capital',
+                    'DESCRIPCION TOTAL',
+                    'SALDO CONTABLE AL 31/12/2024 (700)',
+                    'PERDIDA DEL EJERCICIO (300)',
+                ]
+            )
+        )
 
         self.assertEqual(diario[1]['asientos_count'], 2)
         self.assertEqual(diario[1]['total_debe'], 3500)
@@ -151,6 +180,10 @@ class AnnualTaxControlledValuesDraftTests(SimpleTestCase):
         self.assertEqual(f29['periodo'], '202401')
         self.assertEqual(f29['codes']['062'], 378)
         self.assertTrue(payroll['has_movements'])
+        self.assertEqual(len(inventario['lines']), 3)
+        self.assertEqual(inventario['lines'][0]['clasificador_dj1847'], 'CPT-CASH-ASSET')
+        self.assertEqual(inventario['lines'][1]['inventario_pasivo_clp'], '700.00')
+        self.assertEqual(inventario['lines'][2]['resultado_perdida_clp'], '300.00')
 
     def test_values_draft_fills_permitted_inputs_without_using_expected_outputs(self):
         with TemporaryDirectory() as temp_dir:
@@ -168,6 +201,15 @@ class AnnualTaxControlledValuesDraftTests(SimpleTestCase):
                 '01_Libros_Anuales/Libro Mayor 2024.txt',
                 '1101001 Caja\nTotal Mes de Enero . 1.000 500 500 DB\n'
                 '2101001 Proveedores\nTotal Mes de Enero . 2.500 3.000 500 CR\n',
+            )
+            self._source_file(
+                source_root,
+                '01_Libros_Anuales/Libro Inventario 2024.txt',
+                'DETALLE DE ACTIVOS\n'
+                '1101001 Caja\nDESCRIPCION TOTAL\nSALDO CONTABLE AL 31/12/2024 1.000\n'
+                'DETALLE DE PASIVOS\n'
+                '3101001 Capital\nDESCRIPCION TOTAL\nSALDO CONTABLE AL 31/12/2024 (700)\n'
+                'PERDIDA DEL EJERCICIO (300)\n',
             )
             self._source_file(
                 source_root,
@@ -196,11 +238,53 @@ class AnnualTaxControlledValuesDraftTests(SimpleTestCase):
         self.assertEqual(month['ledger']['cuentas_count'], 2)
         self.assertEqual(month['ledger']['total_debe'], '3500.00')
         self.assertTrue(month['balance']['cuadrado'])
+        self.assertNotIn('lineas_balance_8_columnas', month['balance'])
         self.assertEqual(month['f29']['borrador_ref'], 'f29-enero-ref')
         self.assertEqual(month['obligations'][0]['tipo'], 'PPM')
         self.assertTrue(month['payroll']['has_movements'])
         rendered_package = json.dumps(result['package_draft'], ensure_ascii=True)
         self.assertNotIn('f22_expected_output', rendered_package)
+
+    def test_values_draft_attaches_inventory_lines_to_december_balance(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            self._source_file(
+                source_root,
+                '01_Libros_Anuales/Libro Diario 2024.txt',
+                'Comprobantes MES DE DICIEMBRE\nTOTAL COMPROBANTE Nº 1 1.000 1.000\nTotal DICIEMBRE 1.000 1.000\n',
+            )
+            self._source_file(
+                source_root,
+                '01_Libros_Anuales/Libro Mayor 2024.txt',
+                '1101001 Caja\nTotal Mes de Diciembre . 1.000 0 1.000 DB\n',
+            )
+            self._source_file(
+                source_root,
+                '01_Libros_Anuales/Libro Inventario 2024.txt',
+                'DETALLE DE ACTIVOS\n'
+                '1101001 Caja\nDESCRIPCION TOTAL\nSALDO CONTABLE AL 31/12/2024 1.000\n'
+                'DETALLE DE PASIVOS\n'
+                '3101001 Capital\nDESCRIPCION TOTAL\nSALDO CONTABLE AL 31/12/2024 (700)\n',
+            )
+            template = self._template()
+            month = template['package_draft']['months'][0]
+            month['month'] = 12
+            month['source_ref'] = 'month-12-controlled'
+            month['input_source_refs'] = {}
+
+            result = build_annual_tax_controlled_values_draft(
+                manifest=self._manifest(),
+                template=template,
+                source_root=source_root,
+                responsible_ref='codex-local-review',
+                approval_ref='user-authorized-local-source-review',
+            )
+
+        december = result['package_draft']['months'][0]
+        self.assertEqual(december['balance']['annual_inventory_ref'], 'libro-inventario-ref')
+        self.assertEqual(december['balance']['lineas_balance_8_columnas_source'], 'libro_inventario')
+        self.assertEqual(len(december['balance']['lineas_balance_8_columnas']), 2)
+        self.assertEqual(december['balance']['lineas_balance_8_columnas'][0]['inventario_activo_clp'], '1000.00')
 
     def test_command_outputs_values_draft_and_refuses_versioned_output_outside_local_evidence(self):
         with TemporaryDirectory() as temp_dir:
@@ -215,6 +299,11 @@ class AnnualTaxControlledValuesDraftTests(SimpleTestCase):
                 source_root,
                 '01_Libros_Anuales/Libro Mayor 2024.txt',
                 '1101001 Caja\nTotal Mes de Enero . 1.000 1.000 0\n',
+            )
+            self._source_file(
+                source_root,
+                '01_Libros_Anuales/Libro Inventario 2024.txt',
+                'DETALLE DE ACTIVOS\n1101001 Caja\nSALDO CONTABLE AL 31/12/2024 1.000\n',
             )
             self._source_file(source_root, '06_Respaldos_Tributarios/01_F29_y_Comprobantes/2024-01 F29.txt', '')
             self._source_file(source_root, '05_Libro_Remuneraciones/01 Enero.txt', 'Total General : 1.000')

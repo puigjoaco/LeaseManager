@@ -162,6 +162,21 @@ def _snapshot_summary(
     ledger = month_payload['ledger']
     balance = month_payload['balance']
     obligations = month_payload.get('obligations') or []
+    balance_summary = {
+        'total_debe': str(_decimal(balance.get('total_debe'), field_name='balance.total_debe')),
+        'total_haber': str(_decimal(balance.get('total_haber'), field_name='balance.total_haber')),
+        'cuadrado': bool(balance.get('cuadrado')),
+    }
+    if isinstance(balance.get('lineas_balance_8_columnas'), list):
+        balance_summary['lineas_balance_8_columnas'] = balance['lineas_balance_8_columnas']
+        balance_summary['lineas_balance_8_columnas_source'] = str(
+            balance.get('lineas_balance_8_columnas_source') or 'controlled_package'
+        )
+    if isinstance(balance.get('annual_inventory_totals'), dict):
+        balance_summary['annual_inventory_totals'] = balance['annual_inventory_totals']
+    if balance.get('annual_inventory_ref'):
+        balance_summary['annual_inventory_ref'] = str(balance.get('annual_inventory_ref') or '').strip()
+
     return {
         'schema_version': CONTROLLED_DB_LOAD_SCHEMA_VERSION,
         'company_ref': package['company_ref'],
@@ -174,11 +189,7 @@ def _snapshot_summary(
             'total_debe': str(_decimal(ledger.get('total_debe'), field_name='ledger.total_debe')),
             'total_haber': str(_decimal(ledger.get('total_haber'), field_name='ledger.total_haber')),
         },
-        'balance': {
-            'total_debe': str(_decimal(balance.get('total_debe'), field_name='balance.total_debe')),
-            'total_haber': str(_decimal(balance.get('total_haber'), field_name='balance.total_haber')),
-            'cuadrado': bool(balance.get('cuadrado')),
-        },
+        'balance': balance_summary,
         'obligations': [
             {
                 'tipo': str(item.get('tipo') or item.get('obligacion_tipo') or '').strip(),

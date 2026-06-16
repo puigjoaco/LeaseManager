@@ -390,6 +390,63 @@ def _ensure_controlled_accounts(empresa) -> tuple[CuentaContable, CuentaContable
     return revenue_account, asset_account
 
 
+def _row_decimal(row: dict[str, Any], *fields: str) -> Decimal:
+    for field in fields:
+        if field not in row:
+            continue
+        value = _decimal(row.get(field))
+        if value:
+            return value
+    return Decimal('0.00')
+
+
+def _account_nature_for_row(row: dict[str, Any]) -> str:
+    if _row_decimal(
+        row,
+        'sumas_debe_clp',
+        'saldo_deudor_clp',
+        'inventario_activo_clp',
+        'resultado_perdida_clp',
+    ):
+        return NaturalezaCuenta.DEBIT
+    return NaturalezaCuenta.CREDIT
+
+
+def _ensure_controlled_accounts_for_rows(empresa, rows: list[dict[str, Any]]) -> None:
+    for row in rows:
+        code = str(row.get('codigo_cuenta') or '').strip()
+        name = str(row.get('nombre_cuenta') or '').strip()
+        if not code or not name:
+            continue
+        account, created = CuentaContable.objects.get_or_create(
+            empresa=empresa,
+            plan_cuentas_version='ac2024-controlled-mirror',
+            codigo=code,
+            defaults={
+                'nombre': name[:255],
+                'naturaleza': _account_nature_for_row(row),
+                'nivel': 1,
+                'estado': 'activa',
+            },
+        )
+        if not created:
+            account.nombre = name[:255]
+            account.naturaleza = _account_nature_for_row(row)
+            account.estado = 'activa'
+            account.save(update_fields=['nombre', 'naturaleza', 'estado', 'updated_at'])
+
+
+def _has_classifier(rows: list[dict[str, Any]], classifier: str) -> bool:
+    return any(str(row.get('clasificador_dj1847') or '').strip() == classifier for row in rows)
+
+
+def _fallback_asset_total_from_rows(rows: list[dict[str, Any]]) -> Decimal:
+    total = Decimal('0.00')
+    for row in rows:
+        total += _row_decimal(row, 'inventario_activo_clp')
+    return total
+
+
 def _annual_ledger_haber_total(empresa, commercial_year: int) -> Decimal:
     total = Decimal('0.00')
     for item in LibroDiario.objects.filter(empresa=empresa, periodo__startswith=f'{commercial_year}-'):
@@ -415,26 +472,72 @@ def _ensure_annual_trial_balance_source(empresa, commercial_year: int, tax_year:
     december_balance_total = _decimal(existing_summary.get('total_debe'))
     if december_balance_total == Decimal('0.00'):
         december_balance_total = annual_revenue
-    line_items = [
-        {
-            'codigo_cuenta': revenue_account.codigo,
-            'clasificador_dj1847': 'RLI-LEASE-REVENUE',
-            'sumas_haber_clp': str(annual_revenue),
-            'saldo_acreedor_clp': str(annual_revenue),
-            'resultado_ganancia_clp': str(annual_revenue),
-            'formula_ref': f'ac2024-controlled-rli-preview-at{tax_year}',
-            'evidencia_ref': f'ac2024-controlled-ledger-haber-at{tax_year}',
-        },
-        {
-            'codigo_cuenta': asset_account.codigo,
-            'clasificador_dj1847': 'CPT-CASH-ASSET',
-            'sumas_debe_clp': str(december_balance_total),
-            'saldo_deudor_clp': str(december_balance_total),
-            'inventario_activo_clp': str(december_balance_total),
-            'formula_ref': f'ac2024-controlled-cpt-preview-at{tax_year}',
-            'evidencia_ref': f'ac2024-controlled-december-balance-at{tax_year}',
-        },
+    inventory_lines = [
+        item
+        for item in existing_summary.get('lineas_balance_8_columnas') or []
+        if isinstance(item, dict) and str(item.get('codigo_cuenta') or '').strip()
     ]
+    if inventory_lines:
+        line_items = list(inventory_lines)
+        if annual_revenue and not _has_classifier(line_items, 'RLI-LEASE-REVENUE'):
+            line_items.append(
+                {
+                    'codigo_cuenta': revenue_account.codigo,
+                    'nombre_cuenta': revenue_account.nombre,
+                    'clasificador_dj1847': 'RLI-LEASE-REVENUE',
+                    'sumas_haber_clp': str(annual_revenue),
+                    'saldo_acreedor_clp': str(annual_revenue),
+                    'resultado_ganancia_clp': str(annual_revenue),
+                    'formula_ref': f'ac2024-controlled-rli-preview-at{tax_year}',
+                    'evidencia_ref': f'ac2024-controlled-ledger-haber-at{tax_year}',
+                    'source_payload': {
+                        'source': 'libro_diario_controlled_annual_total',
+                        'final_tax_calculation': False,
+                    },
+                }
+            )
+        if not _has_classifier(line_items, 'CPT-CASH-ASSET'):
+            fallback_asset_total = _fallback_asset_total_from_rows(line_items) or december_balance_total
+            line_items.append(
+                {
+                    'codigo_cuenta': asset_account.codigo,
+                    'nombre_cuenta': asset_account.nombre,
+                    'clasificador_dj1847': 'CPT-CASH-ASSET',
+                    'sumas_debe_clp': str(fallback_asset_total),
+                    'saldo_deudor_clp': str(fallback_asset_total),
+                    'inventario_activo_clp': str(fallback_asset_total),
+                    'formula_ref': f'ac2024-controlled-cpt-preview-at{tax_year}',
+                    'evidencia_ref': f'ac2024-controlled-inventory-fallback-at{tax_year}',
+                    'source_payload': {
+                        'source': 'libro_inventario_controlled_asset_total',
+                        'final_tax_calculation': False,
+                    },
+                }
+            )
+    else:
+        line_items = [
+            {
+                'codigo_cuenta': revenue_account.codigo,
+                'nombre_cuenta': revenue_account.nombre,
+                'clasificador_dj1847': 'RLI-LEASE-REVENUE',
+                'sumas_haber_clp': str(annual_revenue),
+                'saldo_acreedor_clp': str(annual_revenue),
+                'resultado_ganancia_clp': str(annual_revenue),
+                'formula_ref': f'ac2024-controlled-rli-preview-at{tax_year}',
+                'evidencia_ref': f'ac2024-controlled-ledger-haber-at{tax_year}',
+            },
+            {
+                'codigo_cuenta': asset_account.codigo,
+                'nombre_cuenta': asset_account.nombre,
+                'clasificador_dj1847': 'CPT-CASH-ASSET',
+                'sumas_debe_clp': str(december_balance_total),
+                'saldo_deudor_clp': str(december_balance_total),
+                'inventario_activo_clp': str(december_balance_total),
+                'formula_ref': f'ac2024-controlled-cpt-preview-at{tax_year}',
+                'evidencia_ref': f'ac2024-controlled-december-balance-at{tax_year}',
+            },
+        ]
+    _ensure_controlled_accounts_for_rows(empresa, line_items)
     balance.estado_snapshot = EstadoCierreMensual.APPROVED
     balance.storage_ref = balance.storage_ref or f'ac2024-controlled-annual-balance-{empresa.pk}-{commercial_year}'
     balance.resumen = {
@@ -442,6 +545,7 @@ def _ensure_annual_trial_balance_source(empresa, commercial_year: int, tax_year:
         'controlled_annual_mirror': True,
         'lineas_balance_8_columnas': line_items,
         'lineas_balance_8_columnas_source': 'annual_tax_controlled_mirror_run',
+        'lineas_balance_8_columnas_count': len(line_items),
         'source_limitations': [
             'controlled_preview_requires_expert_review',
             'not_final_tax_calculation',

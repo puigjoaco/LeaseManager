@@ -31,6 +31,10 @@ MONTH_NAMES = {
 }
 
 MONTH_NAME_PATTERN = '|'.join(MONTH_NAMES)
+INVENTORY_SECTION_LABELS = {
+    'DETALLE DE ACTIVOS': 'activo',
+    'DETALLE DE PASIVOS': 'pasivo',
+}
 
 
 def _parse_int_amount(raw: str) -> int:
@@ -144,6 +148,135 @@ def parse_payroll_text(text: str) -> dict[str, Any]:
     }
 
 
+def _inventory_amount(raw: str) -> int:
+    text = str(raw or '').strip()
+    if not text:
+        return 0
+    sign = -1 if '(' in text and ')' in text else 1
+    cleaned = text.replace('(', '').replace(')', '')
+    return sign * _parse_int_amount(cleaned)
+
+
+def _inventory_classifier(*, section: str, account_name: str) -> str:
+    normalized = ' '.join(str(account_name or '').upper().split())
+    if section == 'activo':
+        if 'CAJA' in normalized or 'BANCO' in normalized:
+            return 'CPT-CASH-ASSET'
+        return 'CPT-ASSET'
+    if 'UTILIDAD' in normalized:
+        return 'RLI-BOOK-PROFIT'
+    if 'PERDIDA' in normalized or 'PÉRDIDA' in normalized:
+        return 'RLI-BOOK-LOSS'
+    if 'CAPITAL' in normalized:
+        return 'CPT-EQUITY'
+    return 'CPT-LIABILITY-EQUITY'
+
+
+def parse_libro_inventario_text(text: str) -> dict[str, Any]:
+    current_section = ''
+    current_account: dict[str, str] | None = None
+    lines: list[dict[str, Any]] = []
+    totals = {'activos': 0, 'pasivos': 0, 'perdida_ejercicio': 0}
+
+    for raw_line in text.splitlines():
+        line = ' '.join(raw_line.strip().split())
+        upper = line.upper()
+        if not line:
+            continue
+        for label, section in INVENTORY_SECTION_LABELS.items():
+            if upper.startswith(label):
+                current_section = section
+                current_account = None
+                break
+        if upper.startswith('TOTAL DETALLE DE ACTIVOS'):
+            amounts = _last_amounts(line, 1)
+            totals['activos'] = amounts[-1] if amounts else 0
+            current_account = None
+            continue
+        if upper.startswith('TOTAL DETALLE DE PASIVOS'):
+            amounts = _last_amounts(line, 1)
+            totals['pasivos'] = amounts[-1] if amounts else 0
+            current_account = None
+            continue
+        if 'PERDIDA DEL EJERCICIO' in upper or 'PÉRDIDA DEL EJERCICIO' in upper:
+            amount_match = re.search(r'(\(?[\d.]+\)?)\s*$', line)
+            amount = _inventory_amount(amount_match.group(1)) if amount_match else 0
+            totals['perdida_ejercicio'] = abs(amount)
+            lines.append(
+                {
+                    'codigo_cuenta': 'RESULTADO-EJERCICIO',
+                    'nombre_cuenta': 'Perdida del ejercicio',
+                    'clasificador_dj1847': 'RLI-BOOK-LOSS',
+                    'resultado_perdida_clp': _money(abs(amount)),
+                    'formula_ref': 'libro-inventario-resultado-ejercicio',
+                    'evidencia_ref': 'libro-inventario-2024-controlled',
+                    'source_payload': {
+                        'source': 'libro_inventario',
+                        'section': 'resultado',
+                        'final_tax_calculation': False,
+                    },
+                }
+            )
+            current_account = None
+            continue
+        account_match = re.match(r'^(\d{6,10})\s+(.+)$', line)
+        if account_match and current_section:
+            current_account = {
+                'codigo_cuenta': account_match.group(1),
+                'nombre_cuenta': account_match.group(2).strip(),
+                'section': current_section,
+            }
+            continue
+        if not current_account or 'SALDO CONTABLE AL' not in upper:
+            continue
+        amount_match = re.search(r'(\(?[\d.]+\)?)\s*$', line)
+        if not amount_match:
+            continue
+        amount_abs = abs(_inventory_amount(amount_match.group(1)))
+        if amount_abs == 0:
+            current_account = None
+            continue
+        section = current_account['section']
+        payload = {
+            'codigo_cuenta': current_account['codigo_cuenta'],
+            'nombre_cuenta': current_account['nombre_cuenta'],
+            'clasificador_dj1847': _inventory_classifier(
+                section=section,
+                account_name=current_account['nombre_cuenta'],
+            ),
+            'formula_ref': 'libro-inventario-saldo-contable',
+            'evidencia_ref': 'libro-inventario-2024-controlled',
+            'source_payload': {
+                'source': 'libro_inventario',
+                'section': section,
+                'final_tax_calculation': False,
+            },
+        }
+        if section == 'activo':
+            payload.update(
+                {
+                    'sumas_debe_clp': _money(amount_abs),
+                    'saldo_deudor_clp': _money(amount_abs),
+                    'inventario_activo_clp': _money(amount_abs),
+                }
+            )
+        else:
+            payload.update(
+                {
+                    'sumas_haber_clp': _money(amount_abs),
+                    'saldo_acreedor_clp': _money(amount_abs),
+                    'inventario_pasivo_clp': _money(amount_abs),
+                }
+            )
+        lines.append(payload)
+        current_account = None
+
+    return {
+        'lines': lines,
+        'totals': totals,
+    }
+
+
 def _extract_text(path: Path) -> str:
     if path.suffix.lower() in {'.txt', '.csv', '.json', '.md', '.html', '.htm'}:
         return path.read_text(encoding='utf-8-sig', errors='replace')
@@ -224,7 +357,7 @@ def _extract_annual_ledger_sources(
     manifest: dict[str, Any],
     source_root: Path,
     file_index: dict[str, dict[str, Any]],
-) -> tuple[dict[int, dict[str, Any]], dict[int, dict[str, Any]], dict[str, str], list[str]]:
+) -> tuple[dict[int, dict[str, Any]], dict[int, dict[str, Any]], dict[str, Any], dict[str, str], list[str]]:
     errors: list[str] = []
     ledger_refs = {
         item.get('artifact_key'): item.get('path_ref')
@@ -233,9 +366,11 @@ def _extract_annual_ledger_sources(
     }
     diario_by_month: dict[int, dict[str, Any]] = {}
     mayor_by_month: dict[int, dict[str, Any]] = {}
+    inventario: dict[str, Any] = {'lines': [], 'totals': {}}
     source_refs: dict[str, str] = {}
     diario_ref = str(ledger_refs.get('libro_diario') or '')
     mayor_ref = str(ledger_refs.get('libro_mayor') or '')
+    inventario_ref = str(ledger_refs.get('libro_inventario') or '')
     if diario_ref:
         try:
             diario_by_month = parse_libro_diario_text(_extract_text(_source_path(source_root, file_index, diario_ref)))
@@ -248,7 +383,15 @@ def _extract_annual_ledger_sources(
             source_refs['libro_mayor'] = mayor_ref
         except ValueError as error:
             errors.append(f'libro_mayor:{error}')
-    return diario_by_month, mayor_by_month, source_refs, errors
+    if inventario_ref:
+        try:
+            inventario = parse_libro_inventario_text(
+                _extract_text(_source_path(source_root, file_index, inventario_ref))
+            )
+            source_refs['libro_inventario'] = inventario_ref
+        except ValueError as error:
+            errors.append(f'libro_inventario:{error}')
+    return diario_by_month, mayor_by_month, inventario, source_refs, errors
 
 
 def build_annual_tax_controlled_values_draft(
@@ -286,7 +429,7 @@ def build_annual_tax_controlled_values_draft(
         package['approval_ref'] = approval_ref
         filled_paths.append('$.approval_ref')
 
-    diario_by_month, mayor_by_month, ledger_source_refs, ledger_errors = _extract_annual_ledger_sources(
+    diario_by_month, mayor_by_month, inventario, ledger_source_refs, ledger_errors = _extract_annual_ledger_sources(
         manifest=manifest,
         source_root=source_root,
         file_index=file_index,
@@ -339,6 +482,22 @@ def build_annual_tax_controlled_values_draft(
                 or int(diario.get('total_haber') or 0) != int(mayor.get('total_haber') or 0)
             ):
                 extraction_warnings.append(f'{month_path}.ledger_mayor_diario_totals_mismatch')
+
+        if month == 12 and inventario.get('lines'):
+            balance = month_payload.setdefault('balance', {})
+            if ledger_source_refs.get('libro_inventario'):
+                balance['annual_inventory_ref'] = ledger_source_refs['libro_inventario']
+                filled_paths.append(f'{month_path}.balance.annual_inventory_ref')
+            balance['lineas_balance_8_columnas'] = inventario['lines']
+            balance['annual_inventory_totals'] = inventario.get('totals') or {}
+            balance['lineas_balance_8_columnas_source'] = 'libro_inventario'
+            filled_paths.extend(
+                [
+                    f'{month_path}.balance.lineas_balance_8_columnas',
+                    f'{month_path}.balance.annual_inventory_totals',
+                    f'{month_path}.balance.lineas_balance_8_columnas_source',
+                ]
+            )
 
         f29_ref = _first_ref((month_payload.get('input_source_refs') or {}).get('f29_support_input') or [])
         if f29_ref:
