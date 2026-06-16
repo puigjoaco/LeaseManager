@@ -34,6 +34,9 @@ aceptada, `labor_previsional_source` pasa a requerido: falta de
 `labor_previsional.required=true` y readiness/writer rechazan paquetes sin
 `labor_previsional.source_ref` no sensible. No se implementa payroll completo,
 no se usa EDIG/SII real y no se convierte DJ1887 final en input de calculo.
+El draft controlado de valores consolida `labor_previsional.source_ref` solo
+cuando los `payroll_support` esperados fueron revisados exitosamente, dejando
+`final_tax_calculation=false` y sin abrir presentacion SII.
 
 Nota 2026-06-15: La iteracion posterior al mapeo completo EDIG se contrasta
 con SII. F22 AT2026 opera por certificacion de software que genera archivos y
