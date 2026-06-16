@@ -26,6 +26,15 @@ gates. `ready_for_company_accounting_review` significa paquete local preparado
 para revision responsable, no cierre contable, calculo de renta final ni
 presentacion SII.
 
+Nota 2026-06-16: El auditor de progreso contable/renta distingue F29 faltante
+de mes controlado sin declaracion. Si existe `MonthlyTaxFact` normalizado con
+F29 `no_aplica` y `no_declaration=true`, el mes cuenta como cobertura F29
+mensual para `audit_company_accounting_progress` y
+`audit_company_accounting_candidates`, sin crear un `F29PreparacionMensual`
+ficticio. En el caso Inmobiliaria Puig AC2024/AT2025, los meses sin declaracion
+normalizados dejan de bloquear `f29_monthly`; el siguiente bloqueo operativo
+queda en `annual_process` cuando la fuente controlada los carga con esa forma.
+
 Nota 2026-06-16: DJ1887/remuneraciones queda como boundary de fuente
 laboral-previsional para Etapa 6. Si el manifiesto AC/AT detecta DJ1887
 aceptada, `labor_previsional_source` pasa a requerido: falta de

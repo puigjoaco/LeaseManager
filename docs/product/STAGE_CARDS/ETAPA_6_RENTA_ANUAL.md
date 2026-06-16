@@ -371,6 +371,12 @@ no habilita calculo tributario final, upload SII ni presentacion autonoma.
 El selector expone `selection_boundary` para indicar que solo ordena candidatos
 con senales internas, sin fuentes externas, sin gates externos y sin habilitar
 contabilidad autonoma.
+Para F29 mensual, el progreso anual cuenta tanto formularios preparados como
+meses con `MonthlyTaxFact` normalizado cuyo F29 esta `no_aplica` y
+`no_declaration=true`. Esto permite modelar periodos AC2024 registrados como
+sin declaracion sin convertirlos en F29 ficticios ni tratarlos como brecha de
+fuente. En Inmobiliaria Puig AC2024/AT2025, esa distincion desplaza el bloqueo
+de progreso desde F29 hacia la capa anual (`ProcesoRentaAnual`).
 Tanto el selector como el auditor por empresa exponen si la configuracion
 fiscal activa pertenece al regimen automatizable v1
 `EmpresaContabilidadCompletaV1`; si no corresponde, conservan las senales

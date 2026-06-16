@@ -16,6 +16,7 @@ from contabilidad.models import (
     RegimenTributarioEmpresa,
 )
 from contabilidad.services import ensure_default_regime
+from core.annual_tax_source_manifest import payload_hash
 from core.company_accounting_progress import collect_company_accounting_candidates, collect_company_accounting_progress
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Socio
 from sii.models import (
@@ -36,8 +37,10 @@ from sii.models import (
     EstadoAnnualTaxTrialBalance,
     EstadoAnnualTaxWorkbook,
     EstadoGateSII,
+    EstadoMonthlyTaxFact,
     EstadoReglaTributariaAnual,
     F29PreparacionMensual,
+    MonthlyTaxFact,
     ProcesoRentaAnual,
     TaxYearRuleSet,
     TipoAnnualTaxWorkbook,
@@ -118,6 +121,29 @@ class CompanyAccountingProgressTests(TestCase):
             estado_gate=EstadoGateSII.OPEN,
         )
 
+    def _create_no_declaration_monthly_tax_fact(self, empresa, month, *, fiscal_year=2025):
+        close = self._create_close(empresa, month, fiscal_year=fiscal_year)
+        resumen = {
+            'empresa_id': empresa.id,
+            'anio': fiscal_year,
+            'mes': month,
+            'f29': {
+                'estado_preparacion': EstadoPreparacionTributaria.NOT_APPLICABLE,
+                'resumen': {'no_declaration': True},
+            },
+        }
+        return MonthlyTaxFact.objects.create(
+            empresa=empresa,
+            anio=fiscal_year,
+            mes=month,
+            cierre_mensual=close,
+            source_ref=f'f29-no-declaration-{fiscal_year}-{month:02d}',
+            responsible_ref='company-accounting-progress-owner',
+            resumen_hecho=resumen,
+            hash_hecho=payload_hash(resumen),
+            estado=EstadoMonthlyTaxFact.NORMALIZED,
+        )
+
     def _create_source_bundle(self, empresa):
         return AnnualTaxSourceBundle.objects.create(
             empresa=empresa,
@@ -196,6 +222,31 @@ class CompanyAccountingProgressTests(TestCase):
         self.assertEqual(result['phases']['f29_monthly']['completed'], 1)
         self.assertIn('company_accounting.monthly_closes_missing', {issue['code'] for issue in result['issues']})
         self.assertNotIn('://', json.dumps(result))
+
+    def test_progress_counts_controlled_f29_no_declaration_month(self):
+        empresa = self._create_empresa()
+        self._activate_fiscal_config(empresa)
+        f29_capability = self._create_f29_capability(empresa)
+
+        close = self._create_close(empresa, 1)
+        F29PreparacionMensual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=f29_capability,
+            cierre_mensual=close,
+            anio=2025,
+            mes=1,
+            estado_preparacion=EstadoPreparacionTributaria.PREPARED,
+            resumen_formulario={'source': 'company-accounting-progress-test'},
+            borrador_ref='f29-progress-draft',
+            responsable_revision_ref='f29-progress-owner',
+        )
+        self._create_no_declaration_monthly_tax_fact(empresa, 2)
+
+        result = collect_company_accounting_progress(empresa_id=empresa.id, fiscal_year=2025)
+
+        self.assertEqual(result['phases']['f29_monthly']['completed'], 2)
+        self.assertEqual(result['phases']['f29_monthly']['missing'], [3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
+        self.assertNotIn(empresa.rut, json.dumps(result))
 
     def test_unsupported_fiscal_regime_blocks_company_progress_review(self):
         empresa = self._create_empresa()
@@ -376,6 +427,17 @@ class CompanyAccountingProgressTests(TestCase):
         self.assertEqual(result['candidates'][0]['years'][1]['fiscal_year'], 2024)
         self.assertNotIn(empresa.rut, json.dumps(result))
         self.assertNotIn(empresa_sin_senales.rut, json.dumps(result))
+
+    def test_candidates_count_controlled_f29_no_declaration_month(self):
+        empresa = self._create_empresa()
+        self._activate_fiscal_config(empresa)
+        self._create_no_declaration_monthly_tax_fact(empresa, 2)
+
+        result = collect_company_accounting_candidates(empresa_ids=[empresa.id])
+
+        self.assertEqual(result['summary']['candidate_companies'], 1)
+        self.assertEqual(result['candidates'][0]['years'][0]['signals']['f29_monthly'], 1)
+        self.assertNotIn(empresa.rut, json.dumps(result))
 
     def test_candidates_surface_unsupported_fiscal_regime_without_hiding_signals(self):
         empresa = self._create_empresa()

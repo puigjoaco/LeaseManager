@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `main-clean-next-traceable-front`. |
-| Fuente exacta | `main` posterior al cierre del paquete `stage6-workbook-warning-review`. |
-| Brecha activa | No hay paquete tactico abierto para revision de warnings RLI/CPT o matriz DDJJ/F22. `AnnualTaxWorkbookLine.warning_review_ref` y `AnnualTaxArtifactMatrixItem.warning_review_ref` permiten registrar revision responsable no sensible sin borrar warnings ni declarar calculo final. |
-| Motivo de prioridad | Evitar reabrir paquetes cerrados y mantener la siguiente decision basada en estado real del repo, trazabilidad y cursor. |
-| Worktree | Ningun worktree tactico de Etapa 6 debe quedar activo despues de mergear el paquete vigente. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. La junction rota `D:/Proyectos/LeaseManager-company-progress-candidates` no es fuente activa. |
-| Rama | `main` limpio despues de cerrar el paquete. Para el proximo paquete no trivial abrir worktree hermano `codex/...` desde `main`. |
-| Estado | El flujo anual distingue warnings totales de warnings pendientes de revision: una linea RLI/CPT con warnings solo deja de bloquear workbooks si conserva `warning_review_ref` no sensible; un item DDJJ/F22 con warnings solo deja de bloquear dossier/export/checklist si esta `listo_revision`, conserva `warning_review_ref` no sensible y los artefactos derivados fueron regenerados. Esto mantiene `final_tax_calculation=false`, `official_format=false` y `sii_submission=false`. |
+| Frente activo | `main-clean-next-annual-process`. |
+| Fuente exacta | `main` despues de cerrar `company-progress-f29-no-declaration`. |
+| Brecha activa | La cobertura F29 mensual controlada para Inmobiliaria Puig AC2024/AT2025 ya distingue meses sin declaracion (`no_aplica` + `no_declaration=true`) de F29 faltante. |
+| Motivo de prioridad | La prueba controlada AC2024/AT2025 ya cargo 12 cierres/libros/balances y 12 `MonthlyTaxFact`; febrero y diciembre no deben bloquear `f29_monthly` si estan normalizados como meses sin declaracion. |
+| Worktree | No debe quedar worktree tactico activo de `company-progress-f29-no-declaration` tras el merge. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `main` limpio para el siguiente paquete; abrir nuevo worktree `codex/...` solo si el siguiente frente requiere cambios. |
+| Estado | El auditor de progreso cuenta F29 preparados y meses con `MonthlyTaxFact` normalizado cuyo F29 esta `no_aplica` y `no_declaration=true`. En el caso AC2024/AT2025, esos meses dejan de ser ausencia documental y el siguiente bloqueo operativo pasa a `annual_process` cuando la fuente controlada los carga normalizados. Esto no declara contabilidad autonoma, calculo tributario final ni presentacion SII. |
 | Gate esperado | Para AC2024/AT2025 controlado o autorizado, usar `scripts/run-stage6-mirror-proof-gate.ps1`; con `-FailOnIncomplete` solo si se exige `ready_for_objective_completion=true`. El siguiente frente util debe salir de trazabilidad, stage cards y estado real de `main` limpio. |
-| Estado al cerrar paquete | No reabrir prompts de goal, boundary contable de PR #859, gate espejo backend, wrapper Stage 6, corrida controlada AC2024, boundary laboral-previsional DJ1887, selector anual, ownership, respaldo tributario, bienes raices, DDJJ/F22 semantico, Balance General, RLI/CPT/RAI/SAC, revision de warnings RLI/CPT, revision de warnings de matriz DDJJ/F22 ni EDIG como bloqueo general salvo bug nuevo. |
+| Estado al cerrar paquete | No reabrir prompts de goal, boundary contable de PR #859, gate espejo backend, wrapper Stage 6, corrida controlada AC2024, boundary laboral-previsional DJ1887, selector anual, ownership, respaldo tributario, bienes raices, DDJJ/F22 semantico, Balance General, RLI/CPT/RAI/SAC, revision de warnings RLI/CPT, revision de warnings de matriz DDJJ/F22 ni EDIG como bloqueo general salvo bug nuevo. Tras cerrar este paquete, el siguiente frente real de Inmobiliaria Puig queda en generar/revisar capa anual (`ProcesoRentaAnual`) con ownership controlado o evidencia equivalente. |
 | Bloqueos relacionados | Sin autorizacion o fuente real no se debe presentar SII, declarar calculo tributario final ni afirmar cierre productivo. El bloqueo externo queda como condicion de cierre real/productivo, no como freno para seguir por el siguiente frente seguro. |
 | Politica de reanudacion | No reabrir goal prompts, EDIG ni paquetes mergeados. No usar `.env`, secretos, DB real, produccion, SII real ni integraciones externas sin autorizacion explicita. Si falta fuente externa, continuar con preparacion local segura y trazable. |
-| Siguiente accion | Continuar con el siguiente paquete trazable desde `main` limpio, sin reabrir prompts de goal ni paquetes mergeados. |
+| Siguiente accion | Continuar con el frente real `annual_process`/ownership controlado para convertir la base mensual AC2024/AT2025 en proceso anual revisable, sin usar SII real, `.env`, EDIG ejecutable ni datos externos no autorizados. |
 
 ## Actualizacion
 
