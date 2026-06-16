@@ -137,10 +137,16 @@ fuente societaria controlada.
 `audit_annual_tax_controlled_package_readiness` audita el template o paquete
 antes de aplicar el writer: confirma 12 meses, refs de control, valores de
 libros/balance, estado F29, estado laboral/previsional y ausencia de outputs
-finales usados como input. Contra el template real de Inmobiliaria Puig AC2024/
-AT2025 confirma que no faltan meses y que existen objetivos de comparacion,
-pero mantiene `ready_for_db_writer=false` hasta completar 132 campos
-normalizados; febrero y diciembre F29 `no_aplica` no cuentan como faltantes.
+finales usados como input. Ademas separa `ready_for_db_writer` de
+`ready_for_annual_generation`: la contabilidad mensual puede estar completa y
+aplicable al writer, pero la generacion anual/mirror queda bloqueada si falta
+`ownership` como snapshot patrimonial controlado para registros de retiros y
+dividendos. Contra el template real de Inmobiliaria Puig AC2024/AT2025 confirma
+que no faltan meses y que existen objetivos de comparacion, pero mantiene
+`ready_for_db_writer=false` hasta completar 132 campos normalizados; contra el
+draft real v3, `ready_for_db_writer=true` y `ready_for_annual_generation=false`
+por `ownership_snapshot_missing`. Febrero y diciembre F29 `no_aplica` no cuentan
+como faltantes.
 `build_annual_tax_controlled_values_draft` completa ese paquete desde fuentes
 AC2024 permitidas y read-only: Libro Diario, Libro Mayor, Libro Inventario, F29
 y libros de remuneraciones. La corrida real de Inmobiliaria Puig rellena 180

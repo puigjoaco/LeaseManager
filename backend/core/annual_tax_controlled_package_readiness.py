@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from datetime import date
 import json
 from decimal import Decimal, InvalidOperation
 from typing import Any
+
+from django.core.exceptions import ValidationError
 
 from core.annual_tax_controlled_db_load import (
     CONTROLLED_DB_LOAD_SCHEMA_VERSION,
@@ -11,6 +14,7 @@ from core.annual_tax_controlled_db_load import (
 from core.annual_tax_controlled_package_template import CONTROLLED_DB_LOAD_TEMPLATE_SCHEMA_VERSION
 from core.annual_tax_controlled_load_plan import COMPARISON_ONLY_CATEGORIES
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
+from patrimonio.validators import validate_rut
 
 
 CONTROLLED_PACKAGE_READINESS_SCHEMA_VERSION = 'annual-tax-controlled-package-readiness.v1'
@@ -47,6 +51,22 @@ def _decimal(value: Any) -> Decimal | None:
     try:
         return Decimal(str(value))
     except (InvalidOperation, ValueError):
+        return None
+
+
+def _date_value(value: Any) -> date | None:
+    if value in (None, ''):
+        return None
+    try:
+        return date.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalized_rut(value: Any) -> str | None:
+    try:
+        return validate_rut(str(value or '').strip())
+    except ValidationError:
         return None
 
 
@@ -115,6 +135,96 @@ def _validate_top_level(
         _add_invalid(invalid_paths, '$.tax_year')
 
     return commercial_year, tax_year
+
+
+def _validate_ownership_for_annual_generation(
+    *,
+    package: dict[str, Any],
+    commercial_year: int,
+    missing_paths: list[str],
+    invalid_paths: list[str],
+    blockers: set[str],
+) -> dict[str, Any]:
+    ownership = package.get('ownership')
+    if not isinstance(ownership, dict) or not ownership:
+        blockers.add('ownership_snapshot_missing')
+        _add_missing(missing_paths, '$.ownership')
+        return {'present': False, 'participants_count': 0}
+
+    if not _non_sensitive_text(ownership.get('source_ref')):
+        blockers.add('ownership_snapshot_invalid')
+        _add_missing(missing_paths, '$.ownership.source_ref')
+    as_of = _date_value(ownership.get('as_of'))
+    if as_of is None:
+        blockers.add('ownership_snapshot_invalid')
+        _add_missing(missing_paths, '$.ownership.as_of')
+    elif commercial_year >= 2000 and as_of.year != commercial_year:
+        blockers.add('ownership_snapshot_invalid')
+        _add_invalid(invalid_paths, '$.ownership.as_of')
+
+    participants = ownership.get('participants')
+    if not isinstance(participants, list) or not participants:
+        blockers.add('ownership_snapshot_missing')
+        _add_missing(missing_paths, '$.ownership.participants')
+        return {'present': True, 'participants_count': 0}
+
+    period_start = date(commercial_year, 1, 1) if commercial_year >= 2000 else None
+    period_end = date(commercial_year, 12, 31) if commercial_year >= 2000 else None
+    total_percentage = Decimal('0.00')
+    seen_ruts: set[str] = set()
+    valid_participants = 0
+    for index, participant in enumerate(participants):
+        participant_path = f'$.ownership.participants[{index}]'
+        if not isinstance(participant, dict):
+            blockers.add('ownership_snapshot_invalid')
+            _add_invalid(invalid_paths, participant_path)
+            continue
+        if str(participant.get('participant_type') or 'socio').strip().lower() != 'socio':
+            blockers.add('ownership_snapshot_invalid')
+            _add_invalid(invalid_paths, f'{participant_path}.participant_type')
+        for field_name in ('participant_ref', 'evidence_ref'):
+            if not _non_sensitive_text(participant.get(field_name)):
+                blockers.add('ownership_snapshot_invalid')
+                _add_missing(missing_paths, f'{participant_path}.{field_name}')
+        if not str(participant.get('name') or '').strip():
+            blockers.add('ownership_snapshot_invalid')
+            _add_missing(missing_paths, f'{participant_path}.name')
+        rut = _normalized_rut(participant.get('rut'))
+        if rut is None:
+            blockers.add('ownership_snapshot_invalid')
+            _add_invalid(invalid_paths, f'{participant_path}.rut')
+        elif rut in seen_ruts:
+            blockers.add('ownership_snapshot_invalid')
+            _add_invalid(invalid_paths, f'{participant_path}.rut')
+        else:
+            seen_ruts.add(rut)
+        percentage = _decimal(participant.get('percentage'))
+        if percentage is None or percentage <= Decimal('0.00') or percentage > Decimal('100.00'):
+            blockers.add('ownership_snapshot_invalid')
+            _add_invalid(invalid_paths, f'{participant_path}.percentage')
+        else:
+            total_percentage += percentage
+        starts_on = _date_value(participant.get('vigente_desde') or (period_start.isoformat() if period_start else None))
+        raw_ends_on = participant.get('vigente_hasta')
+        ends_on = _date_value(raw_ends_on)
+        if starts_on is None:
+            blockers.add('ownership_snapshot_invalid')
+            _add_missing(missing_paths, f'{participant_path}.vigente_desde')
+        elif raw_ends_on not in (None, '') and ends_on is None:
+            blockers.add('ownership_snapshot_invalid')
+            _add_invalid(invalid_paths, f'{participant_path}.vigente_hasta')
+        elif ends_on and ends_on < starts_on:
+            blockers.add('ownership_snapshot_invalid')
+            _add_invalid(invalid_paths, f'{participant_path}.vigente_hasta')
+        elif period_start and period_end and (starts_on > period_end or (ends_on and ends_on < period_start)):
+            blockers.add('ownership_snapshot_invalid')
+            _add_invalid(invalid_paths, participant_path)
+        valid_participants += 1
+
+    if total_percentage != Decimal('100.00'):
+        blockers.add('ownership_snapshot_invalid')
+        _add_invalid(invalid_paths, '$.ownership.participants')
+    return {'present': True, 'participants_count': valid_participants}
 
 
 def _validate_month(
@@ -236,6 +346,9 @@ def audit_annual_tax_controlled_package_readiness(*, payload: dict[str, Any]) ->
     invalid_paths: list[str] = []
     warnings: list[str] = []
     blockers: set[str] = set()
+    annual_generation_missing_paths: list[str] = []
+    annual_generation_invalid_paths: list[str] = []
+    annual_generation_blockers: set[str] = set()
     package, input_schema_version = _extract_package(payload)
     if package is None:
         return {
@@ -268,6 +381,13 @@ def audit_annual_tax_controlled_package_readiness(*, payload: dict[str, Any]) ->
         missing_paths=missing_paths,
         invalid_paths=invalid_paths,
         blockers=blockers,
+    )
+    ownership_summary = _validate_ownership_for_annual_generation(
+        package=package,
+        commercial_year=commercial_year,
+        missing_paths=annual_generation_missing_paths,
+        invalid_paths=annual_generation_invalid_paths,
+        blockers=annual_generation_blockers,
     )
 
     annual_refs = package.get('annual_input_source_refs')
@@ -313,6 +433,7 @@ def audit_annual_tax_controlled_package_readiness(*, payload: dict[str, Any]) ->
     comparison_targets = payload.get('comparison_targets') if isinstance(payload, dict) else None
     comparison_targets_present = isinstance(comparison_targets, dict) and any(comparison_targets.values())
     ready_for_db_writer = complete_12_months and not blockers
+    ready_for_annual_generation = ready_for_db_writer and not annual_generation_blockers
 
     return {
         'schema_version': CONTROLLED_PACKAGE_READINESS_SCHEMA_VERSION,
@@ -322,19 +443,25 @@ def audit_annual_tax_controlled_package_readiness(*, payload: dict[str, Any]) ->
         'commercial_year': commercial_year,
         'tax_year': tax_year,
         'ready_for_db_writer': ready_for_db_writer,
-        'ready_for_annual_generation': ready_for_db_writer,
-        'ready_for_mirror_comparison': ready_for_db_writer and comparison_targets_present,
+        'ready_for_annual_generation': ready_for_annual_generation,
+        'ready_for_mirror_comparison': ready_for_annual_generation and comparison_targets_present,
         'blockers': sorted(blockers),
+        'annual_generation_blockers': sorted(annual_generation_blockers),
         'warnings': warnings,
         'missing_value_paths': missing_paths,
         'invalid_paths': invalid_paths,
+        'annual_generation_missing_paths': annual_generation_missing_paths,
+        'annual_generation_invalid_paths': annual_generation_invalid_paths,
         'summary': {
             'complete_12_months': complete_12_months,
             'months_present': valid_months_present,
             'missing_months': missing_months,
             'missing_paths_count': len(missing_paths),
             'invalid_paths_count': len(invalid_paths),
+            'annual_generation_missing_paths_count': len(annual_generation_missing_paths),
+            'annual_generation_invalid_paths_count': len(annual_generation_invalid_paths),
             'comparison_targets_present': comparison_targets_present,
+            'ownership_snapshot': ownership_summary,
         },
         'safety': {
             'writes_database': False,

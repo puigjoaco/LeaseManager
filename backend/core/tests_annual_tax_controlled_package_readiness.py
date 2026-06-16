@@ -51,8 +51,36 @@ class AnnualTaxControlledPackageReadinessTests(SimpleTestCase):
             tax_year=2025,
         )
 
-    def _complete_package(self, *, f29_no_aplica_months=()):
+    def _ownership_snapshot(self):
         return {
+            'source_ref': 'ownership-structure-2024-controlled',
+            'as_of': '2024-12-31',
+            'participants': [
+                {
+                    'participant_type': 'socio',
+                    'participant_ref': 'socio-controlled-one',
+                    'name': 'Socio Controlado Uno',
+                    'rut': '11111111-1',
+                    'percentage': '60.00',
+                    'vigente_desde': '2024-01-01',
+                    'vigente_hasta': None,
+                    'evidence_ref': 'ownership-evidence-controlled-one',
+                },
+                {
+                    'participant_type': 'socio',
+                    'participant_ref': 'socio-controlled-two',
+                    'name': 'Socio Controlado Dos',
+                    'rut': '22222222-2',
+                    'percentage': '40.00',
+                    'vigente_desde': '2024-01-01',
+                    'vigente_hasta': None,
+                    'evidence_ref': 'ownership-evidence-controlled-two',
+                },
+            ],
+        }
+
+    def _complete_package(self, *, f29_no_aplica_months=(), include_ownership=True):
+        package = {
             'schema_version': CONTROLLED_DB_LOAD_SCHEMA_VERSION,
             'company_ref': 'inmobiliaria-puig',
             'commercial_year': 2024,
@@ -118,6 +146,9 @@ class AnnualTaxControlledPackageReadinessTests(SimpleTestCase):
                 for month in range(1, 13)
             ],
         }
+        if include_ownership:
+            package['ownership'] = self._ownership_snapshot()
+        return package
 
     def test_template_draft_is_not_ready_until_manual_values_are_completed(self):
         with TemporaryDirectory() as temp_dir:
@@ -145,6 +176,36 @@ class AnnualTaxControlledPackageReadinessTests(SimpleTestCase):
         self.assertEqual(result['blockers'], [])
         self.assertEqual(result['missing_value_paths'], [])
         self.assertFalse(result['safety']['uses_expected_outputs_as_inputs'])
+        self.assertEqual(result['summary']['ownership_snapshot']['participants_count'], 2)
+
+    def test_complete_monthly_package_without_ownership_is_not_ready_for_annual_generation(self):
+        result = audit_annual_tax_controlled_package_readiness(
+            payload=self._complete_package(include_ownership=False),
+        )
+
+        self.assertTrue(result['ready_for_db_writer'])
+        self.assertFalse(result['ready_for_annual_generation'])
+        self.assertFalse(result['ready_for_mirror_comparison'])
+        self.assertEqual(result['blockers'], [])
+        self.assertIn('ownership_snapshot_missing', result['annual_generation_blockers'])
+        self.assertIn('$.ownership', result['annual_generation_missing_paths'])
+        self.assertFalse(result['summary']['ownership_snapshot']['present'])
+
+    def test_invalid_ownership_snapshot_blocks_annual_generation_only(self):
+        package = self._complete_package()
+        package['ownership']['participants'][1]['percentage'] = '39.00'
+        package['ownership']['participants'][1]['rut'] = '11.111.111-1'
+        package['ownership']['participants'][1]['vigente_hasta'] = 'fecha-mala'
+
+        result = audit_annual_tax_controlled_package_readiness(payload=package)
+
+        self.assertTrue(result['ready_for_db_writer'])
+        self.assertFalse(result['ready_for_annual_generation'])
+        self.assertEqual(result['blockers'], [])
+        self.assertIn('ownership_snapshot_invalid', result['annual_generation_blockers'])
+        self.assertIn('$.ownership.participants', result['annual_generation_invalid_paths'])
+        self.assertIn('$.ownership.participants[1].rut', result['annual_generation_invalid_paths'])
+        self.assertIn('$.ownership.participants[1].vigente_hasta', result['annual_generation_invalid_paths'])
 
     def test_no_declaration_f29_month_is_valid_without_borrador_ref(self):
         result = audit_annual_tax_controlled_package_readiness(

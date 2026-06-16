@@ -2543,6 +2543,13 @@ usa esas participaciones para registros RETIROS/DIVIDENDOS y elimina
 AC2024 real sigue pendiente localizar o cargar esa fuente societaria
 independiente; no se infiere desde cuentas de retiro ni desde F22/DDJJ finales.
 
+Nota 2026-06-15: `audit_annual_tax_controlled_package_readiness` separa readiness
+de writer DB y readiness anual. El draft AC2024/AT2025 v3 queda con
+`ready_for_db_writer=true` y `missing_paths_count=0`, pero
+`ready_for_annual_generation=false` por `ownership_snapshot_missing`. Esta regla
+evita declarar completa la prueba espejo si faltan socios/participaciones
+vigentes, aunque la contabilidad mensual ya pueda cargarse.
+
 Nota 2026-06-15: Renta Anual/Etapa 6 agrega template de paquete normalizado
 AC2024/AT2025. `build_annual_tax_controlled_db_load_template` toma el
 manifiesto read-only, prearma 12 meses para carga controlada, separa refs de
