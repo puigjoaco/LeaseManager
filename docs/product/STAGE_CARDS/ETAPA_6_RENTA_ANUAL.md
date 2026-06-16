@@ -125,6 +125,12 @@ para OCR/revision manual, 3 se excluyen por nulos/sin efecto y 2 quedan como
 soporte de aportes/propiedades. El resultado permite avanzar a snapshot
 controlado, pero no cierra la fuente ownership ni crea socios/porcentajes por
 inferencia.
+`build_annual_tax_ownership_snapshot_template` prepara el puente hacia el
+writer anual: desde la revision real genera 10 `candidate_sources`, un
+`ownership_patch_template` con `participants=[]` y reglas para completar socios,
+RUT, porcentajes, vigencias y evidencia no sensible. El template no esta listo
+para DB hasta que esa informacion sea completada por OCR/revision controlada y
+aprobacion responsable.
 `build_annual_tax_controlled_load_plan` traduce ese manifiesto a un plan de
 carga contra modelos canonicos de LeaseManager sin escribir DB: cierres,
 libros, balance, obligaciones, F29, hechos mensuales y balance tributario

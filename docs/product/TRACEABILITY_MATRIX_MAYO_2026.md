@@ -2570,6 +2570,14 @@ excluidos y 2 aportes/propiedades como soporte. Esto permite avanzar a OCR o
 revision manual controlada para preparar el snapshot, pero no cierra
 `ownership_source_input` ni genera socios/porcentajes automaticamente.
 
+Nota 2026-06-15: `build_annual_tax_ownership_snapshot_template` convierte esa
+revision en un template seguro para completar `ownership` despues de OCR o
+revision manual. La corrida real genera 10 fuentes candidatas, deja
+`participants=[]`, `ready_for_controlled_db_load=false` y
+`can_patch_controlled_db_load_package_after_manual_completion=true`. El template
+calza con el writer anual, pero exige completar socios, RUTs, porcentajes,
+vigencias y evidencia no sensible antes de cargar DB o ejecutar el mirror final.
+
 Nota 2026-06-15: `audit_annual_tax_controlled_package_readiness` separa readiness
 de writer DB y readiness anual. El draft AC2024/AT2025 v3 queda con
 `ready_for_db_writer=true` y `missing_paths_count=0`, pero
