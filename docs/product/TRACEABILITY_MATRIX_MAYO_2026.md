@@ -94,6 +94,14 @@ de contenido y alcance local revisable. La corrida AC2024/AT2025 sobre SQLite
 local ignorada confirma 1 respaldo emitido y el gate Etapa 6 queda parcial por
 un unico bloqueo: `stage6.real_estate_item_missing`. El respaldo no es formato
 oficial SII, no registra presentacion y no constituye calculo tributario final.
+Nota 2026-06-15: Se agrega `build_annual_tax_ownership_evidence_chain` como
+orquestador reproducible para la brecha patrimonial AC2024. Regenera bajo
+`local-evidence/` el manifiesto, la revision de candidatos societarios, el
+template ownership y opcionalmente el paquete visual/OCR. No escribe DB, no
+copia fuentes, no guarda texto crudo ni RUTs, y no genera nombres de socios ni
+porcentajes; su objetivo es que una reanudacion desde `main` no dependa de
+artefactos perdidos al eliminar worktrees y mantenga la siguiente accion en
+revision/OCR y carga controlada, no en prompts ni metatareas.
 
 Nota 2026-06-13: La investigacion local de EDIG AT2026 queda mapeada como
 referencia funcional no normativa en

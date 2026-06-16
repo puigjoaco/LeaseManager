@@ -136,6 +136,12 @@ paginas iniciales de los 10 candidatos a PNG bajo `local-evidence`, con indice
 por hash/path_ref. La corrida real produce 19 paginas sin errores. Las imagenes
 pueden contener datos sensibles, por lo que no se versionan ni se usan como
 calculo; sirven para OCR/revision manual previa a completar el snapshot.
+`build_annual_tax_ownership_evidence_chain` deja esa secuencia reproducible
+desde `main`: manifiesto, revision de candidatos, template ownership y paquete
+visual opcional se regeneran bajo `local-evidence/` con una sola orden. Esto no
+desbloquea `ownership` por si mismo ni genera participantes; evita que la etapa
+dependa de artefactos locales perdidos y mantiene el siguiente paso en
+revision/OCR y aprobacion responsable.
 `build_annual_tax_controlled_load_plan` traduce ese manifiesto a un plan de
 carga contra modelos canonicos de LeaseManager sin escribir DB: cierres,
 libros, balance, obligaciones, F29, hechos mensuales y balance tributario
