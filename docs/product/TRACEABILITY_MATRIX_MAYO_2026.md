@@ -106,6 +106,15 @@ de contenido y alcance local revisable. La corrida AC2024/AT2025 sobre SQLite
 local ignorada confirma 1 respaldo emitido y el gate Etapa 6 queda parcial por
 un unico bloqueo: `stage6.real_estate_item_missing`. El respaldo no es formato
 oficial SII, no registra presentacion y no constituye calculo tributario final.
+
+Nota 2026-06-16: Se agrega `audit_annual_tax_mirror_proof` como gate unico de
+prueba espejo AC2024/AT2025. El gate combina manifiesto/fuente, comparador de
+outputs esperados, readiness Etapa 6 y boundary de seguridad; solo puede marcar
+`ready_for_objective_completion=true` si la fuente esta documentada, la
+arquitectura espejo esta completa, la comparacion esta lista, Etapa 6 esta
+lista y no se usaron SII real, credenciales ni outputs finales como input. En
+fixture sintetico queda parcial por revision de artefactos, lo que confirma que
+no sobredeclara cierre.
 Nota 2026-06-15: Se agrega `build_annual_tax_ownership_evidence_chain` como
 orquestador reproducible para la brecha patrimonial AC2024. Regenera bajo
 `local-evidence/` el manifiesto, la revision de candidatos societarios, el
