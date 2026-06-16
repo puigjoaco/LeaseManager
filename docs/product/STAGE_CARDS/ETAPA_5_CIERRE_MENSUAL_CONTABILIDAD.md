@@ -170,6 +170,10 @@ contable o tributaria requiere criterio.
   responsable con validacion experta/oficial cuando corresponda. Estos controles
   tambien se publican en la trazabilidad de Reporting para evitar que una UI,
   resumen o reanudacion interprete el progreso como contabilidad autonoma.
+- En ese diagnostico, un mes con `MonthlyTaxFact` normalizado y F29
+  `no_aplica` + `no_declaration=true` cuenta como cobertura F29 mensual
+  controlada. No crea un `F29PreparacionMensual` ficticio; solo evita tratar
+  una ausencia declarada/controlada como dato faltante.
 - Reporting expone el mismo diagnostico en
   `contabilidad/progreso-empresa/`, con scope por empresa, porcentaje, fases,
   faltantes, proximo bloqueo y trazabilidad sin RUT ni secretos. Esta vista

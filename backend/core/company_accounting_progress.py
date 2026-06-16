@@ -22,6 +22,7 @@ from sii.models import (
     EstadoAnnualTaxTrialBalance,
     EstadoAnnualTaxWorkbook,
     F29PreparacionMensual,
+    MonthlyTaxFact,
     ProcesoRentaAnual,
     SII_AUTOMATED_REGIME_CODE,
     TipoAnnualTaxWorkbook,
@@ -198,6 +199,32 @@ def _prepared_balance_months(empresa: Empresa, fiscal_year: int) -> tuple[set[in
     return approved, squared
 
 
+def _is_controlled_f29_no_declaration(resumen_hecho: Any) -> bool:
+    if not isinstance(resumen_hecho, dict):
+        return False
+    f29_payload = resumen_hecho.get('f29')
+    if not isinstance(f29_payload, dict):
+        return False
+    resumen = f29_payload.get('resumen')
+    return (
+        f29_payload.get('estado_preparacion') == EstadoPreparacionTributaria.NOT_APPLICABLE
+        and isinstance(resumen, dict)
+        and resumen.get('no_declaration') is True
+    )
+
+
+def _controlled_f29_no_declaration_months(empresa: Empresa, fiscal_year: int) -> set[int]:
+    months = set()
+    facts = MonthlyTaxFact.objects.filter(
+        empresa=empresa,
+        anio=fiscal_year,
+    ).values('mes', 'resumen_hecho')
+    for fact in facts:
+        if _is_controlled_f29_no_declaration(fact['resumen_hecho']):
+            months.add(fact['mes'])
+    return months
+
+
 def collect_company_accounting_candidates(*, empresa_ids: list[int] | None = None) -> dict[str, Any]:
     empresas = Empresa.objects.all().order_by('razon_social', 'id')
     if empresa_ids is not None:
@@ -297,6 +324,14 @@ def collect_company_accounting_candidates(*, empresa_ids: list[int] | None = Non
         estado_preparacion__in=PREPARED_OR_BETTER_TAX_STATES,
     ).values('empresa_id', 'anio', 'mes'):
         f29_months[(item['empresa_id'], item['anio'])].add(item['mes'])
+    for item in MonthlyTaxFact.objects.filter(empresa_id__in=company_ids).values(
+        'empresa_id',
+        'anio',
+        'mes',
+        'resumen_hecho',
+    ):
+        if _is_controlled_f29_no_declaration(item['resumen_hecho']):
+            f29_months[(item['empresa_id'], item['anio'])].add(item['mes'])
     for (empresa_id, fiscal_year), months in f29_months.items():
         if bucket := year_bucket(empresa_id, fiscal_year):
             bucket['signals']['f29_monthly'] = len(months)
@@ -465,6 +500,7 @@ def collect_company_accounting_progress(*, empresa_id: int, fiscal_year: int) ->
             estado_preparacion__in=PREPARED_OR_BETTER_TAX_STATES,
         ).values_list('mes', flat=True)
     )
+    prepared_f29_months.update(_controlled_f29_no_declaration_months(empresa, fiscal_year))
 
     annual_process = (
         ProcesoRentaAnual.objects.filter(
