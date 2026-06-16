@@ -75,6 +75,25 @@ DDJJ/F22 y 138/138 targets de valores comparables presentes, sin categorias
 esperadas sin soporte. La prueba espejo sigue parcial por revision de artefactos
 generados/responsable y gates finales, no por DDJJ/F22 semantico.
 
+Nota 2026-06-15: El patch posterior a PR #856 corrige la seleccion de libros
+anuales cuando el manifiesto contiene varios anos o fuentes pendientes. El draft
+AC2024 ahora selecciona insumos compatibles con `commercial_year`, vuelve a 180
+campos llenos y 0 errores de extraccion. Con snapshot `ownership` local
+controlado desde evidencia societaria revisada, el paquete queda
+`ready_for_db_writer=true` y `ready_for_annual_generation=true`; el writer carga
+12 meses y el mirror genera ProcesoRentaAnual, DDJJ/F22 preparados, matriz,
+dossier, export y checklist con source bundle `snapshot_controlado`. El gate
+Etapa 6 queda parcial por solo dos bloqueos concretos: item anual de bienes
+raices y respaldo tributario usable. No reabrir ownership, DDJJ/F22 semantico,
+Balance ni RLI/CPT/RAI/SAC comparable salvo bug nuevo.
+
+Nota 2026-06-16: El mirror anual controlado ahora emite un
+`DocumentoEmitido` de tipo `respaldo_tributario` con plantilla `stage6-v1`
+desde el generador PDF canonico de Documentos, con preview auditada, checksum
+de contenido y alcance local revisable. La corrida AC2024/AT2025 sobre SQLite
+local ignorada confirma 1 respaldo emitido y el gate Etapa 6 queda parcial por
+un unico bloqueo: `stage6.real_estate_item_missing`. El respaldo no es formato
+oficial SII, no registra presentacion y no constituye calculo tributario final.
 Nota 2026-06-15: Se agrega `build_annual_tax_ownership_evidence_chain` como
 orquestador reproducible para la brecha patrimonial AC2024. Regenera bajo
 `local-evidence/` el manifiesto, la revision de candidatos societarios, el
@@ -2534,6 +2553,17 @@ en RLI/CPT/RAI/SAC/DDJJ/F22 mediante una capa anual intermedia. Esto refuerza
 que Etapa 6 debe aceptar fuente laboral/previsional revisable cuando aplique,
 pero no habilita payroll completo, copia de EDIG, reglas fiscales propias ni
 presentacion SII automatica.
+
+Nota 2026-06-16: Renta Anual/Etapa 6 agrega `real_estate` al paquete
+controlado AC/AT. El writer valida fuente revisada, propiedades, evidencia no
+sensible y contribuciones; materializa `Propiedad` y una
+`AnnualTaxOfficialSource` experta/controlada por ano tributario. El mirror anual
+usa esa fuente para generar `AnnualRealEstateItem` con snapshot congelado y
+contribuciones cargadas, sin SII real, EDIG, `.env`, outputs finales como input
+ni calculo tributario final. En la corrida AC2024/AT2025 con SQLite local
+ignorada, el gate Etapa 6 pasa de `stage6.real_estate_item_missing` a
+`classification=resuelto_confirmado`, `ready_for_stage6_renta_anual=true` y
+sin issues.
 
 Nota 2026-06-15: Renta Anual/Etapa 6 agrega writer DB local controlado para la
 prueba espejo Inmobiliaria Puig AC2024/AT2025. `apply_annual_tax_controlled_db_load`

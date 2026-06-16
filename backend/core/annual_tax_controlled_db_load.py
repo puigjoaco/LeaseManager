@@ -20,13 +20,17 @@ from contabilidad.models import (
 from core.annual_tax_controlled_load_plan import COMPARISON_ONLY_CATEGORIES
 from core.annual_tax_source_manifest import payload_hash
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
-from patrimonio.models import ParticipacionPatrimonial, Socio
+from patrimonio.models import EstadoPatrimonial, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 from patrimonio.validators import validate_rut
 from sii.models import (
+    AnnualTaxOfficialSource,
     CapacidadSII,
+    DestinoMapeoTributarioAnual,
+    EstadoAnnualTaxOfficialSource,
     EstadoMonthlyTaxFact,
     F29PreparacionMensual,
     MonthlyTaxFact,
+    TipoAnnualTaxOfficialSource,
 )
 
 
@@ -155,6 +159,64 @@ def _validate_ownership_snapshot(ownership: Any, *, commercial_year: int) -> Non
         raise ValueError('ownership.participants debe sumar 100.00%.')
 
 
+def _real_estate_properties(real_estate: Any) -> list[dict[str, Any]]:
+    if not isinstance(real_estate, dict):
+        return []
+    properties = real_estate.get('properties')
+    return properties if isinstance(properties, list) else []
+
+
+def _validate_real_estate_snapshot(real_estate: Any, *, commercial_year: int) -> None:
+    if real_estate in (None, {}):
+        return
+    if not isinstance(real_estate, dict):
+        raise ValueError('real_estate debe ser un objeto JSON cuando se informa.')
+    _required_text(real_estate, 'source_ref')
+    as_of = _date(real_estate.get('as_of'), field_name='real_estate.as_of')
+    if as_of.year != commercial_year:
+        raise ValueError('real_estate.as_of debe pertenecer al ano comercial del paquete.')
+    properties = _real_estate_properties(real_estate)
+    if not properties:
+        raise ValueError('real_estate.properties debe contener propiedades revisadas.')
+
+    seen_codes: set[str] = set()
+    for index, item in enumerate(properties):
+        if not isinstance(item, dict):
+            raise ValueError(f'real_estate.properties[{index}] debe ser un objeto JSON.')
+        for field_name in (
+            'property_ref',
+            'codigo_propiedad',
+            'direccion',
+            'comuna',
+            'region',
+            'tipo_inmueble',
+            'evidence_ref',
+            'contribuciones_evidence_ref',
+        ):
+            value = str(item.get(field_name) or '').strip()
+            if not value:
+                raise ValueError(f'real_estate.properties[{index}].{field_name} es obligatorio.')
+            if field_name in {'property_ref', 'evidence_ref', 'contribuciones_evidence_ref'}:
+                _required_text(item, field_name)
+        code = str(item.get('codigo_propiedad') or '').strip()
+        if len(code) > 16:
+            raise ValueError('real_estate.properties[].codigo_propiedad no puede exceder 16 caracteres.')
+        if code in seen_codes:
+            raise ValueError('real_estate.properties contiene codigo_propiedad duplicado.')
+        seen_codes.add(code)
+        if str(item.get('tipo_inmueble') or '').strip() not in TipoInmueble.values:
+            raise ValueError('real_estate.properties[].tipo_inmueble no es valido.')
+        contribution = _decimal(
+            item.get('contribuciones_clp'),
+            field_name=f'real_estate.properties[{index}].contribuciones_clp',
+        )
+        if contribution < Decimal('0.00'):
+            raise ValueError('real_estate.properties[].contribuciones_clp no puede ser negativo.')
+        codigo_f22 = str(item.get('codigo_f22') or '').strip()
+        if codigo_f22 and not is_non_sensitive_reference(codigo_f22):
+            raise ValueError('real_estate.properties[].codigo_f22 debe ser una referencia no sensible.')
+
+
 def _validate_package(payload: dict[str, Any]) -> tuple[int, int, str, str, str]:
     if not isinstance(payload, dict):
         raise ValueError('El paquete de carga debe ser un objeto JSON.')
@@ -179,6 +241,7 @@ def _validate_package(payload: dict[str, Any]) -> tuple[int, int, str, str, str]
     if commercial_year < 2000 or tax_year != commercial_year + 1:
         raise ValueError('commercial_year y tax_year deben formar un par AC/AT valido.')
     _validate_ownership_snapshot(payload.get('ownership'), commercial_year=commercial_year)
+    _validate_real_estate_snapshot(payload.get('real_estate'), commercial_year=commercial_year)
 
     months = payload.get('months')
     if not isinstance(months, list) or not months:
@@ -279,6 +342,107 @@ def _apply_ownership_snapshot(
         'source_ref': ownership['source_ref'],
         'as_of': ownership['as_of'],
         'participants_loaded': len(participants),
+        'source_manifest_hash': source_manifest_hash,
+        'responsible_ref': responsible_ref,
+        'approval_ref': approval_ref,
+        'final_tax_calculation': False,
+    }
+
+
+def _apply_real_estate_snapshot(
+    *,
+    empresa,
+    package: dict[str, Any],
+    commercial_year: int,
+    tax_year: int,
+    source_manifest_hash: str,
+    responsible_ref: str,
+    approval_ref: str,
+    counts: dict[str, dict[str, int]],
+) -> dict[str, Any]:
+    real_estate = package.get('real_estate')
+    if not isinstance(real_estate, dict) or not real_estate:
+        return {'present': False, 'properties_loaded': 0}
+
+    values_by_property_id: dict[str, dict[str, Any]] = {}
+    property_refs: list[str] = []
+    for item in _real_estate_properties(real_estate):
+        code = str(item.get('codigo_propiedad') or '').strip()
+        property_obj, created = _get_existing_or_new(
+            Propiedad,
+            empresa_owner=empresa,
+            codigo_propiedad=code,
+        )
+        property_obj.rol_avaluo = str(item.get('rol_avaluo') or '').strip()
+        property_obj.direccion = str(item.get('direccion') or '').strip()
+        property_obj.comuna = str(item.get('comuna') or '').strip()
+        property_obj.region = str(item.get('region') or '').strip()
+        property_obj.tipo_inmueble = str(item.get('tipo_inmueble') or '').strip()
+        property_obj.estado = EstadoPatrimonial.ACTIVE
+        _save_validated(property_obj)
+        _mark_count(counts, 'Propiedad', created)
+
+        contribution_value = _decimal(
+            item.get('contribuciones_clp'),
+            field_name='real_estate.property.contribuciones_clp',
+        )
+        values_by_property_id[str(property_obj.id)] = {
+            'property_ref': str(item.get('property_ref') or '').strip(),
+            'codigo_propiedad': property_obj.codigo_propiedad,
+            'contribuciones_clp': str(contribution_value),
+            'codigo_f22': str(item.get('codigo_f22') or '').strip(),
+            'property_evidence_ref': str(item.get('evidence_ref') or '').strip(),
+            'evidencia_ref': str(item.get('contribuciones_evidence_ref') or item.get('evidence_ref') or '').strip(),
+            'final_tax_calculation': False,
+        }
+        property_refs.append(str(item.get('property_ref') or '').strip())
+
+    config = empresa.configuracion_fiscal
+    regime_code = config.regimen_tributario.codigo_regimen
+    source_key = f'controlled-load-real-estate-contributions-at{tax_year}-{regime_code}'
+    source, created = _get_existing_or_new(
+        AnnualTaxOfficialSource,
+        anio_tributario=tax_year,
+        source_key=source_key,
+    )
+    source.source_type = TipoAnnualTaxOfficialSource.EXPERT_REVIEW
+    source.title = f'Fuente controlada contribuciones bienes raices AT{tax_year}'
+    source.source_ref = str(real_estate.get('source_ref') or '').strip()
+    source.source_hash = payload_hash(
+        {
+            'source_key': source_key,
+            'source_ref': source.source_ref,
+            'source_manifest_hash': source_manifest_hash,
+            'values_by_property_id': values_by_property_id,
+        }
+    )
+    source.retrieved_on = timezone.localdate()
+    source.responsible_ref = responsible_ref
+    source.estado = EstadoAnnualTaxOfficialSource.APPROVED
+    source.applies_to = DestinoMapeoTributarioAnual.F22
+    source.regime_code = regime_code
+    source.scope_note = (
+        'Fuente local controlada para contribuciones de bienes raices AC/AT; '
+        'no acredita consulta SII real ni calculo tributario final.'
+    )
+    source.metadata = {
+        'source': 'annual_tax_controlled_db_load.real_estate',
+        'real_estate_contributions': True,
+        'values_by_property_id': values_by_property_id,
+        'property_refs': property_refs,
+        'approval_ref': approval_ref,
+        'source_manifest_hash': source_manifest_hash,
+        'final_tax_calculation': False,
+    }
+    _save_validated(source)
+    _mark_count(counts, 'AnnualTaxOfficialSource', created)
+
+    return {
+        'present': True,
+        'source_ref': real_estate['source_ref'],
+        'as_of': real_estate['as_of'],
+        'properties_loaded': len(values_by_property_id),
+        'contribution_source_id': source.id,
         'source_manifest_hash': source_manifest_hash,
         'responsible_ref': responsible_ref,
         'approval_ref': approval_ref,
@@ -516,6 +680,16 @@ def apply_annual_tax_controlled_db_load(*, empresa, package: dict[str, Any], wri
                 approval_ref=approval_ref,
                 counts=counts,
             )
+            real_estate_summary = _apply_real_estate_snapshot(
+                empresa=empresa,
+                package=package,
+                commercial_year=commercial_year,
+                tax_year=tax_year,
+                source_manifest_hash=source_manifest_hash,
+                responsible_ref=responsible_ref,
+                approval_ref=approval_ref,
+                counts=counts,
+            )
             for month_payload in sorted(package['months'], key=lambda item: int(item['month'])):
                 _apply_month(
                     empresa=empresa,
@@ -529,6 +703,7 @@ def apply_annual_tax_controlled_db_load(*, empresa, package: dict[str, Any], wri
                 )
     else:
         ownership_summary = {'present': bool(package.get('ownership')), 'participants_loaded': 0}
+        real_estate_summary = {'present': bool(package.get('real_estate')), 'properties_loaded': 0}
 
     blockers = []
     if not complete_12_months:
@@ -547,6 +722,7 @@ def apply_annual_tax_controlled_db_load(*, empresa, package: dict[str, Any], wri
         'complete_12_months': complete_12_months,
         'expected_outputs_used_as_inputs': False,
         'ownership_snapshot': ownership_summary,
+        'real_estate_snapshot': real_estate_summary,
         'created_updated': counts,
         'ready_for_annual_generation': write_database and complete_12_months and not blockers,
         'blockers': blockers,

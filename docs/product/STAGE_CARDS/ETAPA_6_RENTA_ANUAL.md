@@ -194,6 +194,26 @@ el mirror genere `AnnualTaxTrialBalanceLine` desde cuentas controladas reales de
 entrada. Esta carga no usa outputs finales como input y no declara cierre de
 renta; las comparaciones posteriores cubren valores comparables y semantica
 DDJJ/F22, pero queda pendiente revision responsable y gates finales.
+El selector de libros anuales queda acotado al `commercial_year`: si el
+manifiesto contiene artefactos de otros anos, carpetas historicas o respaldos
+pendientes con el mismo `artifact_key`, el draft prioriza la fuente anual
+canonica compatible y no usa copias posteriores como insumo AC2024. Con
+`ownership` local controlado desde fuente societaria revisada, la prueba espejo
+AC2024/AT2025 ya pasa writer y mirror anual (`ready_for_annual_generation=true`)
+y genera ProcesoRentaAnual, DDJJ/F22 preparados, matriz, dossier, export y
+checklist. El mirror tambien emite `TaxSupportDocument` como
+`DocumentoEmitido` de tipo `respaldo_tributario`, usando el generador PDF
+canonico de Documentos con preview auditada y checksum de contenido. El gate
+Etapa 6 queda resuelto en prueba local controlada cuando el paquete incluye
+`real_estate`: el writer materializa `Propiedad` y fuente experta/controlada de
+contribuciones, y el mirror genera `AnnualRealEstateItem` con snapshot congelado
+en la seccion anual de bienes raices. La corrida AC2024/AT2025 con SQLite local
+ignorada queda `classification=resuelto_confirmado` y
+`ready_for_stage6_renta_anual=true`, sin convertir el expediente en
+presentacion SII real ni calculo tributario final. Ownership, respaldo
+tributario, bienes raices, DDJJ/F22 semantico, Balance General y
+RLI/CPT/RAI/SAC comparables no deben reabrirse como bloqueo general salvo bug
+nuevo.
 `MonthlyTaxFact` materializa la capa mensual anualizable: por cada empresa,
 ano comercial y mes normaliza el cierre aprobado, obligaciones mensuales,
 F29 si existe, distribuciones de arriendo y liquidacion de empresa, con
