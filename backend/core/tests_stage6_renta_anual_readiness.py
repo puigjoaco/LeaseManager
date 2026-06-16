@@ -91,6 +91,7 @@ from sii.services import (
     summarize_annual_tax_trial_balances,
     summarize_annual_tax_workbooks,
     mark_annual_tax_artifact_matrix_warnings_reviewed,
+    mark_annual_tax_workbook_warnings_reviewed,
     sync_annual_enterprise_registers,
     sync_annual_real_estate_section,
     sync_annual_tax_artifact_matrix,
@@ -928,6 +929,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
                     'monto_clp': str(line.monto_clp),
                     'formula_ref': line.formula_ref,
                     'evidencia_ref': line.evidencia_ref,
+                    'warning_review_ref': line.warning_review_ref,
                     'warnings': line.warnings,
                     'source_payload': line.source_payload,
                 },
@@ -944,6 +946,59 @@ class Stage6RentaAnualReadinessTests(TestCase):
 
         self.assertFalse(result['ready_for_stage6_renta_anual'])
         self.assertIn('stage6.tax_workbook_line_warning_review_required', issue_codes)
+
+    def test_reviewed_annual_tax_workbook_line_warning_stops_blocking_workbooks(self):
+        self._create_valid_local_matrix()
+        line = AnnualTaxWorkbookLine.objects.select_related('workbook', 'mapping').get(workbook__tipo='RLI')
+        line.warnings = ['source_metric_missing_or_unsupported']
+        line.warning_review_ref = ''
+        line.hash_linea = hashlib.sha256(
+            json.dumps(
+                {
+                    'workbook_id': line.workbook_id,
+                    'mapping_id': line.mapping_id,
+                    'codigo_interno': line.codigo_interno,
+                    'codigo_destino': line.codigo_destino,
+                    'origen': line.origen,
+                    'signo': line.signo,
+                    'monto_clp': str(line.monto_clp),
+                    'formula_ref': line.formula_ref,
+                    'evidencia_ref': line.evidencia_ref,
+                    'warning_review_ref': line.warning_review_ref,
+                    'warnings': line.warnings,
+                    'source_payload': line.source_payload,
+                },
+                sort_keys=True,
+                separators=(',', ':'),
+                ensure_ascii=True,
+                default=str,
+            ).encode('utf-8')
+        ).hexdigest()
+        line.save(update_fields=['warnings', 'warning_review_ref', 'hash_linea', 'updated_at'])
+
+        process = ProcesoRentaAnual.objects.get()
+        acknowledgement = mark_annual_tax_workbook_warnings_reviewed(
+            process,
+            warning_review_ref='tax-review-stage6-workbook-warning-001',
+        )
+        self.assertEqual(acknowledgement['reviewed_warnings_total'], 1)
+        line.refresh_from_db()
+        self.assertEqual(line.warning_review_ref, 'tax-review-stage6-workbook-warning-001')
+
+        process.resumen_anual = {
+            **process.resumen_anual,
+            'annual_tax_workbooks': summarize_annual_tax_workbooks(process),
+        }
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+        workbook_summary = summarize_annual_tax_workbooks(process)['by_type']['RLI']
+
+        self.assertEqual(workbook_summary['warnings_total'], 1)
+        self.assertEqual(workbook_summary['warnings_reviewed_total'], 1)
+        self.assertEqual(workbook_summary['warnings_pending_review_total'], 0)
+        self.assertNotIn('stage6.tax_workbook_line_warning_review_required', issue_codes)
 
     def test_annual_tax_workbook_summary_hash_mismatch_is_blocking(self):
         self._create_valid_local_matrix()

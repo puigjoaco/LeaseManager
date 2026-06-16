@@ -417,12 +417,20 @@ def _collect_annual_tax_workbook_issues(workbooks, lines, processes, active_fisc
         workbooks_by_process.setdefault(workbook.proceso_renta_anual_id, {})[workbook.tipo] = workbook
 
     active_line_counts = Counter()
-    warning_line_counts = Counter()
+    warning_counts = Counter()
+    warning_reviewed_counts = Counter()
+    warning_pending_counts = Counter()
+    warning_pending_line_counts = Counter()
     for line in lines.filter(estado=EstadoRegistro.ACTIVE).select_related('workbook'):
         active_line_counts[line.workbook_id] += 1
         warnings = line.warnings if isinstance(line.warnings, list) else []
         if warnings:
-            warning_line_counts[line.workbook_id] += 1
+            warning_counts[line.workbook_id] += len(warnings)
+            if _non_sensitive_reference(line.warning_review_ref):
+                warning_reviewed_counts[line.workbook_id] += len(warnings)
+            else:
+                warning_pending_counts[line.workbook_id] += len(warnings)
+                warning_pending_line_counts[line.workbook_id] += 1
 
     for process in processes:
         if process.estado not in ANNUAL_TRACEABLE_STATES:
@@ -457,6 +465,9 @@ def _collect_annual_tax_workbook_issues(workbooks, lines, processes, active_fisc
                         type_summary.get('id') != workbook.id
                         or type_summary.get('hash_workbook') != workbook.hash_workbook
                         or int(type_summary.get('lines_total') or 0) != active_line_counts[workbook.id]
+                        or int(type_summary.get('warnings_total') or 0) != warning_counts[workbook.id]
+                        or int(type_summary.get('warnings_reviewed_total') or 0) != warning_reviewed_counts[workbook.id]
+                        or int(type_summary.get('warnings_pending_review_total') or 0) != warning_pending_counts[workbook.id]
                     ):
                         counts['process_tax_workbook_summary_mismatch'] += 1
                         break
@@ -464,8 +475,8 @@ def _collect_annual_tax_workbook_issues(workbooks, lines, processes, active_fisc
         for workbook in process_workbooks.values():
             if active_line_counts[workbook.id] == 0:
                 counts['tax_workbook_line_missing'] += 1
-            if warning_line_counts[workbook.id]:
-                counts['tax_workbook_line_warning_review_required'] += warning_line_counts[workbook.id]
+            if warning_pending_line_counts[workbook.id]:
+                counts['tax_workbook_line_warning_review_required'] += warning_pending_line_counts[workbook.id]
 
     return dict(sorted(counts.items()))
 

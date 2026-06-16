@@ -3999,6 +3999,7 @@ class SiiAPITests(APITestCase):
         AnnualTaxWorkbookLine.objects.filter(pk=line.pk).update(
             formula_ref='https://sii.example.test/formula?token=secret',
             evidencia_ref='Bearer line-secret',
+            warning_review_ref='https://sii.example.test/workbook-warning?token=secret',
             warnings=['https://sii.example.test/warning?token=secret'],
             source_payload={'api_key': 'secret-line-value'},
         )
@@ -4012,6 +4013,7 @@ class SiiAPITests(APITestCase):
         self.assertNotIn('secret-workbook-value', json.dumps(workbook_admin.resumen_workbook_redacted(workbook)))
         self.assertEqual(line_admin.formula_ref_redacted(line), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(line_admin.evidencia_ref_redacted(line), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(line_admin.warning_review_ref_redacted(line), REDACTED_SENSITIVE_REFERENCE)
         self.assertNotIn('secret-line-value', json.dumps(line_admin.source_payload_redacted(line)))
 
         workbook_response = self.client.get(reverse('sii-annual-tax-workbook-list'))
@@ -4038,8 +4040,10 @@ class SiiAPITests(APITestCase):
         self.assertEqual(snapshot_workbook_data['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(line_data['formula_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(line_data['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(line_data['warning_review_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_line_data['formula_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_line_data['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_line_data['warning_review_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertNotIn('token=secret', serialized_payload)
         self.assertNotIn('workbook-secret', serialized_payload)
         self.assertNotIn('line-secret', serialized_payload)

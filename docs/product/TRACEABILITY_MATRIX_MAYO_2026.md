@@ -38,6 +38,14 @@ El draft controlado de valores consolida `labor_previsional.source_ref` solo
 cuando los `payroll_support` esperados fueron revisados exitosamente, dejando
 `final_tax_calculation=false` y sin abrir presentacion SII.
 
+Nota 2026-06-16: RLI/CPT distingue warnings totales de warnings pendientes de
+revision. `AnnualTaxWorkbookLine.warning_review_ref` conserva una revision
+responsable no sensible para lineas con warnings, recalcula hash de linea y
+workbook y permite que readiness deje de bloquear solo cuando el warning tiene
+revision trazada. Los warnings permanecen en payload/hash y siguen fluyendo a
+matriz/artefactos como preparacion revisable; esto no habilita calculo
+tributario final, formato oficial ni presentacion SII.
+
 Nota 2026-06-15: La iteracion posterior al mapeo completo EDIG se contrasta
 con SII. F22 AT2026 opera por certificacion de software que genera archivos y
 SII acredita recepcion, no contenido ni consistencia tributaria. DDJJ Renta

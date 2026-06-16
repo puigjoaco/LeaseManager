@@ -707,6 +707,7 @@ class AnnualTaxWorkbookLineAdmin(admin.ModelAdmin):
         'monto_clp',
         'formula_ref_redacted',
         'evidencia_ref_redacted',
+        'warning_review_ref_redacted',
         'warnings_redacted',
         'source_payload_redacted',
         'hash_linea',
@@ -723,6 +724,7 @@ class AnnualTaxWorkbookLineAdmin(admin.ModelAdmin):
         'estado',
         'formula_ref_redacted',
         'evidencia_ref_redacted',
+        'warning_review_ref_redacted',
     )
     list_filter = ('workbook__tipo', 'estado')
     search_fields = ('codigo_interno', 'codigo_destino', 'workbook__empresa__razon_social')
@@ -734,6 +736,10 @@ class AnnualTaxWorkbookLineAdmin(admin.ModelAdmin):
     @admin.display(description='evidencia_ref')
     def evidencia_ref_redacted(self, obj):
         return _redacted_attr(obj, 'evidencia_ref')
+
+    @admin.display(description='warning_review_ref')
+    def warning_review_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'warning_review_ref')
 
     @admin.display(description='warnings')
     def warnings_redacted(self, obj):

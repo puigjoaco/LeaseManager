@@ -692,6 +692,7 @@ def _line_integrity_payload(line):
         'monto_clp': str(line.monto_clp),
         'formula_ref': line.formula_ref,
         'evidencia_ref': line.evidencia_ref,
+        'warning_review_ref': line.warning_review_ref,
         'warnings': line.warnings,
         'source_payload': line.source_payload,
     }
@@ -2172,6 +2173,7 @@ class AnnualTaxWorkbookLine(OperationalSIITextNormalizationMixin, TimestampedMod
         'origen',
         'formula_ref',
         'evidencia_ref',
+        'warning_review_ref',
         'hash_linea',
     )
 
@@ -2192,6 +2194,7 @@ class AnnualTaxWorkbookLine(OperationalSIITextNormalizationMixin, TimestampedMod
     monto_clp = models.DecimalField(max_digits=16, decimal_places=2, default=0)
     formula_ref = models.CharField(max_length=255, blank=True)
     evidencia_ref = models.CharField(max_length=255, blank=True)
+    warning_review_ref = models.CharField(max_length=255, blank=True)
     warnings = models.JSONField(default=list, blank=True)
     source_payload = models.JSONField(default=dict, blank=True)
     hash_linea = models.CharField(max_length=64, blank=True)
@@ -2215,6 +2218,7 @@ class AnnualTaxWorkbookLine(OperationalSIITextNormalizationMixin, TimestampedMod
         errors = {}
         _add_non_sensitive_reference_error(errors, self, 'formula_ref')
         _add_non_sensitive_reference_error(errors, self, 'evidencia_ref')
+        _add_non_sensitive_reference_error(errors, self, 'warning_review_ref')
         _add_non_sensitive_payload_error(errors, 'warnings', self.warnings)
         _add_non_sensitive_payload_error(errors, 'source_payload', self.source_payload)
         if self.warnings and not isinstance(self.warnings, list):
