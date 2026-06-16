@@ -14,6 +14,18 @@ decide ni presenta renta/tributacion final de forma autonoma. La aprobacion o
 presentacion externa exige gate aplicable, responsable trazado y validacion
 experta/oficial cuando corresponda.
 
+Nota 2026-06-16: El progreso contable/renta por empresa queda con boundary
+explicito en API, Reporting y backoffice. `audit_company_accounting_progress`
+y `contabilidad/progreso-empresa/` exponen `review_boundary` con
+`autonomous_accounting=false`, `final_tax_calculation=false`,
+`sii_submission=false` y revision responsable/experta requerida. El selector
+`audit_company_accounting_candidates` y
+`contabilidad/candidatos-progreso-empresa/` exponen `selection_boundary`: solo
+ordenan empresas/anos con senales locales, sin fuentes externas ni apertura de
+gates. `ready_for_company_accounting_review` significa paquete local preparado
+para revision responsable, no cierre contable, calculo de renta final ni
+presentacion SII.
+
 Nota 2026-06-15: La iteracion posterior al mapeo completo EDIG se contrasta
 con SII. F22 AT2026 opera por certificacion de software que genera archivos y
 SII acredita recepcion, no contenido ni consistencia tributaria. DDJJ Renta

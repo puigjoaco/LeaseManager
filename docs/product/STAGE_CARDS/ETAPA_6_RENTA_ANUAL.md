@@ -324,16 +324,27 @@ responder el avance de una empresa piloto sin leer datos reales por defecto ni
 confundir preparacion tecnica con cierre tributario. La bandera
 `ready_for_company_accounting_review` solo significa lista para revision
 responsable.
+El payload conserva `review_boundary`: incluso con progreso local completo,
+`autonomous_accounting=false`, `final_tax_calculation=false`,
+`sii_submission=false`, `requires_responsible_review=true` y
+`requires_expert_or_official_validation=true`. La accion permitida es revision
+asistida por responsable; quedan fuera contabilidad autonoma, calculo
+tributario final sin revision y presentacion SII automatica.
 El mismo diagnostico queda disponible en Reporting como
 `contabilidad/progreso-empresa/`, para que el avance de una empresa piloto se
 consulte con `empresa_id` y `fiscal_year` antes de iniciar afirmaciones de
 cierre anual. La vista conserva el boundary: no calcula renta final, no sube
-F22/DDJJ, no usa SII real y no reemplaza revision tributaria experta.
+F22/DDJJ, no usa SII real y no reemplaza revision tributaria experta. La
+trazabilidad del reporte refleja los mismos controles para que el backoffice no
+convierta un estado revisable en cierre anual autonomo.
 El selector `audit_company_accounting_candidates` y la vista Reporting
 `contabilidad/candidatos-progreso-empresa/` priorizan empresas y anos con
 senales locales de cierre, balances, F29, proceso anual, balance tributario,
 RLI/CPT, dossier y export. Sirve para elegir que expediente revisar primero;
 no habilita calculo tributario final, upload SII ni presentacion autonoma.
+El selector expone `selection_boundary` para indicar que solo ordena candidatos
+con senales internas, sin fuentes externas, sin gates externos y sin habilitar
+contabilidad autonoma.
 Tanto el selector como el auditor por empresa exponen si la configuracion
 fiscal activa pertenece al regimen automatizable v1
 `EmpresaContabilidadCompletaV1`; si no corresponde, conservan las senales
