@@ -285,6 +285,102 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
             },
         )
 
+    def test_expected_value_extractor_keeps_non_decisive_errors_diagnostic(self):
+        manifest = {
+            'schema_version': 'annual-tax-source-manifest.v1',
+            'commercial_year': 2024,
+            'tax_year': 2025,
+            'files': [
+                {
+                    'category': 'annual_balance_expected_output',
+                    'role': 'expected_output',
+                    'path_ref': 'expected-output-balance-general-current-ref',
+                    'artifact_key': 'balance_general',
+                    'relative_path': 'expected/balance_current.txt',
+                    'output_status': '',
+                },
+                {
+                    'category': 'annual_balance_expected_output',
+                    'role': 'expected_output',
+                    'path_ref': 'expected-output-balance-general-historical-ref',
+                    'artifact_key': 'balance_general',
+                    'relative_path': 'historical/balance_historical.xls',
+                    'output_status': 'baseline',
+                },
+            ],
+        }
+        generated_targets = [
+            {
+                'target_key': 'trial_balance:12030101:sumas_debe_clp',
+                'category': 'annual_balance_expected_output',
+                'artifact_key': 'balance_general',
+                'amount_token': '123456789',
+            },
+        ]
+
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            current_path = source_root / 'expected' / 'balance_current.txt'
+            current_path.parent.mkdir(parents=True)
+            current_path.write_text('Balance vigente 123.456.789\n', encoding='utf-8')
+            historical_path = source_root / 'historical' / 'balance_historical.xls'
+            historical_path.parent.mkdir(parents=True)
+            historical_path.write_text('Balance historico 123.456.789\n', encoding='utf-8')
+
+            result = extract_expected_output_value_signals(
+                source_root=source_root,
+                manifest=manifest,
+                generated_targets=generated_targets,
+            )
+
+        self.assertEqual(result['summary']['extraction_errors_total'], 1)
+        self.assertEqual(result['summary']['blocking_extraction_errors_total'], 0)
+        self.assertEqual(result['blocking_extraction_errors'], [])
+        self.assertTrue(result['summary']['target_value_presence_ready'])
+        self.assertTrue(result['summary']['value_equality_extractors_ready'])
+
+    def test_expected_value_extractor_blocks_when_required_value_file_is_not_extractable(self):
+        manifest = {
+            'schema_version': 'annual-tax-source-manifest.v1',
+            'commercial_year': 2024,
+            'tax_year': 2025,
+            'files': [
+                {
+                    'category': 'annual_balance_expected_output',
+                    'role': 'expected_output',
+                    'path_ref': 'expected-output-balance-general-unsupported-ref',
+                    'artifact_key': 'balance_general',
+                    'relative_path': 'expected/balance_only.xls',
+                    'output_status': '',
+                }
+            ],
+        }
+        generated_targets = [
+            {
+                'target_key': 'trial_balance:12030101:sumas_debe_clp',
+                'category': 'annual_balance_expected_output',
+                'artifact_key': 'balance_general',
+                'amount_token': '123456789',
+            },
+        ]
+
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            path = source_root / 'expected' / 'balance_only.xls'
+            path.parent.mkdir(parents=True)
+            path.write_text('Balance no soportado 123.456.789\n', encoding='utf-8')
+
+            result = extract_expected_output_value_signals(
+                source_root=source_root,
+                manifest=manifest,
+                generated_targets=generated_targets,
+            )
+
+        self.assertEqual(result['summary']['extraction_errors_total'], 1)
+        self.assertEqual(result['summary']['blocking_extraction_errors_total'], 1)
+        self.assertEqual(result['blocking_extraction_errors'][0]['path_ref'], 'expected-output-balance-general-unsupported-ref')
+        self.assertFalse(result['summary']['target_value_presence_ready'])
+
     def test_comparator_matches_generated_coverage_and_identity_without_using_expected_outputs_as_inputs(self):
         empresa = self._create_empresa()
         self._load_and_generate_annual_layer(empresa)
@@ -473,6 +569,22 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
                         'relative_path': 'historical/f22_rejected.xls',
                         'output_status': 'rejected',
                     },
+                    {
+                        'category': 'annual_balance_expected_output',
+                        'role': 'expected_output',
+                        'path_ref': 'historical-balance-baseline-xls-ref',
+                        'artifact_key': 'balance_general',
+                        'relative_path': 'historical/balance_baseline.xls',
+                        'output_status': 'baseline',
+                    },
+                    {
+                        'category': 'annual_tax_register_expected_output',
+                        'role': 'expected_output',
+                        'path_ref': 'historical-rli-baseline-xls-ref',
+                        'artifact_key': 'renta_liquida',
+                        'relative_path': 'historical/renta_liquida_baseline.xls',
+                        'output_status': 'baseline',
+                    },
                 ]
             )
             self._write_expected_output_sources(source_root, manifest)
@@ -487,6 +599,7 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
 
         content_summary = result['expected_output_content_signals']['summary']
         semantic_summary = result['expected_output_document_semantic_signals']['summary']
+        value_summary = result['expected_output_value_signals']['summary']
 
         self.assertGreater(content_summary['extraction_errors_total'], 0)
         self.assertEqual(content_summary['blocking_extraction_errors_total'], 0)
@@ -494,8 +607,12 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
         self.assertGreater(semantic_summary['extraction_errors_total'], 0)
         self.assertEqual(semantic_summary['blocking_extraction_errors_total'], 0)
         self.assertTrue(semantic_summary['document_semantic_ready'])
+        self.assertGreater(value_summary['extraction_errors_total'], 0)
+        self.assertEqual(value_summary['blocking_extraction_errors_total'], 0)
+        self.assertTrue(value_summary['target_value_presence_ready'])
         self.assertNotIn('expected_output_identity_extraction_errors', result['summary']['blockers'])
         self.assertNotIn('expected_output_document_semantic_extraction_errors', result['summary']['blockers'])
+        self.assertNotIn('expected_output_value_extraction_errors', result['summary']['blockers'])
         self.assertNotIn('expected_output_value_extractors_partial', result['summary']['blockers'])
 
     def test_comparator_reports_missing_annual_process_as_blocker(self):

@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `compliance-retention-baseline-gate`. |
-| Fuente exacta | worktree `D:/Proyectos/10_ACTIVOS/LeaseManager-compliance-retention-baseline-gate`, creado sobre `main` `b6bbed0a`. |
-| Brecha activa | El gate local de `Compliance.DatosPersonalesChile2026` debe poder preparar explicitamente la linea base canonica de politicas de retencion demo/local sin carga manual, pero sin mutar fuentes evidenciales ni cerrar Compliance por diagnostico local. |
-| Motivo de prioridad | La matriz deja Compliance en `parcial` por falta de fuente y aprobaciones finales, pero hay trabajo seguro: hacer reproducible el baseline local de retencion para que las brechas restantes sean refs finales/fuente autorizada, no ausencia accidental de politicas canonicas en DB local. |
-| Worktree | Continuar/cerrar `D:/Proyectos/10_ACTIVOS/LeaseManager-compliance-retention-baseline-gate`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. La junction `D:/Proyectos/LeaseManager-company-progress-candidates` apunta a una ruta nueva no registrada por `git worktree list`; no trabajar ahi hasta que exista y Git la registre. |
-| Rama | `codex/compliance-retention-baseline-gate`; al cerrar, PR/CI/merge y limpiar worktree. |
-| Estado | En desarrollo validado localmente: `run-compliance-data-readiness-gate.ps1 -BootstrapDemoPolicies` ejecuta `bootstrap_demo_compliance_policies` solo para `local`/`fixture`/`demo`, rechaza `snapshot_controlado`/`real_autorizado`, exige SQLite de archivo bajo `local-evidence/`, deja cinco politicas canonicas activas y elimina los issues locales de politicas/holds faltantes. |
-| Gate esperado | Compliance debe seguir `classification=parcial` con `ready_for_compliance_data=false` cuando la fuente es `local`, `fixture` o `demo`. Este paquete no autoriza datos reales, no sustituye aprobaciones legales/operativas y no cierra `BLK-010`. |
-| Estado al cerrar paquete | No reabrir paquetes Stage 6 ya mergeados ni prompts de goal. El cierre esperado es PR/CI/merge del wrapper y tests de Compliance, dejando el siguiente frente real definido por la primera brecha segura de la matriz/cursor, no por autorizaciones repetidas. |
-| Bloqueos relacionados | `BLK-010` sigue abierto: el cierre real de Compliance exige `snapshot_controlado` o `real_autorizado` con `SourceLabel`, `AuthorizationRef`, `PolicyApprovalRef`, `ResponsibleRef`, `ControlsEvidenceRef`, `ArchivedEvidenceRef` y `LegalReviewRef` no sensibles. Este bloqueo impide cierre, no preparacion local segura. |
-| Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, integraciones externas ni rutas de worktree no registradas por Git sin autorizacion explicita. Si falta fuente externa, continuar con preparacion local segura y trazable. |
-| Siguiente accion | Completar documentacion, validacion amplia, PR/CI/merge y limpiar `compliance-retention-baseline-gate`; luego continuar con el siguiente frente seguro segun matriz/cursor. |
+| Frente activo | `stage6-value-error-filter`. |
+| Fuente exacta | worktree `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-value-error-filter`, creado sobre `main` `df7c4cbb`. |
+| Brecha activa | El comparador espejo AC2024/AT2025 trata cualquier error de extraccion de valores como bloqueo, aunque sea historico/no decisivo y exista otro output extraible para el mismo par `category/artifact_key`. |
+| Motivo de prioridad | La arquitectura de renta anual debe distinguir falso bloqueo tecnico de brecha real. En la comparacion post revision generada hay 5 errores de extraccion de valores, pero el resultado util es que 136 targets siguen faltando; el bloqueo debe quedar en mismatch/extractor incompleto, no en lector historico. |
+| Worktree | Continuar/cerrar `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-value-error-filter`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `codex/stage6-value-error-filter`; al cerrar, PR/CI/merge y limpiar worktree. |
+| Estado | En desarrollo validado focalmente: `extract_expected_output_value_signals` expone `blocking_extraction_errors_total`; errores no decisivos quedan registrados pero no bloquean cuando ya existe una fuente extraible para el mismo par de comparacion. Contraste local AC2024/AT2025: `extraction_errors_total=5`, `blocking_extraction_errors_total=0`, `missing_targets_total=136`. |
+| Gate esperado | Etapa 6 sigue `classification=parcial`; este paquete no corrige los 136 targets faltantes, no usa outputs finales como input, no abre SII real, no declara igualdad numerica ni calculo tributario final. |
+| Estado al cerrar paquete | No reabrir Compliance #879, paquetes Stage 6 ya mergeados ni prompts de goal. El siguiente frente real debe tomar el primer blocker concreto que quede en mirror proof: targets faltantes, bienes raices, registros empresariales invalidos o soporte tributario, segun evidencia actual. |
+| Bloqueos relacionados | La comparacion AC2024/AT2025 sigue bloqueada por `expected_output_value_mismatch` y `expected_output_value_extractors_missing`; esos bloqueos son de contenido/arquitectura de valores, no de permiso externo ni de `.env`. |
+| Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable ni integraciones externas sin autorizacion explicita. Las salidas F22/DDJJ/Balance/RLI/CPT/RAI/SAC esperadas son comparacion externa read-only, nunca input de calculo. |
+| Siguiente accion | Completar validacion impactada, PR/CI/merge y limpiar `stage6-value-error-filter`; luego continuar con el siguiente blocker concreto de la prueba espejo. |
 
 ## Actualizacion
 

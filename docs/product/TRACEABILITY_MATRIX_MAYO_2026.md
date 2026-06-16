@@ -36,6 +36,16 @@ la comparacion AC2024/AT2025 previa convierte 3520 errores de identidad y 3515
 errores semanticos en 0 bloqueantes; los bloqueos de valores y revision de
 artefactos siguen separados y no se declaran como cierre tributario final.
 
+Nota 2026-06-16: La misma separacion se aplica a valores esperados. El extractor
+de Balance/RLI/CPT/RAI/SAC conserva `extraction_errors`, pero solo marca
+`blocking_extraction_errors_total` cuando falla el unico archivo disponible para
+un par `category/artifact_key` que LeaseManager genero y debe comparar. En la
+prueba AC2024/AT2025 post revision generada, 5 errores historicos/no decisivos
+quedan en 0 bloqueantes; el comparador sigue bloqueando por
+`expected_output_value_mismatch` y `expected_output_value_extractors_missing`
+con 136 targets faltantes reales, sin usar outputs finales como input ni
+declarar calculo tributario final.
+
 Nota 2026-06-16: El auditor de progreso contable/renta distingue F29 faltante
 de mes controlado sin declaracion. Si existe `MonthlyTaxFact` normalizado con
 F29 `no_aplica` y `no_declaration=true`, el mes cuenta como cobertura F29
