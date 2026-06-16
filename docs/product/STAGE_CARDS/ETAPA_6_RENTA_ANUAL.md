@@ -265,7 +265,9 @@ sin clasificador contable tributario.
 RLI/CPT: para cada `ProcesoRentaAnual` se preparan workbooks RLI y CPT desde
 `TaxCodeMapping` aprobado, `MonthlyTaxFact` y, cuando el mapping lo exige,
 `AnnualTaxTrialBalance`, con hashes por linea/workbook, warnings revisables y
-exposicion redactada. Esta capa no declara calculo tributario final; deja
+exposicion redactada. `warning_review_ref` permite registrar revision
+responsable no sensible de warnings de linea sin borrar advertencias ni
+promover calculo final. Esta capa no declara calculo tributario final; deja
 importes, origenes y advertencias listos para revision antes de avanzar a
 RAI/SAC/DDJJ/F22.
 `AnnualEnterpriseRegisterSet` y `AnnualEnterpriseRegisterMovement` materializan
@@ -419,8 +421,9 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   `ProcesoRentaAnual.resumen_anual.annual_tax_workbooks`.
 - `AnnualTaxWorkbookLine` activa requiere `TaxCodeMapping` del mismo rule set,
   origen, monto, `formula_ref`, `evidencia_ref`, `source_payload` y
-  `hash_linea` coherente. Lineas con warnings bloquean readiness hasta revision
-  tributaria; no se transforman en cierre automatico.
+  `hash_linea` coherente. Lineas con warnings bloquean readiness mientras no
+  tengan `warning_review_ref` no sensible; las revisadas conservan el warning
+  en payload/hash y no se transforman en cierre automatico.
 - `AnnualEnterpriseRegisterSet` preparado requiere proceso anual, bundle y rule
   set coherentes, saldos iniciales/finales trazables, `resumen_registro` y
   `hash_registro` coherentes. Para tratar un proceso anual como trazable deben
@@ -656,8 +659,8 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
 - `generate_annual_preparation()` sincroniza workbooks RLI/CPT despues de crear
   el proceso anual y el balance anual cuando corresponda, antes de emitir
   DDJJ/F22 locales. La readiness bloquea procesos trazables sin ambos
-  workbooks, sin lineas activas, con warnings, invalidos o con resumen RLI/CPT
-  desalineado.
+  workbooks, sin lineas activas, con warnings pendientes de revision, invalidos
+  o con resumen RLI/CPT desalineado.
 - `generate_annual_preparation()` sincroniza registros empresariales despues de
   RLI/CPT y antes de emitir DDJJ/F22 locales. La readiness bloquea procesos
   trazables sin RAI/SAC/retiros/dividendos, sin movimientos activos, con
@@ -677,9 +680,9 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   admin es solo lectura para preservar que el balance anual proviene de
   `BalanceComprobacion` y fuentes revisadas, no de edicion manual opaca.
 - La API/snapshot/admin de SII exponen `AnnualTaxWorkbook` y
-  `AnnualTaxWorkbookLine` con refs, warnings y payloads redactados; el admin es
-  solo lectura para preservar que RLI/CPT provienen del normalizador anual y no
-  de edicion manual opaca.
+  `AnnualTaxWorkbookLine` con refs, `warning_review_ref`, warnings y payloads
+  redactados; el admin es solo lectura para preservar que RLI/CPT provienen del
+  normalizador anual y no de edicion manual opaca.
 - La API/snapshot/admin de SII exponen `AnnualEnterpriseRegisterSet` y
   `AnnualEnterpriseRegisterMovement` con refs, warnings y payloads redactados;
   el admin es solo lectura para preservar que RAI/SAC/retiros/dividendos

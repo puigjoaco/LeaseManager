@@ -838,6 +838,37 @@ def _line_hash_payload(line_payload):
     return hashlib.sha256(_canonical_source_payload(line_payload).encode('utf-8')).hexdigest()
 
 
+def _workbook_line_hash_payload(line):
+    return {
+        'workbook_id': line.workbook_id,
+        'mapping_id': line.mapping_id,
+        'codigo_interno': line.codigo_interno,
+        'codigo_destino': line.codigo_destino,
+        'origen': line.origen,
+        'signo': line.signo,
+        'monto_clp': str(line.monto_clp),
+        'formula_ref': line.formula_ref,
+        'evidencia_ref': line.evidencia_ref,
+        'warning_review_ref': line.warning_review_ref,
+        'warnings': line.warnings,
+        'source_payload': line.source_payload,
+    }
+
+
+def _annual_tax_workbook_warning_counts(active_lines):
+    warning_count = 0
+    warning_reviewed_count = 0
+    warning_pending_review_count = 0
+    for line in active_lines:
+        warnings = line.warnings if isinstance(line.warnings, list) else []
+        warning_count += len(warnings)
+        if warnings and has_text(line.warning_review_ref):
+            warning_reviewed_count += len(warnings)
+        elif warnings:
+            warning_pending_review_count += len(warnings)
+    return warning_count, warning_reviewed_count, warning_pending_review_count
+
+
 def sync_annual_tax_trial_balance(process, rule_set, source_bundle):
     fiscal_year = process.anio_tributario - 1
     periodo_cierre = f'{fiscal_year}-12'
@@ -1171,14 +1202,22 @@ def summarize_annual_tax_workbooks(process):
     for workbook in workbooks:
         active_lines = workbook.lines.filter(estado=EstadoRegistro.ACTIVE).order_by('codigo_interno', 'codigo_destino')
         warning_count = 0
+        warning_reviewed_count = 0
+        warning_pending_review_count = 0
         for line in active_lines:
             warnings = line.warnings if isinstance(line.warnings, list) else []
             warning_count += len(warnings)
+            if warnings and has_text(line.warning_review_ref):
+                warning_reviewed_count += len(warnings)
+            elif warnings:
+                warning_pending_review_count += len(warnings)
         by_type[workbook.tipo] = {
             'id': workbook.id,
             'hash_workbook': workbook.hash_workbook,
             'lines_total': active_lines.count(),
             'warnings_total': warning_count,
+            'warnings_reviewed_total': warning_reviewed_count,
+            'warnings_pending_review_total': warning_pending_review_count,
         }
     return {
         'total': workbooks.count(),
@@ -1472,6 +1511,55 @@ def summarize_annual_tax_review_checklists(process):
     }
 
 
+def _finalize_annual_tax_workbook(workbook):
+    active_lines = list(workbook.lines.filter(estado=EstadoRegistro.ACTIVE).order_by('codigo_interno', 'codigo_destino'))
+    warning_count, warning_reviewed_count, warning_pending_review_count = _annual_tax_workbook_warning_counts(active_lines)
+    workbook_summary = {
+        'empresa_id': workbook.empresa_id,
+        'proceso_renta_anual_id': workbook.proceso_renta_anual_id,
+        'source_bundle_id': workbook.source_bundle_id,
+        'rule_set_id': workbook.rule_set_id,
+        'anio_tributario': workbook.anio_tributario,
+        'anio_comercial': workbook.anio_comercial,
+        'tipo': workbook.tipo,
+        'lines_total': len(active_lines),
+        'warnings_total': warning_count,
+        'warnings_reviewed_total': warning_reviewed_count,
+        'warnings_pending_review_total': warning_pending_review_count,
+        'line_hashes': [line.hash_linea for line in active_lines],
+        'annual_tax_trial_balance_id': None,
+        'annual_tax_trial_balance_hash': '',
+        'source': 'TaxCodeMapping + MonthlyTaxFact + AnnualTaxTrialBalance',
+        'final_tax_calculation': False,
+    }
+    trial_balance_ids = {
+        payload.get('annual_tax_trial_balance_id')
+        for line in active_lines
+        for payload in [line.source_payload if isinstance(line.source_payload, dict) else {}]
+        if payload.get('annual_tax_trial_balance_id')
+    }
+    trial_balance_hashes = {
+        payload.get('annual_tax_trial_balance_hash')
+        for line in active_lines
+        for payload in [line.source_payload if isinstance(line.source_payload, dict) else {}]
+        if payload.get('annual_tax_trial_balance_hash')
+    }
+    if len(trial_balance_ids) == 1:
+        workbook_summary['annual_tax_trial_balance_id'] = next(iter(trial_balance_ids))
+    if len(trial_balance_hashes) == 1:
+        workbook_summary['annual_tax_trial_balance_hash'] = next(iter(trial_balance_hashes))
+    workbook.resumen_workbook = workbook_summary
+    workbook.hash_workbook = _source_bundle_hash(workbook_summary)
+    workbook.estado = EstadoAnnualTaxWorkbook.PREPARED
+    try:
+        workbook.full_clean()
+    except ValidationError as error:
+        reason = _first_validation_error(error)
+        raise ValueError(f'AnnualTaxWorkbook no cumple validacion de dominio: {reason}') from error
+    workbook.save()
+    return workbook
+
+
 def sync_annual_tax_workbooks(process, rule_set, source_bundle):
     fiscal_year = process.anio_tributario - 1
     monthly_facts = list(
@@ -1531,6 +1619,17 @@ def sync_annual_tax_workbooks(process, rule_set, source_bundle):
             for artifact_key in ('expected_output_artifacts', 'expected_enterprise_register_artifacts'):
                 if artifact_key in metadata:
                     line_source_payload[artifact_key] = _metadata_string_list(metadata.get(artifact_key))
+            existing_line = AnnualTaxWorkbookLine.objects.filter(
+                workbook=workbook,
+                codigo_interno=mapping.codigo_interno,
+                codigo_destino=mapping.codigo_destino,
+            ).first()
+            existing_warnings = existing_line.warnings if existing_line and isinstance(existing_line.warnings, list) else []
+            warning_review_ref = (
+                existing_line.warning_review_ref
+                if warnings and existing_warnings == warnings and has_text(existing_line.warning_review_ref)
+                else ''
+            )
             line_payload = {
                 'workbook_id': workbook.id,
                 'mapping_id': mapping.id,
@@ -1541,6 +1640,7 @@ def sync_annual_tax_workbooks(process, rule_set, source_bundle):
                 'monto_clp': str(amount),
                 'formula_ref': mapping.formula_ref,
                 'evidencia_ref': mapping.evidencia_ref,
+                'warning_review_ref': warning_review_ref,
                 'warnings': warnings,
                 'source_payload': line_source_payload,
             }
@@ -1555,6 +1655,7 @@ def sync_annual_tax_workbooks(process, rule_set, source_bundle):
                     'monto_clp': amount,
                     'formula_ref': mapping.formula_ref,
                     'evidencia_ref': mapping.evidencia_ref,
+                    'warning_review_ref': warning_review_ref,
                     'warnings': warnings,
                     'source_payload': line_source_payload,
                     'hash_linea': _line_hash_payload(line_payload),
@@ -1570,33 +1671,7 @@ def sync_annual_tax_workbooks(process, rule_set, source_bundle):
             active_line_ids.append(line.id)
 
         workbook.lines.exclude(id__in=active_line_ids).update(estado=EstadoRegistro.INACTIVE)
-        active_lines = list(workbook.lines.filter(estado=EstadoRegistro.ACTIVE).order_by('codigo_interno', 'codigo_destino'))
-        warning_count = sum(len(line.warnings or []) for line in active_lines if isinstance(line.warnings, list))
-        workbook_summary = {
-            'empresa_id': process.empresa_id,
-            'proceso_renta_anual_id': process.id,
-            'source_bundle_id': source_bundle.id,
-            'rule_set_id': rule_set.id,
-            'anio_tributario': process.anio_tributario,
-            'anio_comercial': fiscal_year,
-            'tipo': workbook_type,
-            'lines_total': len(active_lines),
-            'warnings_total': warning_count,
-            'line_hashes': [line.hash_linea for line in active_lines],
-            'annual_tax_trial_balance_id': trial_balance.id if trial_balance else None,
-            'annual_tax_trial_balance_hash': trial_balance.hash_balance if trial_balance else '',
-            'source': 'TaxCodeMapping + MonthlyTaxFact + AnnualTaxTrialBalance',
-            'final_tax_calculation': False,
-        }
-        workbook.resumen_workbook = workbook_summary
-        workbook.hash_workbook = _source_bundle_hash(workbook_summary)
-        workbook.estado = EstadoAnnualTaxWorkbook.PREPARED
-        try:
-            workbook.full_clean()
-        except ValidationError as error:
-            reason = _first_validation_error(error)
-            raise ValueError(f'AnnualTaxWorkbook no cumple validacion de dominio: {reason}') from error
-        workbook.save()
+        _finalize_annual_tax_workbook(workbook)
         workbooks.append(workbook)
 
     AnnualTaxWorkbook.objects.filter(
@@ -1604,6 +1679,52 @@ def sync_annual_tax_workbooks(process, rule_set, source_bundle):
         estado=EstadoAnnualTaxWorkbook.PREPARED,
     ).exclude(id__in=[workbook.id for workbook in workbooks]).update(estado=EstadoAnnualTaxWorkbook.RETIRED)
     return workbooks
+
+
+def mark_annual_tax_workbook_warnings_reviewed(process, *, warning_review_ref):
+    warning_review_ref = _ensure_non_sensitive_reference(warning_review_ref, 'warning_review_ref')
+    if not warning_review_ref:
+        raise ValueError('warning_review_ref es obligatorio para revisar warnings de workbooks RLI/CPT.')
+    reviewed_warnings_total = 0
+    reviewed_lines_total = 0
+    touched_workbooks = {}
+    lines = (
+        AnnualTaxWorkbookLine.objects.filter(
+            workbook__proceso_renta_anual=process,
+            workbook__estado=EstadoAnnualTaxWorkbook.PREPARED,
+            estado=EstadoRegistro.ACTIVE,
+        )
+        .select_related('workbook', 'mapping')
+        .order_by('workbook_id', 'id')
+    )
+    for line in lines:
+        warnings = line.warnings if isinstance(line.warnings, list) else []
+        if not warnings:
+            continue
+        line.warning_review_ref = warning_review_ref
+        line.hash_linea = _line_hash_payload(_workbook_line_hash_payload(line))
+        try:
+            line.full_clean()
+        except ValidationError as error:
+            reason = _first_validation_error(error)
+            raise ValueError(f'AnnualTaxWorkbookLine revisada no cumple validacion de dominio: {reason}') from error
+        line.save(update_fields=['warning_review_ref', 'hash_linea', 'updated_at'])
+        reviewed_warnings_total += len(warnings)
+        reviewed_lines_total += 1
+        touched_workbooks[line.workbook_id] = line.workbook
+
+    for workbook in touched_workbooks.values():
+        _finalize_annual_tax_workbook(workbook)
+
+    return {
+        'process_id': process.id,
+        'warning_review_ref': warning_review_ref,
+        'reviewed_workbooks_total': len(touched_workbooks),
+        'reviewed_lines_total': reviewed_lines_total,
+        'reviewed_warnings_total': reviewed_warnings_total,
+        'final_tax_calculation': False,
+        'sii_submission': False,
+    }
 
 
 def _enterprise_register_mapping(rule_set, destino):
