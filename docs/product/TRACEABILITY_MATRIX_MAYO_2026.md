@@ -54,6 +54,13 @@ sube a `138/138` valores presentes con blockers vacios del comparador. El mirror
 proof sigue parcial por `stage6.enterprise_register_movement_invalid` y
 `stage6.real_estate_item_missing`, que son las siguientes brechas reales.
 
+Nota 2026-06-16: Los movimientos de registros empresariales anuales ahora
+calculan `hash_movimiento` despues de normalizar la instancia persistida. Esto
+alinea el hash de RAI/SAC con el payload canonico del modelo y elimina el falso
+`stage6.enterprise_register_movement_invalid` en la prueba controlada AC2024/AT2025.
+La prueba espejo conserva comparador completo y queda pendiente por
+`stage6.real_estate_item_missing`.
+
 Nota 2026-06-16: El auditor de progreso contable/renta distingue F29 faltante
 de mes controlado sin declaracion. Si existe `MonthlyTaxFact` normalizado con
 F29 `no_aplica` y `no_declaration=true`, el mes cuenta como cobertura F29

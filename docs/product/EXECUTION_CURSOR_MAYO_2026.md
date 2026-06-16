@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `stage6-value-token-union`. |
-| Fuente exacta | worktree `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-value-token-union`, creado sobre `main` `76dc785e`. |
-| Brecha activa | El comparador de valores AC2024/AT2025 extrae muchos archivos para `balance_general`, pero usaba solo el ultimo set de tokens por `category/artifact_key`, dejando 136 falsos faltantes en Balance. |
-| Motivo de prioridad | La prueba espejo debe probar si LeaseManager llega a los outputs finales desde inputs 2024. Si el comparador sobrescribe paginas/archivos de Balance, la arquitectura parece incompleta aunque las senales esperadas ya existan en otros archivos. |
-| Worktree | Continuar/cerrar `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-value-token-union`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
-| Rama | `codex/stage6-value-token-union`; al cerrar, PR/CI/merge y limpiar worktree. |
-| Estado | En desarrollo validado focalmente: `extract_expected_output_value_signals` une tokens por `category/artifact_key`. Contraste local AC2024/AT2025: Balance usa 1046 tokens esperados, `Compared=138`, `Matched=138`, `Missing=0`, `BlockingExtractionErrors=0`; el mirror proof conserva blockers reales de Stage 6. |
-| Gate esperado | El comparador queda sin blockers, pero Etapa 6/mirror proof sigue `classification=parcial` si persisten `stage6.enterprise_register_movement_invalid` y `stage6.real_estate_item_missing`. No usa outputs finales como input, no abre SII real, no declara cierre tributario final ni presentacion SII. |
-| Estado al cerrar paquete | No reabrir Compliance #879, filtro de errores #880, paquetes Stage 6 ya mergeados ni prompts de goal. El siguiente frente real debe tomar registros empresariales invalidos o bienes raices faltantes segun mirror proof. |
-| Bloqueos relacionados | Tras este paquete, los blockers de comparacion de valores deben desaparecer. La prueba espejo total sigue pendiente por `stage6.enterprise_register_movement_invalid` y `stage6.real_estate_item_missing`. |
+| Frente activo | `stage6-enterprise-movement-hash`. |
+| Fuente exacta | worktree `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-enterprise-movement-hash`, creado sobre `main` `ed3b1e16`. |
+| Brecha activa | La prueba espejo AC2024/AT2025 ya tiene comparador verde, pero readiness Etapa 6 reporta 7 movimientos de registros empresariales invalidos porque `hash_movimiento` se calculaba antes de normalizar el movimiento persistido. |
+| Motivo de prioridad | Es una brecha de integridad generada por LeaseManager, no una falta de permiso externo. Mientras los hashes de RAI/SAC no coincidan con el payload canonico, la arquitectura anual parece no cerrable aunque los registros existan. |
+| Worktree | Continuar/cerrar `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-enterprise-movement-hash`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `codex/stage6-enterprise-movement-hash`; al cerrar, PR/CI/merge y limpiar worktree. |
+| Estado | En desarrollo validado focalmente: `_save_enterprise_movement` normaliza `monto_clp` y recalcula `hash_movimiento` desde la instancia. En copia controlada AC2024/AT2025, movimientos empresariales quedan `invalid_total=0`; readiness baja a un solo blocker: `stage6.real_estate_item_missing`. |
+| Gate esperado | Etapa 6/mirror proof sigue `classification=parcial` porque falta materializar bienes raices/contribuciones, pero ya no debe reportar `stage6.enterprise_register_movement_invalid`. No usa outputs finales como input, no abre SII real, no declara cierre tributario final ni presentacion SII. |
+| Estado al cerrar paquete | No reabrir Compliance #879, filtro #880, union de tokens #881, paquetes Stage 6 ya mergeados ni prompts de goal. El siguiente frente real debe tomar `stage6.real_estate_item_missing`. |
+| Bloqueos relacionados | Tras este paquete, la prueba espejo total queda pendiente por bienes raices faltantes y los blockers agregados que dependen de esa arquitectura/fuente. |
 | Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable ni integraciones externas sin autorizacion explicita. Las salidas F22/DDJJ/Balance/RLI/CPT/RAI/SAC esperadas son comparacion externa read-only, nunca input de calculo. |
-| Siguiente accion | Completar validacion impactada, PR/CI/merge y limpiar `stage6-value-token-union`; luego continuar con `stage6.enterprise_register_movement_invalid` o `stage6.real_estate_item_missing`. |
+| Siguiente accion | Completar validacion, PR/CI/merge y limpiar `stage6-enterprise-movement-hash`; luego continuar con `stage6.real_estate_item_missing`. |
 
 ## Actualizacion
 
