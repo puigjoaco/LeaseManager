@@ -10,6 +10,7 @@ from typing import Any
 
 from core.annual_tax_controlled_db_load import CONTROLLED_DB_LOAD_SCHEMA_VERSION
 from core.annual_tax_controlled_package_template import CONTROLLED_DB_LOAD_TEMPLATE_SCHEMA_VERSION
+from core.annual_tax_source_manifest import payload_hash
 from core.reference_validation import is_non_sensitive_reference
 
 
@@ -544,6 +545,56 @@ def _extract_annual_ledger_sources(
     return diario_by_month, mayor_by_month, inventario, source_refs, errors
 
 
+def _labor_previsional_expected_refs(labor: dict[str, Any]) -> list[str]:
+    refs = []
+    for item in labor.get('source_refs') or []:
+        if not isinstance(item, dict):
+            continue
+        path_ref = str(item.get('path_ref') or '').strip()
+        if path_ref and is_non_sensitive_reference(path_ref):
+            refs.append(path_ref)
+    return sorted(set(refs))
+
+
+def _complete_labor_previsional_source_ref(
+    *,
+    package: dict[str, Any],
+    reviewed_payroll_refs: set[str],
+    filled_paths: list[str],
+) -> None:
+    labor = package.get('labor_previsional')
+    if not isinstance(labor, dict) or labor.get('required') is not True:
+        return
+    if is_non_sensitive_reference(labor.get('source_ref')):
+        return
+
+    expected_refs = _labor_previsional_expected_refs(labor)
+    if not expected_refs or not set(expected_refs).issubset(reviewed_payroll_refs):
+        return
+
+    source_hash = payload_hash(
+        {
+            'schema_version': CONTROLLED_VALUES_DRAFT_SCHEMA_VERSION,
+            'company_ref': package.get('company_ref', ''),
+            'commercial_year': package.get('commercial_year'),
+            'tax_year': package.get('tax_year'),
+            'labor_previsional_source_refs': expected_refs,
+        }
+    )[:16]
+    labor['source_ref'] = f'labor-previsional-reviewed-{source_hash}'
+    labor['status'] = 'reviewed_source_ref_ready'
+    labor['reviewed_source_refs_count'] = len(expected_refs)
+    labor['final_tax_calculation'] = False
+    filled_paths.extend(
+        [
+            '$.labor_previsional.source_ref',
+            '$.labor_previsional.status',
+            '$.labor_previsional.reviewed_source_refs_count',
+            '$.labor_previsional.final_tax_calculation',
+        ]
+    )
+
+
 def build_annual_tax_controlled_values_draft(
     *,
     manifest: dict[str, Any],
@@ -565,6 +616,7 @@ def build_annual_tax_controlled_values_draft(
     filled_paths: list[str] = []
     extraction_warnings: list[str] = []
     extraction_errors: list[str] = []
+    reviewed_payroll_refs: set[str] = set()
     file_index = _manifest_file_index(manifest)
     source_root = source_root.resolve()
 
@@ -687,10 +739,17 @@ def build_annual_tax_controlled_values_draft(
                     'numbers_detected': payroll_data['numbers_detected'],
                     'extraction': 'pdftotext-controlled',
                 }
+                reviewed_payroll_refs.add(path_ref)
                 filled_paths.extend([f'{month_path}.payroll.source_ref', f'{month_path}.payroll.has_movements'])
             except ValueError as error:
                 extraction_errors.append(f'{month_path}.payroll:{error}')
 
+    _complete_labor_previsional_source_ref(
+        package=package,
+        reviewed_payroll_refs=reviewed_payroll_refs,
+        filled_paths=filled_paths,
+    )
+    labor_previsional = package.get('labor_previsional') if isinstance(package.get('labor_previsional'), dict) else {}
     draft['values_draft_summary'] = {
         'schema_version': CONTROLLED_VALUES_DRAFT_SCHEMA_VERSION,
         'source_root_ref': manifest.get('source_root_ref', ''),
@@ -698,6 +757,8 @@ def build_annual_tax_controlled_values_draft(
         'filled_paths_sample': sorted(set(filled_paths))[:30],
         'extraction_warnings': extraction_warnings,
         'extraction_errors': extraction_errors,
+        'labor_previsional_source_ref_ready': is_non_sensitive_reference(labor_previsional.get('source_ref')),
+        'labor_previsional_reviewed_source_refs_count': len(reviewed_payroll_refs),
         'writes_database': False,
         'uses_expected_outputs_as_inputs': False,
         'uses_sii_real': False,

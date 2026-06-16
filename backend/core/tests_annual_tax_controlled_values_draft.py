@@ -101,6 +101,15 @@ class AnnualTaxControlledValuesDraftTests(SimpleTestCase):
                         {'path_ref': 'libro-inventario-ref'},
                     ]
                 },
+                'labor_previsional': {
+                    'required': True,
+                    'required_by_ddjj_forms': ['1887'],
+                    'source_ref': '',
+                    'source_refs': [{'path_ref': 'payroll-enero-ref'}],
+                    'monthly_support_months': [1],
+                    'status': 'pending_source_review',
+                    'final_tax_calculation': False,
+                },
                 'months': [
                     {
                         'month': 1,
@@ -253,8 +262,55 @@ class AnnualTaxControlledValuesDraftTests(SimpleTestCase):
         self.assertEqual(month['f29']['borrador_ref'], 'f29-enero-ref')
         self.assertEqual(month['obligations'][0]['tipo'], 'PPM')
         self.assertTrue(month['payroll']['has_movements'])
+        labor = result['package_draft']['labor_previsional']
+        self.assertTrue(labor['source_ref'].startswith('labor-previsional-reviewed-'))
+        self.assertEqual(labor['status'], 'reviewed_source_ref_ready')
+        self.assertEqual(labor['reviewed_source_refs_count'], 1)
+        self.assertFalse(labor['final_tax_calculation'])
+        self.assertTrue(result['values_draft_summary']['labor_previsional_source_ref_ready'])
+        self.assertEqual(result['values_draft_summary']['labor_previsional_reviewed_source_refs_count'], 1)
         rendered_package = json.dumps(result['package_draft'], ensure_ascii=True)
         self.assertNotIn('f22_expected_output', rendered_package)
+
+    def test_values_draft_keeps_labor_source_pending_when_expected_payroll_is_not_reviewed(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            self._source_file(
+                source_root,
+                '01_Libros_Anuales/Libro Diario 2024.txt',
+                'Comprobantes MES DE ENERO\nTOTAL COMPROBANTE Nº 1 1.000 1.000\nTotal ENERO 1.000 1.000\n',
+            )
+            self._source_file(
+                source_root,
+                '01_Libros_Anuales/Libro Mayor 2024.txt',
+                '1101001 Caja\nTotal Mes de Enero . 1.000 1.000 0\n',
+            )
+            self._source_file(
+                source_root,
+                '01_Libros_Anuales/Libro Inventario 2024.txt',
+                'DETALLE DE ACTIVOS\n1101001 Caja\nSALDO CONTABLE AL 31/12/2024 1.000\n',
+            )
+            self._source_file(
+                source_root,
+                '06_Respaldos_Tributarios/01_F29_y_Comprobantes/2024-01 F29.txt',
+                'PERIODO [15] 202401\n563 BASE IMPONIBLE 1.000 062 PPM NETO DETERMINADO 10\n',
+            )
+            template = self._template()
+            template['package_draft']['months'][0]['input_source_refs'].pop('payroll_support')
+
+            result = build_annual_tax_controlled_values_draft(
+                manifest=self._manifest(),
+                template=template,
+                source_root=source_root,
+                responsible_ref='codex-local-review',
+                approval_ref='user-authorized-local-source-review',
+            )
+
+        labor = result['package_draft']['labor_previsional']
+        self.assertEqual(labor['source_ref'], '')
+        self.assertEqual(labor['status'], 'pending_source_review')
+        self.assertFalse(result['values_draft_summary']['labor_previsional_source_ref_ready'])
+        self.assertEqual(result['values_draft_summary']['labor_previsional_reviewed_source_refs_count'], 0)
 
     def test_values_draft_prefers_commercial_year_annual_books_over_later_candidates(self):
         with TemporaryDirectory() as temp_dir:

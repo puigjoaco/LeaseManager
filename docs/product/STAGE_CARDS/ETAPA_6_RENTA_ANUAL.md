@@ -246,6 +246,10 @@ lista la fuente espejo si falta `payroll_support`, el plan/template arrastran
 `labor_previsional.required=true`, y readiness/writer bloquean paquetes que no
 declaren `labor_previsional.source_ref` no sensible. Esto conserva
 Remuneraciones como fuente revisable, no como payroll autonomo ni calculo final.
+El draft controlado de valores puede completar ese `source_ref` anual solo
+cuando todas las fuentes `payroll_support` esperadas fueron leidas y revisadas
+por el parser local permitido; la referencia generada es no sensible y mantiene
+`final_tax_calculation=false`.
 `AnnualTaxTrialBalance` y `AnnualTaxTrialBalanceLine` materializan la capa
 anual de balance de ocho columnas entre contabilidad y RLI/CPT/DJ1847: toman
 un `BalanceComprobacion` aprobado de diciembre, una fuente oficial/experta
