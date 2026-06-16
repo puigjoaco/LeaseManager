@@ -4221,6 +4221,7 @@ class SiiAPITests(APITestCase):
             formula_ref='https://sii.example.test/artifact-formula?token=secret',
             evidencia_ref='Bearer artifact-item-secret',
             responsible_ref='https://sii.example.test/artifact-responsible?token=secret',
+            warning_review_ref='https://sii.example.test/artifact-warning-review?token=secret',
             warnings=['https://sii.example.test/artifact-warning?token=secret'],
             source_payload={'api_key': 'secret-artifact-item-value'},
         )
@@ -4235,6 +4236,7 @@ class SiiAPITests(APITestCase):
         self.assertEqual(item_admin.formula_ref_redacted(item), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(item_admin.evidencia_ref_redacted(item), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(item_admin.responsible_ref_redacted(item), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(item_admin.warning_review_ref_redacted(item), REDACTED_SENSITIVE_REFERENCE)
         self.assertNotIn('secret-artifact-item-value', json.dumps(item_admin.source_payload_redacted(item)))
 
         matrix_response = self.client.get(reverse('sii-annual-tax-artifact-matrix-list'))
@@ -4263,6 +4265,8 @@ class SiiAPITests(APITestCase):
         self.assertEqual(matrix_data['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_matrix_data['source_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_matrix_data['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(item_data['warning_review_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_item_data['warning_review_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(item_data['formula_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(item_data['evidencia_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(item_data['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)

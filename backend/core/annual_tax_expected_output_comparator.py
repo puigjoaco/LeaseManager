@@ -169,17 +169,19 @@ def _generated_inventory(process: ProcesoRentaAnual | None) -> dict[str, Any]:
     review_blockers_total = 0
     if matrix is not None:
         matrix_summary = matrix.resumen_matriz if isinstance(matrix.resumen_matriz, dict) else {}
-        review_warning_counts['artifact_matrix_warnings'] += int(matrix_summary.get('warnings_total') or 0)
+        review_warning_counts['artifact_matrix_warnings'] += int(
+            matrix_summary.get('warnings_pending_review_total', matrix_summary.get('warnings_total')) or 0
+        )
         review_states = matrix_summary.get('review_state_counts') if isinstance(matrix_summary, dict) else {}
         if isinstance(review_states, dict):
             review_blockers_total += int(review_states.get(EstadoAnnualTaxArtifactReview.BLOCKED) or 0)
     if dossier is not None:
-        review_warning_counts['dossier_warnings'] += int(dossier.warnings_total or 0)
         if dossier.review_state != EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW:
+            review_warning_counts['dossier_warnings'] += int(dossier.warnings_total or 0)
             review_warning_counts[f'dossier_{dossier.review_state}'] += 1
     if annual_export is not None:
-        review_warning_counts['export_warnings'] += int(annual_export.warnings_total or 0)
         if annual_export.review_state != EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW:
+            review_warning_counts['export_warnings'] += int(annual_export.warnings_total or 0)
             review_warning_counts[f'export_{annual_export.review_state}'] += 1
     if checklist is not None:
         review_warning_counts['checklist_warnings'] += int(checklist.warnings_total or 0)

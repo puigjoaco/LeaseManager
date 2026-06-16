@@ -1347,10 +1347,16 @@ def summarize_annual_tax_artifact_matrices(process):
             'source_object_id',
         )
         warning_count = 0
+        warning_reviewed_count = 0
+        warning_pending_review_count = 0
         review_state_counts = {}
         for item in active_items:
             warnings = item.warnings if isinstance(item.warnings, list) else []
             warning_count += len(warnings)
+            if warnings and item.review_state == EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW and has_text(item.warning_review_ref):
+                warning_reviewed_count += len(warnings)
+            elif warnings:
+                warning_pending_review_count += len(warnings)
             review_state_counts[item.review_state] = review_state_counts.get(item.review_state, 0) + 1
         by_id[str(matrix.id)] = {
             'id': matrix.id,
@@ -1360,6 +1366,8 @@ def summarize_annual_tax_artifact_matrices(process):
             'f22_items_total': matrix.f22_items_total,
             'active_items_total': active_items.count(),
             'warnings_total': warning_count,
+            'warnings_reviewed_total': warning_reviewed_count,
+            'warnings_pending_review_total': warning_pending_review_count,
             'review_state_counts': dict(sorted(review_state_counts.items())),
         }
     return {
@@ -2259,10 +2267,10 @@ def _artifact_matrix_common_payload(matrix):
     }
 
 
-def _artifact_review_state(warnings):
+def _artifact_review_state(warnings, warning_review_ref=''):
     return (
         EstadoAnnualTaxArtifactReview.REQUIRES_REVIEW
-        if warnings
+        if warnings and not has_text(warning_review_ref)
         else EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW
     )
 
@@ -2281,8 +2289,36 @@ def _artifact_matrix_item_hash_payload(matrix, spec):
         'formula_ref': spec['formula_ref'],
         'evidencia_ref': spec['evidencia_ref'],
         'responsible_ref': spec['responsible_ref'],
+        'warning_review_ref': spec.get('warning_review_ref', ''),
         'warnings': spec['warnings'],
         'source_payload': spec['source_payload'],
+    }
+
+
+def _artifact_matrix_item_requires_warning_review(item):
+    warnings = item.warnings if isinstance(item.warnings, list) else []
+    return bool(warnings) and (
+        item.review_state != EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW
+        or not has_text(item.warning_review_ref)
+    )
+
+
+def _artifact_matrix_item_spec_from_instance(item):
+    return {
+        'target_kind': item.target_kind,
+        'target_code': item.target_code,
+        'medio_sii': item.medio_sii,
+        'source_kind': item.source_kind,
+        'source_model': item.source_model,
+        'source_object_id': item.source_object_id,
+        'source_hash': item.source_hash,
+        'review_state': item.review_state,
+        'formula_ref': item.formula_ref,
+        'evidencia_ref': item.evidencia_ref,
+        'responsible_ref': item.responsible_ref,
+        'warning_review_ref': item.warning_review_ref,
+        'warnings': item.warnings if isinstance(item.warnings, list) else [],
+        'source_payload': item.source_payload if isinstance(item.source_payload, dict) else {},
     }
 
 
@@ -2322,6 +2358,7 @@ def _artifact_matrix_add_spec(specs, matrix, *, target_kind, target_code, source
         'formula_ref': formula_ref,
         'evidencia_ref': evidencia_ref,
         'responsible_ref': responsible_ref,
+        'warning_review_ref': '',
         'warnings': normalized_warnings,
         'source_payload': payload,
     })
@@ -2633,6 +2670,33 @@ def _artifact_matrix_specs(matrix, rule_set, source_bundle, config):
 
 
 def _save_artifact_matrix_item(matrix, spec):
+    existing = AnnualTaxArtifactMatrixItem.objects.filter(
+        matrix=matrix,
+        target_kind=spec['target_kind'],
+        target_code=spec['target_code'],
+        source_kind=spec['source_kind'],
+        source_model=spec['source_model'],
+        source_object_id=spec['source_object_id'],
+    ).first()
+    warning_review_ref = ''
+    if (
+        existing is not None
+        and has_text(existing.warning_review_ref)
+        and list(existing.warnings if isinstance(existing.warnings, list) else []) == list(spec['warnings'])
+        and existing.medio_sii == spec['medio_sii']
+        and existing.source_hash == spec.get('source_hash', '')
+        and existing.formula_ref == spec['formula_ref']
+        and existing.evidencia_ref == spec['evidencia_ref']
+        and existing.responsible_ref == spec['responsible_ref']
+        and (existing.source_payload if isinstance(existing.source_payload, dict) else {}) == spec['source_payload']
+        and spec['warnings']
+    ):
+        warning_review_ref = existing.warning_review_ref
+    spec = {
+        **spec,
+        'warning_review_ref': warning_review_ref,
+        'review_state': _artifact_review_state(spec['warnings'], warning_review_ref),
+    }
     hash_payload = _artifact_matrix_item_hash_payload(matrix, spec)
     item, _ = AnnualTaxArtifactMatrixItem.objects.update_or_create(
         matrix=matrix,
@@ -2648,6 +2712,7 @@ def _save_artifact_matrix_item(matrix, spec):
             'formula_ref': spec['formula_ref'],
             'evidencia_ref': spec['evidencia_ref'],
             'responsible_ref': spec['responsible_ref'],
+            'warning_review_ref': spec['warning_review_ref'],
             'warnings': spec['warnings'],
             'source_payload': spec['source_payload'],
             'hash_item': _source_bundle_hash(hash_payload),
@@ -2676,11 +2741,17 @@ def _finalize_artifact_matrix(matrix):
     target_counts = {}
     review_state_counts = {}
     warning_count = 0
+    warning_reviewed_count = 0
+    warning_pending_review_count = 0
     for item in active_items:
         target_counts[item.target_kind] = target_counts.get(item.target_kind, 0) + 1
         review_state_counts[item.review_state] = review_state_counts.get(item.review_state, 0) + 1
         warnings = item.warnings if isinstance(item.warnings, list) else []
         warning_count += len(warnings)
+        if warnings and item.review_state == EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW and has_text(item.warning_review_ref):
+            warning_reviewed_count += len(warnings)
+        elif warnings:
+            warning_pending_review_count += len(warnings)
     matrix.items_total = len(active_items)
     matrix.ddjj_items_total = target_counts.get(TipoAnnualTaxArtifactTarget.DDJJ, 0)
     matrix.f22_items_total = target_counts.get(TipoAnnualTaxArtifactTarget.F22, 0)
@@ -2697,6 +2768,8 @@ def _finalize_artifact_matrix(matrix):
         'target_counts': dict(sorted(target_counts.items())),
         'review_state_counts': dict(sorted(review_state_counts.items())),
         'warnings_total': warning_count,
+        'warnings_reviewed_total': warning_reviewed_count,
+        'warnings_pending_review_total': warning_pending_review_count,
         'item_hashes': [item.hash_item for item in active_items],
         'source': 'LeaseManager annual tax intermediate artifacts',
         'final_tax_calculation': False,
@@ -2710,6 +2783,38 @@ def _finalize_artifact_matrix(matrix):
         reason = _first_validation_error(error)
         raise ValueError(f'AnnualTaxArtifactMatrix no cumple validacion de dominio: {reason}') from error
     matrix.save()
+
+
+def mark_annual_tax_artifact_matrix_warnings_reviewed(matrix, *, warning_review_ref):
+    warning_review_ref = _ensure_non_sensitive_reference(warning_review_ref, 'warning_review_ref')
+    if not warning_review_ref:
+        raise ValueError('warning_review_ref es obligatorio para revisar warnings de matriz anual.')
+    reviewed_warnings_total = 0
+    reviewed_items_total = 0
+    for item in matrix.items.filter(estado=EstadoRegistro.ACTIVE).order_by('id'):
+        warnings = item.warnings if isinstance(item.warnings, list) else []
+        if not warnings or item.review_state == EstadoAnnualTaxArtifactReview.BLOCKED:
+            continue
+        item.warning_review_ref = warning_review_ref
+        item.review_state = EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW
+        item.hash_item = _source_bundle_hash(_artifact_matrix_item_hash_payload(matrix, _artifact_matrix_item_spec_from_instance(item)))
+        try:
+            item.full_clean()
+        except ValidationError as error:
+            reason = _first_validation_error(error)
+            raise ValueError(f'AnnualTaxArtifactMatrixItem revisado no cumple validacion de dominio: {reason}') from error
+        item.save(update_fields=['warning_review_ref', 'review_state', 'hash_item', 'updated_at'])
+        reviewed_warnings_total += len(warnings)
+        reviewed_items_total += 1
+    _finalize_artifact_matrix(matrix)
+    return {
+        'matrix_id': matrix.id,
+        'warning_review_ref': warning_review_ref,
+        'reviewed_items_total': reviewed_items_total,
+        'reviewed_warnings_total': reviewed_warnings_total,
+        'final_tax_calculation': False,
+        'sii_submission': False,
+    }
 
 
 def sync_annual_tax_artifact_matrix(process, rule_set, source_bundle, config):
@@ -2743,8 +2848,7 @@ def _annual_tax_dossier_review_state(matrix):
     if active_items.exclude(review_state=EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW).exists():
         return EstadoAnnualTaxArtifactReview.REQUIRES_REVIEW
     for item in active_items:
-        warnings = item.warnings if isinstance(item.warnings, list) else []
-        if warnings:
+        if _artifact_matrix_item_requires_warning_review(item):
             return EstadoAnnualTaxArtifactReview.REQUIRES_REVIEW
     return EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW
 
@@ -2766,11 +2870,17 @@ def _annual_tax_dossier_summary(process, rule_set, source_bundle, matrix):
         'source_object_id',
     )
     warnings_total = 0
+    warnings_reviewed_total = 0
+    warnings_pending_review_total = 0
     review_state_counts = {}
     item_refs = []
     for item in active_items:
         warnings = item.warnings if isinstance(item.warnings, list) else []
         warnings_total += len(warnings)
+        if warnings and item.review_state == EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW and has_text(item.warning_review_ref):
+            warnings_reviewed_total += len(warnings)
+        elif warnings:
+            warnings_pending_review_total += len(warnings)
         review_state_counts[item.review_state] = review_state_counts.get(item.review_state, 0) + 1
         item_refs.append(
             {
@@ -2783,6 +2893,7 @@ def _annual_tax_dossier_summary(process, rule_set, source_bundle, matrix):
                 'source_hash': item.source_hash,
                 'hash_item': item.hash_item,
                 'review_state': item.review_state,
+                'warning_review_ref': item.warning_review_ref,
             }
         )
     try:
@@ -2833,6 +2944,8 @@ def _annual_tax_dossier_summary(process, rule_set, source_bundle, matrix):
         'ddjj_items_total': matrix.ddjj_items_total,
         'f22_items_total': matrix.f22_items_total,
         'warnings_total': warnings_total,
+        'warnings_reviewed_total': warnings_reviewed_total,
+        'warnings_pending_review_total': warnings_pending_review_total,
         'review_state': review_state,
         'review_state_counts': dict(sorted(review_state_counts.items())),
         'item_refs': item_refs,
@@ -3041,6 +3154,21 @@ def _summary_warning_total(summary, key='by_id'):
     return total
 
 
+def _summary_metric_total(summary, metric, key='by_id'):
+    items = summary.get(key) if isinstance(summary, dict) else {}
+    if not isinstance(items, dict):
+        return 0
+    total = 0
+    for item in items.values():
+        if not isinstance(item, dict):
+            continue
+        try:
+            total += int(item.get(metric) or 0)
+        except (TypeError, ValueError):
+            continue
+    return total
+
+
 def _checklist_item(code, label, status, *, evidence_ref='', details=None):
     return {
         'code': code,
@@ -3075,6 +3203,7 @@ def _annual_tax_review_checklist_summary(process, rule_set, source_bundle, dossi
     matrix_blocked = int(matrix_review_counts.get(EstadoAnnualTaxArtifactReview.BLOCKED) or 0)
     matrix_review_required = int(matrix_review_counts.get(EstadoAnnualTaxArtifactReview.REQUIRES_REVIEW) or 0)
     matrix_warnings = _summary_warning_total(matrix_summary)
+    matrix_pending_warnings = _summary_metric_total(matrix_summary, 'warnings_pending_review_total')
     workbook_warnings = _summary_warning_total(workbook_summary, key='by_type')
     register_warnings = _summary_warning_total(register_summary, key='by_type')
     real_estate_warnings = _summary_warning_total(real_estate_summary)
@@ -3149,7 +3278,7 @@ def _annual_tax_review_checklist_summary(process, rule_set, source_bundle, dossi
         _checklist_item(
             'artifact_matrix',
             'Matriz DDJJ/F22 preparada y trazable',
-            'blocking' if matrix_blocked else ('warning' if matrix_review_required or matrix_warnings else 'complete'),
+            'blocking' if matrix_blocked else ('warning' if matrix_review_required or matrix_pending_warnings else 'complete'),
             evidence_ref=matrix.hash_matriz,
             details={
                 'artifact_matrix_id': matrix.id,
@@ -3157,6 +3286,7 @@ def _annual_tax_review_checklist_summary(process, rule_set, source_bundle, dossi
                 'ddjj_items_total': matrix.ddjj_items_total,
                 'f22_items_total': matrix.f22_items_total,
                 'warnings_total': matrix_warnings,
+                'warnings_pending_review_total': matrix_pending_warnings,
                 'review_state_counts': matrix_review_counts,
             },
         ),
@@ -3164,7 +3294,7 @@ def _annual_tax_review_checklist_summary(process, rule_set, source_bundle, dossi
             'dossier_review_package',
             'Dossier anual preparado para revision responsable',
             'blocking' if dossier.review_state == EstadoAnnualTaxArtifactReview.BLOCKED else (
-                'warning' if dossier.review_state == EstadoAnnualTaxArtifactReview.REQUIRES_REVIEW or dossier.warnings_total else 'complete'
+                'warning' if dossier.review_state == EstadoAnnualTaxArtifactReview.REQUIRES_REVIEW else 'complete'
             ),
             evidence_ref=dossier.hash_dossier,
             details={'dossier_id': dossier.id, 'review_state': dossier.review_state, 'warnings_total': dossier.warnings_total},
@@ -3173,7 +3303,7 @@ def _annual_tax_review_checklist_summary(process, rule_set, source_bundle, dossi
             'local_export_preview',
             'Export local controlado preparado sin formato oficial ni presentacion',
             'blocking' if annual_export.review_state == EstadoAnnualTaxArtifactReview.BLOCKED else (
-                'warning' if annual_export.review_state == EstadoAnnualTaxArtifactReview.REQUIRES_REVIEW or annual_export.warnings_total else 'complete'
+                'warning' if annual_export.review_state == EstadoAnnualTaxArtifactReview.REQUIRES_REVIEW else 'complete'
             ),
             evidence_ref=annual_export.hash_export,
             details={'annual_export_id': annual_export.id, 'review_state': annual_export.review_state, 'warnings_total': annual_export.warnings_total},
