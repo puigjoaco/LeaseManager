@@ -214,6 +214,14 @@ presentacion SII real ni calculo tributario final. Ownership, respaldo
 tributario, bienes raices, DDJJ/F22 semantico, Balance General y
 RLI/CPT/RAI/SAC comparables no deben reabrirse como bloqueo general salvo bug
 nuevo.
+`audit_annual_tax_mirror_proof` es el gate local de conclusion para esta prueba
+espejo: combina readiness de fuente/manifiesto, arquitectura espejo, comparador
+de outputs esperados, readiness Etapa 6 y boundary de seguridad. Debe quedar
+`parcial` si cualquier artefacto requiere revision responsable o si falta
+fuente/gate externo, aunque los componentes tecnicos existan. Su salida permite
+distinguir avance preparado, prueba arquitectonica, bloqueo externo y cierre
+real, sin usar SII real, credenciales, `.env`, EDIG ejecutable ni outputs
+finales como input.
 `MonthlyTaxFact` materializa la capa mensual anualizable: por cada empresa,
 ano comercial y mes normaliza el cierre aprobado, obligaciones mensuales,
 F29 si existe, distribuciones de arriendo y liquidacion de empresa, con
