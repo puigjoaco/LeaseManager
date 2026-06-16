@@ -290,6 +290,29 @@ def _value_target(
     }
 
 
+def _string_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        items = [value]
+    elif isinstance(value, (list, tuple, set)):
+        items = list(value)
+    else:
+        return []
+    normalized = []
+    for item in items:
+        text = str(item or '').strip()
+        if text and text not in normalized:
+            normalized.append(text)
+    return normalized
+
+
+def _configured_artifacts(source_payload: Any, default_artifacts: tuple[str, ...]) -> tuple[str, ...]:
+    if not isinstance(source_payload, dict) or 'expected_output_artifacts' not in source_payload:
+        return default_artifacts
+    return tuple(_string_list(source_payload.get('expected_output_artifacts')))
+
+
 def _generated_value_targets(process: ProcesoRentaAnual | None) -> list[dict[str, Any]]:
     if process is None:
         return []
@@ -325,7 +348,11 @@ def _generated_value_targets(process: ProcesoRentaAnual | None) -> list[dict[str
     for line in AnnualTaxWorkbookLine.objects.filter(
         workbook__proceso_renta_anual=process,
     ).select_related('workbook').order_by('workbook__tipo', 'codigo_destino'):
-        for artifact_key in workbook_artifacts.get(line.workbook.tipo, ()):
+        artifact_keys = _configured_artifacts(
+            line.source_payload,
+            workbook_artifacts.get(line.workbook.tipo, ()),
+        )
+        for artifact_key in artifact_keys:
             target = _value_target(
                 target_key=f'workbook:{line.workbook.tipo}:{line.codigo_destino}',
                 category='annual_tax_register_expected_output',
@@ -344,8 +371,15 @@ def _generated_value_targets(process: ProcesoRentaAnual | None) -> list[dict[str
     }
     for movement in AnnualEnterpriseRegisterMovement.objects.filter(
         register_set__proceso_renta_anual=process,
-    ).select_related('register_set').order_by('register_set__tipo_registro', 'codigo_interno'):
-        for artifact_key in register_artifacts.get(movement.register_set.tipo_registro, ()):
+    ).select_related('register_set', 'source_workbook_line').order_by(
+        'register_set__tipo_registro',
+        'codigo_interno',
+    ):
+        artifact_keys = _configured_artifacts(
+            movement.source_payload,
+            register_artifacts.get(movement.register_set.tipo_registro, ()),
+        )
+        for artifact_key in artifact_keys:
             target = _value_target(
                 target_key=f'enterprise_register:{movement.register_set.tipo_registro}:{movement.codigo_interno}',
                 category='annual_tax_register_expected_output',

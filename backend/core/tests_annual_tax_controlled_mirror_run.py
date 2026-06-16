@@ -1,5 +1,6 @@
 import json
 from datetime import date
+from decimal import Decimal
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -18,6 +19,7 @@ from patrimonio.models import Empresa
 from sii.models import (
     AnnualTaxSourceBundle,
     AnnualTaxTrialBalanceLine,
+    AnnualTaxWorkbookLine,
     CapacidadSII,
     CapacidadTributariaSII,
     DDJJPreparacionAnual,
@@ -210,6 +212,17 @@ class AnnualTaxControlledMirrorRunTests(TestCase):
         self.assertTrue(trial_lines.filter(codigo_cuenta='1101001', clasificador_dj1847='CPT-CASH-ASSET').exists())
         self.assertTrue(trial_lines.filter(codigo_cuenta='3101001', clasificador_dj1847='CPT-EQUITY').exists())
         self.assertTrue(trial_lines.filter(clasificador_dj1847='RLI-LEASE-REVENUE').exists())
+        workbook_lines = AnnualTaxWorkbookLine.objects.filter(
+            workbook__proceso_renta_anual__empresa=empresa,
+        )
+        self.assertTrue(workbook_lines.filter(codigo_destino='CPT-ASSETS-SUPPORT').exists())
+        equity_line = workbook_lines.get(codigo_destino='CPT-EQUITY')
+        self.assertEqual(equity_line.monto_clp, Decimal('700.00'))
+        self.assertEqual(equity_line.source_payload['expected_output_artifacts'], [])
+        self.assertEqual(equity_line.source_payload['expected_enterprise_register_artifacts'], [])
+        support_line = workbook_lines.get(codigo_destino='CPT-ASSETS-SUPPORT')
+        self.assertEqual(support_line.source_payload['trial_balance_classifiers'], ['CPT-CASH-ASSET', 'CPT-ASSET'])
+        self.assertEqual(support_line.source_payload['expected_output_artifacts'], ['capital_propio'])
 
     def test_command_dry_run_writes_output_only_under_local_evidence(self):
         empresa = self._create_empresa()

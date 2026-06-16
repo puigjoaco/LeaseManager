@@ -207,6 +207,30 @@ def _ensure_tax_year_ruleset(
             {
                 'source_metric': 'annual_trial_balance.resultado_ganancia_clp',
                 'trial_balance_classifier': 'RLI-LEASE-REVENUE',
+                'expected_output_artifacts': [],
+                'expected_enterprise_register_artifacts': [],
+            },
+        ),
+        (
+            DestinoMapeoTributarioAnual.RLI,
+            'controlled.rli.book_profit',
+            'RLI-BOOK-PROFIT',
+            {
+                'source_metric': 'annual_trial_balance.resultado_ganancia_clp',
+                'trial_balance_classifier': 'RLI-BOOK-PROFIT',
+                'expected_output_artifacts': ['renta_liquida'],
+                'expected_enterprise_register_artifacts': [],
+            },
+        ),
+        (
+            DestinoMapeoTributarioAnual.RLI,
+            'controlled.rli.book_loss',
+            'RLI-BOOK-LOSS',
+            {
+                'source_metric': 'annual_trial_balance.resultado_perdida_clp',
+                'trial_balance_classifier': 'RLI-BOOK-LOSS',
+                'expected_output_artifacts': ['renta_liquida'],
+                'expected_enterprise_register_artifacts': [],
             },
         ),
         (
@@ -216,6 +240,43 @@ def _ensure_tax_year_ruleset(
             {
                 'source_metric': 'annual_trial_balance.inventario_activo_clp',
                 'trial_balance_classifier': 'CPT-CASH-ASSET',
+                'expected_output_artifacts': [],
+                'expected_enterprise_register_artifacts': [],
+            },
+        ),
+        (
+            DestinoMapeoTributarioAnual.CPT,
+            'controlled.cpt.assets_support',
+            'CPT-ASSETS-SUPPORT',
+            {
+                'source_metric': 'annual_trial_balance.inventario_activo_clp',
+                'trial_balance_classifier': 'CPT-ASSET+CPT-CASH-ASSET',
+                'trial_balance_classifiers': ['CPT-CASH-ASSET', 'CPT-ASSET'],
+                'expected_output_artifacts': ['capital_propio'],
+                'expected_enterprise_register_artifacts': [],
+            },
+        ),
+        (
+            DestinoMapeoTributarioAnual.CPT,
+            'controlled.cpt.liability_equity_support',
+            'CPT-LIABILITY-EQUITY-SUPPORT',
+            {
+                'source_metric': 'annual_trial_balance.inventario_pasivo_clp',
+                'trial_balance_classifier': 'CPT-LIABILITY-EQUITY+CPT-EQUITY',
+                'trial_balance_classifiers': ['CPT-LIABILITY-EQUITY', 'CPT-EQUITY'],
+                'expected_output_artifacts': [],
+                'expected_enterprise_register_artifacts': [],
+            },
+        ),
+        (
+            DestinoMapeoTributarioAnual.CPT,
+            'controlled.cpt.equity',
+            'CPT-EQUITY',
+            {
+                'source_metric': 'annual_trial_balance.inventario_pasivo_clp',
+                'trial_balance_classifier': 'CPT-EQUITY',
+                'expected_output_artifacts': [],
+                'expected_enterprise_register_artifacts': [],
             },
         ),
         (DestinoMapeoTributarioAnual.RAI, 'controlled.register.rai', 'RAI-CONTROLLED', {}),

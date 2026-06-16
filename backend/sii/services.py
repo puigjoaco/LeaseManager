@@ -662,6 +662,23 @@ TRIAL_BALANCE_ROW_KEYS = (
 )
 
 
+def _metadata_string_list(value):
+    if value is None:
+        return []
+    if isinstance(value, str):
+        items = [value]
+    elif isinstance(value, (list, tuple, set)):
+        items = list(value)
+    else:
+        return []
+    normalized = []
+    for item in items:
+        text = str(item or '').strip()
+        if text and text not in normalized:
+            normalized.append(text)
+    return normalized
+
+
 def _decimal_from_monthly_payload(payload, key):
     if not isinstance(payload, dict):
         return Decimal('0.00')
@@ -735,6 +752,9 @@ def _line_amount_from_mapping(mapping, monthly_facts, trial_balance=None):
     if source_metric in TRIAL_BALANCE_SOURCE_METRICS:
         amount_field = TRIAL_BALANCE_SOURCE_METRICS[source_metric]
         classifier = str(metadata.get('trial_balance_classifier') or '').strip()
+        classifiers = _metadata_string_list(metadata.get('trial_balance_classifiers')) or (
+            [classifier] if classifier else []
+        )
         if trial_balance is None:
             warnings.append('annual_tax_trial_balance_missing')
             return Decimal('0.00'), source_metric, warnings, {
@@ -742,8 +762,9 @@ def _line_amount_from_mapping(mapping, monthly_facts, trial_balance=None):
                 'source_metric': source_metric,
                 'amount_field': amount_field,
                 'trial_balance_classifier': classifier,
+                'trial_balance_classifiers': classifiers,
             }
-        if not classifier:
+        if not classifiers:
             warnings.append('trial_balance_classifier_missing')
             return Decimal('0.00'), source_metric, warnings, {
                 'source': 'annual_tax_trial_balance',
@@ -755,7 +776,7 @@ def _line_amount_from_mapping(mapping, monthly_facts, trial_balance=None):
         lines = list(
             trial_balance.lines.filter(
                 estado=EstadoRegistro.ACTIVE,
-                clasificador_dj1847=classifier,
+                clasificador_dj1847__in=classifiers,
             ).order_by('codigo_cuenta', 'id')
         )
         amount = _sum_decimal(getattr(line, amount_field) for line in lines)
@@ -768,6 +789,7 @@ def _line_amount_from_mapping(mapping, monthly_facts, trial_balance=None):
             'trial_balance_id': trial_balance.id,
             'trial_balance_hash': trial_balance.hash_balance,
             'trial_balance_classifier': classifier,
+            'trial_balance_classifiers': classifiers,
             'trial_balance_line_ids': [line.id for line in lines],
         }
 
@@ -1462,6 +1484,7 @@ def sync_annual_tax_workbooks(process, rule_set, source_bundle):
         )
         active_line_ids = []
         for mapping in mappings:
+            metadata = mapping.metadata if isinstance(mapping.metadata, dict) else {}
             amount, source_metric, warnings, source_detail = _line_amount_from_mapping(
                 mapping,
                 monthly_facts,
@@ -1479,6 +1502,9 @@ def sync_annual_tax_workbooks(process, rule_set, source_bundle):
                 'annual_tax_trial_balance_id': trial_balance.id if uses_trial_balance and trial_balance else None,
                 'annual_tax_trial_balance_hash': trial_balance.hash_balance if uses_trial_balance and trial_balance else '',
             }
+            for artifact_key in ('expected_output_artifacts', 'expected_enterprise_register_artifacts'):
+                if artifact_key in metadata:
+                    line_source_payload[artifact_key] = _metadata_string_list(metadata.get(artifact_key))
             line_payload = {
                 'workbook_id': workbook.id,
                 'mapping_id': mapping.id,
@@ -1672,6 +1698,24 @@ def _sync_workbook_backed_enterprise_register(register, register_type, source_li
         if target_mapping is None:
             warnings.append('tax_code_mapping_missing')
         code_suffix = source_line.codigo_destino.lower().replace('_', '-').replace('.', '-')
+        source_line_payload = source_line.source_payload if isinstance(source_line.source_payload, dict) else {}
+        expected_artifacts = None
+        if 'expected_enterprise_register_artifacts' in source_line_payload:
+            expected_artifacts = _metadata_string_list(
+                source_line_payload.get('expected_enterprise_register_artifacts')
+            )
+        movement_source_payload = {
+            'source': 'annual_tax_workbook_line',
+            'register_type': register_type,
+            'source_workbook_id': source_line.workbook_id,
+            'source_workbook_hash': source_line.workbook.hash_workbook,
+            'source_line_id': source_line.id,
+            'source_line_hash': source_line.hash_linea,
+            'target_mapping_id': getattr(target_mapping, 'id', None),
+            'final_tax_calculation': False,
+        }
+        if expected_artifacts is not None:
+            movement_source_payload['expected_output_artifacts'] = expected_artifacts
         movement = _save_enterprise_movement(
             register,
             source_workbook_line=source_line,
@@ -1681,16 +1725,7 @@ def _sync_workbook_backed_enterprise_register(register, register_type, source_li
             formula_ref=getattr(target_mapping, 'formula_ref', '') or source_line.formula_ref,
             evidencia_ref=getattr(target_mapping, 'evidencia_ref', '') or source_line.evidencia_ref,
             warnings=warnings,
-            source_payload={
-                'source': 'annual_tax_workbook_line',
-                'register_type': register_type,
-                'source_workbook_id': source_line.workbook_id,
-                'source_workbook_hash': source_line.workbook.hash_workbook,
-                'source_line_id': source_line.id,
-                'source_line_hash': source_line.hash_linea,
-                'target_mapping_id': getattr(target_mapping, 'id', None),
-                'final_tax_calculation': False,
-            },
+            source_payload=movement_source_payload,
         )
         active_movement_ids.append(movement.id)
     return active_movement_ids

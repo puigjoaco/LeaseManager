@@ -45,6 +45,17 @@ y en registros tributarios RLI/CPT/RAI/SAC; DDJJ/F22 siguen fuera del extractor
 de valores. El siguiente avance debe reconciliar calculos/semantica de valores,
 no declarar cierre.
 
+Nota 2026-06-15: La normalizacion anual posterior separa lineas comparables de
+lineas soporte. RLI/CPT se alimentan desde Libro Inventario y resultado contable
+con mappings sobre varios clasificadores DJ1847, y `source_payload` declara que
+artefactos finales puede comparar cada linea. RAI/SAC quedan preparados como
+registros revisables, no como igualdad final automatica. En la SQLite v2
+controlada se generan 44 lineas de balance anual, 7 lineas workbook y 9
+movimientos; el comparador pasa a 132 targets comparables, 102 presentes y 30
+ausentes, todos concentrados en `balance_general`. Esto elimina falsos
+faltantes no-balancearios sin cerrar Etapa 6: siguen pendientes Balance faltante,
+DDJJ/F22 semantico, bienes raices, soporte tributario y revision responsable.
+
 Nota 2026-06-13: La investigacion local de EDIG AT2026 queda mapeada como
 referencia funcional no normativa en
 `docs/product/RENTA_ANUAL_EDIG_AT2026_MAPPING.md`, con runbook de sandbox en

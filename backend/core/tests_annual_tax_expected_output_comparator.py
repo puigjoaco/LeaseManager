@@ -275,6 +275,12 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
         self.assertTrue(result['expected_output_value_signals']['summary']['target_value_presence_ready'])
         self.assertFalse(result['expected_output_value_signals']['summary']['value_equality_extractors_ready'])
         self.assertEqual(result['expected_output_value_signals']['summary']['missing_targets_total'], 0)
+        compared_target_keys = {
+            item['target_key']
+            for item in result['expected_output_value_signals']['comparisons']
+        }
+        self.assertNotIn('workbook:CPT:CPT-CASH-ASSET', compared_target_keys)
+        self.assertNotIn('workbook:RLI:RLI-LEASE-REVENUE', compared_target_keys)
         self.assertEqual(
             result['expected_output_value_signals']['unsupported_expected_categories'],
             ['ddjj_expected_output', 'f22_expected_output'],

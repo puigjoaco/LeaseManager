@@ -622,6 +622,13 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   guardar texto bruto, tokens numericos crudos ni montos crudos. No escribe DB,
   no lee SII real y no usa esos outputs como insumo de calculo; deja pendiente
   DDJJ/F22 y reconciliacion semantica completa de valores.
+- La normalizacion anual AC2024/AT2025 distingue lineas soporte y lineas
+  comparables mediante `source_payload.expected_output_artifacts`. RLI/CPT se
+  generan desde Libro Inventario y resultado contable, incluyendo mappings sobre
+  varios clasificadores DJ1847; RAI/SAC se preparan para revision, pero no se
+  fuerzan como igualdad final de valores. La corrida v2 queda con 132 targets
+  comparables, 102 presentes y 30 ausentes concentrados en Balance General; no
+  hay faltantes no-balancearios, pero Etapa 6 sigue parcial.
 
 ```powershell
 scripts\run-stage6-readiness-gate.ps1 -PythonExe backend\.venv\Scripts\python.exe
