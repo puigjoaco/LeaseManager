@@ -763,13 +763,16 @@ def compare_annual_tax_expected_outputs(
         blockers.append('generated_artifacts_require_review')
     if source_root is None:
         blockers.append('expected_output_identity_extractors_not_run')
-    elif content_signals and content_signals['extraction_errors']:
+    elif content_signals and content_signals['summary'].get('blocking_extraction_errors_total', 0):
         blockers.append('expected_output_identity_extraction_errors')
     elif not content_identity_ready:
         blockers.append('expected_output_identity_mismatch')
     if source_root is None:
         blockers.append('expected_output_document_semantic_extractors_not_run')
-    elif document_semantic_signals and document_semantic_signals['extraction_errors']:
+    elif document_semantic_signals and document_semantic_signals['summary'].get(
+        'blocking_extraction_errors_total',
+        0,
+    ):
         blockers.append('expected_output_document_semantic_extraction_errors')
     elif not document_semantic_ready:
         blockers.append('expected_output_document_semantic_mismatch')
