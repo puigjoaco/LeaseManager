@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from decimal import Decimal, InvalidOperation
+import hashlib
 import re
 import subprocess
 from pathlib import Path
@@ -11,9 +13,14 @@ from core.annual_tax_source_manifest import EXPECTED_DDJJ_FORMS, EXPECTED_ANNUAL
 
 EXPECTED_OUTPUT_CONTENT_SCHEMA_VERSION = 'annual-tax-expected-output-content.v1'
 TEXT_EXTENSIONS = {'.txt', '.csv', '.json', '.md', '.html', '.htm'}
+VALUE_EXTRACTABLE_CATEGORIES = {
+    'annual_balance_expected_output',
+    'annual_tax_register_expected_output',
+}
 
 FORM_PATTERN = re.compile(r'(?i)(?:DJ|declaraci[oó]n\s+jurada|formulario)\D{0,40}(1835|1837|1847|1887|1926|1948|22)')
 FOLIO_PATTERN = re.compile(r'(?i)folio\D{0,40}(\d{5,})')
+AMOUNT_TOKEN_PATTERN = re.compile(r'(?<![\w])[-+]?(?:\d{1,3}(?:[.\s]\d{3})+|\d+)(?:,\d{1,2})?(?![\w])')
 
 
 def _extract_text(path: Path) -> str:
@@ -90,6 +97,41 @@ def _folio_from_text_or_path(*, text: str, path: Path) -> str:
 
 def _numeric_token_count(text: str) -> int:
     return len(re.findall(r'(?<!\d)(?:\d{1,3}(?:\.\d{3})+|\d+)(?!\d)', text))
+
+
+def _canonical_expected_amount_tokens(text: str) -> set[str]:
+    tokens = set()
+    for match in AMOUNT_TOKEN_PATTERN.finditer(text):
+        raw_value = match.group(0).strip().replace(' ', '')
+        if not raw_value:
+            continue
+        if ',' in raw_value:
+            raw_value = raw_value.rsplit(',', 1)[0]
+        normalized = raw_value.replace('.', '').replace('+', '').replace('-', '')
+        if not normalized.isdigit():
+            continue
+        try:
+            tokens.add(str(int(normalized)))
+        except ValueError:
+            continue
+    return tokens
+
+
+def canonical_generated_clp_amount_token(value: Any) -> str:
+    try:
+        amount = Decimal(str(value if value is not None else '0'))
+    except (InvalidOperation, ValueError):
+        return ''
+    if amount == 0:
+        return ''
+    integral = amount.to_integral_value()
+    if amount != integral:
+        return ''
+    return str(abs(int(integral)))
+
+
+def value_ref_for_clp_amount_token(amount_token: str) -> str:
+    return hashlib.sha256(f'clp-integer:{amount_token}'.encode('utf-8')).hexdigest()
 
 
 def _expected_files(manifest: dict[str, Any]) -> list[dict[str, Any]]:
@@ -217,5 +259,120 @@ def extract_expected_output_content_signals(*, source_root: Path, manifest: dict
             'uses_expected_outputs_as_inputs': False,
             'expected_outputs_used_as_comparison_only': True,
             'stores_raw_text': False,
+        },
+    }
+
+
+def extract_expected_output_value_signals(
+    *,
+    source_root: Path,
+    manifest: dict[str, Any],
+    generated_targets: list[dict[str, Any]],
+) -> dict[str, Any]:
+    source_root = source_root.expanduser().resolve()
+    if not source_root.exists() or not source_root.is_dir():
+        raise FileNotFoundError(f'source_root no existe o no es directorio: {source_root}')
+
+    expected_files = _expected_files(manifest)
+    expected_by_key: dict[tuple[str, str], set[str]] = {}
+    file_signals: list[dict[str, Any]] = []
+    extraction_errors: list[dict[str, str]] = []
+    for item in expected_files:
+        category = str(item.get('category') or '').strip()
+        if category not in VALUE_EXTRACTABLE_CATEGORIES:
+            continue
+        path_ref = str(item.get('path_ref') or '').strip()
+        artifact_key = str(item.get('artifact_key') or '').strip()
+        try:
+            path = _source_path(source_root, item)
+            text = _extract_text(path)
+            normalized_text = ' '.join(text.split())
+            tokens = _canonical_expected_amount_tokens(normalized_text)
+            expected_by_key[(category, artifact_key)] = tokens
+            file_signals.append(
+                {
+                    'path_ref': path_ref,
+                    'category': category,
+                    'artifact_key': artifact_key,
+                    'extension': path.suffix.lower(),
+                    'numeric_token_count': _numeric_token_count(normalized_text),
+                    'unique_amount_token_count': len(tokens),
+                    'signal_sources': ['relative_path', 'text'],
+                }
+            )
+        except (OSError, ValueError) as error:
+            extraction_errors.append(
+                {
+                    'path_ref': path_ref,
+                    'category': category,
+                    'artifact_key': artifact_key,
+                    'error': str(error),
+                }
+            )
+
+    comparisons: list[dict[str, Any]] = []
+    skipped_generated_targets = 0
+    for target in generated_targets:
+        category = str(target.get('category') or '').strip()
+        artifact_key = str(target.get('artifact_key') or '').strip()
+        amount_token = str(target.get('amount_token') or '').strip()
+        if category not in VALUE_EXTRACTABLE_CATEGORIES:
+            skipped_generated_targets += 1
+            continue
+        if not amount_token:
+            skipped_generated_targets += 1
+            continue
+        expected_tokens = expected_by_key.get((category, artifact_key), set())
+        comparisons.append(
+            {
+                'target_key': str(target.get('target_key') or '').strip(),
+                'category': category,
+                'artifact_key': artifact_key,
+                'amount_ref': value_ref_for_clp_amount_token(amount_token),
+                'expected_file_numeric_token_count': len(expected_tokens),
+                'matched': amount_token in expected_tokens,
+                'signal_sources': ['generated_artifact', 'expected_output_text'],
+            }
+        )
+
+    missing_targets = [item for item in comparisons if not item['matched']]
+    expected_categories = {
+        str(item.get('category') or '').strip()
+        for item in expected_files
+        if str(item.get('category') or '').strip()
+    }
+    unsupported_expected_categories = sorted(expected_categories - VALUE_EXTRACTABLE_CATEGORIES)
+    target_value_presence_ready = bool(comparisons) and not missing_targets and not extraction_errors
+
+    return {
+        'schema_version': 'annual-tax-expected-output-values.v1',
+        'source_root_ref': manifest.get('source_root_ref', ''),
+        'commercial_year': manifest.get('commercial_year'),
+        'tax_year': manifest.get('tax_year'),
+        'supported_categories': sorted(VALUE_EXTRACTABLE_CATEGORIES),
+        'unsupported_expected_categories': unsupported_expected_categories,
+        'file_signals': file_signals,
+        'comparisons': comparisons,
+        'summary': {
+            'files_total': len(file_signals),
+            'extraction_errors_total': len(extraction_errors),
+            'generated_targets_total': len(generated_targets),
+            'compared_targets_total': len(comparisons),
+            'matched_targets_total': len(comparisons) - len(missing_targets),
+            'missing_targets_total': len(missing_targets),
+            'skipped_generated_targets_total': skipped_generated_targets,
+            'target_value_presence_ready': target_value_presence_ready,
+            'value_equality_extractors_ready': target_value_presence_ready and not unsupported_expected_categories,
+        },
+        'extraction_errors': extraction_errors,
+        'safety': {
+            'writes_database': False,
+            'uses_sii_real': False,
+            'uses_credentials': False,
+            'uses_expected_outputs_as_inputs': False,
+            'expected_outputs_used_as_comparison_only': True,
+            'stores_raw_text': False,
+            'stores_raw_numeric_tokens': False,
+            'stores_raw_amounts': False,
         },
     }

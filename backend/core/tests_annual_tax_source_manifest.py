@@ -72,7 +72,7 @@ class AnnualTaxSourceManifestTests(SimpleTestCase):
         self.assertTrue(mirror['ready_to_start_controlled_processing'])
         self.assertEqual(
             mirror['missing_capabilities'],
-            ['expected_output_value_extractors'],
+            ['expected_output_value_equality_completion'],
         )
         self.assertFalse(mirror['input_policy']['expected_outputs_used_as_inputs'])
         self.assertEqual(manifest['coverage']['rcv_months'], list(range(1, 13)))
@@ -205,7 +205,7 @@ class AnnualTaxSourceManifestTests(SimpleTestCase):
         self.assertTrue(result['mirror_proof_readiness']['ready_to_start_controlled_processing'])
         self.assertEqual(
             result['mirror_proof_readiness']['missing_capabilities'],
-            ['expected_output_value_extractors'],
+            ['expected_output_value_equality_completion'],
         )
 
         with self.assertRaisesMessage(CommandError, 'local-evidence'):

@@ -34,6 +34,14 @@ como input de calculo. La conclusion espejo sigue pendiente de extractores de
 igualdad de valores, revision responsable de artefactos generados y gates de
 Etapa 6.
 
+Nota 2026-06-15: La prueba espejo agrega un primer extractor de valores para
+Balance y registros tributarios esperados. El comparador no guarda montos
+crudos ni tokens numericos crudos; solo registra refs hash y conteos. Contra la
+SQLite local AC2024/AT2025, cobertura e identidad estan listas, pero de 12
+targets generados comparables solo 3 aparecen en outputs esperados y 9 quedan
+ausentes. DDJJ/F22 siguen fuera del extractor de valores. El siguiente avance
+debe reconciliar calculos/semantica de valores, no declarar cierre.
+
 Nota 2026-06-13: La investigacion local de EDIG AT2026 queda mapeada como
 referencia funcional no normativa en
 `docs/product/RENTA_ANUAL_EDIG_AT2026_MAPPING.md`, con runbook de sandbox en
@@ -2532,7 +2540,8 @@ Balance/RLI/CPT/RAI/DDJJ/F22 finales como comparacion, no como input. Contra
 SQLite local de Inmobiliaria Puig confirma cobertura completa de balance
 tributario, workbooks CPT/RLI, registros DIVIDENDOS/RAI/RETIROS/SAC, DDJJ
 1835/1837/1847/1887/1926/1948 y F22. La prueba espejo sigue parcial por
-warnings/revision y porque faltan extractores de igualdad de valores.
+warnings/revision, mismatch de valores y porque DDJJ/F22 siguen sin extractor
+semantico de valores.
 
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |

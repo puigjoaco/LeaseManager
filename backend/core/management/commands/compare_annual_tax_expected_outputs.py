@@ -35,8 +35,8 @@ def _validate_output_path(output_path: Path) -> None:
 
 class Command(BaseCommand):
     help = (
-        'Compara cobertura/trazabilidad de outputs esperados AC/AT contra artefactos anuales '
-        'generados en DB local/controlada; no usa esos outputs como insumos de calculo.'
+        'Compara cobertura, identidad y presencia de valores de outputs esperados AC/AT contra '
+        'artefactos anuales generados en DB local/controlada; no usa esos outputs como insumos de calculo.'
     )
 
     def add_arguments(self, parser):
@@ -47,7 +47,7 @@ class Command(BaseCommand):
         parser.add_argument(
             '--source-root',
             default='',
-            help='Root externo read-only para extraer identidad de contenido de outputs esperados.',
+            help='Root externo read-only para extraer identidad y senales de valores de outputs esperados.',
         )
         parser.add_argument('--output', default='', help='Ruta opcional para escribir JSON de comparacion.')
         parser.add_argument(

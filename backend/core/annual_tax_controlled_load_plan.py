@@ -237,11 +237,13 @@ def build_annual_tax_controlled_load_plan(*, manifest: dict[str, Any]) -> dict[s
         'ready_for_db_load': ready_for_db_load,
         'ready_for_mirror_generation': False,
         'reason_not_ready_for_mirror_generation': (
-            'normalized_source_package_not_ready' if not ready_for_db_load else 'expected_output_value_extractors_missing'
+            'normalized_source_package_not_ready'
+            if not ready_for_db_load
+            else 'expected_output_value_equality_completion_missing'
         ),
         'missing_capabilities_after_plan': [
             'normalized_controlled_source_package_values_required' if not ready_for_db_load else '',
-            'expected_output_value_extractors',
+            'expected_output_value_equality_completion',
         ],
     }
     plan_summary['missing_capabilities_after_plan'] = [

@@ -615,10 +615,11 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   Balance/RLI/CPT/RAI/DDJJ/F22 esperados contra artefactos anuales generados
   por LeaseManager. Con `--source-root`, `extract_expected_output_content_signals`
   agrega identidad de DDJJ aceptadas, F22, Balance y registros tributarios desde
-  una fuente externa read-only. No escribe DB, no guarda texto bruto, no hace
-  igualdad numerica, no lee SII real y no usa esos outputs como insumo de
-  calculo; deja pendiente `expected_output_value_extractors` para igualdad de
-  valores.
+  una fuente externa read-only, y `extract_expected_output_value_signals`
+  compara presencia de valores generados en Balance y registros tributarios sin
+  guardar texto bruto, tokens numericos crudos ni montos crudos. No escribe DB,
+  no lee SII real y no usa esos outputs como insumo de calculo; deja pendiente
+  DDJJ/F22 y reconciliacion semantica completa de valores.
 
 ```powershell
 scripts\run-stage6-readiness-gate.ps1 -PythonExe backend\.venv\Scripts\python.exe

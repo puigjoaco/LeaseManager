@@ -6,16 +6,24 @@ from typing import Any
 
 from contabilidad.models import EstadoPreparacionTributaria
 from core.annual_tax_controlled_load_plan import COMPARISON_ONLY_CATEGORIES
-from core.annual_tax_expected_output_content import extract_expected_output_content_signals
+from core.annual_tax_expected_output_content import (
+    canonical_generated_clp_amount_token,
+    extract_expected_output_content_signals,
+    extract_expected_output_value_signals,
+    value_ref_for_clp_amount_token,
+)
 from core.annual_tax_source_manifest import EXPECTED_DDJJ_FORMS, EXPECTED_ANNUAL_TAX_REGISTER_KEYS
 from sii.models import (
     AnnualEnterpriseRegisterSet,
+    AnnualEnterpriseRegisterMovement,
     AnnualTaxArtifactMatrix,
     AnnualTaxDossier,
     AnnualTaxExport,
     AnnualTaxReviewChecklist,
     AnnualTaxTrialBalance,
+    AnnualTaxTrialBalanceLine,
     AnnualTaxWorkbook,
+    AnnualTaxWorkbookLine,
     DDJJPreparacionAnual,
     EstadoAnnualEnterpriseRegister,
     EstadoAnnualTaxArtifactReview,
@@ -261,6 +269,95 @@ def _compare_f22(expected_files: list[dict[str, Any]], inventory: dict[str, Any]
     }
 
 
+def _value_target(
+    *,
+    target_key: str,
+    category: str,
+    artifact_key: str,
+    semantic_key: str,
+    value: Any,
+) -> dict[str, Any] | None:
+    amount_token = canonical_generated_clp_amount_token(value)
+    if not amount_token:
+        return None
+    return {
+        'target_key': target_key,
+        'category': category,
+        'artifact_key': artifact_key,
+        'semantic_key': semantic_key,
+        'amount_token': amount_token,
+        'amount_ref': value_ref_for_clp_amount_token(amount_token),
+    }
+
+
+def _generated_value_targets(process: ProcesoRentaAnual | None) -> list[dict[str, Any]]:
+    if process is None:
+        return []
+
+    targets: list[dict[str, Any]] = []
+    for line in AnnualTaxTrialBalanceLine.objects.filter(
+        trial_balance__proceso_renta_anual=process,
+    ).order_by('codigo_cuenta'):
+        for field_name in (
+            'sumas_debe_clp',
+            'sumas_haber_clp',
+            'saldo_deudor_clp',
+            'saldo_acreedor_clp',
+            'inventario_activo_clp',
+            'inventario_pasivo_clp',
+            'resultado_perdida_clp',
+            'resultado_ganancia_clp',
+        ):
+            target = _value_target(
+                target_key=f'trial_balance:{line.codigo_cuenta}:{field_name}',
+                category='annual_balance_expected_output',
+                artifact_key='balance_general',
+                semantic_key=f'annual_trial_balance.{field_name}',
+                value=getattr(line, field_name),
+            )
+            if target:
+                targets.append(target)
+
+    workbook_artifacts = {
+        TipoAnnualTaxWorkbook.CPT: ('capital_propio', 'razonabilidad_cpt'),
+        TipoAnnualTaxWorkbook.RLI: ('renta_liquida',),
+    }
+    for line in AnnualTaxWorkbookLine.objects.filter(
+        workbook__proceso_renta_anual=process,
+    ).select_related('workbook').order_by('workbook__tipo', 'codigo_destino'):
+        for artifact_key in workbook_artifacts.get(line.workbook.tipo, ()):
+            target = _value_target(
+                target_key=f'workbook:{line.workbook.tipo}:{line.codigo_destino}',
+                category='annual_tax_register_expected_output',
+                artifact_key=artifact_key,
+                semantic_key=f'annual_tax_workbook.{line.workbook.tipo}.monto_clp',
+                value=line.monto_clp,
+            )
+            if target:
+                targets.append(target)
+
+    register_artifacts = {
+        TipoAnnualEnterpriseRegister.RAI: ('determinacion_rai', 'rentas_empresariales'),
+        TipoAnnualEnterpriseRegister.SAC: ('rentas_empresariales',),
+        TipoAnnualEnterpriseRegister.RETIROS: ('rentas_empresariales',),
+        TipoAnnualEnterpriseRegister.DIVIDENDOS: ('rentas_empresariales',),
+    }
+    for movement in AnnualEnterpriseRegisterMovement.objects.filter(
+        register_set__proceso_renta_anual=process,
+    ).select_related('register_set').order_by('register_set__tipo_registro', 'codigo_interno'):
+        for artifact_key in register_artifacts.get(movement.register_set.tipo_registro, ()):
+            target = _value_target(
+                target_key=f'enterprise_register:{movement.register_set.tipo_registro}:{movement.codigo_interno}',
+                category='annual_tax_register_expected_output',
+                artifact_key=artifact_key,
+                semantic_key=f'annual_enterprise_register.{movement.register_set.tipo_registro}.monto_clp',
+                value=movement.monto_clp,
+            )
+            if target:
+                targets.append(target)
+    return targets
+
+
 def compare_annual_tax_expected_outputs(
     *,
     empresa,
@@ -291,7 +388,9 @@ def compare_annual_tax_expected_outputs(
 
     content_signals = None
     content_identity_ready = False
+    value_signals = None
     value_equality_extractors_ready = False
+    generated_value_targets = _generated_value_targets(process)
     if source_root is not None:
         content_signals = extract_expected_output_content_signals(source_root=source_root, manifest=manifest)
         content_summary = content_signals['summary']
@@ -333,6 +432,23 @@ def compare_annual_tax_expected_outputs(
             and matches['annual_balance_content_identity']['matched']
             and matches['annual_tax_register_content_identity']['matched']
         )
+        value_signals = extract_expected_output_value_signals(
+            source_root=source_root,
+            manifest=manifest,
+            generated_targets=generated_value_targets,
+        )
+        value_summary = value_signals['summary']
+        value_equality_extractors_ready = bool(value_summary['value_equality_extractors_ready'])
+        matches['expected_output_value_presence'] = {
+            'supported_categories': value_signals['supported_categories'],
+            'unsupported_expected_categories': value_signals['unsupported_expected_categories'],
+            'generated_targets_total': value_summary['generated_targets_total'],
+            'compared_targets_total': value_summary['compared_targets_total'],
+            'matched_targets_total': value_summary['matched_targets_total'],
+            'missing_targets_total': value_summary['missing_targets_total'],
+            'target_value_presence_ready': value_summary['target_value_presence_ready'],
+            'matched': value_equality_extractors_ready,
+        }
 
     coverage_ready = bool(inventory['process_present']) and all(matches[key]['matched'] for key in coverage_match_keys)
     review_warning_counts = inventory['review_warning_counts']
@@ -351,8 +467,17 @@ def compare_annual_tax_expected_outputs(
         blockers.append('expected_output_identity_extraction_errors')
     elif not content_identity_ready:
         blockers.append('expected_output_identity_mismatch')
-    if not value_equality_extractors_ready:
-        blockers.append('expected_output_value_extractors_missing')
+    if source_root is None:
+        blockers.append('expected_output_value_extractors_not_run')
+    elif value_signals and value_signals['extraction_errors']:
+        blockers.append('expected_output_value_extraction_errors')
+    elif value_signals and value_signals['summary']['missing_targets_total']:
+        blockers.append('expected_output_value_mismatch')
+    if source_root is not None:
+        if value_signals and value_signals['unsupported_expected_categories']:
+            blockers.append('expected_output_value_extractors_partial')
+        elif not value_equality_extractors_ready:
+            blockers.append('expected_output_value_extractors_missing')
 
     return {
         'schema_version': EXPECTED_OUTPUT_COMPARISON_SCHEMA_VERSION,
@@ -377,6 +502,7 @@ def compare_annual_tax_expected_outputs(
         },
         'generated_inventory': inventory,
         'expected_output_content_signals': content_signals,
+        'expected_output_value_signals': value_signals,
         'matches': matches,
         'summary': {
             'coverage_ready_for_content_comparison': coverage_ready,

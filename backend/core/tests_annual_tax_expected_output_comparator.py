@@ -130,6 +130,17 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
                 )
             elif item['category'] == 'f22_expected_output':
                 path.write_text('Formulario 22 Folio 348868325 controlado\n', encoding='utf-8')
+            elif item['artifact_key'] == 'balance_general':
+                path.write_text('Balance AC2024 AT2025 total 1000 y 12000 controlado\n', encoding='utf-8')
+            elif item['artifact_key'] in {'capital_propio', 'razonabilidad_cpt'}:
+                path.write_text(f'{item["artifact_key"]} AC2024 AT2025 monto 1000 controlado\n', encoding='utf-8')
+            elif item['artifact_key'] == 'rentas_empresariales':
+                path.write_text(
+                    f'{item["artifact_key"]} AC2024 AT2025 montos 1000 y 12000 controlado\n',
+                    encoding='utf-8',
+                )
+            elif item['artifact_key'] in {'renta_liquida', 'determinacion_rai'}:
+                path.write_text(f'{item["artifact_key"]} AC2024 AT2025 monto 12000 controlado\n', encoding='utf-8')
             else:
                 path.write_text(
                     f'{item["artifact_key"]} AC2024 AT2025 total 1000 1000 controlado\n',
@@ -236,7 +247,8 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
         self.assertTrue(result['summary']['content_identity_extractors_ready'])
         self.assertFalse(result['summary']['value_equality_extractors_ready'])
         self.assertFalse(result['summary']['ready_for_mirror_conclusion'])
-        self.assertIn('expected_output_value_extractors_missing', result['summary']['blockers'])
+        self.assertIn('expected_output_value_extractors_partial', result['summary']['blockers'])
+        self.assertNotIn('expected_output_value_mismatch', result['summary']['blockers'])
         self.assertNotIn('expected_output_identity_extractors_not_run', result['summary']['blockers'])
         self.assertFalse(result['safety']['uses_expected_outputs_as_inputs'])
         self.assertTrue(result['safety']['expected_outputs_used_as_comparison_only'])
@@ -253,11 +265,23 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
         self.assertTrue(result['matches']['f22_content_identity']['matched'])
         self.assertTrue(result['matches']['annual_balance_content_identity']['matched'])
         self.assertTrue(result['matches']['annual_tax_register_content_identity']['matched'])
+        self.assertFalse(result['matches']['expected_output_value_presence']['matched'])
+        self.assertTrue(result['matches']['expected_output_value_presence']['target_value_presence_ready'])
         self.assertTrue(result['expected_output_content_signals']['summary']['identity_signals_ready'])
         self.assertFalse(
             result['expected_output_content_signals']['summary']['value_equality_extractors_ready']
         )
         self.assertEqual(result['expected_output_content_signals']['summary']['extraction_errors_total'], 0)
+        self.assertTrue(result['expected_output_value_signals']['summary']['target_value_presence_ready'])
+        self.assertFalse(result['expected_output_value_signals']['summary']['value_equality_extractors_ready'])
+        self.assertEqual(result['expected_output_value_signals']['summary']['missing_targets_total'], 0)
+        self.assertEqual(
+            result['expected_output_value_signals']['unsupported_expected_categories'],
+            ['ddjj_expected_output', 'f22_expected_output'],
+        )
+        self.assertFalse(result['expected_output_value_signals']['safety']['stores_raw_text'])
+        self.assertFalse(result['expected_output_value_signals']['safety']['stores_raw_numeric_tokens'])
+        self.assertFalse(result['expected_output_value_signals']['safety']['stores_raw_amounts'])
 
     def test_comparator_reports_missing_annual_process_as_blocker(self):
         empresa = self._create_empresa()
@@ -273,7 +297,7 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
         self.assertIn('annual_process_missing', result['summary']['blockers'])
         self.assertIn('expected_output_coverage_mismatch', result['summary']['blockers'])
         self.assertIn('expected_output_identity_extractors_not_run', result['summary']['blockers'])
-        self.assertIn('expected_output_value_extractors_missing', result['summary']['blockers'])
+        self.assertIn('expected_output_value_extractors_not_run', result['summary']['blockers'])
 
     def test_command_writes_comparison_and_refuses_versioned_output_outside_local_evidence(self):
         empresa = self._create_empresa()
@@ -306,6 +330,7 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
             self.assertTrue(result['summary']['coverage_ready_for_content_comparison'])
             self.assertTrue(result['summary']['content_identity_extractors_ready'])
             self.assertFalse(result['summary']['value_equality_extractors_ready'])
+            self.assertIn('expected_output_value_extractors_partial', result['summary']['blockers'])
 
             with self.assertRaisesMessage(CommandError, 'local-evidence'):
                 call_command(

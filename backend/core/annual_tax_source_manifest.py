@@ -66,9 +66,15 @@ REQUIRED_MIRROR_ARCHITECTURE_CAPABILITIES = (
     },
     {
         'key': 'expected_output_value_extractors',
-        'label': 'Extractores de valores para igualdad numerica contra outputs definitivos',
+        'label': 'Extractores de valores para presencia numerica contra outputs definitivos',
+        'status': 'partial',
+        'evidence': 'extract_expected_output_value_signals',
+    },
+    {
+        'key': 'expected_output_value_equality_completion',
+        'label': 'Igualdad semantica completa de valores contra outputs definitivos',
         'status': 'missing',
-        'evidence': 'pendiente',
+        'evidence': 'pendiente DDJJ/F22 y reconciliacion semantica',
     },
 )
 MONTHS = tuple(range(1, 13))
@@ -472,10 +478,12 @@ def _coverage(files: list[SourceFile], *, f29_no_declaration_months: tuple[int, 
 def _mirror_proof_readiness(coverage: dict[str, Any]) -> dict[str, Any]:
     source_ready = bool(coverage.get('ready_for_mirror_source_bundle'))
     implemented_capabilities = [
-        item['key'] for item in REQUIRED_MIRROR_ARCHITECTURE_CAPABILITIES if item['status'] == 'implemented'
+        item['key']
+        for item in REQUIRED_MIRROR_ARCHITECTURE_CAPABILITIES
+        if item['status'] in {'implemented', 'partial'}
     ]
     missing_capabilities = [
-        item['key'] for item in REQUIRED_MIRROR_ARCHITECTURE_CAPABILITIES if item['status'] != 'implemented'
+        item['key'] for item in REQUIRED_MIRROR_ARCHITECTURE_CAPABILITIES if item['status'] == 'missing'
     ]
     return {
         'source_documentation_confirmed_for_ac2024_at2025': source_ready,
