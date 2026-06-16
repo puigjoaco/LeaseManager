@@ -2546,6 +2546,17 @@ que Etapa 6 debe aceptar fuente laboral/previsional revisable cuando aplique,
 pero no habilita payroll completo, copia de EDIG, reglas fiscales propias ni
 presentacion SII automatica.
 
+Nota 2026-06-16: Renta Anual/Etapa 6 agrega `real_estate` al paquete
+controlado AC/AT. El writer valida fuente revisada, propiedades, evidencia no
+sensible y contribuciones; materializa `Propiedad` y una
+`AnnualTaxOfficialSource` experta/controlada por ano tributario. El mirror anual
+usa esa fuente para generar `AnnualRealEstateItem` con snapshot congelado y
+contribuciones cargadas, sin SII real, EDIG, `.env`, outputs finales como input
+ni calculo tributario final. En la corrida AC2024/AT2025 con SQLite local
+ignorada, el gate Etapa 6 pasa de `stage6.real_estate_item_missing` a
+`classification=resuelto_confirmado`, `ready_for_stage6_renta_anual=true` y
+sin issues.
+
 Nota 2026-06-15: Renta Anual/Etapa 6 agrega writer DB local controlado para la
 prueba espejo Inmobiliaria Puig AC2024/AT2025. `apply_annual_tax_controlled_db_load`
 acepta solo un paquete JSON normalizado, opera en dry-run salvo `--apply`,

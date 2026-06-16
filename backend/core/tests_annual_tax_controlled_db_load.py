@@ -23,12 +23,15 @@ from core.annual_tax_controlled_db_load import (
     CONTROLLED_DB_LOAD_SCHEMA_VERSION,
     apply_annual_tax_controlled_db_load,
 )
-from patrimonio.models import Empresa, ParticipacionPatrimonial, Socio
+from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 from sii.models import (
+    AnnualTaxOfficialSource,
     CapacidadSII,
     CapacidadTributariaSII,
+    DestinoMapeoTributarioAnual,
     EstadoGateSII,
     EstadoMonthlyTaxFact,
+    TipoAnnualTaxOfficialSource,
     F29PreparacionMensual,
     MonthlyTaxFact,
 )
@@ -145,6 +148,28 @@ class AnnualTaxControlledDbLoadTests(TestCase):
         }
         return package
 
+    def _with_real_estate(self, package):
+        package['real_estate'] = {
+            'source_ref': 'real-estate-ac2024-controlled',
+            'as_of': '2024-12-31',
+            'properties': [
+                {
+                    'property_ref': 'property-controlled-one',
+                    'codigo_propiedad': 'RE-001',
+                    'rol_avaluo': 'ROL-CONTROLADO-001',
+                    'direccion': 'Propiedad controlada uno',
+                    'comuna': 'Santiago',
+                    'region': 'RM',
+                    'tipo_inmueble': TipoInmueble.APARTMENT,
+                    'evidence_ref': 'property-evidence-controlled-one',
+                    'contribuciones_clp': '345000.00',
+                    'contribuciones_evidence_ref': 'property-tax-evidence-controlled-one',
+                    'codigo_f22': 'F22-BIENES-RAICES',
+                },
+            ],
+        }
+        return package
+
     def test_apply_controlled_package_materializes_monthly_accounting_and_tax_facts(self):
         empresa = self._create_empresa()
 
@@ -229,6 +254,51 @@ class AnnualTaxControlledDbLoadTests(TestCase):
 
         self.assertEqual(Socio.objects.count(), 0)
         self.assertEqual(ParticipacionPatrimonial.objects.filter(empresa_owner=empresa).count(), 0)
+        self.assertEqual(MonthlyTaxFact.objects.filter(empresa=empresa).count(), 0)
+
+    def test_apply_controlled_package_materializes_real_estate_snapshot(self):
+        empresa = self._create_empresa()
+        package = self._with_real_estate(self._with_ownership(self._package()))
+
+        result = apply_annual_tax_controlled_db_load(
+            empresa=empresa,
+            package=package,
+            write_database=True,
+        )
+
+        self.assertTrue(result['ready_for_annual_generation'])
+        self.assertTrue(result['real_estate_snapshot']['present'])
+        self.assertEqual(result['real_estate_snapshot']['properties_loaded'], 1)
+        self.assertFalse(result['real_estate_snapshot']['final_tax_calculation'])
+        propiedad = Propiedad.objects.get(empresa_owner=empresa, codigo_propiedad='RE-001')
+        self.assertEqual(propiedad.estado, 'activa')
+        self.assertEqual(propiedad.tipo_inmueble, TipoInmueble.APARTMENT)
+        source = AnnualTaxOfficialSource.objects.get(
+            anio_tributario=2025,
+            source_key__startswith='controlled-load-real-estate-contributions-at2025-',
+        )
+        self.assertEqual(source.source_type, TipoAnnualTaxOfficialSource.EXPERT_REVIEW)
+        self.assertEqual(source.applies_to, DestinoMapeoTributarioAnual.F22)
+        self.assertTrue(source.metadata['real_estate_contributions'])
+        self.assertEqual(
+            source.metadata['values_by_property_id'][str(propiedad.id)]['contribuciones_clp'],
+            '345000.00',
+        )
+
+    def test_apply_rejects_incomplete_real_estate_snapshot_without_writing(self):
+        empresa = self._create_empresa()
+        package = self._with_real_estate(self._with_ownership(self._package()))
+        package['real_estate']['properties'][0]['contribuciones_evidence_ref'] = ''
+
+        with self.assertRaisesMessage(ValueError, 'contribuciones_evidence_ref'):
+            apply_annual_tax_controlled_db_load(
+                empresa=empresa,
+                package=package,
+                write_database=True,
+            )
+
+        self.assertEqual(Propiedad.objects.filter(empresa_owner=empresa).count(), 0)
+        self.assertEqual(AnnualTaxOfficialSource.objects.count(), 0)
         self.assertEqual(MonthlyTaxFact.objects.filter(empresa=empresa).count(), 0)
 
     def test_apply_rejects_expected_outputs_as_inputs_without_writing(self):

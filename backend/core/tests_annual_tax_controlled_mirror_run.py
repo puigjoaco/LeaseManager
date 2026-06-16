@@ -17,9 +17,10 @@ from core.annual_tax_controlled_db_load import (
 from core.annual_tax_controlled_mirror_run import run_annual_tax_controlled_mirror
 from core.stage6_renta_anual_readiness import collect_stage6_renta_anual_readiness
 from documentos.models import DocumentoEmitido, EstadoDocumento, TipoDocumental
-from patrimonio.models import Empresa
+from patrimonio.models import Empresa, TipoInmueble
 from sii.models import (
     AnnualEnterpriseRegisterMovement,
+    AnnualRealEstateItem,
     AnnualTaxSourceBundle,
     AnnualTaxTrialBalanceLine,
     AnnualTaxWorkbookLine,
@@ -154,6 +155,28 @@ class AnnualTaxControlledMirrorRunTests(TestCase):
         }
         return package
 
+    def _with_real_estate(self, package):
+        package['real_estate'] = {
+            'source_ref': 'real-estate-ac2024-controlled',
+            'as_of': '2024-12-31',
+            'properties': [
+                {
+                    'property_ref': 'property-controlled-one',
+                    'codigo_propiedad': 'RE-001',
+                    'rol_avaluo': 'ROL-CONTROLADO-001',
+                    'direccion': 'Propiedad controlada uno',
+                    'comuna': 'Santiago',
+                    'region': 'RM',
+                    'tipo_inmueble': TipoInmueble.APARTMENT,
+                    'evidence_ref': 'property-evidence-controlled-one',
+                    'contribuciones_clp': '345000.00',
+                    'contribuciones_evidence_ref': 'property-tax-evidence-controlled-one',
+                    'codigo_f22': 'F22-BIENES-RAICES',
+                },
+            ],
+        }
+        return package
+
     def _load_monthly_package(self, empresa, package=None):
         return apply_annual_tax_controlled_db_load(
             empresa=empresa,
@@ -240,6 +263,38 @@ class AnnualTaxControlledMirrorRunTests(TestCase):
         issue_codes = {issue['code'] for issue in gate['issues']}
         self.assertNotIn('stage6.tax_support_document_missing', issue_codes)
         self.assertIn('stage6.real_estate_item_missing', issue_codes)
+
+    def test_controlled_mirror_uses_real_estate_snapshot_for_stage6_gate(self):
+        empresa = self._create_empresa()
+        package = self._with_real_estate(self._with_ownership(self._package()))
+        self._load_monthly_package(empresa, package=package)
+
+        run_annual_tax_controlled_mirror(
+            **self._mirror_kwargs(empresa),
+            write_database=True,
+        )
+
+        item = AnnualRealEstateItem.objects.get()
+        self.assertEqual(item.codigo_propiedad_snapshot, 'RE-001')
+        self.assertEqual(item.contribuciones_clp, Decimal('345000.00'))
+        self.assertEqual(item.source_payload['contribuciones_loaded'], True)
+        self.assertEqual(item.source_payload['contribuciones_source'], 'official_or_expert_review')
+        self.assertFalse(item.source_payload['final_tax_calculation'])
+
+        gate = collect_stage6_renta_anual_readiness(
+            stage5_evidence_ref='stage5-ledger-year-controlled-v1',
+            stage4_sii_evidence_ref='stage4-sii-annual-controlled-v1',
+            fiscal_rule_ref='ac2024-tax-rule-review-pending',
+            certificates_proof_ref='ac2024-certificates-proof-pending',
+            responsible_ref='stage6-responsibles-v1',
+            source_label='inmobiliaria-puig-ac2024-controlled-writer',
+            authorization_ref='user-authorized-local-source-review',
+            source_kind='snapshot_controlado',
+        )
+        issue_codes = {issue['code'] for issue in gate['issues']}
+        self.assertNotIn('stage6.real_estate_item_missing', issue_codes)
+        self.assertNotIn('stage6.real_estate_contribution_value_missing', issue_codes)
+        self.assertNotIn('stage6.tax_support_document_missing', issue_codes)
 
     def test_controlled_mirror_uses_ownership_snapshot_for_participation_registers(self):
         empresa = self._create_empresa()
