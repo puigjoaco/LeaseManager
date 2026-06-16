@@ -115,6 +115,14 @@ arquitectura espejo esta completa, la comparacion esta lista, Etapa 6 esta
 lista y no se usaron SII real, credenciales ni outputs finales como input. En
 fixture sintetico queda parcial por revision de artefactos, lo que confirma que
 no sobredeclara cierre.
+
+Nota 2026-06-16: `scripts/run-stage6-mirror-proof-gate.ps1` queda como wrapper
+operativo seguro para `audit_annual_tax_mirror_proof`. Exige refs no sensibles,
+rechaza salidas/manifiestos versionables fuera de `local-evidence/`, bloquea
+`-RunMigrations` con `real_autorizado`, valida el JSON de salida y queda cubierto
+por acceptance con un guard que prueba rechazo de output versionable antes de
+leer manifiestos o tocar DB.
+
 Nota 2026-06-15: Se agrega `build_annual_tax_ownership_evidence_chain` como
 orquestador reproducible para la brecha patrimonial AC2024. Regenera bajo
 `local-evidence/` el manifiesto, la revision de candidatos societarios, el

@@ -222,6 +222,12 @@ fuente/gate externo, aunque los componentes tecnicos existan. Su salida permite
 distinguir avance preparado, prueba arquitectonica, bloqueo externo y cierre
 real, sin usar SII real, credenciales, `.env`, EDIG ejecutable ni outputs
 finales como input.
+`scripts/run-stage6-mirror-proof-gate.ps1` es la entrada operativa canonica al
+gate espejo: valida refs no sensibles, rechaza outputs/manifiestos dentro del
+repo fuera de `local-evidence/`, bloquea migraciones contra `real_autorizado` y
+usa `--fail-on-incomplete` solo cuando se quiere exigir completitud probada. El
+comando Django queda como motor; el wrapper es el camino seguro para runs
+manuales o evidenciales.
 `MonthlyTaxFact` materializa la capa mensual anualizable: por cada empresa,
 ano comercial y mes normaliza el cierre aprobado, obligaciones mensuales,
 F29 si existe, distribuciones de arriendo y liquidacion de empresa, con
@@ -610,6 +616,12 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   SQLite efimero bajo `local-evidence/`, no conecta SII, no lee `.env`, no usa
   certificados y reserva `-RequireReady` para fuentes autorizadas con refs
   trazables de Etapa 5, Etapa 4 SII, regla fiscal, certificados y responsable.
+- `scripts/run-stage6-mirror-proof-gate.ps1` ejecuta la prueba espejo
+  AC2024/AT2025 desde un manifiesto controlado y salida bajo `local-evidence/`.
+  El wrapper rechaza referencias sensibles, manifiestos/versionado fuera de
+  evidencia local, `source-root` versionado fuera de evidencia local y
+  `-RunMigrations` con `real_autorizado`. Su resultado puede quedar parcial sin
+  cerrar renta cuando hay revision responsable pendiente.
 - El mapeo anual automatizable debe declarar explicitamente su fuente: dato
   LeaseManager, cierre, ledger, F29/PPM, certificado, regla AT, DDJJ o decision
   responsable. Ningun codigo F22/DDJJ queda automatizado solo por inferencia de
