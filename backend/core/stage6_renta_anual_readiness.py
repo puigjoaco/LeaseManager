@@ -802,7 +802,16 @@ def _collect_annual_artifact_matrix_issues(matrices, items, processes, active_fi
         if item.target_kind == 'F22':
             f22_item_counts[item.matrix_id] += 1
         warnings = item.warnings if isinstance(item.warnings, list) else []
-        if warnings or item.review_state == EstadoAnnualTaxArtifactReview.REQUIRES_REVIEW:
+        if (
+            item.review_state == EstadoAnnualTaxArtifactReview.REQUIRES_REVIEW
+            or (
+                warnings
+                and (
+                    item.review_state != EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW
+                    or not has_text(item.warning_review_ref)
+                )
+            )
+        ):
             warning_item_counts[item.matrix_id] += 1
         if item.review_state == EstadoAnnualTaxArtifactReview.BLOCKED:
             blocked_item_counts[item.matrix_id] += 1

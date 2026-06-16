@@ -752,6 +752,7 @@ class SiiSnapshotView(APIView):
                         'formula_ref': redact_sensitive_reference(item.formula_ref),
                         'evidencia_ref': redact_sensitive_reference(item.evidencia_ref),
                         'responsible_ref': redact_sensitive_reference(item.responsible_ref),
+                        'warning_review_ref': redact_sensitive_reference(item.warning_review_ref),
                         'warnings': redact_sensitive_payload(item.warnings),
                         'source_payload': redact_sensitive_payload(item.source_payload),
                         'hash_item': item.hash_item,

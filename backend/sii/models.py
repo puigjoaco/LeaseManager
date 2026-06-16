@@ -820,6 +820,7 @@ def _annual_tax_artifact_matrix_item_integrity_payload(item):
         'formula_ref': item.formula_ref,
         'evidencia_ref': item.evidencia_ref,
         'responsible_ref': item.responsible_ref,
+        'warning_review_ref': item.warning_review_ref,
         'warnings': item.warnings,
         'source_payload': item.source_payload,
     }
@@ -3039,6 +3040,7 @@ class AnnualTaxArtifactMatrixItem(OperationalSIITextNormalizationMixin, Timestam
         'formula_ref',
         'evidencia_ref',
         'responsible_ref',
+        'warning_review_ref',
         'hash_item',
     )
 
@@ -3062,6 +3064,7 @@ class AnnualTaxArtifactMatrixItem(OperationalSIITextNormalizationMixin, Timestam
     formula_ref = models.CharField(max_length=255, blank=True)
     evidencia_ref = models.CharField(max_length=255, blank=True)
     responsible_ref = models.CharField(max_length=255, blank=True)
+    warning_review_ref = models.CharField(max_length=255, blank=True)
     warnings = models.JSONField(default=list, blank=True)
     source_payload = models.JSONField(default=dict, blank=True)
     hash_item = models.CharField(max_length=64, blank=True)
@@ -3087,6 +3090,7 @@ class AnnualTaxArtifactMatrixItem(OperationalSIITextNormalizationMixin, Timestam
         _add_non_sensitive_reference_error(errors, self, 'formula_ref')
         _add_non_sensitive_reference_error(errors, self, 'evidencia_ref')
         _add_non_sensitive_reference_error(errors, self, 'responsible_ref')
+        _add_non_sensitive_reference_error(errors, self, 'warning_review_ref')
         _add_non_sensitive_payload_error(errors, 'warnings', self.warnings)
         _add_non_sensitive_payload_error(errors, 'source_payload', self.source_payload)
         if self.warnings and not isinstance(self.warnings, list):
@@ -3143,8 +3147,12 @@ class AnnualTaxArtifactMatrixItem(OperationalSIITextNormalizationMixin, Timestam
                 errors['source_payload'] = 'Item activo requiere source_payload trazable.'
             if not has_text(self.hash_item):
                 errors['hash_item'] = 'Item activo requiere hash_item.'
-            if self.review_state == EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW and self.warnings:
-                errors['review_state'] = 'Items con warnings no pueden quedar listo_revision.'
+            if (
+                self.review_state == EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW
+                and self.warnings
+                and not has_text(self.warning_review_ref)
+            ):
+                errors['warning_review_ref'] = 'Items con warnings listos para revision requieren warning_review_ref.'
         if errors:
             raise ValidationError(errors)
 
@@ -3334,8 +3342,16 @@ class AnnualTaxDossier(OperationalSIITextNormalizationMixin, TimestampedModel):
                 errors['responsible_ref'] = 'AnnualTaxDossier preparado requiere responsible_ref no sensible.'
             if not has_text(self.dossier_ref):
                 errors['dossier_ref'] = 'AnnualTaxDossier preparado requiere dossier_ref no sensible.'
-            if self.review_state == EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW and self.warnings_total:
-                errors['review_state'] = 'Dossier con warnings no puede quedar listo_revision.'
+            pending_warning_reviews = self.warnings_total
+            if isinstance(self.resumen_dossier, dict):
+                try:
+                    pending_warning_reviews = int(
+                        self.resumen_dossier.get('warnings_pending_review_total', pending_warning_reviews) or 0
+                    )
+                except (TypeError, ValueError):
+                    pending_warning_reviews = self.warnings_total
+            if self.review_state == EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW and pending_warning_reviews:
+                errors['review_state'] = 'Dossier con warnings pendientes no puede quedar listo_revision.'
             if not self.resumen_dossier:
                 errors['resumen_dossier'] = 'AnnualTaxDossier preparado requiere resumen_dossier.'
             if not has_text(self.hash_dossier):

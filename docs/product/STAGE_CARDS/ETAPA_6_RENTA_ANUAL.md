@@ -703,6 +703,11 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   `AnnualTaxArtifactMatrixItem` con refs, warnings y payloads redactados; el
   admin es solo lectura para preservar que la matriz DDJJ/F22 proviene del
   motor anual y no de edicion manual opaca.
+- `AnnualTaxArtifactMatrixItem.warning_review_ref` registra revision responsable
+  no sensible de warnings de matriz DDJJ/F22. Los warnings permanecen en el
+  payload y en los hashes; readiness solo deja de bloquearlos cuando el item
+  queda `listo_revision`, la referencia existe y dossier/export/checklist se
+  regeneran sin abrir formato oficial, presentacion SII ni calculo final.
 - La API/snapshot/admin de SII exponen `AnnualTaxDossier` con source,
   responsable, dossier ref y payload anual redactados; el admin es solo lectura
   para preservar que el dossier proviene del motor anual y no de edicion manual

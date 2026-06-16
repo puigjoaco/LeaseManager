@@ -368,6 +368,13 @@ items DDJJ/F22, con resumen desalineado, items invalidos, warnings pendientes o
 estado bloqueado. Mantiene `final_tax_calculation=false` y no habilita
 presentacion SII autonoma.
 
+Nota 2026-06-16: Etapa 6 permite cerrar la revision responsable de warnings de
+`AnnualTaxArtifactMatrixItem` con `warning_review_ref` no sensible. Los warnings
+permanecen en payload/hash y solo dejan de bloquear dossier/export/checklist si
+el item queda `listo_revision`, la referencia existe y los artefactos derivados
+se regeneran. Esto no habilita formato oficial, presentacion SII ni calculo
+tributario final.
+
 Nota 2026-06-14: Etapa 6 materializa el dossier anual revisable mediante
 `AnnualTaxDossier`. `generate_annual_preparation()` lo sincroniza despues de
 la matriz DDJJ/F22 y antes de DDJJ/F22 locales, consolidando source bundle,

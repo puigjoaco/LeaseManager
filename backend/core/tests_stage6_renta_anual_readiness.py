@@ -90,6 +90,7 @@ from sii.services import (
     summarize_annual_tax_review_checklists,
     summarize_annual_tax_trial_balances,
     summarize_annual_tax_workbooks,
+    mark_annual_tax_artifact_matrix_warnings_reviewed,
     sync_annual_enterprise_registers,
     sync_annual_real_estate_section,
     sync_annual_tax_artifact_matrix,
@@ -1428,6 +1429,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
                     'formula_ref': item.formula_ref,
                     'evidencia_ref': item.evidencia_ref,
                     'responsible_ref': item.responsible_ref,
+                    'warning_review_ref': item.warning_review_ref,
                     'warnings': item.warnings,
                     'source_payload': item.source_payload,
                 },
@@ -1525,6 +1527,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
                     'formula_ref': item.formula_ref,
                     'evidencia_ref': item.evidencia_ref,
                     'responsible_ref': item.responsible_ref,
+                    'warning_review_ref': item.warning_review_ref,
                     'warnings': item.warnings,
                     'source_payload': item.source_payload,
                 },
@@ -1550,6 +1553,94 @@ class Stage6RentaAnualReadinessTests(TestCase):
 
         self.assertFalse(result['ready_for_stage6_renta_anual'])
         self.assertIn('stage6.tax_dossier_review_required', issue_codes)
+
+    def test_reviewed_artifact_matrix_warning_stops_blocking_review_chain(self):
+        self._create_valid_local_matrix()
+        item = AnnualTaxArtifactMatrixItem.objects.select_related('matrix').get(target_kind='F22', target_code='F22-PREVIEW')
+        item.warnings = ['artifact_requires_responsible_review']
+        item.review_state = EstadoAnnualTaxArtifactReview.REQUIRES_REVIEW
+        item.warning_review_ref = ''
+        item.hash_item = hashlib.sha256(
+            json.dumps(
+                {
+                    'matrix_id': item.matrix_id,
+                    'target_kind': item.target_kind,
+                    'target_code': item.target_code,
+                    'medio_sii': item.medio_sii,
+                    'source_kind': item.source_kind,
+                    'source_model': item.source_model,
+                    'source_object_id': item.source_object_id,
+                    'source_hash': item.source_hash,
+                    'review_state': item.review_state,
+                    'formula_ref': item.formula_ref,
+                    'evidencia_ref': item.evidencia_ref,
+                    'responsible_ref': item.responsible_ref,
+                    'warning_review_ref': item.warning_review_ref,
+                    'warnings': item.warnings,
+                    'source_payload': item.source_payload,
+                },
+                sort_keys=True,
+                separators=(',', ':'),
+                ensure_ascii=True,
+                default=str,
+            ).encode('utf-8')
+        ).hexdigest()
+        item.save(update_fields=['warnings', 'review_state', 'warning_review_ref', 'hash_item', 'updated_at'])
+
+        process = ProcesoRentaAnual.objects.get()
+        source_bundle = AnnualTaxSourceBundle.objects.get()
+        rule_set = TaxYearRuleSet.objects.get()
+        matrix = item.matrix
+        acknowledgement = mark_annual_tax_artifact_matrix_warnings_reviewed(
+            matrix,
+            warning_review_ref='tax-review-stage6-artifact-warning-001',
+        )
+        self.assertEqual(acknowledgement['reviewed_warnings_total'], 1)
+        item.refresh_from_db()
+        self.assertEqual(item.review_state, EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW)
+        self.assertEqual(item.warning_review_ref, 'tax-review-stage6-artifact-warning-001')
+
+        process.resumen_anual = {
+            **process.resumen_anual,
+            'annual_tax_artifact_matrices': summarize_annual_tax_artifact_matrices(process),
+        }
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+        sync_annual_tax_dossier(process, rule_set, source_bundle)
+        process.resumen_anual = {
+            **process.resumen_anual,
+            'annual_tax_dossiers': summarize_annual_tax_dossiers(process),
+        }
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+        sync_annual_tax_export(process, rule_set, source_bundle)
+        process.resumen_anual = {
+            **process.resumen_anual,
+            'annual_tax_exports': summarize_annual_tax_exports(process),
+        }
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+        sync_annual_tax_review_checklist(process, rule_set, source_bundle)
+        process.resumen_anual = {
+            **process.resumen_anual,
+            'annual_tax_review_checklists': summarize_annual_tax_review_checklists(process),
+        }
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+        matrix_summary = next(iter(summarize_annual_tax_artifact_matrices(process)['by_id'].values()))
+        dossier = AnnualTaxDossier.objects.get()
+        annual_export = AnnualTaxExport.objects.get()
+        checklist = AnnualTaxReviewChecklist.objects.get()
+
+        self.assertEqual(matrix_summary['warnings_total'], 1)
+        self.assertEqual(matrix_summary['warnings_reviewed_total'], 1)
+        self.assertEqual(matrix_summary['warnings_pending_review_total'], 0)
+        self.assertEqual(dossier.review_state, EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW)
+        self.assertEqual(annual_export.review_state, EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW)
+        self.assertEqual(checklist.warnings_total, 0)
+        self.assertNotIn('stage6.artifact_matrix_item_warning_review_required', issue_codes)
+        self.assertNotIn('stage6.tax_dossier_review_required', issue_codes)
+        self.assertNotIn('stage6.tax_export_review_required', issue_codes)
+        self.assertNotIn('stage6.tax_review_checklist_warning_review_required', issue_codes)
 
     def test_tax_dossier_summary_hash_mismatch_is_blocking(self):
         self._create_valid_local_matrix()

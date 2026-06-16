@@ -696,7 +696,7 @@ class AnnualTaxArtifactMatrixSerializer(RedactSensitiveSiiFieldsMixin, serialize
 
 
 class AnnualTaxArtifactMatrixItemSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
-    redacted_reference_fields = ('formula_ref', 'evidencia_ref', 'responsible_ref')
+    redacted_reference_fields = ('formula_ref', 'evidencia_ref', 'responsible_ref', 'warning_review_ref')
     redacted_payload_fields = ('warnings', 'source_payload')
 
     class Meta:
@@ -715,6 +715,7 @@ class AnnualTaxArtifactMatrixItemSerializer(RedactSensitiveSiiFieldsMixin, seria
             'formula_ref',
             'evidencia_ref',
             'responsible_ref',
+            'warning_review_ref',
             'warnings',
             'source_payload',
             'hash_item',

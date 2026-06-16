@@ -1060,6 +1060,7 @@ class AnnualTaxArtifactMatrixItemAdmin(admin.ModelAdmin):
         'formula_ref_redacted',
         'evidencia_ref_redacted',
         'responsible_ref_redacted',
+        'warning_review_ref_redacted',
         'warnings_redacted',
         'source_payload_redacted',
         'hash_item',
@@ -1076,6 +1077,7 @@ class AnnualTaxArtifactMatrixItemAdmin(admin.ModelAdmin):
         'review_state',
         'estado',
         'formula_ref_redacted',
+        'warning_review_ref_redacted',
     )
     list_filter = ('target_kind', 'source_kind', 'review_state', 'estado', 'matrix__anio_tributario')
     search_fields = ('target_code', 'source_model', 'matrix__empresa__razon_social')
@@ -1091,6 +1093,10 @@ class AnnualTaxArtifactMatrixItemAdmin(admin.ModelAdmin):
     @admin.display(description='responsible_ref')
     def responsible_ref_redacted(self, obj):
         return _redacted_attr(obj, 'responsible_ref')
+
+    @admin.display(description='warning_review_ref')
+    def warning_review_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'warning_review_ref')
 
     @admin.display(description='warnings')
     def warnings_redacted(self, obj):
