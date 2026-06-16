@@ -1623,6 +1623,16 @@ type ReportingCompanyAccountingProgress = {
   classification: string
   progress_percent: number
   ready_for_company_accounting_review: boolean
+  review_boundary: {
+    meaning_when_ready: string
+    autonomous_accounting: boolean
+    final_tax_calculation: boolean
+    sii_submission: boolean
+    requires_responsible_review: boolean
+    requires_expert_or_official_validation: boolean
+    allowed_next_action: string
+    not_allowed_actions: string[]
+  }
   fiscal_config: {
     active: boolean
     regime_code: string
@@ -1644,6 +1654,14 @@ type ReportingCompanyAccountingProgress = {
 }
 
 type ReportingCompanyAccountingCandidates = {
+  selection_boundary: {
+    purpose: string
+    uses_external_sources: boolean
+    opens_external_gates: boolean
+    autonomous_accounting: boolean
+    final_tax_calculation: boolean
+    sii_submission: boolean
+  }
   candidates: Array<{
     empresa: { id: number; razon_social: string; estado: string }
     fiscal_config_active: boolean

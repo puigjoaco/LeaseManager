@@ -164,6 +164,12 @@ contable o tributaria requiere criterio.
   significa listo para revision responsable, no cierre contable/tributario
   legal. Es un reporte de progreso; no abre gates, no lee fuentes externas y
   no declara cierre de Etapa 5/6.
+- El mismo payload expone `review_boundary`: aunque el progreso llegue a 100%,
+  `autonomous_accounting=false`, `final_tax_calculation=false` y
+  `sii_submission=false`; el siguiente paso permitido es revision asistida por
+  responsable con validacion experta/oficial cuando corresponda. Estos controles
+  tambien se publican en la trazabilidad de Reporting para evitar que una UI,
+  resumen o reanudacion interprete el progreso como contabilidad autonoma.
 - Reporting expone el mismo diagnostico en
   `contabilidad/progreso-empresa/`, con scope por empresa, porcentaje, fases,
   faltantes, proximo bloqueo y trazabilidad sin RUT ni secretos. Esta vista
@@ -174,6 +180,9 @@ contable o tributaria requiere criterio.
   senales internas de cierre, balance, F29 y artefactos anuales para escoger
   el primer caso a medir sin leer `.env`, DB historica, fuentes reales ni
   integraciones externas. Es selector de avance, no evidencia de cierre.
+  El selector expone `selection_boundary` para dejar trazado que solo elige
+  empresa/ano con senales locales, no usa fuentes externas, no abre gates y no
+  habilita contabilidad autonoma, calculo tributario final ni presentacion SII.
 - Para cierre con fuente autorizada, el wrapper exige `-SourceKind
   snapshot_controlado` o `real_autorizado`, `-SourceLabel`,
   `-AuthorizationRef`, `-Stage3EvidenceRef`, `-LedgerProofRef`,

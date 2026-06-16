@@ -111,6 +111,16 @@ type ReportingCompanyProgressSummary = {
   classification: string
   progress_percent: number
   ready_for_company_accounting_review: boolean
+  review_boundary: {
+    meaning_when_ready: string
+    autonomous_accounting: boolean
+    final_tax_calculation: boolean
+    sii_submission: boolean
+    requires_responsible_review: boolean
+    requires_expert_or_official_validation: boolean
+    allowed_next_action: string
+    not_allowed_actions: string[]
+  }
   fiscal_config: {
     active: boolean
     regime_code: string
@@ -132,6 +142,14 @@ type ReportingCompanyProgressSummary = {
 }
 
 type ReportingCompanyCandidatesSummary = {
+  selection_boundary: {
+    purpose: string
+    uses_external_sources: boolean
+    opens_external_gates: boolean
+    autonomous_accounting: boolean
+    final_tax_calculation: boolean
+    sii_submission: boolean
+  }
   candidates: Array<{
     empresa: { id: number; razon_social: string; estado: string }
     fiscal_config_active: boolean
@@ -513,6 +531,7 @@ export function ReportingWorkspace({
             <Metric label="Con señales" value={count(reportingCompanyCandidatesSummary.summary.candidate_companies)} tone={reportingCompanyCandidatesSummary.summary.candidate_companies ? 'positive' : 'warning'} />
             <Metric label="Años candidatos" value={count(reportingCompanyCandidatesSummary.summary.candidate_years)} tone="neutral" />
             <Metric label="Régimen no soportado" value={count(reportingCompanyCandidatesSummary.summary.unsupported_fiscal_regime_companies)} tone={reportingCompanyCandidatesSummary.summary.unsupported_fiscal_regime_companies ? 'danger' : 'positive'} />
+            <Metric label="Fuentes externas" value={reportingCompanyCandidatesSummary.selection_boundary.uses_external_sources ? 'usa' : 'no usa'} tone={reportingCompanyCandidatesSummary.selection_boundary.uses_external_sources ? 'danger' : 'positive'} />
           </section>
           <TableBlock title="Candidatos para medir" subtitle="Años detectados desde cierres, balances, F29 y procesos anuales internos." rows={reportingCompanyCandidatesSummary.candidates.flatMap((candidate) => (
             candidate.years.map((year) => ({
@@ -565,6 +584,10 @@ export function ReportingWorkspace({
             </div>
             <div className="list-stack">
               <div className="list-row"><span>Siguiente fase bloqueante</span><strong>{reportingCompanyProgressSummary.next_blocking_phase || 'Sin bloqueo'}</strong></div>
+              <div className="list-row"><span>Acción permitida</span><strong>{reportingCompanyProgressSummary.review_boundary.allowed_next_action}</strong></div>
+              <div className="list-row"><span>Contabilidad autónoma</span><strong>{reportingCompanyProgressSummary.review_boundary.autonomous_accounting ? 'habilitada' : 'bloqueada'}</strong></div>
+              <div className="list-row"><span>Cálculo tributario final</span><strong>{reportingCompanyProgressSummary.review_boundary.final_tax_calculation ? 'habilitado' : 'bloqueado'}</strong></div>
+              <div className="list-row"><span>Presentación SII</span><strong>{reportingCompanyProgressSummary.review_boundary.sii_submission ? 'habilitada' : 'bloqueada'}</strong></div>
             </div>
           </section>
           <TableBlock title="Fases contables y renta" subtitle="Medición objetiva por empresa y año comercial." rows={Object.entries(reportingCompanyProgressSummary.phases).map(([key, phase]) => ({ id: key, key, ...phase }))} empty="No hay fases para este reporte." columns={[

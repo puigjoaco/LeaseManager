@@ -357,6 +357,11 @@ class CompanyAccountingProgressTests(TestCase):
         self.assertEqual(result['summary']['companies_total'], 2)
         self.assertEqual(result['summary']['candidate_companies'], 1)
         self.assertEqual(result['summary']['candidate_years'], 2)
+        self.assertTrue(result['selection_boundary']['purpose'])
+        self.assertFalse(result['selection_boundary']['uses_external_sources'])
+        self.assertFalse(result['selection_boundary']['autonomous_accounting'])
+        self.assertFalse(result['selection_boundary']['final_tax_calculation'])
+        self.assertFalse(result['selection_boundary']['sii_submission'])
         self.assertEqual(result['candidates'][0]['empresa']['id'], empresa.id)
         self.assertEqual(result['candidates'][0]['recommended_fiscal_year'], 2025)
         self.assertTrue(result['candidates'][0]['years'][0]['recommended'])
@@ -589,6 +594,16 @@ class CompanyAccountingProgressTests(TestCase):
         self.assertEqual(result['classification'], 'preparado')
         self.assertEqual(result['progress_percent'], 100)
         self.assertTrue(result['ready_for_company_accounting_review'])
+        self.assertEqual(
+            result['review_boundary']['meaning_when_ready'],
+            'paquete_local_preparado_para_revision_responsable',
+        )
+        self.assertFalse(result['review_boundary']['autonomous_accounting'])
+        self.assertFalse(result['review_boundary']['final_tax_calculation'])
+        self.assertFalse(result['review_boundary']['sii_submission'])
+        self.assertTrue(result['review_boundary']['requires_responsible_review'])
+        self.assertTrue(result['review_boundary']['requires_expert_or_official_validation'])
+        self.assertIn('presentacion_sii_automatica', result['review_boundary']['not_allowed_actions'])
         self.assertEqual(result['issue_counts']['blocking'], 0)
         self.assertEqual(result['issues'], [])
         self.assertEqual(result['next_blocking_phase'], '')

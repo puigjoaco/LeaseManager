@@ -1597,6 +1597,10 @@ def build_company_accounting_progress_report(empresa_id, fiscal_year, access: Sc
             'empresa_id': scoped_empresa.id,
             'fiscal_year': fiscal_year,
             'ready_for_company_accounting_review': payload['ready_for_company_accounting_review'],
+            'autonomous_accounting': payload['review_boundary']['autonomous_accounting'],
+            'final_tax_calculation': payload['review_boundary']['final_tax_calculation'],
+            'sii_submission': payload['review_boundary']['sii_submission'],
+            'requires_responsible_review': payload['review_boundary']['requires_responsible_review'],
         },
     )
     return payload
@@ -1630,6 +1634,9 @@ def build_company_accounting_candidate_report(access: ScopeAccess | None = None)
             'companies_total': payload['summary']['companies_total'],
             'candidate_companies': payload['summary']['candidate_companies'],
             'candidate_years': payload['summary']['candidate_years'],
+            'autonomous_accounting': payload['selection_boundary']['autonomous_accounting'],
+            'final_tax_calculation': payload['selection_boundary']['final_tax_calculation'],
+            'sii_submission': payload['selection_boundary']['sii_submission'],
         },
     )
     return payload

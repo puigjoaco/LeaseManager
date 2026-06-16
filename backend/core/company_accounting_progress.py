@@ -36,6 +36,28 @@ PREPARED_OR_BETTER_TAX_STATES = {
     EstadoPreparacionTributaria.OBSERVED,
     EstadoPreparacionTributaria.RECTIFIED,
 }
+COMPANY_ACCOUNTING_REVIEW_BOUNDARY = {
+    'meaning_when_ready': 'paquete_local_preparado_para_revision_responsable',
+    'autonomous_accounting': False,
+    'final_tax_calculation': False,
+    'sii_submission': False,
+    'requires_responsible_review': True,
+    'requires_expert_or_official_validation': True,
+    'allowed_next_action': 'revision_asistida_por_responsable',
+    'not_allowed_actions': [
+        'contabilidad_autonoma',
+        'calculo_tributario_final_sin_revision',
+        'presentacion_sii_automatica',
+    ],
+}
+COMPANY_ACCOUNTING_SELECTION_BOUNDARY = {
+    'purpose': 'seleccionar_empresa_y_ano_para_revision_asistida',
+    'uses_external_sources': False,
+    'opens_external_gates': False,
+    'autonomous_accounting': False,
+    'final_tax_calculation': False,
+    'sii_submission': False,
+}
 
 
 @dataclass(frozen=True)
@@ -148,6 +170,13 @@ def _progress_percent(phases: list[ProgressPhase]) -> int:
         return 0
     completed = sum(min(phase.completed, phase.expected) for phase in phases)
     return round((completed / expected) * 100)
+
+
+def _review_boundary() -> dict[str, Any]:
+    return {
+        **COMPANY_ACCOUNTING_REVIEW_BOUNDARY,
+        'not_allowed_actions': list(COMPANY_ACCOUNTING_REVIEW_BOUNDARY['not_allowed_actions']),
+    }
 
 
 def _prepared_balance_months(empresa: Empresa, fiscal_year: int) -> tuple[set[int], set[int]]:
@@ -360,6 +389,7 @@ def collect_company_accounting_candidates(*, empresa_ids: list[int] | None = Non
 
     return {
         'candidates': candidates,
+        'selection_boundary': dict(COMPANY_ACCOUNTING_SELECTION_BOUNDARY),
         'summary': {
             'companies_total': len(company_payloads),
             'candidate_companies': len(candidates),
@@ -567,6 +597,7 @@ def collect_company_accounting_progress(*, empresa_id: int, fiscal_year: int) ->
         'classification': _classification(phases),
         'progress_percent': _progress_percent(phases),
         'ready_for_company_accounting_review': all(phase.ready for phase in phases),
+        'review_boundary': _review_boundary(),
         'fiscal_config': {
             'active': fiscal_config_active,
             'regime_code': fiscal_regime_code,
