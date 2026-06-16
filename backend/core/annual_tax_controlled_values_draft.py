@@ -111,6 +111,41 @@ def parse_libro_mayor_text(text: str) -> dict[int, dict[str, Any]]:
     }
 
 
+def parse_libro_mayor_annual_trial_balance_lines(text: str) -> dict[str, dict[str, Any]]:
+    lines: dict[str, dict[str, Any]] = {}
+    for raw_line in text.splitlines():
+        line = ' '.join(raw_line.strip().split())
+        if not line:
+            continue
+        total_match = re.match(r'^TOTAL\s+(\d{6,10})\s+(.+?)\s+(DB|CR)$', line, re.IGNORECASE)
+        if not total_match:
+            continue
+        amounts = _last_amounts(line, 3)
+        if len(amounts) != 3:
+            continue
+        debit, credit, balance = amounts
+        code = total_match.group(1)
+        side = total_match.group(3).upper()
+        payload = {
+            'codigo_cuenta': code,
+            'sumas_debe_clp': _money(debit),
+            'sumas_haber_clp': _money(credit),
+            'formula_ref': 'libro-mayor-total-cuenta',
+            'evidencia_ref': 'libro-mayor-2024-controlled',
+            'source_payload': {
+                'source': 'libro_mayor',
+                'section': 'annual_account_total',
+                'final_tax_calculation': False,
+            },
+        }
+        if side == 'DB':
+            payload['saldo_deudor_clp'] = _money(balance)
+        else:
+            payload['saldo_acreedor_clp'] = _money(balance)
+        lines[code] = payload
+    return lines
+
+
 def parse_f29_text(text: str) -> dict[str, Any]:
     normalized = '\n'.join(' '.join(line.split()) for line in text.splitlines())
     period_match = re.search(r'PERIODO\s+\[15\]\s+(\d{6})', normalized, re.IGNORECASE)
@@ -277,6 +312,57 @@ def parse_libro_inventario_text(text: str) -> dict[str, Any]:
     }
 
 
+def _merge_inventory_with_mayor_lines(
+    inventario: dict[str, Any],
+    mayor_annual_lines: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    if not mayor_annual_lines:
+        return inventario
+    merged = copy.deepcopy(inventario)
+    merged_lines = []
+    for line in merged.get('lines') or []:
+        if not isinstance(line, dict):
+            continue
+        code = str(line.get('codigo_cuenta') or '').strip()
+        mayor_line = mayor_annual_lines.get(code)
+        if mayor_line:
+            for field in (
+                'sumas_debe_clp',
+                'sumas_haber_clp',
+                'saldo_deudor_clp',
+                'saldo_acreedor_clp',
+            ):
+                value = mayor_line.get(field)
+                if value is not None:
+                    line[field] = value
+            source_payload = line.get('source_payload') if isinstance(line.get('source_payload'), dict) else {}
+            sources = []
+            for source in (
+                source_payload.get('source'),
+                'libro_inventario',
+                'libro_mayor',
+            ):
+                text = str(source or '').strip()
+                if text and text not in sources:
+                    sources.append(text)
+            line['source_payload'] = {
+                **source_payload,
+                'source': 'libro_inventario+libro_mayor',
+                'sources': sources,
+                'annual_mayor_account_total': True,
+                'final_tax_calculation': False,
+            }
+        merged_lines.append(line)
+    merged['lines'] = merged_lines
+    merged['annual_mayor_lines_matched'] = sum(
+        1
+        for line in merged_lines
+        if isinstance(line.get('source_payload'), dict)
+        and line['source_payload'].get('annual_mayor_account_total')
+    )
+    return merged
+
+
 def _extract_text(path: Path) -> str:
     if path.suffix.lower() in {'.txt', '.csv', '.json', '.md', '.html', '.htm'}:
         return path.read_text(encoding='utf-8-sig', errors='replace')
@@ -366,6 +452,7 @@ def _extract_annual_ledger_sources(
     }
     diario_by_month: dict[int, dict[str, Any]] = {}
     mayor_by_month: dict[int, dict[str, Any]] = {}
+    mayor_annual_lines: dict[str, dict[str, Any]] = {}
     inventario: dict[str, Any] = {'lines': [], 'totals': {}}
     source_refs: dict[str, str] = {}
     diario_ref = str(ledger_refs.get('libro_diario') or '')
@@ -379,7 +466,9 @@ def _extract_annual_ledger_sources(
             errors.append(f'libro_diario:{error}')
     if mayor_ref:
         try:
-            mayor_by_month = parse_libro_mayor_text(_extract_text(_source_path(source_root, file_index, mayor_ref)))
+            mayor_text = _extract_text(_source_path(source_root, file_index, mayor_ref))
+            mayor_by_month = parse_libro_mayor_text(mayor_text)
+            mayor_annual_lines = parse_libro_mayor_annual_trial_balance_lines(mayor_text)
             source_refs['libro_mayor'] = mayor_ref
         except ValueError as error:
             errors.append(f'libro_mayor:{error}')
@@ -388,6 +477,7 @@ def _extract_annual_ledger_sources(
             inventario = parse_libro_inventario_text(
                 _extract_text(_source_path(source_root, file_index, inventario_ref))
             )
+            inventario = _merge_inventory_with_mayor_lines(inventario, mayor_annual_lines)
             source_refs['libro_inventario'] = inventario_ref
         except ValueError as error:
             errors.append(f'libro_inventario:{error}')

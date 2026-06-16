@@ -56,6 +56,16 @@ ausentes, todos concentrados en `balance_general`. Esto elimina falsos
 faltantes no-balancearios sin cerrar Etapa 6: siguen pendientes Balance faltante,
 DDJJ/F22 semantico, bienes raices, soporte tributario y revision responsable.
 
+Nota 2026-06-15: La prueba espejo AC2024/AT2025 corrige la lectura de valores
+del Balance General esperado. El draft anual fusiona Libro Inventario con
+totales anuales de Libro Mayor para conservar sumas/saldos por cuenta, y el
+extractor de outputs esperados deja de aceptar espacios como separadores de
+miles despues de normalizar texto PDF, evitando tokens fusionados con codigos de
+cuenta o numeros de local. La comparacion v4 queda con 138 targets comparables,
+138 presentes y 0 ausentes, sin usar outputs finales como input ni guardar texto
+bruto, tokens crudos o montos. Etapa 6 sigue parcial por revision de artefactos
+generados y por falta de extractor semantico DDJJ/F22.
+
 Nota 2026-06-13: La investigacion local de EDIG AT2026 queda mapeada como
 referencia funcional no normativa en
 `docs/product/RENTA_ANUAL_EDIG_AT2026_MAPPING.md`, con runbook de sandbox en

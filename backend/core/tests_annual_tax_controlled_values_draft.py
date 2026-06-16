@@ -14,6 +14,7 @@ from core.annual_tax_controlled_values_draft import (
     parse_f29_text,
     parse_libro_diario_text,
     parse_libro_inventario_text,
+    parse_libro_mayor_annual_trial_balance_lines,
     parse_libro_mayor_text,
     parse_payroll_text,
 )
@@ -151,6 +152,14 @@ class AnnualTaxControlledValuesDraftTests(SimpleTestCase):
                 ]
             )
         )
+        mayor_annual = parse_libro_mayor_annual_trial_balance_lines(
+            '\n'.join(
+                [
+                    'Total 1101001 Caja 1.000 500 500 DB',
+                    'Total 2101001 Proveedores 2.500 3.000 500 CR',
+                ]
+            )
+        )
         f29 = parse_f29_text(
             'PERIODO [15] 202401\n'
             '563 BASE IMPONIBLE 3.500 062 PPM NETO DETERMINADO 378\n'
@@ -177,6 +186,8 @@ class AnnualTaxControlledValuesDraftTests(SimpleTestCase):
         self.assertEqual(diario[1]['total_debe'], 3500)
         self.assertEqual(mayor[1]['cuentas_count'], 2)
         self.assertEqual(mayor[1]['total_haber'], 3500)
+        self.assertEqual(mayor_annual['1101001']['saldo_deudor_clp'], '500.00')
+        self.assertEqual(mayor_annual['2101001']['saldo_acreedor_clp'], '500.00')
         self.assertEqual(f29['periodo'], '202401')
         self.assertEqual(f29['codes']['062'], 378)
         self.assertTrue(payroll['has_movements'])
@@ -256,7 +267,10 @@ class AnnualTaxControlledValuesDraftTests(SimpleTestCase):
             self._source_file(
                 source_root,
                 '01_Libros_Anuales/Libro Mayor 2024.txt',
-                '1101001 Caja\nTotal Mes de Diciembre . 1.000 0 1.000 DB\n',
+                '1101001 Caja\n'
+                'Total Mes de Diciembre . 1.000 0 1.000 DB\n'
+                'Total 1101001 Caja 1.500 500 1.000 DB\n'
+                'Total 3101001 Capital 100 800 700 CR\n',
             )
             self._source_file(
                 source_root,
@@ -284,7 +298,16 @@ class AnnualTaxControlledValuesDraftTests(SimpleTestCase):
         self.assertEqual(december['balance']['annual_inventory_ref'], 'libro-inventario-ref')
         self.assertEqual(december['balance']['lineas_balance_8_columnas_source'], 'libro_inventario')
         self.assertEqual(len(december['balance']['lineas_balance_8_columnas']), 2)
-        self.assertEqual(december['balance']['lineas_balance_8_columnas'][0]['inventario_activo_clp'], '1000.00')
+        first_line = december['balance']['lineas_balance_8_columnas'][0]
+        second_line = december['balance']['lineas_balance_8_columnas'][1]
+        self.assertEqual(first_line['inventario_activo_clp'], '1000.00')
+        self.assertEqual(first_line['sumas_debe_clp'], '1500.00')
+        self.assertEqual(first_line['sumas_haber_clp'], '500.00')
+        self.assertEqual(first_line['saldo_deudor_clp'], '1000.00')
+        self.assertEqual(first_line['source_payload']['source'], 'libro_inventario+libro_mayor')
+        self.assertEqual(second_line['sumas_debe_clp'], '100.00')
+        self.assertEqual(second_line['sumas_haber_clp'], '800.00')
+        self.assertEqual(second_line['saldo_acreedor_clp'], '700.00')
 
     def test_command_outputs_values_draft_and_refuses_versioned_output_outside_local_evidence(self):
         with TemporaryDirectory() as temp_dir:

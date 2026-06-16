@@ -20,7 +20,7 @@ VALUE_EXTRACTABLE_CATEGORIES = {
 
 FORM_PATTERN = re.compile(r'(?i)(?:DJ|declaraci[oó]n\s+jurada|formulario)\D{0,40}(1835|1837|1847|1887|1926|1948|22)')
 FOLIO_PATTERN = re.compile(r'(?i)folio\D{0,40}(\d{5,})')
-AMOUNT_TOKEN_PATTERN = re.compile(r'(?<![\w])[-+]?(?:\d{1,3}(?:[.\s]\d{3})+|\d+)(?:,\d{1,2})?(?![\w])')
+AMOUNT_TOKEN_PATTERN = re.compile(r'(?<![\w])[-+]?\(?(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{1,2})?\)?(?![\w])')
 
 
 def _extract_text(path: Path) -> str:
@@ -107,7 +107,7 @@ def _canonical_expected_amount_tokens(text: str) -> set[str]:
             continue
         if ',' in raw_value:
             raw_value = raw_value.rsplit(',', 1)[0]
-        normalized = raw_value.replace('.', '').replace('+', '').replace('-', '')
+        normalized = raw_value.replace('.', '').replace('+', '').replace('-', '').replace('(', '').replace(')', '')
         if not normalized.isdigit():
             continue
         try:

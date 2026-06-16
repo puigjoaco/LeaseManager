@@ -629,6 +629,13 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   fuerzan como igualdad final de valores. La corrida v2 queda con 132 targets
   comparables, 102 presentes y 30 ausentes concentrados en Balance General; no
   hay faltantes no-balancearios, pero Etapa 6 sigue parcial.
+- La comparacion v4 AC2024/AT2025 corrige la falsa brecha de Balance General:
+  el draft fusiona Libro Inventario con totales anuales de Libro Mayor para
+  preservar sumas/saldos por cuenta, y el extractor de valores esperados evita
+  fusionar codigo de cuenta, numero de local y columnas monetarias tras
+  normalizar texto PDF. Resultado local: 138 targets comparables, 138 presentes
+  y 0 ausentes, sin usar outputs finales como input ni guardar montos crudos.
+  Quedan pendientes DDJJ/F22 semantico, revision de artefactos y gates finales.
 
 ```powershell
 scripts\run-stage6-readiness-gate.ps1 -PythonExe backend\.venv\Scripts\python.exe

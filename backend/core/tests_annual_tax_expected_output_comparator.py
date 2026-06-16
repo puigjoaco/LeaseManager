@@ -15,6 +15,7 @@ from core.annual_tax_controlled_db_load import (
     apply_annual_tax_controlled_db_load,
 )
 from core.annual_tax_controlled_mirror_run import run_annual_tax_controlled_mirror
+from core.annual_tax_expected_output_content import extract_expected_output_value_signals
 from core.annual_tax_expected_output_comparator import compare_annual_tax_expected_outputs
 from core.annual_tax_source_manifest import EXPECTED_ANNUAL_TAX_REGISTER_KEYS, EXPECTED_DDJJ_FORMS
 from patrimonio.models import Empresa
@@ -224,6 +225,62 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
             certificates_proof_ref='ac2024-certificates-proof-pending',
             ddjj_codes=EXPECTED_DDJJ_FORMS,
             write_database=True,
+        )
+
+    def test_expected_value_extractor_does_not_merge_account_digits_with_amount_columns(self):
+        manifest = {
+            'schema_version': 'annual-tax-source-manifest.v1',
+            'commercial_year': 2024,
+            'tax_year': 2025,
+            'files': [
+                {
+                    'category': 'annual_balance_expected_output',
+                    'role': 'expected_output',
+                    'path_ref': 'expected-output-balance-general-ref',
+                    'artifact_key': 'balance_general',
+                    'relative_path': 'expected/balance.txt',
+                    'output_status': '',
+                }
+            ],
+        }
+        generated_targets = [
+            {
+                'target_key': 'trial_balance:12030101:sumas_debe_clp',
+                'category': 'annual_balance_expected_output',
+                'artifact_key': 'balance_general',
+                'amount_token': '123456789',
+            },
+            {
+                'target_key': 'trial_balance:12030101:inventario_activo_clp',
+                'category': 'annual_balance_expected_output',
+                'artifact_key': 'balance_general',
+                'amount_token': '987654321',
+            },
+        ]
+
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            expected_path = source_root / 'expected' / 'balance.txt'
+            expected_path.parent.mkdir(parents=True)
+            expected_path.write_text(
+                '12030101 Local 19 123.456.789 987.654.321\n',
+                encoding='utf-8',
+            )
+
+            result = extract_expected_output_value_signals(
+                source_root=source_root,
+                manifest=manifest,
+                generated_targets=generated_targets,
+            )
+
+        self.assertTrue(result['summary']['target_value_presence_ready'])
+        self.assertEqual(result['summary']['missing_targets_total'], 0)
+        self.assertEqual(
+            {item['target_key']: item['matched'] for item in result['comparisons']},
+            {
+                'trial_balance:12030101:sumas_debe_clp': True,
+                'trial_balance:12030101:inventario_activo_clp': True,
+            },
         )
 
     def test_comparator_matches_generated_coverage_and_identity_without_using_expected_outputs_as_inputs(self):
