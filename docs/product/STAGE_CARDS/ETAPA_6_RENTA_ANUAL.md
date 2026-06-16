@@ -254,6 +254,14 @@ historicos, baseline, rechazados o no decisivos no deben reabrir
 estan presentes. Esto no declara igualdad numerica final; conserva
 `expected_output_value_mismatch` y `expected_output_value_extractors_missing`
 cuando los valores comparables siguen pendientes o incompletos.
+Cuando el manifiesto contiene varios archivos para el mismo artefacto esperado,
+por ejemplo varias paginas o versiones de `balance_general`,
+`extract_expected_output_value_signals` une los tokens por
+`category/artifact_key` antes de comparar. Esto evita que el ultimo archivo del
+manifiesto sobrescriba senales de Balance ya extraidas; en la prueba AC2024/AT2025
+la comparacion de valores queda `138/138` sin blockers del comparador. El mirror
+proof total permanece parcial si Stage 6 aun reporta registros empresariales
+invalidos o bienes raices faltantes.
 `MonthlyTaxFact` materializa la capa mensual anualizable: por cada empresa,
 ano comercial y mes normaliza el cierre aprobado, obligaciones mensuales,
 F29 si existe, distribuciones de arriendo y liquidacion de empresa, con

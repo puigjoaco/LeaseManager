@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `stage6-value-error-filter`. |
-| Fuente exacta | worktree `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-value-error-filter`, creado sobre `main` `df7c4cbb`. |
-| Brecha activa | El comparador espejo AC2024/AT2025 trata cualquier error de extraccion de valores como bloqueo, aunque sea historico/no decisivo y exista otro output extraible para el mismo par `category/artifact_key`. |
-| Motivo de prioridad | La arquitectura de renta anual debe distinguir falso bloqueo tecnico de brecha real. En la comparacion post revision generada hay 5 errores de extraccion de valores, pero el resultado util es que 136 targets siguen faltando; el bloqueo debe quedar en mismatch/extractor incompleto, no en lector historico. |
-| Worktree | Continuar/cerrar `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-value-error-filter`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
-| Rama | `codex/stage6-value-error-filter`; al cerrar, PR/CI/merge y limpiar worktree. |
-| Estado | En desarrollo validado focalmente: `extract_expected_output_value_signals` expone `blocking_extraction_errors_total`; errores no decisivos quedan registrados pero no bloquean cuando ya existe una fuente extraible para el mismo par de comparacion. Contraste local AC2024/AT2025: `extraction_errors_total=5`, `blocking_extraction_errors_total=0`, `missing_targets_total=136`. |
-| Gate esperado | Etapa 6 sigue `classification=parcial`; este paquete no corrige los 136 targets faltantes, no usa outputs finales como input, no abre SII real, no declara igualdad numerica ni calculo tributario final. |
-| Estado al cerrar paquete | No reabrir Compliance #879, paquetes Stage 6 ya mergeados ni prompts de goal. El siguiente frente real debe tomar el primer blocker concreto que quede en mirror proof: targets faltantes, bienes raices, registros empresariales invalidos o soporte tributario, segun evidencia actual. |
-| Bloqueos relacionados | La comparacion AC2024/AT2025 sigue bloqueada por `expected_output_value_mismatch` y `expected_output_value_extractors_missing`; esos bloqueos son de contenido/arquitectura de valores, no de permiso externo ni de `.env`. |
+| Frente activo | `stage6-value-token-union`. |
+| Fuente exacta | worktree `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-value-token-union`, creado sobre `main` `76dc785e`. |
+| Brecha activa | El comparador de valores AC2024/AT2025 extrae muchos archivos para `balance_general`, pero usaba solo el ultimo set de tokens por `category/artifact_key`, dejando 136 falsos faltantes en Balance. |
+| Motivo de prioridad | La prueba espejo debe probar si LeaseManager llega a los outputs finales desde inputs 2024. Si el comparador sobrescribe paginas/archivos de Balance, la arquitectura parece incompleta aunque las senales esperadas ya existan en otros archivos. |
+| Worktree | Continuar/cerrar `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-value-token-union`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `codex/stage6-value-token-union`; al cerrar, PR/CI/merge y limpiar worktree. |
+| Estado | En desarrollo validado focalmente: `extract_expected_output_value_signals` une tokens por `category/artifact_key`. Contraste local AC2024/AT2025: Balance usa 1046 tokens esperados, `Compared=138`, `Matched=138`, `Missing=0`, `BlockingExtractionErrors=0`; el mirror proof conserva blockers reales de Stage 6. |
+| Gate esperado | El comparador queda sin blockers, pero Etapa 6/mirror proof sigue `classification=parcial` si persisten `stage6.enterprise_register_movement_invalid` y `stage6.real_estate_item_missing`. No usa outputs finales como input, no abre SII real, no declara cierre tributario final ni presentacion SII. |
+| Estado al cerrar paquete | No reabrir Compliance #879, filtro de errores #880, paquetes Stage 6 ya mergeados ni prompts de goal. El siguiente frente real debe tomar registros empresariales invalidos o bienes raices faltantes segun mirror proof. |
+| Bloqueos relacionados | Tras este paquete, los blockers de comparacion de valores deben desaparecer. La prueba espejo total sigue pendiente por `stage6.enterprise_register_movement_invalid` y `stage6.real_estate_item_missing`. |
 | Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable ni integraciones externas sin autorizacion explicita. Las salidas F22/DDJJ/Balance/RLI/CPT/RAI/SAC esperadas son comparacion externa read-only, nunca input de calculo. |
-| Siguiente accion | Completar validacion impactada, PR/CI/merge y limpiar `stage6-value-error-filter`; luego continuar con el siguiente blocker concreto de la prueba espejo. |
+| Siguiente accion | Completar validacion impactada, PR/CI/merge y limpiar `stage6-value-token-union`; luego continuar con `stage6.enterprise_register_movement_invalid` o `stage6.real_estate_item_missing`. |
 
 ## Actualizacion
 

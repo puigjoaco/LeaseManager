@@ -285,6 +285,74 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
             },
         )
 
+    def test_expected_value_extractor_unions_multiple_files_for_same_artifact(self):
+        manifest = {
+            'schema_version': 'annual-tax-source-manifest.v1',
+            'commercial_year': 2024,
+            'tax_year': 2025,
+            'files': [
+                {
+                    'category': 'annual_balance_expected_output',
+                    'role': 'expected_output',
+                    'path_ref': 'expected-output-balance-general-page-1-ref',
+                    'artifact_key': 'balance_general',
+                    'relative_path': 'expected/balance_page_1.txt',
+                    'output_status': '',
+                },
+                {
+                    'category': 'annual_balance_expected_output',
+                    'role': 'expected_output',
+                    'path_ref': 'expected-output-balance-general-page-2-ref',
+                    'artifact_key': 'balance_general',
+                    'relative_path': 'expected/balance_page_2.txt',
+                    'output_status': '',
+                },
+            ],
+        }
+        generated_targets = [
+            {
+                'target_key': 'trial_balance:11010101:sumas_debe_clp',
+                'category': 'annual_balance_expected_output',
+                'artifact_key': 'balance_general',
+                'amount_token': '111111111',
+            },
+            {
+                'target_key': 'trial_balance:22020101:sumas_haber_clp',
+                'category': 'annual_balance_expected_output',
+                'artifact_key': 'balance_general',
+                'amount_token': '222222222',
+            },
+        ]
+
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            first_path = source_root / 'expected' / 'balance_page_1.txt'
+            second_path = source_root / 'expected' / 'balance_page_2.txt'
+            first_path.parent.mkdir(parents=True)
+            first_path.write_text('Balance pagina uno monto 111.111.111\n', encoding='utf-8')
+            second_path.write_text('Balance pagina dos monto 222.222.222\n', encoding='utf-8')
+
+            result = extract_expected_output_value_signals(
+                source_root=source_root,
+                manifest=manifest,
+                generated_targets=generated_targets,
+            )
+
+        self.assertEqual(result['summary']['files_total'], 2)
+        self.assertEqual(result['summary']['missing_targets_total'], 0)
+        self.assertTrue(result['summary']['target_value_presence_ready'])
+        self.assertEqual(
+            {item['target_key']: item['matched'] for item in result['comparisons']},
+            {
+                'trial_balance:11010101:sumas_debe_clp': True,
+                'trial_balance:22020101:sumas_haber_clp': True,
+            },
+        )
+        self.assertEqual(
+            {item['expected_file_numeric_token_count'] for item in result['comparisons']},
+            {2},
+        )
+
     def test_expected_value_extractor_keeps_non_decisive_errors_diagnostic(self):
         manifest = {
             'schema_version': 'annual-tax-source-manifest.v1',

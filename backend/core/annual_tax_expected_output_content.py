@@ -389,7 +389,7 @@ def extract_expected_output_value_signals(
             text = _extract_text(path)
             normalized_text = ' '.join(text.split())
             tokens = _canonical_expected_amount_tokens(normalized_text)
-            expected_by_key[(category, artifact_key)] = tokens
+            expected_by_key.setdefault((category, artifact_key), set()).update(tokens)
             file_signals.append(
                 {
                     'path_ref': path_ref,

@@ -46,6 +46,14 @@ quedan en 0 bloqueantes; el comparador sigue bloqueando por
 con 136 targets faltantes reales, sin usar outputs finales como input ni
 declarar calculo tributario final.
 
+Nota 2026-06-16: El extractor de valores esperados une senales de multiples
+archivos para el mismo `category/artifact_key`, evitando que la ultima pagina o
+version de `balance_general` sobrescriba tokens ya extraidos. En la prueba
+AC2024/AT2025 la union de Balance pasa a 1046 tokens esperados y la comparacion
+sube a `138/138` valores presentes con blockers vacios del comparador. El mirror
+proof sigue parcial por `stage6.enterprise_register_movement_invalid` y
+`stage6.real_estate_item_missing`, que son las siguientes brechas reales.
+
 Nota 2026-06-16: El auditor de progreso contable/renta distingue F29 faltante
 de mes controlado sin declaracion. Si existe `MonthlyTaxFact` normalizado con
 F29 `no_aplica` y `no_declaration=true`, el mes cuenta como cobertura F29
