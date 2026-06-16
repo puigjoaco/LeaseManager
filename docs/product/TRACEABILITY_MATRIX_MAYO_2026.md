@@ -113,6 +113,15 @@ sensible; una ref heredada con URL/token permanece pendiente, bloquea el gate y
 no puede propagarse al dossier/export. Esto mejora la prueba espejo sin abrir
 formato oficial, presentacion SII ni calculo tributario final.
 
+Nota 2026-06-16: `mark_annual_tax_generated_warnings_reviewed` cierra la
+revision responsable de la cadena generada completa con una referencia no
+sensible: workbooks RLI/CPT, registros empresariales y matriz DDJJ/F22. En modo
+dry-run informa pendientes sin escribir; con `--apply` recalcula hashes,
+regenera dossier/export/checklist y permite que el comparador espejo deje de
+bloquear por `generated_artifacts_require_review` cuando no quedan warnings
+generados pendientes. La accion conserva warnings en payload/hash y mantiene
+`sii_submission=false`, `official_format=false` y `final_tax_calculation=false`.
+
 Nota 2026-06-15: La iteracion posterior al mapeo completo EDIG se contrasta
 con SII. F22 AT2026 opera por certificacion de software que genera archivos y
 SII acredita recepcion, no contenido ni consistencia tributaria. DDJJ Renta
