@@ -262,6 +262,13 @@ manifiesto sobrescriba senales de Balance ya extraidas; en la prueba AC2024/AT20
 la comparacion de valores queda `138/138` sin blockers del comparador. El mirror
 proof total permanece parcial si Stage 6 aun reporta registros empresariales
 invalidos o bienes raices faltantes.
+Los movimientos de registros empresariales generados desde RLI/CPT deben
+calcular `hash_movimiento` desde la instancia normalizada, no desde el payload
+previo a persistencia. Esto evita falsos `stage6.enterprise_register_movement_invalid`
+por diferencias de representacion decimal/textual y mantiene RAI/SAC trazables
+al payload canonico validado por el modelo. En la prueba AC2024/AT2025 el
+readiness queda sin movimientos empresariales invalidos y el siguiente bloqueo
+real es `stage6.real_estate_item_missing`.
 `MonthlyTaxFact` materializa la capa mensual anualizable: por cada empresa,
 ano comercial y mes normaliza el cierre aprobado, obligaciones mensuales,
 F29 si existe, distribuciones de arriendo y liquidacion de empresa, con

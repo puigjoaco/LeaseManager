@@ -1827,6 +1827,7 @@ def _save_enterprise_movement(
 ):
     warnings = warnings or []
     source_payload = source_payload or {}
+    monto = _quantize_clp(monto)
     existing_movement = AnnualEnterpriseRegisterMovement.objects.filter(
         register_set=register,
         codigo_interno=codigo_interno,
@@ -1847,19 +1848,6 @@ def _save_enterprise_movement(
         )
         else ''
     )
-    movement_payload = {
-        'register_set_id': register.id,
-        'source_workbook_line_id': getattr(source_workbook_line, 'id', None),
-        'codigo_interno': codigo_interno,
-        'origen': origen,
-        'signo': SignoAnnualTaxLine.INFO,
-        'monto_clp': str(monto),
-        'formula_ref': formula_ref,
-        'evidencia_ref': evidencia_ref,
-        'warning_review_ref': warning_review_ref,
-        'warnings': warnings,
-        'source_payload': source_payload,
-    }
     movement, _ = AnnualEnterpriseRegisterMovement.objects.update_or_create(
         register_set=register,
         codigo_interno=codigo_interno,
@@ -1873,10 +1861,10 @@ def _save_enterprise_movement(
             'warning_review_ref': warning_review_ref,
             'warnings': warnings,
             'source_payload': source_payload,
-            'hash_movimiento': _source_bundle_hash(movement_payload),
             'estado': EstadoRegistro.ACTIVE,
         },
     )
+    movement.hash_movimiento = _source_bundle_hash(_enterprise_movement_hash_payload(movement))
     try:
         movement.full_clean()
     except ValidationError as error:

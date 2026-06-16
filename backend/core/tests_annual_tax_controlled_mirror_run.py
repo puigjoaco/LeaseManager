@@ -330,6 +330,35 @@ class AnnualTaxControlledMirrorRunTests(TestCase):
             self.assertEqual(movement.source_payload['source'], 'participacion_patrimonial')
             self.assertFalse(movement.source_payload['final_tax_calculation'])
 
+    def test_controlled_mirror_generates_valid_enterprise_register_movement_hashes(self):
+        empresa = self._create_empresa()
+        self._load_monthly_package(empresa, package=self._with_ownership(self._package()))
+
+        run_annual_tax_controlled_mirror(
+            **self._mirror_kwargs(empresa),
+            write_database=True,
+        )
+
+        workbook_movements = AnnualEnterpriseRegisterMovement.objects.filter(
+            origen__startswith='annual_tax_workbook:',
+        )
+        self.assertGreater(workbook_movements.count(), 0)
+        for movement in workbook_movements:
+            movement.full_clean()
+
+        gate = collect_stage6_renta_anual_readiness(
+            stage5_evidence_ref='stage5-ledger-year-controlled-v1',
+            stage4_sii_evidence_ref='stage4-sii-annual-controlled-v1',
+            fiscal_rule_ref='ac2024-tax-rule-review-pending',
+            certificates_proof_ref='ac2024-certificates-proof-pending',
+            responsible_ref='stage6-responsibles-v1',
+            source_label='inmobiliaria-puig-ac2024-controlled-writer',
+            authorization_ref='user-authorized-local-source-review',
+            source_kind='snapshot_controlado',
+        )
+        issue_codes = {issue['code'] for issue in gate['issues']}
+        self.assertNotIn('stage6.enterprise_register_movement_invalid', issue_codes)
+
     def test_controlled_mirror_uses_december_inventory_lines_for_trial_balance(self):
         empresa = self._create_empresa()
         package = self._package()
