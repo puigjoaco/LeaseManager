@@ -2578,6 +2578,14 @@ revision manual. La corrida real genera 10 fuentes candidatas, deja
 calza con el writer anual, pero exige completar socios, RUTs, porcentajes,
 vigencias y evidencia no sensible antes de cargar DB o ejecutar el mirror final.
 
+Nota 2026-06-15: `build_annual_tax_ownership_visual_review_packet` renderiza
+las primeras paginas de esos candidatos a PNG bajo `local-evidence` para OCR o
+revision manual. La corrida real genera 19 paginas de 10 candidatos, sin errores
+de render. Las imagenes pueden contener datos sensibles y no se versionan; el
+indice JSON conserva solo hashes, `path_ref`, tipos documentales y nombres de
+archivo locales. Este paquete deja preparada la revision visual, pero no cierra
+ownership ni autoriza DB hasta completar el template con fuente suficiente.
+
 Nota 2026-06-15: `audit_annual_tax_controlled_package_readiness` separa readiness
 de writer DB y readiness anual. El draft AC2024/AT2025 v3 queda con
 `ready_for_db_writer=true` y `missing_paths_count=0`, pero

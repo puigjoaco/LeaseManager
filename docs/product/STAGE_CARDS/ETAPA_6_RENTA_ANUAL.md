@@ -131,6 +131,11 @@ writer anual: desde la revision real genera 10 `candidate_sources`, un
 RUT, porcentajes, vigencias y evidencia no sensible. El template no esta listo
 para DB hasta que esa informacion sea completada por OCR/revision controlada y
 aprobacion responsable.
+`build_annual_tax_ownership_visual_review_packet` prepara esa revision: renderiza
+paginas iniciales de los 10 candidatos a PNG bajo `local-evidence`, con indice
+por hash/path_ref. La corrida real produce 19 paginas sin errores. Las imagenes
+pueden contener datos sensibles, por lo que no se versionan ni se usan como
+calculo; sirven para OCR/revision manual previa a completar el snapshot.
 `build_annual_tax_controlled_load_plan` traduce ese manifiesto a un plan de
 carga contra modelos canonicos de LeaseManager sin escribir DB: cierres,
 libros, balance, obligaciones, F29, hechos mensuales y balance tributario
