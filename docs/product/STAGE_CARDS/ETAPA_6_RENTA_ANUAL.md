@@ -111,6 +111,13 @@ la fuente de prueba espejo anual. En la carpeta real AC2024/AT2025 de
 Inmobiliaria Puig, RCV, F29 controlado, libros anuales, DDJJ, F22 y registros
 esperados estan cubiertos, pero `ready_for_mirror_source_bundle=false` porque no
 se encontro fuente societaria independiente (`ownership_source_present=false`).
+Ademas distingue candidatos legales de fuente controlada: escrituras,
+extractos, inscripciones o Diario Oficial en contexto societario quedan como
+`ownership_source_candidate` de soporte/revision. La corrida real detecta 15
+candidatos, pero no los usa como input de calculo ni desbloquea la prueba anual
+hasta que una fuente suficiente sea revisada y convertida en snapshot
+controlado de socios/participaciones vigentes. Las escrituras de propiedades no
+se clasifican como ownership societario.
 `build_annual_tax_controlled_load_plan` traduce ese manifiesto a un plan de
 carga contra modelos canonicos de LeaseManager sin escribir DB: cierres,
 libros, balance, obligaciones, F29, hechos mensuales y balance tributario

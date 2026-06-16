@@ -2551,6 +2551,16 @@ F22, libros anuales y registros tributarios esperados completos, pero mantiene
 Esta regla adelanta el bloqueo al inventario de fuentes y evita iniciar una
 prueba anual completa sin fuente societaria independiente.
 
+Nota 2026-06-15: el manifiesto AC2024/AT2025 ahora distingue fuente societaria
+controlada de candidatos legales. Escrituras, extractos, inscripciones o Diario
+Oficial en contexto societario quedan como `ownership_source_candidate`
+soporte/revision, no como input de calculo. La corrida real encuentra 15
+candidatos (`ownership_source_candidate_present=true`) y mantiene
+`ownership_source_present=false`, por lo que la prueba anual sigue bloqueada
+hasta convertir una fuente suficiente en snapshot controlado de socios y
+participaciones vigentes. Las escrituras de propiedades no se clasifican como
+ownership societario.
+
 Nota 2026-06-15: `audit_annual_tax_controlled_package_readiness` separa readiness
 de writer DB y readiness anual. El draft AC2024/AT2025 v3 queda con
 `ready_for_db_writer=true` y `missing_paths_count=0`, pero

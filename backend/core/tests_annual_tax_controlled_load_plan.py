@@ -91,6 +91,29 @@ class AnnualTaxControlledLoadPlanTests(SimpleTestCase):
         self.assertNotIn('expected_output_comparator', plan['summary']['missing_capabilities_after_plan'])
         self.assertIn('expected_output_value_equality_completion', plan['summary']['missing_capabilities_after_plan'])
 
+    def test_load_plan_keeps_ownership_candidates_as_support_not_calculation_input(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            self._build_complete_source_tree(source_root)
+            (source_root / 'Ano_2024/00_Estructura_Societaria/Participaciones_Socios_2024.pdf').unlink()
+            self._write(
+                source_root,
+                'Ano_HISTORICO/08_Base_Legal_Patrimonial_Operativa/Inmobiliaria Puig SpA/'
+                '1. Escrituras y Modificaciones/1.Constitucion/2.Extracto/Extracto.pdf',
+            )
+            manifest = self._manifest(source_root)
+
+        plan = build_annual_tax_controlled_load_plan(manifest=manifest)
+        by_category = {item['category']: item for item in plan['load_items']}
+
+        self.assertEqual(by_category['ownership_source_candidate']['role'], 'support')
+        self.assertEqual(by_category['ownership_source_candidate']['status'], 'support_only')
+        self.assertEqual(by_category['ownership_source_candidate']['files_total'], 1)
+        self.assertFalse(by_category['ownership_source_candidate']['used_as_calculation_input'])
+        self.assertEqual(by_category['ownership_source_input']['files_total'], 0)
+        self.assertIn('required_source_categories_missing', plan['blockers'])
+        self.assertNotIn('ownership_source_candidate', plan['summary']['calculation_input_categories'])
+
     def test_load_plan_blocks_manifest_without_file_list(self):
         with TemporaryDirectory() as temp_dir:
             source_root = Path(temp_dir)

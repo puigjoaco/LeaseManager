@@ -39,6 +39,11 @@ CATEGORY_TARGETS = {
         'load_mode': 'controlled_ownership_snapshot_to_patrimonio',
         'parser_status': 'blocked_pdf_or_controlled_manual_extraction_required',
     },
+    'ownership_source_candidate': {
+        'target_models': ['patrimonio.Socio', 'patrimonio.ParticipacionPatrimonial'],
+        'load_mode': 'manual_review_to_controlled_ownership_snapshot',
+        'parser_status': 'support_only_pdf_review_required',
+    },
     'rcv_structured_input': {
         'target_models': [
             'contabilidad.ObligacionTributariaMensual',

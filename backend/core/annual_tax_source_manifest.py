@@ -116,6 +116,10 @@ CATEGORY_META = {
         'role': 'input',
         'layer': 'Patrimonio / socios y participaciones vigentes',
     },
+    'ownership_source_candidate': {
+        'role': 'support',
+        'layer': 'Patrimonio / fuente legal candidata para revisar ownership',
+    },
     'annual_balance_expected_output': {
         'role': 'expected_output',
         'layer': 'Contabilidad / balance anual a comparar',
@@ -254,6 +258,37 @@ def _annual_tax_register_key(normalized_path: str) -> str:
     return ''
 
 
+def _looks_like_ownership_source_candidate(normalized_path: str) -> bool:
+    if 'activos_propiedades' in normalized_path or 'bienes_raices' in normalized_path:
+        return False
+    ownership_context = any(
+        token in normalized_path
+        for token in (
+            'base_legal_patrimonial_operativa',
+            'escrituras_y_modificaciones',
+            'estructura_societaria',
+            'estructura_patrimonial',
+            'societaria',
+            'sociedad',
+            'inmobiliaria_puig_spa',
+        )
+    )
+    legal_source_token = any(
+        token in normalized_path
+        for token in (
+            'constitucion',
+            'extracto',
+            'diario_oficial',
+            'inscripcion_de_constitucion',
+            'escritura_de_constitucion',
+            'modificacion_sociedad',
+            'vigencia_sociedad',
+            'registro_de_accionistas',
+        )
+    )
+    return ownership_context and legal_source_token
+
+
 def _category_for(relative_path: str) -> str:
     normalized = _normalize_for_match(relative_path)
     file_name = Path(relative_path).name.lower()
@@ -284,6 +319,8 @@ def _category_for(relative_path: str) -> str:
         )
     ):
         return 'ownership_source_input'
+    if _looks_like_ownership_source_candidate(normalized):
+        return 'ownership_source_candidate'
     if 'balance' in normalized:
         return 'annual_balance_expected_output'
     if 'libro_diario' in normalized or 'libro_mayor' in normalized or 'inventario' in normalized:
@@ -318,6 +355,8 @@ def _artifact_key_for(category: str, relative_path: str, ddjj_forms: tuple[str, 
             return 'libro_mayor'
         if 'inventario' in normalized:
             return 'libro_inventario'
+    if category == 'ownership_source_candidate':
+        return 'ownership_source_candidate'
     return category
 
 
@@ -398,6 +437,7 @@ def _coverage(files: list[SourceFile], *, f29_no_declaration_months: tuple[int, 
             if item.artifact_key in EXPECTED_ANNUAL_TAX_REGISTER_KEYS
         }
     )
+    ownership_source_candidates_count = len(by_category.get('ownership_source_candidate', []))
     missing_tax_register_keys = [
         key for key in EXPECTED_ANNUAL_TAX_REGISTER_KEYS if key not in annual_tax_register_keys
     ]
@@ -429,6 +469,12 @@ def _coverage(files: list[SourceFile], *, f29_no_declaration_months: tuple[int, 
             'status': 'ready' if by_category.get('ownership_source_input') else 'missing',
             'files': len(by_category.get('ownership_source_input', [])),
             'note': 'Fuente independiente para construir snapshot ownership; no se infiere desde F22/DDJJ ni registros finales.',
+        },
+        {
+            'key': 'ownership_source_candidates',
+            'status': 'candidate_found' if ownership_source_candidates_count else 'not_found',
+            'files': ownership_source_candidates_count,
+            'note': 'Fuentes legales candidatas requieren revision y conversion a snapshot ownership controlado; no desbloquean por si solas.',
         },
         {
             'key': 'annual_balance_expected_output',
@@ -499,6 +545,8 @@ def _coverage(files: list[SourceFile], *, f29_no_declaration_months: tuple[int, 
         'missing_annual_ledger_keys': missing_ledger_keys,
         'ownership_source_present': bool(by_category.get('ownership_source_input')),
         'ownership_source_files_count': len(by_category.get('ownership_source_input', [])),
+        'ownership_source_candidate_present': bool(ownership_source_candidates_count),
+        'ownership_source_candidate_files_count': ownership_source_candidates_count,
         'annual_tax_register_keys': annual_tax_register_keys,
         'missing_annual_tax_register_keys': missing_tax_register_keys,
     }
@@ -547,10 +595,17 @@ def _mirror_proof_readiness(coverage: dict[str, Any]) -> dict[str, Any]:
             'Implementar extractores de valores contra outputs esperados sin usarlos como insumo de calculo.',
         ]
         if source_ready
-        else [
-            'Completar fuentes AC2024/AT2025 minimas antes de iniciar procesamiento.',
-        ],
+        else _mirror_proof_blocked_next_actions(coverage),
     }
+
+
+def _mirror_proof_blocked_next_actions(coverage: dict[str, Any]) -> list[str]:
+    actions = ['Completar fuentes AC2024/AT2025 minimas antes de iniciar procesamiento.']
+    if coverage.get('ownership_source_candidate_present') and not coverage.get('ownership_source_present'):
+        actions.append(
+            'Revisar candidatos legales de ownership y convertirlos, si son vigentes y suficientes, en snapshot controlado de socios/participaciones AC2024.'
+        )
+    return actions
 
 
 def build_annual_tax_source_manifest(
@@ -648,6 +703,8 @@ def build_annual_tax_source_manifest(
                 'missing_ddjj_forms': coverage['missing_ddjj_forms'],
                 'ownership_source_present': coverage['ownership_source_present'],
                 'ownership_source_files_count': coverage['ownership_source_files_count'],
+                'ownership_source_candidate_present': coverage['ownership_source_candidate_present'],
+                'ownership_source_candidate_files_count': coverage['ownership_source_candidate_files_count'],
             },
         'source_refs_hash': source_refs_hash,
         'approved_close_months': [],

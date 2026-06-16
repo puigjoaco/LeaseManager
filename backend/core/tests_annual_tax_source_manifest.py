@@ -127,6 +127,53 @@ class AnnualTaxSourceManifestTests(SimpleTestCase):
             manifest['mirror_proof_readiness']['next_actions'],
         )
 
+    def test_manifest_marks_legal_ownership_sources_as_candidates_without_unlocking_bundle(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            self._build_complete_source_tree(source_root)
+            (source_root / 'Ano_2024/00_Estructura_Societaria/Participaciones_Socios_2024.pdf').unlink()
+            self._write(
+                source_root,
+                'Ano_HISTORICO/08_Base_Legal_Patrimonial_Operativa/Inmobiliaria Puig SpA/'
+                '1. Escrituras y Modificaciones/1.Constitucion/1.Escritura de Constitucion/Escritura.pdf',
+            )
+            self._write(
+                source_root,
+                'Ano_2024/00_Activos_Propiedades/Providencia/1.Constitucion/Escritura.pdf',
+            )
+
+            manifest = build_annual_tax_source_manifest(
+                source_root=source_root,
+                company_ref='inmobiliaria-puig',
+                commercial_year=2024,
+                tax_year=2025,
+            )
+
+        checks = {item['key']: item for item in manifest['coverage']['checks']}
+        candidate_files = [
+            item for item in manifest['files'] if item['category'] == 'ownership_source_candidate'
+        ]
+        property_files = [
+            item
+            for item in manifest['files']
+            if item['artifact_key'] == 'unclassified_support'
+            and item['relative_path'].endswith('00_Activos_Propiedades/Providencia/1.Constitucion/Escritura.pdf')
+        ]
+
+        self.assertFalse(manifest['coverage']['ready_for_mirror_source_bundle'])
+        self.assertFalse(manifest['coverage']['ownership_source_present'])
+        self.assertTrue(manifest['coverage']['ownership_source_candidate_present'])
+        self.assertEqual(manifest['coverage']['ownership_source_candidate_files_count'], 1)
+        self.assertEqual(checks['ownership_source']['status'], 'missing')
+        self.assertEqual(checks['ownership_source_candidates']['status'], 'candidate_found')
+        self.assertEqual(candidate_files[0]['artifact_key'], 'ownership_source_candidate')
+        self.assertEqual(candidate_files[0]['role'], 'support')
+        self.assertEqual(len(property_files), 1)
+        self.assertIn(
+            'Revisar candidatos legales de ownership y convertirlos, si son vigentes y suficientes, en snapshot controlado de socios/participaciones AC2024.',
+            manifest['mirror_proof_readiness']['next_actions'],
+        )
+
     def test_manifest_redacts_sensitive_relative_paths_but_keeps_path_ref_and_classification(self):
         with TemporaryDirectory() as temp_dir:
             source_root = Path(temp_dir)
