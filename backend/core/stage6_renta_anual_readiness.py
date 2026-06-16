@@ -830,7 +830,7 @@ def _collect_annual_artifact_matrix_issues(matrices, items, processes, active_fi
                 warnings
                 and (
                     item.review_state != EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW
-                    or not has_text(item.warning_review_ref)
+                    or not _non_sensitive_reference(item.warning_review_ref)
                 )
             )
         ):

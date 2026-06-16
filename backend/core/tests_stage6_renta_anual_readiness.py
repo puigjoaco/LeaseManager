@@ -715,6 +715,33 @@ class Stage6RentaAnualReadinessTests(TestCase):
             source_kind='snapshot_controlado',
         )
 
+    def _artifact_matrix_item_hash(self, item):
+        return hashlib.sha256(
+            json.dumps(
+                {
+                    'matrix_id': item.matrix_id,
+                    'target_kind': item.target_kind,
+                    'target_code': item.target_code,
+                    'medio_sii': item.medio_sii,
+                    'source_kind': item.source_kind,
+                    'source_model': item.source_model,
+                    'source_object_id': item.source_object_id,
+                    'source_hash': item.source_hash,
+                    'review_state': item.review_state,
+                    'formula_ref': item.formula_ref,
+                    'evidencia_ref': item.evidencia_ref,
+                    'responsible_ref': item.responsible_ref,
+                    'warning_review_ref': item.warning_review_ref,
+                    'warnings': item.warnings,
+                    'source_payload': item.source_payload,
+                },
+                sort_keys=True,
+                separators=(',', ':'),
+                ensure_ascii=True,
+                default=str,
+            ).encode('utf-8')
+        ).hexdigest()
+
     def test_empty_database_reports_partial_without_sensitive_values(self):
         result = collect_stage6_renta_anual_readiness()
         issue_codes = {issue['code'] for issue in result['issues']}
@@ -1877,6 +1904,38 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertNotIn('stage6.tax_dossier_review_required', issue_codes)
         self.assertNotIn('stage6.tax_export_review_required', issue_codes)
         self.assertNotIn('stage6.tax_review_checklist_warning_review_required', issue_codes)
+
+    def test_sensitive_artifact_matrix_warning_review_ref_remains_blocking(self):
+        self._create_valid_local_matrix()
+        item = AnnualTaxArtifactMatrixItem.objects.select_related('matrix').get(target_kind='F22', target_code='F22-PREVIEW')
+        item.warnings = ['artifact_requires_responsible_review']
+        item.review_state = EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW
+        item.warning_review_ref = 'https://sii.example.test/artifact-review?token=secret'
+        item.hash_item = self._artifact_matrix_item_hash(item)
+        item.save(update_fields=['warnings', 'review_state', 'warning_review_ref', 'hash_item', 'updated_at'])
+
+        process = ProcesoRentaAnual.objects.get()
+        source_bundle = AnnualTaxSourceBundle.objects.get()
+        rule_set = TaxYearRuleSet.objects.get()
+        process.resumen_anual = {
+            **process.resumen_anual,
+            'annual_tax_artifact_matrices': summarize_annual_tax_artifact_matrices(process),
+        }
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+        with self.assertRaisesMessage(ValueError, 'resumen_dossier no debe contener URLs'):
+            sync_annual_tax_dossier(process, rule_set, source_bundle)
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+        serialized_result = json.dumps(result)
+        matrix_summary = next(iter(summarize_annual_tax_artifact_matrices(process)['by_id'].values()))
+
+        self.assertEqual(matrix_summary['warnings_total'], 1)
+        self.assertEqual(matrix_summary['warnings_reviewed_total'], 0)
+        self.assertEqual(matrix_summary['warnings_pending_review_total'], 1)
+        self.assertIn('stage6.artifact_matrix_item_invalid', issue_codes)
+        self.assertIn('stage6.artifact_matrix_item_warning_review_required', issue_codes)
+        self.assertNotIn('token=secret', serialized_result)
 
     def test_tax_dossier_summary_hash_mismatch_is_blocking(self):
         self._create_valid_local_matrix()

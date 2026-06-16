@@ -92,6 +92,17 @@ no sensible ya no disparan `stage6.tax_review_checklist_warning_review_required`
 Workbooks tambien usan referencia no sensible para contar warnings revisados,
 evitando que URLs, tokens o refs sensibles despejen el bloqueo.
 
+Nota 2026-06-16: La evidencia de artefactos generados de la prueba espejo queda
+trazada y redaccionada. `compare_annual_tax_expected_outputs` agrega
+`generated_artifact_evidence` con ids, hashes, conteos y refs seguras de
+balance anual, RLI/CPT, registros empresariales, DDJJ/F22, matriz, dossier,
+export y checklist; `audit_annual_tax_mirror_proof` la expone como
+`comparison_generated_artifact_evidence`. Servicios y readiness solo cuentan
+warnings de workbooks y matriz como revisados si `warning_review_ref` es no
+sensible; una ref heredada con URL/token permanece pendiente, bloquea el gate y
+no puede propagarse al dossier/export. Esto mejora la prueba espejo sin abrir
+formato oficial, presentacion SII ni calculo tributario final.
+
 Nota 2026-06-15: La iteracion posterior al mapeo completo EDIG se contrasta
 con SII. F22 AT2026 opera por certificacion de software que genera archivos y
 SII acredita recepcion, no contenido ni consistencia tributaria. DDJJ Renta

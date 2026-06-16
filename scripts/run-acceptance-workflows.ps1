@@ -27,6 +27,16 @@ function Assert-Condition($condition, $message) {
     }
 }
 
+function Assert-PathExists($path, $message) {
+    for ($attempt = 0; $attempt -lt 10; $attempt++) {
+        if (Test-Path -LiteralPath $path) {
+            return
+        }
+        Start-Sleep -Milliseconds 100
+    }
+    Assert-Condition (Test-Path -LiteralPath $path) $message
+}
+
 function Assert-ReadinessOutputGuard($scriptPath, $label, $blockedFileName, [hashtable]$extraParams = @{}) {
     Assert-Condition (Test-Path $scriptPath) "No existe el wrapper $label en $scriptPath"
     $blockedOutputPath = Join-Path $repoRoot "docs\$blockedFileName"
@@ -217,7 +227,7 @@ if (-not $OnlySmoke) {
             Write-Host $stage1SnapshotEmptyOutput
         }
         Assert-Condition $stage1SnapshotEmptyFailed 'El snapshot gate evidencial con SQLite vacio debe fallar, no cerrar Etapa 1.'
-        Assert-Condition (Test-Path $stage1SnapshotEmptyOutputPath) 'El snapshot gate vacio debe dejar JSON de auditoria bajo local-evidence/.'
+        Assert-PathExists $stage1SnapshotEmptyOutputPath 'El snapshot gate vacio debe dejar JSON de auditoria bajo local-evidence/.'
         $stage1SnapshotEmptyAudit = Get-Content -LiteralPath $stage1SnapshotEmptyOutputPath -Raw | ConvertFrom-Json
         $stage1SnapshotEmptyIssueCodes = @($stage1SnapshotEmptyAudit.issues | ForEach-Object { $_.code })
         Assert-Condition ($stage1SnapshotEmptyAudit.source_kind -eq 'snapshot_controlado') 'El snapshot gate vacio debe declarar source_kind=snapshot_controlado.'

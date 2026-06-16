@@ -18,8 +18,9 @@ from core.annual_tax_controlled_mirror_run import run_annual_tax_controlled_mirr
 from core.annual_tax_expected_output_content import extract_expected_output_value_signals
 from core.annual_tax_expected_output_comparator import compare_annual_tax_expected_outputs
 from core.annual_tax_source_manifest import EXPECTED_ANNUAL_TAX_REGISTER_KEYS, EXPECTED_DDJJ_FORMS
+from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from patrimonio.models import Empresa
-from sii.models import CapacidadSII, CapacidadTributariaSII, EstadoGateSII
+from sii.models import CapacidadSII, CapacidadTributariaSII, EstadoGateSII, ProcesoRentaAnual
 
 
 class AnnualTaxExpectedOutputComparatorTests(TestCase):
@@ -364,6 +365,51 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
         self.assertFalse(result['expected_output_value_signals']['safety']['stores_raw_text'])
         self.assertFalse(result['expected_output_value_signals']['safety']['stores_raw_numeric_tokens'])
         self.assertFalse(result['expected_output_value_signals']['safety']['stores_raw_amounts'])
+        evidence = result['generated_inventory']['generated_artifact_evidence']
+        self.assertEqual(evidence['process']['process_id'], result['generated_inventory']['process_id'])
+        self.assertEqual(len(evidence['process']['source_bundle_hash']), 64)
+        self.assertEqual(len(evidence['trial_balances']), 1)
+        self.assertGreater(evidence['trial_balances'][0]['lines_total'], 0)
+        self.assertEqual(len(evidence['trial_balances'][0]['hash_balance']), 64)
+        self.assertEqual(set(evidence['workbooks_by_type']), {'CPT', 'RLI'})
+        for workbook in evidence['workbooks_by_type'].values():
+            self.assertGreater(workbook['lines_total'], 0)
+            self.assertEqual(len(workbook['hash_workbook']), 64)
+        self.assertEqual(set(evidence['enterprise_registers_by_type']), {'DIVIDENDOS', 'RAI', 'RETIROS', 'SAC'})
+        for register in evidence['enterprise_registers_by_type'].values():
+            self.assertGreater(register['movements_total'], 0)
+            self.assertEqual(len(register['hash_registro']), 64)
+        self.assertIsNotNone(evidence['ddjj'])
+        self.assertIsNotNone(evidence['f22'])
+        self.assertEqual(len(evidence['artifact_matrix']['hash_matriz']), 64)
+        self.assertEqual(len(evidence['dossier']['hash_dossier']), 64)
+        self.assertEqual(len(evidence['annual_export']['hash_export']), 64)
+        self.assertEqual(len(evidence['review_checklist']['hash_checklist']), 64)
+        self.assertFalse(evidence['annual_export']['official_format'])
+        self.assertFalse(evidence['annual_export']['sii_submission'])
+        self.assertFalse(evidence['annual_export']['final_tax_calculation'])
+        rendered_evidence = json.dumps(evidence, default=str).lower()
+        for forbidden in ('source_payload', 'export_payload', 'review_payload', 'resumen_', 'password', 'secret', 'token'):
+            self.assertNotIn(forbidden, rendered_evidence)
+
+    def test_generated_artifact_evidence_redacts_sensitive_historical_refs(self):
+        empresa = self._create_empresa()
+        self._load_and_generate_annual_layer(empresa)
+        ProcesoRentaAnual.objects.filter(empresa=empresa, anio_tributario=2025).update(
+            paquete_ddjj_ref='https://private.example.test/token',
+        )
+
+        result = compare_annual_tax_expected_outputs(
+            empresa=empresa,
+            commercial_year=2024,
+            tax_year=2025,
+            manifest=self._manifest(),
+        )
+
+        evidence = result['generated_inventory']['generated_artifact_evidence']
+        self.assertEqual(evidence['process']['ddjj_package_ref'], REDACTED_SENSITIVE_REFERENCE)
+        rendered_evidence = json.dumps(evidence, default=str)
+        self.assertNotIn('https://private.example.test/token', rendered_evidence)
 
     def test_comparator_reports_missing_annual_process_as_blocker(self):
         empresa = self._create_empresa()
@@ -380,6 +426,7 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
         self.assertIn('expected_output_coverage_mismatch', result['summary']['blockers'])
         self.assertIn('expected_output_identity_extractors_not_run', result['summary']['blockers'])
         self.assertIn('expected_output_value_extractors_not_run', result['summary']['blockers'])
+        self.assertEqual(result['generated_inventory']['generated_artifact_evidence'], {})
 
     def test_command_writes_comparison_and_refuses_versioned_output_outside_local_evidence(self):
         empresa = self._create_empresa()

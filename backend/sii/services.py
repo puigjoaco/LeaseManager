@@ -862,7 +862,7 @@ def _annual_tax_workbook_warning_counts(active_lines):
     for line in active_lines:
         warnings = line.warnings if isinstance(line.warnings, list) else []
         warning_count += len(warnings)
-        if warnings and has_text(line.warning_review_ref):
+        if warnings and is_non_sensitive_reference(line.warning_review_ref):
             warning_reviewed_count += len(warnings)
         elif warnings:
             warning_pending_review_count += len(warnings)
@@ -1430,7 +1430,11 @@ def summarize_annual_tax_artifact_matrices(process):
         for item in active_items:
             warnings = item.warnings if isinstance(item.warnings, list) else []
             warning_count += len(warnings)
-            if warnings and item.review_state == EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW and has_text(item.warning_review_ref):
+            if (
+                warnings
+                and item.review_state == EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW
+                and is_non_sensitive_reference(item.warning_review_ref)
+            ):
                 warning_reviewed_count += len(warnings)
             elif warnings:
                 warning_pending_review_count += len(warnings)
@@ -1665,7 +1669,11 @@ def sync_annual_tax_workbooks(process, rule_set, source_bundle):
             existing_warnings = existing_line.warnings if existing_line and isinstance(existing_line.warnings, list) else []
             warning_review_ref = (
                 existing_line.warning_review_ref
-                if warnings and existing_warnings == warnings and has_text(existing_line.warning_review_ref)
+                if (
+                    warnings
+                    and existing_warnings == warnings
+                    and is_non_sensitive_reference(existing_line.warning_review_ref)
+                )
                 else ''
             )
             line_payload = {
@@ -2517,7 +2525,7 @@ def _artifact_matrix_common_payload(matrix):
 def _artifact_review_state(warnings, warning_review_ref=''):
     return (
         EstadoAnnualTaxArtifactReview.REQUIRES_REVIEW
-        if warnings and not has_text(warning_review_ref)
+        if warnings and not is_non_sensitive_reference(warning_review_ref)
         else EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW
     )
 
@@ -2546,7 +2554,7 @@ def _artifact_matrix_item_requires_warning_review(item):
     warnings = item.warnings if isinstance(item.warnings, list) else []
     return bool(warnings) and (
         item.review_state != EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW
-        or not has_text(item.warning_review_ref)
+        or not is_non_sensitive_reference(item.warning_review_ref)
     )
 
 
@@ -2928,7 +2936,7 @@ def _save_artifact_matrix_item(matrix, spec):
     warning_review_ref = ''
     if (
         existing is not None
-        and has_text(existing.warning_review_ref)
+        and is_non_sensitive_reference(existing.warning_review_ref)
         and list(existing.warnings if isinstance(existing.warnings, list) else []) == list(spec['warnings'])
         and existing.medio_sii == spec['medio_sii']
         and existing.source_hash == spec.get('source_hash', '')
@@ -2995,7 +3003,11 @@ def _finalize_artifact_matrix(matrix):
         review_state_counts[item.review_state] = review_state_counts.get(item.review_state, 0) + 1
         warnings = item.warnings if isinstance(item.warnings, list) else []
         warning_count += len(warnings)
-        if warnings and item.review_state == EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW and has_text(item.warning_review_ref):
+        if (
+            warnings
+            and item.review_state == EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW
+            and is_non_sensitive_reference(item.warning_review_ref)
+        ):
             warning_reviewed_count += len(warnings)
         elif warnings:
             warning_pending_review_count += len(warnings)
@@ -3124,7 +3136,11 @@ def _annual_tax_dossier_summary(process, rule_set, source_bundle, matrix):
     for item in active_items:
         warnings = item.warnings if isinstance(item.warnings, list) else []
         warnings_total += len(warnings)
-        if warnings and item.review_state == EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW and has_text(item.warning_review_ref):
+        if (
+            warnings
+            and item.review_state == EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW
+            and is_non_sensitive_reference(item.warning_review_ref)
+        ):
             warnings_reviewed_total += len(warnings)
         elif warnings:
             warnings_pending_review_total += len(warnings)
