@@ -17,6 +17,10 @@ VALUE_EXTRACTABLE_CATEGORIES = {
     'annual_balance_expected_output',
     'annual_tax_register_expected_output',
 }
+DOCUMENT_SEMANTIC_CATEGORIES = {
+    'ddjj_expected_output',
+    'f22_expected_output',
+}
 
 FORM_PATTERN = re.compile(r'(?i)(?:DJ|declaraci[oó]n\s+jurada|formulario)\D{0,40}(1835|1837|1847|1887|1926|1948|22)')
 FOLIO_PATTERN = re.compile(r'(?i)folio\D{0,40}(\d{5,})')
@@ -132,6 +136,10 @@ def canonical_generated_clp_amount_token(value: Any) -> str:
 
 def value_ref_for_clp_amount_token(amount_token: str) -> str:
     return hashlib.sha256(f'clp-integer:{amount_token}'.encode('utf-8')).hexdigest()
+
+
+def _folio_ref(folio: str) -> str:
+    return hashlib.sha256(f'folio:{folio}'.encode('utf-8')).hexdigest() if folio else ''
 
 
 def _expected_files(manifest: dict[str, Any]) -> list[dict[str, Any]]:
@@ -268,10 +276,16 @@ def extract_expected_output_value_signals(
     source_root: Path,
     manifest: dict[str, Any],
     generated_targets: list[dict[str, Any]],
+    semantic_supported_categories: set[str] | None = None,
 ) -> dict[str, Any]:
     source_root = source_root.expanduser().resolve()
     if not source_root.exists() or not source_root.is_dir():
         raise FileNotFoundError(f'source_root no existe o no es directorio: {source_root}')
+    semantic_supported_categories = {
+        str(category or '').strip()
+        for category in semantic_supported_categories or set()
+        if str(category or '').strip()
+    }
 
     expected_files = _expected_files(manifest)
     expected_by_key: dict[tuple[str, str], set[str]] = {}
@@ -341,7 +355,9 @@ def extract_expected_output_value_signals(
         for item in expected_files
         if str(item.get('category') or '').strip()
     }
-    unsupported_expected_categories = sorted(expected_categories - VALUE_EXTRACTABLE_CATEGORIES)
+    unsupported_expected_categories = sorted(
+        expected_categories - VALUE_EXTRACTABLE_CATEGORIES - semantic_supported_categories
+    )
     target_value_presence_ready = bool(comparisons) and not missing_targets and not extraction_errors
 
     return {
@@ -350,6 +366,7 @@ def extract_expected_output_value_signals(
         'commercial_year': manifest.get('commercial_year'),
         'tax_year': manifest.get('tax_year'),
         'supported_categories': sorted(VALUE_EXTRACTABLE_CATEGORIES),
+        'semantic_supported_categories': sorted(semantic_supported_categories),
         'unsupported_expected_categories': unsupported_expected_categories,
         'file_signals': file_signals,
         'comparisons': comparisons,
@@ -372,6 +389,160 @@ def extract_expected_output_value_signals(
             'uses_expected_outputs_as_inputs': False,
             'expected_outputs_used_as_comparison_only': True,
             'stores_raw_text': False,
+            'stores_raw_numeric_tokens': False,
+            'stores_raw_amounts': False,
+        },
+    }
+
+
+def extract_expected_output_document_semantic_signals(
+    *,
+    source_root: Path,
+    manifest: dict[str, Any],
+    generated_targets: list[dict[str, Any]],
+) -> dict[str, Any]:
+    source_root = source_root.expanduser().resolve()
+    if not source_root.exists() or not source_root.is_dir():
+        raise FileNotFoundError(f'source_root no existe o no es directorio: {source_root}')
+
+    expected_by_key: dict[tuple[str, str], dict[str, Any]] = {}
+    file_signals: list[dict[str, Any]] = []
+    extraction_errors: list[dict[str, str]] = []
+    for item in _expected_files(manifest):
+        category = str(item.get('category') or '').strip()
+        if category not in DOCUMENT_SEMANTIC_CATEGORIES:
+            continue
+        path_ref = str(item.get('path_ref') or '').strip()
+        artifact_key = str(item.get('artifact_key') or '').strip()
+        try:
+            path = _source_path(source_root, item)
+            text = _extract_text(path)
+            normalized_text = ' '.join(text.split())
+            forms = _forms_from_text_or_path(text=normalized_text, item=item, path=path)
+            status = _status_from_text_or_path(text=normalized_text, item=item, path=path)
+            folio = _folio_from_text_or_path(text=normalized_text, path=path)
+            signal = {
+                'path_ref': path_ref,
+                'category': category,
+                'artifact_key': artifact_key,
+                'extension': path.suffix.lower(),
+                'forms': forms,
+                'status': status,
+                'folio_present': bool(folio),
+                'folio_ref': _folio_ref(folio),
+                'signal_sources': ['manifest', 'relative_path', 'text'],
+            }
+            file_signals.append(signal)
+            for form in forms:
+                if category == 'ddjj_expected_output' and form not in EXPECTED_DDJJ_FORMS:
+                    continue
+                if category == 'f22_expected_output' and form != 'F22':
+                    continue
+                expected_ready = bool(folio) and (
+                    status == 'accepted'
+                    if category == 'ddjj_expected_output'
+                    else status not in {'rejected', 'annulled'}
+                )
+                if not expected_ready:
+                    continue
+                expected_by_key.setdefault(
+                    (category, form),
+                    {
+                        'category': category,
+                        'artifact_key': artifact_key,
+                        'form': form,
+                        'expected_status': status,
+                        'expected_folio_present': True,
+                        'expected_ready': True,
+                    },
+                )
+        except (OSError, ValueError) as error:
+            extraction_errors.append(
+                {
+                    'path_ref': path_ref,
+                    'category': category,
+                    'artifact_key': artifact_key,
+                    'error': str(error),
+                }
+            )
+
+    generated_by_key = {
+        (
+            str(target.get('category') or '').strip(),
+            str(target.get('form') or '').strip(),
+        ): target
+        for target in generated_targets
+    }
+    comparisons: list[dict[str, Any]] = []
+    expected_documents = list(expected_by_key.values())
+    for expected in expected_documents:
+        key = (expected['category'], expected['form'])
+        generated = generated_by_key.get(key) or {}
+        generated_prepared = bool(generated.get('prepared'))
+        layout_prepared = bool(generated.get('layout_prepared'))
+        comparisons.append(
+            {
+                'target_key': str(generated.get('target_key') or f'{expected["category"]}:{expected["form"]}'),
+                'category': expected['category'],
+                'artifact_key': expected['artifact_key'],
+                'form': expected['form'],
+                'expected_status': expected['expected_status'],
+                'expected_folio_present': expected['expected_folio_present'],
+                'generated_prepared': generated_prepared,
+                'layout_prepared': layout_prepared,
+                'matched': bool(expected['expected_ready']) and generated_prepared and layout_prepared,
+                'signal_sources': ['generated_artifact', 'expected_output_text'],
+            }
+        )
+
+    missing_documents = [item for item in comparisons if not item['matched']]
+    expected_ddjj_forms = sorted(
+        {
+            item['form']
+            for item in expected_documents
+            if item['category'] == 'ddjj_expected_output' and item['expected_ready']
+        }
+    )
+    f22_expected_ready = any(
+        item['category'] == 'f22_expected_output' and item['expected_ready']
+        for item in expected_documents
+    )
+    document_semantic_ready = (
+        bool(comparisons)
+        and not extraction_errors
+        and not missing_documents
+        and set(expected_ddjj_forms) >= set(EXPECTED_DDJJ_FORMS)
+        and f22_expected_ready
+    )
+
+    return {
+        'schema_version': 'annual-tax-expected-output-document-semantics.v1',
+        'source_root_ref': manifest.get('source_root_ref', ''),
+        'commercial_year': manifest.get('commercial_year'),
+        'tax_year': manifest.get('tax_year'),
+        'supported_categories': sorted(DOCUMENT_SEMANTIC_CATEGORIES),
+        'file_signals': file_signals,
+        'comparisons': comparisons,
+        'summary': {
+            'files_total': len(file_signals),
+            'extraction_errors_total': len(extraction_errors),
+            'generated_targets_total': len(generated_targets),
+            'compared_documents_total': len(comparisons),
+            'matched_documents_total': len(comparisons) - len(missing_documents),
+            'missing_documents_total': len(missing_documents),
+            'expected_ddjj_forms_ready': expected_ddjj_forms,
+            'f22_expected_ready': f22_expected_ready,
+            'document_semantic_ready': document_semantic_ready,
+        },
+        'extraction_errors': extraction_errors,
+        'safety': {
+            'writes_database': False,
+            'uses_sii_real': False,
+            'uses_credentials': False,
+            'uses_expected_outputs_as_inputs': False,
+            'expected_outputs_used_as_comparison_only': True,
+            'stores_raw_text': False,
+            'stores_raw_folios': False,
             'stores_raw_numeric_tokens': False,
             'stores_raw_amounts': False,
         },

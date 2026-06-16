@@ -7,8 +7,10 @@ from typing import Any
 from contabilidad.models import EstadoPreparacionTributaria
 from core.annual_tax_controlled_load_plan import COMPARISON_ONLY_CATEGORIES
 from core.annual_tax_expected_output_content import (
+    DOCUMENT_SEMANTIC_CATEGORIES,
     canonical_generated_clp_amount_token,
     extract_expected_output_content_signals,
+    extract_expected_output_document_semantic_signals,
     extract_expected_output_value_signals,
     value_ref_for_clp_amount_token,
 )
@@ -18,7 +20,9 @@ from sii.models import (
     AnnualEnterpriseRegisterMovement,
     AnnualTaxArtifactMatrix,
     AnnualTaxDossier,
+    AnnualTaxDDJJFormLayout,
     AnnualTaxExport,
+    AnnualTaxF22ExportLayout,
     AnnualTaxReviewChecklist,
     AnnualTaxTrialBalance,
     AnnualTaxTrialBalanceLine,
@@ -26,9 +30,11 @@ from sii.models import (
     AnnualTaxWorkbookLine,
     DDJJPreparacionAnual,
     EstadoAnnualEnterpriseRegister,
+    EstadoAnnualTaxDDJJLayout,
     EstadoAnnualTaxArtifactReview,
     EstadoAnnualTaxDossier,
     EstadoAnnualTaxExport,
+    EstadoAnnualTaxF22ExportLayout,
     EstadoAnnualTaxReviewChecklist,
     EstadoAnnualTaxTrialBalance,
     EstadoAnnualTaxWorkbook,
@@ -392,6 +398,63 @@ def _generated_value_targets(process: ProcesoRentaAnual | None) -> list[dict[str
     return targets
 
 
+def _generated_document_targets(process: ProcesoRentaAnual | None) -> list[dict[str, Any]]:
+    if process is None:
+        return []
+
+    targets: list[dict[str, Any]] = []
+    ddjj = DDJJPreparacionAnual.objects.filter(
+        proceso_renta_anual=process,
+        estado_preparacion=EstadoPreparacionTributaria.PREPARED,
+    ).first()
+    ddjj_summary = ddjj.resumen_paquete if ddjj and isinstance(ddjj.resumen_paquete, dict) else {}
+    ddjj_forms = _normalize_forms(ddjj_summary.get('ddjj_habilitadas'))
+    prepared_layouts = {
+        layout.form_code: layout
+        for layout in AnnualTaxDDJJFormLayout.objects.filter(
+            anio_tributario=process.anio_tributario,
+            form_code__in=ddjj_forms,
+            estado=EstadoAnnualTaxDDJJLayout.PREPARED,
+        )
+    }
+    for form in ddjj_forms:
+        layout = prepared_layouts.get(form)
+        targets.append(
+            {
+                'target_key': f'ddjj:{form}',
+                'category': 'ddjj_expected_output',
+                'artifact_key': f'dj_{form}',
+                'form': form,
+                'prepared': ddjj is not None,
+                'layout_prepared': layout is not None,
+                'layout_medium': layout.medio_preferente if layout else '',
+            }
+        )
+
+    f22 = F22PreparacionAnual.objects.filter(
+        proceso_renta_anual=process,
+        estado_preparacion=EstadoPreparacionTributaria.PREPARED,
+    ).first()
+    f22_layout = AnnualTaxF22ExportLayout.objects.filter(
+        anio_tributario=process.anio_tributario,
+        form_code='F22',
+        estado=EstadoAnnualTaxF22ExportLayout.PREPARED,
+    ).first()
+    if f22 is not None:
+        targets.append(
+            {
+                'target_key': 'f22:F22',
+                'category': 'f22_expected_output',
+                'artifact_key': 'f22',
+                'form': 'F22',
+                'prepared': True,
+                'layout_prepared': f22_layout is not None,
+                'layout_medium': f22_layout.medio_preferente if f22_layout else '',
+            }
+        )
+    return targets
+
+
 def compare_annual_tax_expected_outputs(
     *,
     empresa,
@@ -422,8 +485,11 @@ def compare_annual_tax_expected_outputs(
 
     content_signals = None
     content_identity_ready = False
+    document_semantic_signals = None
+    document_semantic_ready = False
     value_signals = None
     value_equality_extractors_ready = False
+    generated_document_targets = _generated_document_targets(process)
     generated_value_targets = _generated_value_targets(process)
     if source_root is not None:
         content_signals = extract_expected_output_content_signals(source_root=source_root, manifest=manifest)
@@ -466,10 +532,29 @@ def compare_annual_tax_expected_outputs(
             and matches['annual_balance_content_identity']['matched']
             and matches['annual_tax_register_content_identity']['matched']
         )
+        document_semantic_signals = extract_expected_output_document_semantic_signals(
+            source_root=source_root,
+            manifest=manifest,
+            generated_targets=generated_document_targets,
+        )
+        document_semantic_summary = document_semantic_signals['summary']
+        document_semantic_ready = bool(document_semantic_summary['document_semantic_ready'])
+        matches['expected_output_document_semantics'] = {
+            'supported_categories': document_semantic_signals['supported_categories'],
+            'generated_targets_total': document_semantic_summary['generated_targets_total'],
+            'compared_documents_total': document_semantic_summary['compared_documents_total'],
+            'matched_documents_total': document_semantic_summary['matched_documents_total'],
+            'missing_documents_total': document_semantic_summary['missing_documents_total'],
+            'document_semantic_ready': document_semantic_ready,
+            'matched': document_semantic_ready,
+        }
         value_signals = extract_expected_output_value_signals(
             source_root=source_root,
             manifest=manifest,
             generated_targets=generated_value_targets,
+            semantic_supported_categories=DOCUMENT_SEMANTIC_CATEGORIES
+            if document_semantic_ready
+            else set(),
         )
         value_summary = value_signals['summary']
         value_equality_extractors_ready = bool(value_summary['value_equality_extractors_ready'])
@@ -502,6 +587,12 @@ def compare_annual_tax_expected_outputs(
     elif not content_identity_ready:
         blockers.append('expected_output_identity_mismatch')
     if source_root is None:
+        blockers.append('expected_output_document_semantic_extractors_not_run')
+    elif document_semantic_signals and document_semantic_signals['extraction_errors']:
+        blockers.append('expected_output_document_semantic_extraction_errors')
+    elif not document_semantic_ready:
+        blockers.append('expected_output_document_semantic_mismatch')
+    if source_root is None:
         blockers.append('expected_output_value_extractors_not_run')
     elif value_signals and value_signals['extraction_errors']:
         blockers.append('expected_output_value_extraction_errors')
@@ -523,6 +614,7 @@ def compare_annual_tax_expected_outputs(
             'level': 'coverage_traceability_and_identity' if source_root is not None else 'coverage_and_traceability',
             'content_identity_extraction_performed': source_root is not None,
             'content_comparison_performed': source_root is not None,
+            'document_semantic_extraction_performed': source_root is not None,
             'numeric_equality_performed': False,
             'categories': sorted(COMPARISON_ONLY_CATEGORIES),
         },
@@ -536,15 +628,18 @@ def compare_annual_tax_expected_outputs(
         },
         'generated_inventory': inventory,
         'expected_output_content_signals': content_signals,
+        'expected_output_document_semantic_signals': document_semantic_signals,
         'expected_output_value_signals': value_signals,
         'matches': matches,
         'summary': {
             'coverage_ready_for_content_comparison': coverage_ready,
             'content_identity_extractors_ready': content_identity_ready,
+            'document_semantic_extractors_ready': document_semantic_ready,
             'value_equality_extractors_ready': value_equality_extractors_ready,
             'ready_for_mirror_conclusion': (
                 coverage_ready
                 and content_identity_ready
+                and document_semantic_ready
                 and value_equality_extractors_ready
                 and not review_warning_counts
                 and review_blockers_total == 0

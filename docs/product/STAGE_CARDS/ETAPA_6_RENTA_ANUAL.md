@@ -142,8 +142,8 @@ diario/mayor, 12 balances, 10 F29, 10 obligaciones y 12 `MonthlyTaxFact`. El
 Libro Inventario se conserva como lineas de balance anual en diciembre para que
 el mirror genere `AnnualTaxTrialBalanceLine` desde cuentas controladas reales de
 entrada. Esta carga no usa outputs finales como input y no declara cierre de
-renta; deja pendiente la reconciliacion semantica de RLI/CPT/RAI/SAC, DDJJ/F22
-y revision responsable.
+renta; las comparaciones posteriores cubren valores comparables y semantica
+DDJJ/F22, pero queda pendiente revision responsable y gates finales.
 `MonthlyTaxFact` materializa la capa mensual anualizable: por cada empresa,
 ano comercial y mes normaliza el cierre aprobado, obligaciones mensuales,
 F29 si existe, distribuciones de arriendo y liquidacion de empresa, con
@@ -619,9 +619,11 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   agrega identidad de DDJJ aceptadas, F22, Balance y registros tributarios desde
   una fuente externa read-only, y `extract_expected_output_value_signals`
   compara presencia de valores generados en Balance y registros tributarios sin
-  guardar texto bruto, tokens numericos crudos ni montos crudos. No escribe DB,
-  no lee SII real y no usa esos outputs como insumo de calculo; deja pendiente
-  DDJJ/F22 y reconciliacion semantica completa de valores.
+  guardar texto bruto, tokens numericos crudos ni montos crudos. Ademas
+  `extract_expected_output_document_semantic_signals` compara DDJJ aceptadas con
+  folio y F22 con folio contra DDJJ/F22 preparados y layouts anuales preparados,
+  sin guardar texto bruto ni folios crudos. No escribe DB, no lee SII real y no
+  usa esos outputs como insumo de calculo.
 - La normalizacion anual AC2024/AT2025 distingue lineas soporte y lineas
   comparables mediante `source_payload.expected_output_artifacts`. RLI/CPT se
   generan desde Libro Inventario y resultado contable, incluyendo mappings sobre
@@ -635,7 +637,10 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   fusionar codigo de cuenta, numero de local y columnas monetarias tras
   normalizar texto PDF. Resultado local: 138 targets comparables, 138 presentes
   y 0 ausentes, sin usar outputs finales como input ni guardar montos crudos.
-  Quedan pendientes DDJJ/F22 semantico, revision de artefactos y gates finales.
+- La comparacion v5 agrega semantica documental DDJJ/F22. Resultado local:
+  7/7 documentos DDJJ/F22 comparados, 138/138 valores comparables presentes, 0
+  faltantes y sin categorias esperadas sin soporte. Etapa 6 sigue parcial por
+  revision de artefactos generados/responsable y gates finales.
 
 ```powershell
 scripts\run-stage6-readiness-gate.ps1 -PythonExe backend\.venv\Scripts\python.exe

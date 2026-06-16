@@ -302,9 +302,12 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
 
         self.assertTrue(result['summary']['coverage_ready_for_content_comparison'])
         self.assertTrue(result['summary']['content_identity_extractors_ready'])
-        self.assertFalse(result['summary']['value_equality_extractors_ready'])
+        self.assertTrue(result['summary']['document_semantic_extractors_ready'])
+        self.assertTrue(result['summary']['value_equality_extractors_ready'])
         self.assertFalse(result['summary']['ready_for_mirror_conclusion'])
-        self.assertIn('expected_output_value_extractors_partial', result['summary']['blockers'])
+        self.assertNotIn('expected_output_value_extractors_partial', result['summary']['blockers'])
+        self.assertNotIn('expected_output_document_semantic_mismatch', result['summary']['blockers'])
+        self.assertIn('generated_artifacts_require_review', result['summary']['blockers'])
         self.assertNotIn('expected_output_value_mismatch', result['summary']['blockers'])
         self.assertNotIn('expected_output_identity_extractors_not_run', result['summary']['blockers'])
         self.assertFalse(result['safety']['uses_expected_outputs_as_inputs'])
@@ -312,6 +315,7 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
         self.assertFalse(result['safety']['stores_raw_expected_output_text'])
         self.assertTrue(result['comparison_scope']['content_identity_extraction_performed'])
         self.assertTrue(result['comparison_scope']['content_comparison_performed'])
+        self.assertTrue(result['comparison_scope']['document_semantic_extraction_performed'])
         self.assertFalse(result['comparison_scope']['numeric_equality_performed'])
         self.assertEqual(result['comparison_scope']['level'], 'coverage_traceability_and_identity')
         self.assertTrue(result['matches']['annual_balance_expected_output']['matched'])
@@ -322,15 +326,26 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
         self.assertTrue(result['matches']['f22_content_identity']['matched'])
         self.assertTrue(result['matches']['annual_balance_content_identity']['matched'])
         self.assertTrue(result['matches']['annual_tax_register_content_identity']['matched'])
-        self.assertFalse(result['matches']['expected_output_value_presence']['matched'])
+        self.assertTrue(result['matches']['expected_output_document_semantics']['matched'])
+        self.assertEqual(result['matches']['expected_output_document_semantics']['missing_documents_total'], 0)
+        self.assertTrue(result['matches']['expected_output_value_presence']['matched'])
         self.assertTrue(result['matches']['expected_output_value_presence']['target_value_presence_ready'])
         self.assertTrue(result['expected_output_content_signals']['summary']['identity_signals_ready'])
         self.assertFalse(
             result['expected_output_content_signals']['summary']['value_equality_extractors_ready']
         )
         self.assertEqual(result['expected_output_content_signals']['summary']['extraction_errors_total'], 0)
+        self.assertTrue(
+            result['expected_output_document_semantic_signals']['summary']['document_semantic_ready']
+        )
+        self.assertEqual(
+            result['expected_output_document_semantic_signals']['summary']['missing_documents_total'],
+            0,
+        )
+        self.assertFalse(result['expected_output_document_semantic_signals']['safety']['stores_raw_text'])
+        self.assertFalse(result['expected_output_document_semantic_signals']['safety']['stores_raw_folios'])
         self.assertTrue(result['expected_output_value_signals']['summary']['target_value_presence_ready'])
-        self.assertFalse(result['expected_output_value_signals']['summary']['value_equality_extractors_ready'])
+        self.assertTrue(result['expected_output_value_signals']['summary']['value_equality_extractors_ready'])
         self.assertEqual(result['expected_output_value_signals']['summary']['missing_targets_total'], 0)
         compared_target_keys = {
             item['target_key']
@@ -340,6 +355,10 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
         self.assertNotIn('workbook:RLI:RLI-LEASE-REVENUE', compared_target_keys)
         self.assertEqual(
             result['expected_output_value_signals']['unsupported_expected_categories'],
+            [],
+        )
+        self.assertEqual(
+            result['expected_output_value_signals']['semantic_supported_categories'],
             ['ddjj_expected_output', 'f22_expected_output'],
         )
         self.assertFalse(result['expected_output_value_signals']['safety']['stores_raw_text'])
@@ -392,8 +411,10 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
             self.assertEqual(stdout.getvalue(), '')
             self.assertTrue(result['summary']['coverage_ready_for_content_comparison'])
             self.assertTrue(result['summary']['content_identity_extractors_ready'])
-            self.assertFalse(result['summary']['value_equality_extractors_ready'])
-            self.assertIn('expected_output_value_extractors_partial', result['summary']['blockers'])
+            self.assertTrue(result['summary']['document_semantic_extractors_ready'])
+            self.assertTrue(result['summary']['value_equality_extractors_ready'])
+            self.assertNotIn('expected_output_value_extractors_partial', result['summary']['blockers'])
+            self.assertNotIn('expected_output_document_semantic_mismatch', result['summary']['blockers'])
 
             with self.assertRaisesMessage(CommandError, 'local-evidence'):
                 call_command(

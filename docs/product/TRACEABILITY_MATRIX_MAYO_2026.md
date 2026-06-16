@@ -66,6 +66,15 @@ cuenta o numeros de local. La comparacion v4 queda con 138 targets comparables,
 bruto, tokens crudos o montos. Etapa 6 sigue parcial por revision de artefactos
 generados y por falta de extractor semantico DDJJ/F22.
 
+Nota 2026-06-15: La comparacion v5 agrega semantica documental DDJJ/F22. El
+extractor acepta DDJJ solo si estan aceptadas y con folio, acepta F22 con folio,
+deduplica por formulario, ignora documentos rechazados/anulados o resumenes como
+objetivo final, y compara contra DDJJ/F22 preparados y layouts anuales
+preparados por LeaseManager. Resultado local AC2024/AT2025: 7/7 documentos
+DDJJ/F22 y 138/138 targets de valores comparables presentes, sin categorias
+esperadas sin soporte. La prueba espejo sigue parcial por revision de artefactos
+generados/responsable y gates finales, no por DDJJ/F22 semantico.
+
 Nota 2026-06-13: La investigacion local de EDIG AT2026 queda mapeada como
 referencia funcional no normativa en
 `docs/product/RENTA_ANUAL_EDIG_AT2026_MAPPING.md`, con runbook de sandbox en
@@ -2564,9 +2573,9 @@ Balance/RLI/CPT/RAI/DDJJ/F22 finales como comparacion, no como input. Contra
 SQLite local de Inmobiliaria Puig confirma cobertura completa de balance
 tributario, workbooks CPT/RLI, registros DIVIDENDOS/RAI/RETIROS/SAC, DDJJ
 1835/1837/1847/1887/1926/1948 y F22. La prueba espejo sigue parcial por
-warnings/revision, mismatch de valores; el Balance ya usa Libro Inventario
-controlado como input anual, pero RLI/CPT/RAI/SAC y DDJJ/F22 siguen sin
-reconciliacion semantica completa de valores.
+warnings/revision de artefactos generados y gates finales; la comparacion v5 ya
+cubre semantica documental DDJJ/F22 y presencia de 138/138 valores comparables
+sin usar outputs finales como input.
 
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |
