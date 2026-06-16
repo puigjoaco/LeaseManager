@@ -27,6 +27,30 @@ def _manifest_architecture_ready(manifest: dict[str, Any]) -> bool:
     return _manifest_source_ready(manifest)
 
 
+def _manifest_closed_books_pilot_ready(manifest: dict[str, Any]) -> bool:
+    readiness = manifest.get('mirror_proof_readiness')
+    if isinstance(readiness, dict):
+        if 'ready_to_start_closed_books_pilot' in readiness:
+            return bool(readiness.get('ready_to_start_closed_books_pilot'))
+        if 'closed_books_pilot_ready_for_ac2024_at2025' in readiness:
+            return bool(readiness.get('closed_books_pilot_ready_for_ac2024_at2025'))
+    coverage = manifest.get('coverage')
+    if isinstance(coverage, dict):
+        if 'ready_for_closed_books_mirror_pilot' in coverage:
+            return bool(coverage.get('ready_for_closed_books_mirror_pilot'))
+    return _manifest_source_ready(manifest)
+
+
+def _manifest_readiness_list(manifest: dict[str, Any], key: str) -> list[str]:
+    readiness = manifest.get('mirror_proof_readiness')
+    if not isinstance(readiness, dict):
+        return []
+    values = readiness.get(key)
+    if not isinstance(values, list):
+        return []
+    return [str(value) for value in values if str(value or '').strip()]
+
+
 def _safety_ok(*, manifest: dict[str, Any], comparison: dict[str, Any]) -> bool:
     manifest_safety = manifest.get('safety') if isinstance(manifest.get('safety'), dict) else {}
     comparison_safety = comparison.get('safety') if isinstance(comparison.get('safety'), dict) else {}
@@ -76,15 +100,25 @@ def audit_annual_tax_mirror_proof(
 
     manifest_source_ready = _manifest_source_ready(manifest)
     manifest_architecture_ready = _manifest_architecture_ready(manifest)
+    manifest_closed_books_pilot_ready = _manifest_closed_books_pilot_ready(manifest)
     comparison_ready = bool(comparison['summary']['ready_for_mirror_conclusion'])
     stage6_ready = bool(readiness['ready_for_stage6_renta_anual'])
     safety_ok = _safety_ok(manifest=manifest, comparison=comparison)
 
     blockers = []
+    if not manifest_closed_books_pilot_ready:
+        blockers.append('closed_books_pilot_entry_not_ready')
     if not manifest_source_ready:
         blockers.append('source_documentation_not_confirmed')
+        blockers.extend(
+            f'source.{code}' for code in _manifest_readiness_list(manifest, 'source_blockers')
+        )
     if not manifest_architecture_ready:
         blockers.append('architecture_not_confirmed_for_mirror_run')
+        blockers.extend(
+            f'architecture.{code}'
+            for code in _manifest_readiness_list(manifest, 'missing_capabilities')
+        )
     if not comparison_ready:
         blockers.extend(f'comparison.{code}' for code in comparison['summary']['blockers'])
     if not stage6_ready:
@@ -98,6 +132,7 @@ def audit_annual_tax_mirror_proof(
     ready_for_objective_completion = (
         manifest_source_ready and manifest_architecture_ready and ready_for_architecture_proof
     )
+    ready_for_closed_books_pilot = manifest_closed_books_pilot_ready and safety_ok
 
     return {
         'schema_version': ANNUAL_TAX_MIRROR_PROOF_SCHEMA_VERSION,
@@ -109,6 +144,7 @@ def audit_annual_tax_mirror_proof(
         'source_label': source_label,
         'authorization_ref': authorization_ref,
         'checks': {
+            'closed_books_pilot_entry_ready': manifest_closed_books_pilot_ready,
             'source_documentation_confirmed': manifest_source_ready,
             'architecture_complete_for_mirror_run': manifest_architecture_ready,
             'comparison_ready_for_mirror_conclusion': comparison_ready,
@@ -116,8 +152,10 @@ def audit_annual_tax_mirror_proof(
             'safety_boundary_ok': safety_ok,
         },
         'summary': {
+            'ready_for_closed_books_pilot': ready_for_closed_books_pilot,
             'ready_for_architecture_proof': ready_for_architecture_proof,
             'ready_for_objective_completion': ready_for_objective_completion,
+            'entry_classification': 'piloto_habilitado' if ready_for_closed_books_pilot else 'entrada_bloqueada',
             'classification': 'resuelto_confirmado' if ready_for_objective_completion else 'parcial',
             'blockers': sorted(set(blockers)),
         },

@@ -74,7 +74,12 @@ class AnnualTaxSourceManifestTests(SimpleTestCase):
         self.assertTrue(manifest['coverage']['ready_for_mirror_source_bundle'])
         self.assertTrue(mirror['source_documentation_confirmed_for_ac2024_at2025'])
         self.assertFalse(mirror['architecture_complete_for_mirror_run'])
+        self.assertTrue(mirror['closed_books_pilot_ready_for_ac2024_at2025'])
+        self.assertTrue(mirror['architecture_entry_ready_for_closed_books_pilot'])
+        self.assertTrue(mirror['ready_to_start_closed_books_pilot'])
         self.assertTrue(mirror['ready_to_start_controlled_processing'])
+        self.assertEqual(mirror['source_blockers'], [])
+        self.assertEqual(mirror['closed_books_pilot_blockers'], [])
         self.assertEqual(
             mirror['missing_capabilities'],
             ['expected_output_value_equality_completion'],
@@ -151,8 +156,15 @@ class AnnualTaxSourceManifestTests(SimpleTestCase):
 
         checks = {item['key']: item for item in manifest['coverage']['checks']}
         self.assertFalse(manifest['coverage']['ready_for_mirror_source_bundle'])
+        self.assertFalse(manifest['coverage']['ready_for_closed_books_mirror_pilot'])
         self.assertFalse(manifest['mirror_proof_readiness']['source_documentation_confirmed_for_ac2024_at2025'])
+        self.assertFalse(manifest['mirror_proof_readiness']['ready_to_start_closed_books_pilot'])
         self.assertFalse(manifest['coverage']['ownership_source_present'])
+        self.assertIn('ownership_source_missing', manifest['coverage']['mirror_source_bundle_blockers'])
+        self.assertIn(
+            'ownership_source_missing_or_candidate_absent',
+            manifest['coverage']['closed_books_mirror_pilot_blockers'],
+        )
         self.assertEqual(checks['ownership_source']['status'], 'missing')
         self.assertIn(
             'Completar fuentes AC2024/AT2025 minimas antes de iniciar procesamiento.',
@@ -193,9 +205,18 @@ class AnnualTaxSourceManifestTests(SimpleTestCase):
         ]
 
         self.assertFalse(manifest['coverage']['ready_for_mirror_source_bundle'])
+        self.assertTrue(manifest['coverage']['ready_for_closed_books_mirror_pilot'])
         self.assertFalse(manifest['coverage']['ownership_source_present'])
         self.assertTrue(manifest['coverage']['ownership_source_candidate_present'])
         self.assertEqual(manifest['coverage']['ownership_source_candidate_files_count'], 1)
+        self.assertFalse(manifest['mirror_proof_readiness']['source_documentation_confirmed_for_ac2024_at2025'])
+        self.assertFalse(manifest['mirror_proof_readiness']['architecture_complete_for_mirror_run'])
+        self.assertTrue(manifest['mirror_proof_readiness']['closed_books_pilot_ready_for_ac2024_at2025'])
+        self.assertTrue(manifest['mirror_proof_readiness']['architecture_entry_ready_for_closed_books_pilot'])
+        self.assertTrue(manifest['mirror_proof_readiness']['ready_to_start_closed_books_pilot'])
+        self.assertFalse(manifest['mirror_proof_readiness']['ready_to_start_controlled_processing'])
+        self.assertEqual(manifest['coverage']['closed_books_mirror_pilot_blockers'], [])
+        self.assertIn('ownership_source_missing', manifest['coverage']['mirror_source_bundle_blockers'])
         self.assertEqual(checks['ownership_source']['status'], 'missing')
         self.assertEqual(checks['ownership_source_candidates']['status'], 'candidate_found')
         self.assertEqual(candidate_files[0]['artifact_key'], 'ownership_source_candidate')
@@ -203,6 +224,10 @@ class AnnualTaxSourceManifestTests(SimpleTestCase):
         self.assertEqual(len(property_files), 1)
         self.assertIn(
             'Revisar candidatos legales de ownership y convertirlos, si son vigentes y suficientes, en snapshot controlado de socios/participaciones AC2024.',
+            manifest['mirror_proof_readiness']['next_actions'],
+        )
+        self.assertIn(
+            'Iniciar piloto espejo desde libros cerrados AC2024 sin usar outputs esperados como input.',
             manifest['mirror_proof_readiness']['next_actions'],
         )
 
@@ -312,6 +337,7 @@ class AnnualTaxSourceManifestTests(SimpleTestCase):
         self.assertTrue(result['coverage']['ready_for_mirror_source_bundle'])
         self.assertNotIn('files', result)
         self.assertFalse(result['mirror_proof_readiness']['architecture_complete_for_mirror_run'])
+        self.assertTrue(result['mirror_proof_readiness']['ready_to_start_closed_books_pilot'])
         self.assertTrue(result['mirror_proof_readiness']['ready_to_start_controlled_processing'])
         self.assertEqual(
             result['mirror_proof_readiness']['missing_capabilities'],

@@ -2755,6 +2755,20 @@ de writer DB y readiness anual. El draft AC2024/AT2025 v3 queda con
 evita declarar completa la prueba espejo si faltan socios/participaciones
 vigentes, aunque la contabilidad mensual ya pueda cargarse.
 
+Nota 2026-06-16: `build_annual_tax_source_manifest` y
+`audit_annual_tax_mirror_proof` separan entrada de piloto desde libros cerrados
+de cierre del objetivo espejo. Cuando los insumos contables/tributarios
+AC2024, DDJJ/F22 esperados y candidatos legales ownership estan presentes, el
+manifest expone `ready_for_closed_books_mirror_pilot=true` y el mirror proof
+expone `ready_for_closed_books_pilot=true` /
+`entry_classification=piloto_habilitado`. Eso permite continuar el piloto y la
+revision ownership sin usar outputs finales como input. A la vez,
+`ready_for_mirror_source_bundle=false`,
+`source_documentation_confirmed_for_ac2024_at2025=false` y
+`ready_for_objective_completion=false` siguen bloqueando equivalencia final
+hasta convertir ownership en snapshot controlado, revisar artefactos y cerrar
+comparacion/gates.
+
 Nota 2026-06-15: Renta Anual/Etapa 6 agrega template de paquete normalizado
 AC2024/AT2025. `build_annual_tax_controlled_db_load_template` toma el
 manifiesto read-only, prearma 12 meses para carga controlada, separa refs de

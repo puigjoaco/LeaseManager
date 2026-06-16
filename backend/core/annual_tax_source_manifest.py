@@ -22,6 +22,18 @@ EXPECTED_ANNUAL_TAX_REGISTER_KEYS = (
     'renta_liquida',
     'rentas_empresariales',
 )
+STRICT_MIRROR_SOURCE_CHECK_KEYS = {
+    'rcv_12_months',
+    'f29_periods',
+    'annual_ledger_inputs',
+    'ownership_source',
+    'annual_balance_expected_output',
+    'annual_tax_register_expected_outputs',
+    'labor_previsional_source',
+    'ddjj_expected_outputs',
+    'f22_expected_output',
+}
+CLOSED_BOOKS_PILOT_CHECK_KEYS = STRICT_MIRROR_SOURCE_CHECK_KEYS - {'ownership_source'}
 REQUIRED_MIRROR_ARCHITECTURE_CAPABILITIES = (
     {
         'key': 'source_inventory',
@@ -404,6 +416,19 @@ def _normalize_months(values: tuple[int, ...] | list[int] | None) -> list[int]:
     return sorted(months)
 
 
+def _check_status_by_key(checks: list[dict[str, Any]]) -> dict[str, str]:
+    return {str(item.get('key') or ''): str(item.get('status') or '') for item in checks}
+
+
+def _source_blockers_for(checks: list[dict[str, Any]], required_keys: set[str]) -> list[str]:
+    statuses = _check_status_by_key(checks)
+    blockers = []
+    for key in sorted(required_keys):
+        if statuses.get(key) != 'ready':
+            blockers.append(f'{key}_{statuses.get(key) or "missing"}')
+    return blockers
+
+
 def _coverage(files: list[SourceFile], *, f29_no_declaration_months: tuple[int, ...]) -> dict[str, Any]:
     by_category: dict[str, list[SourceFile]] = defaultdict(list)
     for item in files:
@@ -537,24 +562,22 @@ def _coverage(files: list[SourceFile], *, f29_no_declaration_months: tuple[int, 
         },
     ]
 
-    ready_for_mirror_source_bundle = all(
-        check['status'] == 'ready'
-        for check in checks
-        if check['key'] in {
-            'rcv_12_months',
-            'annual_ledger_inputs',
-            'ownership_source',
-            'annual_balance_expected_output',
-            'annual_tax_register_expected_outputs',
-            'labor_previsional_source',
-            'ddjj_expected_outputs',
-            'f22_expected_output',
-        }
-    )
+    strict_source_blockers = _source_blockers_for(checks, STRICT_MIRROR_SOURCE_CHECK_KEYS)
+    closed_books_pilot_blockers = _source_blockers_for(checks, CLOSED_BOOKS_PILOT_CHECK_KEYS)
+    ownership_source_present = bool(by_category.get('ownership_source_input'))
+    ownership_source_candidates_present = bool(ownership_source_candidates_count)
+    if not ownership_source_present and not ownership_source_candidates_present:
+        closed_books_pilot_blockers.append('ownership_source_missing_or_candidate_absent')
+
+    ready_for_mirror_source_bundle = not strict_source_blockers
+    ready_for_closed_books_mirror_pilot = not closed_books_pilot_blockers
 
     return {
         'checks': checks,
         'ready_for_mirror_source_bundle': ready_for_mirror_source_bundle,
+        'ready_for_closed_books_mirror_pilot': ready_for_closed_books_mirror_pilot,
+        'mirror_source_bundle_blockers': strict_source_blockers,
+        'closed_books_mirror_pilot_blockers': closed_books_pilot_blockers,
         'rcv_months': rcv_months,
         'f29_months': f29_months,
         'f29_no_declaration_months': f29_no_declaration,
@@ -569,9 +592,9 @@ def _coverage(files: list[SourceFile], *, f29_no_declaration_months: tuple[int, 
         'missing_ddjj_forms': missing_ddjj,
         'annual_ledger_keys': annual_ledger_keys,
         'missing_annual_ledger_keys': missing_ledger_keys,
-        'ownership_source_present': bool(by_category.get('ownership_source_input')),
+        'ownership_source_present': ownership_source_present,
         'ownership_source_files_count': len(by_category.get('ownership_source_input', [])),
-        'ownership_source_candidate_present': bool(ownership_source_candidates_count),
+        'ownership_source_candidate_present': ownership_source_candidates_present,
         'ownership_source_candidate_files_count': ownership_source_candidates_count,
         'annual_tax_register_keys': annual_tax_register_keys,
         'missing_annual_tax_register_keys': missing_tax_register_keys,
@@ -580,6 +603,7 @@ def _coverage(files: list[SourceFile], *, f29_no_declaration_months: tuple[int, 
 
 def _mirror_proof_readiness(coverage: dict[str, Any]) -> dict[str, Any]:
     source_ready = bool(coverage.get('ready_for_mirror_source_bundle'))
+    closed_books_pilot_ready = bool(coverage.get('ready_for_closed_books_mirror_pilot'))
     implemented_capabilities = [
         item['key']
         for item in REQUIRED_MIRROR_ARCHITECTURE_CAPABILITIES
@@ -588,12 +612,25 @@ def _mirror_proof_readiness(coverage: dict[str, Any]) -> dict[str, Any]:
     missing_capabilities = [
         item['key'] for item in REQUIRED_MIRROR_ARCHITECTURE_CAPABILITIES if item['status'] == 'missing'
     ]
+    entry_missing_capabilities = [
+        item['key']
+        for item in REQUIRED_MIRROR_ARCHITECTURE_CAPABILITIES
+        if item['status'] == 'missing' and item['key'] != 'expected_output_value_equality_completion'
+    ]
     return {
         'source_documentation_confirmed_for_ac2024_at2025': source_ready,
         'architecture_complete_for_mirror_run': source_ready and not missing_capabilities,
+        'closed_books_pilot_ready_for_ac2024_at2025': closed_books_pilot_ready,
+        'architecture_entry_ready_for_closed_books_pilot': (
+            closed_books_pilot_ready and not entry_missing_capabilities
+        ),
+        'ready_to_start_closed_books_pilot': closed_books_pilot_ready and not entry_missing_capabilities,
         'ready_to_start_controlled_processing': source_ready and 'controlled_accounting_loader' not in missing_capabilities,
         'implemented_capabilities': implemented_capabilities,
         'missing_capabilities': missing_capabilities,
+        'entry_missing_capabilities': entry_missing_capabilities,
+        'source_blockers': list(coverage.get('mirror_source_bundle_blockers') or []),
+        'closed_books_pilot_blockers': list(coverage.get('closed_books_mirror_pilot_blockers') or []),
         'capabilities': list(REQUIRED_MIRROR_ARCHITECTURE_CAPABILITIES),
         'input_policy': {
             'calculation_inputs': [
@@ -614,15 +651,28 @@ def _mirror_proof_readiness(coverage: dict[str, Any]) -> dict[str, Any]:
             ],
             'expected_outputs_used_as_inputs': False,
         },
-        'next_actions': [
-            'Construir paquete normalizado desde libros/F29/remuneraciones por parser o carga manual controlada.',
-            'Aplicar writer DB local controlado sin copiar documentos al repo ni usar outputs esperados como input.',
-            'Generar artefactos LeaseManager AT2025 desde inputs AC2024 cargados.',
-            'Implementar extractores de valores contra outputs esperados sin usarlos como insumo de calculo.',
-        ]
-        if source_ready
+        'next_actions': _mirror_proof_ready_next_actions(coverage, missing_capabilities)
+        if closed_books_pilot_ready
         else _mirror_proof_blocked_next_actions(coverage),
     }
+
+
+def _mirror_proof_ready_next_actions(coverage: dict[str, Any], missing_capabilities: list[str]) -> list[str]:
+    actions = [
+        'Iniciar piloto espejo desde libros cerrados AC2024 sin usar outputs esperados como input.',
+        'Construir paquete normalizado desde libros/F29/remuneraciones por parser o carga manual controlada.',
+        'Aplicar writer DB local controlado sin copiar documentos al repo ni usar outputs esperados como input.',
+        'Generar artefactos LeaseManager AT2025 desde inputs AC2024 cargados.',
+    ]
+    if coverage.get('ownership_source_candidate_present') and not coverage.get('ownership_source_present'):
+        actions.append(
+            'Revisar candidatos legales de ownership y convertirlos, si son vigentes y suficientes, en snapshot controlado de socios/participaciones AC2024.'
+        )
+    if 'expected_output_value_equality_completion' in missing_capabilities:
+        actions.append(
+            'Implementar extractores de valores contra outputs esperados sin usarlos como insumo de calculo.'
+        )
+    return actions
 
 
 def _mirror_proof_blocked_next_actions(coverage: dict[str, Any]) -> list[str]:
