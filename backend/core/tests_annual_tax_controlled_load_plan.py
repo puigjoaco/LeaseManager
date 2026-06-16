@@ -36,6 +36,7 @@ class AnnualTaxControlledLoadPlanTests(SimpleTestCase):
         self._write(root, 'Ano_2024/01_Libros_Anuales/Libro Diario 2024.pdf')
         self._write(root, 'Ano_2024/01_Libros_Anuales/Libro Mayor 2024.pdf')
         self._write(root, 'Ano_2024/01_Libros_Anuales/Libro Inventario 2024.pdf')
+        self._write(root, 'Ano_2024/00_Estructura_Societaria/Participaciones_Socios_2024.pdf')
         self._write(root, 'Ano_2024/01_Libros_Anuales/Balance General 2024.pdf')
         self._write(root, 'Ano_2024/06_Registros_Empresariales_AT/2025/Capital Propio.pdf')
         self._write(root, 'Ano_2024/06_Registros_Empresariales_AT/2025/Determinacion RAI.pdf')
@@ -78,6 +79,10 @@ class AnnualTaxControlledLoadPlanTests(SimpleTestCase):
         self.assertEqual(by_category['annual_ledger_input']['status'], 'blocked')
         self.assertIn('contabilidad.LibroDiario', by_category['annual_ledger_input']['target_models'])
         self.assertIn('sii.AnnualTaxTrialBalanceLine', by_category['annual_ledger_input']['target_models'])
+        self.assertEqual(by_category['ownership_source_input']['role'], 'calculation_input')
+        self.assertEqual(by_category['ownership_source_input']['status'], 'blocked')
+        self.assertIn('patrimonio.Socio', by_category['ownership_source_input']['target_models'])
+        self.assertIn('patrimonio.ParticipacionPatrimonial', by_category['ownership_source_input']['target_models'])
         self.assertIn(
             'normalized_controlled_source_package_values_required',
             plan['summary']['missing_capabilities_after_plan'],

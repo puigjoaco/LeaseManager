@@ -40,6 +40,7 @@ class AnnualTaxControlledPackageTemplateTests(SimpleTestCase):
         self._write(root, 'Ano_2024/01_Libros_Anuales/Libro Diario 2024.pdf')
         self._write(root, 'Ano_2024/01_Libros_Anuales/Libro Mayor 2024.pdf')
         self._write(root, 'Ano_2024/01_Libros_Anuales/Libro Inventario 2024.pdf')
+        self._write(root, 'Ano_2024/00_Estructura_Societaria/Participaciones_Socios_2024.pdf')
         self._write(root, 'Ano_2024/01_Libros_Anuales/Balance General 2024.pdf')
         self._write(root, 'Ano_2024/06_Registros_Empresariales_AT/2025/Capital Propio.pdf')
         self._write(root, 'Ano_2024/06_Registros_Empresariales_AT/2025/Determinacion RAI.pdf')

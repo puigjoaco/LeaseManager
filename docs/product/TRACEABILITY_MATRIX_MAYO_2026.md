@@ -2543,6 +2543,14 @@ usa esas participaciones para registros RETIROS/DIVIDENDOS y elimina
 AC2024 real sigue pendiente localizar o cargar esa fuente societaria
 independiente; no se infiere desde cuentas de retiro ni desde F22/DDJJ finales.
 
+Nota 2026-06-15: `build_annual_tax_source_manifest` agrega
+`ownership_source_input` como insumo requerido para la prueba espejo anual. El
+manifiesto real AC2024/AT2025 confirma RCV 12/12, F29 controlado 12/12, DDJJ,
+F22, libros anuales y registros tributarios esperados completos, pero mantiene
+`ready_for_mirror_source_bundle=false` porque `ownership_source_present=false`.
+Esta regla adelanta el bloqueo al inventario de fuentes y evita iniciar una
+prueba anual completa sin fuente societaria independiente.
+
 Nota 2026-06-15: `audit_annual_tax_controlled_package_readiness` separa readiness
 de writer DB y readiness anual. El draft AC2024/AT2025 v3 queda con
 `ready_for_db_writer=true` y `missing_paths_count=0`, pero

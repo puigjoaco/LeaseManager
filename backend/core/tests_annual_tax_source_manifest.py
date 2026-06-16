@@ -39,6 +39,7 @@ class AnnualTaxSourceManifestTests(SimpleTestCase):
         self._write(root, 'Ano_2024/01_Libros_Anuales/Libro_Diario_2024.pdf')
         self._write(root, 'Ano_2024/01_Libros_Anuales/Libro_Mayor_2024.pdf')
         self._write(root, 'Ano_2024/01_Libros_Anuales/Inventario_2024.pdf')
+        self._write(root, 'Ano_2024/00_Estructura_Societaria/Participaciones_Socios_2024.pdf')
         self._write(root, 'Ano_2024/01_Libros_Anuales/Balance_General_2024.pdf')
         self._write(root, 'Ano_2024/06_Registros_Empresariales_AT/2025/Capital Propio.pdf')
         self._write(root, 'Ano_2024/06_Registros_Empresariales_AT/2025/Determinacion RAI.pdf')
@@ -79,8 +80,11 @@ class AnnualTaxSourceManifestTests(SimpleTestCase):
         self.assertEqual(manifest['coverage']['f29_months'], list(range(1, 13)))
         self.assertEqual(manifest['coverage']['missing_ddjj_forms'], [])
         self.assertEqual(manifest['coverage']['missing_annual_ledger_keys'], [])
+        self.assertTrue(manifest['coverage']['ownership_source_present'])
+        self.assertEqual(manifest['coverage']['ownership_source_files_count'], 1)
         self.assertEqual(manifest['coverage']['missing_annual_tax_register_keys'], [])
         self.assertEqual(manifest['summary']['category_counts']['annual_ledger_input'], 3)
+        self.assertEqual(manifest['summary']['category_counts']['ownership_source_input'], 1)
         self.assertEqual(manifest['summary']['category_counts']['annual_balance_expected_output'], 1)
         self.assertEqual(manifest['summary']['category_counts']['annual_tax_register_expected_output'], 5)
         self.assertEqual(manifest['summary']['category_counts']['ddjj_expected_output'], 6)
@@ -91,6 +95,7 @@ class AnnualTaxSourceManifestTests(SimpleTestCase):
         self.assertEqual(resumen['approved_close_months'], [])
         self.assertFalse(resumen['expected_outputs_used_as_inputs'])
         self.assertIn('annual_ledger_input', resumen['calculation_input_categories'])
+        self.assertIn('ownership_source_input', resumen['calculation_input_categories'])
         self.assertIn('annual_balance_expected_output', resumen['comparison_target_categories'])
         self.assertIn('annual_tax_register_expected_output', resumen['comparison_target_categories'])
         self.assertIn('internal_monthly_closes', resumen['manual_review_required'])
@@ -98,6 +103,29 @@ class AnnualTaxSourceManifestTests(SimpleTestCase):
         self.assertFalse(manifest['safety']['contains_absolute_source_paths'])
         self.assertFalse(manifest['safety']['copied_source_files'])
         self.assertFalse(manifest['safety']['uses_sii_real'])
+
+    def test_manifest_requires_ownership_source_for_annual_mirror_source_bundle(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            self._build_complete_source_tree(source_root)
+            (source_root / 'Ano_2024/00_Estructura_Societaria/Participaciones_Socios_2024.pdf').unlink()
+
+            manifest = build_annual_tax_source_manifest(
+                source_root=source_root,
+                company_ref='inmobiliaria-puig',
+                commercial_year=2024,
+                tax_year=2025,
+            )
+
+        checks = {item['key']: item for item in manifest['coverage']['checks']}
+        self.assertFalse(manifest['coverage']['ready_for_mirror_source_bundle'])
+        self.assertFalse(manifest['mirror_proof_readiness']['source_documentation_confirmed_for_ac2024_at2025'])
+        self.assertFalse(manifest['coverage']['ownership_source_present'])
+        self.assertEqual(checks['ownership_source']['status'], 'missing')
+        self.assertIn(
+            'Completar fuentes AC2024/AT2025 minimas antes de iniciar procesamiento.',
+            manifest['mirror_proof_readiness']['next_actions'],
+        )
 
     def test_manifest_redacts_sensitive_relative_paths_but_keeps_path_ref_and_classification(self):
         with TemporaryDirectory() as temp_dir:
@@ -127,6 +155,7 @@ class AnnualTaxSourceManifestTests(SimpleTestCase):
             self._write(source_root, 'Ano_2024/01_Libros_Anuales/Libro Diario 2024.pdf')
             self._write(source_root, 'Ano_2024/01_Libros_Anuales/Libro Mayor 2024.pdf')
             self._write(source_root, 'Ano_2024/01_Libros_Anuales/Libro Inventario 2024.pdf')
+            self._write(source_root, 'Ano_2024/00_Estructura_Societaria/Registro_Accionistas_2024.pdf')
             self._write(source_root, 'Ano_2024/06_Registros_Empresariales_AT/2025/Renta Liquida.pdf')
             self._write(source_root, 'Ano_2024/06_Registros_Empresariales_AT/2025/Capital Propio.pdf')
             self._write(source_root, 'Ano_2024/02_Libro_Compra/01 Enero - Libro Compra 2024.pdf')
@@ -145,6 +174,8 @@ class AnnualTaxSourceManifestTests(SimpleTestCase):
         self.assertEqual(by_key['renta_liquida']['role'], 'expected_output')
         self.assertEqual(by_key['libro_diario']['category'], 'annual_ledger_input')
         self.assertEqual(by_key['libro_diario']['role'], 'input')
+        self.assertEqual(by_key['ownership_source_input']['category'], 'ownership_source_input')
+        self.assertEqual(by_key['ownership_source_input']['role'], 'input')
         self.assertEqual(manifest['coverage']['purchase_sales_months'], [1])
         self.assertIn('annual_balance_expected_output', manifest['annual_tax_source_bundle_draft']['resumen_fuentes']['comparison_target_categories'])
         self.assertNotIn('annual_balance_expected_output', manifest['annual_tax_source_bundle_draft']['resumen_fuentes']['calculation_input_categories'])

@@ -101,19 +101,24 @@ no crea cierres mensuales ni hechos tributarios en DB y no reemplaza revision
 experta.
 Para evitar una prueba circular, el manifiesto separa explicitamente inputs de
 calculo y objetivos de comparacion: Libro Diario, Libro Mayor, Libro
-Inventario, RCV, F29, compra/venta y remuneraciones pueden alimentar carga
-controlada; Balance General, RLI, CPT, RAI, Capital Propio, Rentas
-Empresariales, DDJJ y F22 quedan como salidas esperadas/baseline. LeaseManager
-no puede declarar que genero esos artefactos si antes los uso como insumo de
-calculo.
+Inventario, RCV, F29, compra/venta, remuneraciones y fuente societaria/
+patrimonial pueden alimentar carga controlada; Balance General, RLI, CPT, RAI,
+Capital Propio, Rentas Empresariales, DDJJ y F22 quedan como salidas esperadas/
+baseline. LeaseManager no puede declarar que genero esos artefactos si antes
+los uso como insumo de calculo.
+El manifiesto tambien exige `ownership_source_input` para considerar completa
+la fuente de prueba espejo anual. En la carpeta real AC2024/AT2025 de
+Inmobiliaria Puig, RCV, F29 controlado, libros anuales, DDJJ, F22 y registros
+esperados estan cubiertos, pero `ready_for_mirror_source_bundle=false` porque no
+se encontro fuente societaria independiente (`ownership_source_present=false`).
 `build_annual_tax_controlled_load_plan` traduce ese manifiesto a un plan de
 carga contra modelos canonicos de LeaseManager sin escribir DB: cierres,
 libros, balance, obligaciones, F29, hechos mensuales y balance tributario
 anual. Para Inmobiliaria Puig AC2024/AT2025 el plan confirma que los outputs
 esperados no se usan como input, pero `ready_for_db_load=false` hasta tener
-parser/carga manual controlada para libros anuales, F29 PDF y remuneraciones,
-mas un paquete normalizado de entrada, capa anual generada y comparacion de
-outputs esperados.
+parser/carga manual controlada para libros anuales, F29 PDF, remuneraciones y
+fuente societaria, mas un paquete normalizado de entrada, capa anual generada y
+comparacion de outputs esperados.
 `build_annual_tax_controlled_db_load_template` crea el template seguro de ese
 paquete normalizado desde el manifiesto: prearma 12 meses, separa refs de
 entrada y `comparison_targets`, y deja los valores contables/tributarios vacios

@@ -12,6 +12,7 @@ LOAD_PLAN_SCHEMA_VERSION = 'annual-tax-controlled-load-plan.v1'
 
 CALCULATION_INPUT_CATEGORIES = {
     'annual_ledger_input',
+    'ownership_source_input',
     'rcv_structured_input',
     'f29_support_input',
     'purchase_sales_books_support',
@@ -32,6 +33,11 @@ CATEGORY_TARGETS = {
         'target_models': ['contabilidad.LibroDiario', 'contabilidad.LibroMayor', 'sii.AnnualTaxTrialBalanceLine'],
         'load_mode': 'pdf_or_controlled_manual_extraction_to_ledger_snapshots',
         'parser_status': 'blocked_pdf_or_manual_extraction_required',
+    },
+    'ownership_source_input': {
+        'target_models': ['patrimonio.Socio', 'patrimonio.ParticipacionPatrimonial'],
+        'load_mode': 'controlled_ownership_snapshot_to_patrimonio',
+        'parser_status': 'blocked_pdf_or_controlled_manual_extraction_required',
     },
     'rcv_structured_input': {
         'target_models': [
@@ -203,6 +209,7 @@ def build_annual_tax_controlled_load_plan(*, manifest: dict[str, Any]) -> dict[s
         for item in load_items
         if item['category'] in {
             'annual_ledger_input',
+            'ownership_source_input',
             'rcv_structured_input',
             'annual_balance_expected_output',
             'annual_tax_register_expected_output',

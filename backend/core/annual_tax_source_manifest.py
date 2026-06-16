@@ -112,6 +112,10 @@ CATEGORY_META = {
         'role': 'input',
         'layer': 'Contabilidad / libros anuales transaccionales',
     },
+    'ownership_source_input': {
+        'role': 'input',
+        'layer': 'Patrimonio / socios y participaciones vigentes',
+    },
     'annual_balance_expected_output': {
         'role': 'expected_output',
         'layer': 'Contabilidad / balance anual a comparar',
@@ -264,6 +268,22 @@ def _category_for(relative_path: str) -> str:
         return 'rcv_structured_input'
     if _annual_tax_register_key(normalized):
         return 'annual_tax_register_expected_output'
+    if any(
+        token in normalized
+        for token in (
+            'estructura_societaria',
+            'estructura_patrimonial',
+            'participacion_patrimonial',
+            'participaciones_socios',
+            'socios_participaciones',
+            'registro_accionistas',
+            'accionistas',
+            'capital_social',
+            'propiedad_societaria',
+            'ownership',
+        )
+    ):
+        return 'ownership_source_input'
     if 'balance' in normalized:
         return 'annual_balance_expected_output'
     if 'libro_diario' in normalized or 'libro_mayor' in normalized or 'inventario' in normalized:
@@ -405,6 +425,12 @@ def _coverage(files: list[SourceFile], *, f29_no_declaration_months: tuple[int, 
             'files': len(by_category.get('annual_ledger_input', [])),
         },
         {
+            'key': 'ownership_source',
+            'status': 'ready' if by_category.get('ownership_source_input') else 'missing',
+            'files': len(by_category.get('ownership_source_input', [])),
+            'note': 'Fuente independiente para construir snapshot ownership; no se infiere desde F22/DDJJ ni registros finales.',
+        },
+        {
             'key': 'annual_balance_expected_output',
             'status': 'ready' if by_category.get('annual_balance_expected_output') else 'missing',
             'files': len(by_category.get('annual_balance_expected_output', [])),
@@ -451,6 +477,7 @@ def _coverage(files: list[SourceFile], *, f29_no_declaration_months: tuple[int, 
         if check['key'] in {
             'rcv_12_months',
             'annual_ledger_inputs',
+            'ownership_source',
             'annual_balance_expected_output',
             'annual_tax_register_expected_outputs',
             'ddjj_expected_outputs',
@@ -470,6 +497,8 @@ def _coverage(files: list[SourceFile], *, f29_no_declaration_months: tuple[int, 
         'missing_ddjj_forms': missing_ddjj,
         'annual_ledger_keys': annual_ledger_keys,
         'missing_annual_ledger_keys': missing_ledger_keys,
+        'ownership_source_present': bool(by_category.get('ownership_source_input')),
+        'ownership_source_files_count': len(by_category.get('ownership_source_input', [])),
         'annual_tax_register_keys': annual_tax_register_keys,
         'missing_annual_tax_register_keys': missing_tax_register_keys,
     }
@@ -495,6 +524,7 @@ def _mirror_proof_readiness(coverage: dict[str, Any]) -> dict[str, Any]:
         'input_policy': {
             'calculation_inputs': [
                 'annual_ledger_input',
+                'ownership_source_input',
                 'rcv_structured_input',
                 'f29_support_input',
                 'purchase_sales_books_support',
@@ -608,15 +638,17 @@ def build_annual_tax_source_manifest(
         'category_counts': category_counts,
         'category_bytes': category_bytes,
         'role_counts': role_counts,
-        'coverage': {
-            'rcv_months': coverage['rcv_months'],
-            'f29_months': coverage['f29_months'],
-            'f29_no_declaration_months': coverage['f29_no_declaration_months'],
-            'f29_controlled_months': coverage['f29_controlled_months'],
-            'purchase_sales_months': coverage['purchase_sales_months'],
-            'ddjj_forms': coverage['ddjj_forms'],
-            'missing_ddjj_forms': coverage['missing_ddjj_forms'],
-        },
+            'coverage': {
+                'rcv_months': coverage['rcv_months'],
+                'f29_months': coverage['f29_months'],
+                'f29_no_declaration_months': coverage['f29_no_declaration_months'],
+                'f29_controlled_months': coverage['f29_controlled_months'],
+                'purchase_sales_months': coverage['purchase_sales_months'],
+                'ddjj_forms': coverage['ddjj_forms'],
+                'missing_ddjj_forms': coverage['missing_ddjj_forms'],
+                'ownership_source_present': coverage['ownership_source_present'],
+                'ownership_source_files_count': coverage['ownership_source_files_count'],
+            },
         'source_refs_hash': source_refs_hash,
         'approved_close_months': [],
         'obligation_months': coverage['f29_controlled_months'],
@@ -634,6 +666,7 @@ def build_annual_tax_source_manifest(
         'manual_review_required': [
             'internal_monthly_closes',
             'annual_ledger_pdf_extraction_or_controlled_manual_load',
+            'controlled_ownership_snapshot_source_required',
             'comparison_against_expected_outputs_without_using_them_as_inputs',
             'expert_tax_review_before_final_close',
         ],

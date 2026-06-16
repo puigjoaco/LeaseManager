@@ -109,6 +109,7 @@ class Command(BaseCommand):
                 if check['key'] in {
                     'rcv_12_months',
                     'annual_ledger_inputs',
+                    'ownership_source',
                     'annual_balance_expected_output',
                     'annual_tax_register_expected_outputs',
                     'ddjj_expected_outputs',
