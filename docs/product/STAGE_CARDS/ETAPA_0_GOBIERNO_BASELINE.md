@@ -115,6 +115,12 @@ evidencia respalda el root limpio.
   `evento_inicio_validado=true` y el bootstrap de exportaciones resume el scope
   por cantidad de campos, manteniendo ids, `evento_inicio` y `scope_resumen`
   fuera de la salida humana.
+- El gate local de Compliance permite `-BootstrapDemoPolicies` solo como
+  preparacion local/demo/fixture: si se usa, debe escribir sobre SQLite de
+  archivo bajo `local-evidence/`, rechazar fuentes evidenciales
+  `snapshot_controlado`/`real_autorizado`, crear las cinco politicas canonicas
+  de retencion y seguir dejando `ready_for_compliance_data=false` hasta contar
+  con fuente autorizada y refs finales no sensibles.
 - El seed demo de acceso RBAC no repite usernames, codigos de scope, nombres
   de socio, ids ni referencias operativas crudas en stdout: conserva la
   creacion de usuarios, roles, scopes y asignaciones, pero reporta solo indice
