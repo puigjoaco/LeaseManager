@@ -377,6 +377,12 @@ meses con `MonthlyTaxFact` normalizado cuyo F29 esta `no_aplica` y
 sin declaracion sin convertirlos en F29 ficticios ni tratarlos como brecha de
 fuente. En Inmobiliaria Puig AC2024/AT2025, esa distincion desplaza el bloqueo
 de progreso desde F29 hacia la capa anual (`ProcesoRentaAnual`).
+La senal `annual_process` solo cuenta si el `ProcesoRentaAnual` preparado o
+superior esta enlazado a un `AnnualTaxSourceBundle` congelado. Un proceso anual
+sin source bundle congelado se reporta como
+`company_accounting.annual_process_source_bundle_missing`, porque la preparacion
+anual debe nacer de fuentes congeladas antes de tratarse como expediente
+revisable.
 Tanto el selector como el auditor por empresa exponen si la configuracion
 fiscal activa pertenece al regimen automatizable v1
 `EmpresaContabilidadCompletaV1`; si no corresponde, conservan las senales

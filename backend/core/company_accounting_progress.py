@@ -19,6 +19,7 @@ from sii.models import (
     AnnualTaxWorkbook,
     EstadoAnnualTaxDossier,
     EstadoAnnualTaxExport,
+    EstadoAnnualTaxSourceBundle,
     EstadoAnnualTaxTrialBalance,
     EstadoAnnualTaxWorkbook,
     F29PreparacionMensual,
@@ -340,6 +341,7 @@ def collect_company_accounting_candidates(*, empresa_ids: list[int] | None = Non
     for item in ProcesoRentaAnual.objects.filter(
         empresa_id__in=company_ids,
         estado__in=PREPARED_OR_BETTER_TAX_STATES,
+        source_bundle__estado=EstadoAnnualTaxSourceBundle.FROZEN,
     ).values('empresa_id', 'anio_tributario'):
         annual_process_counts[(item['empresa_id'], item['anio_tributario'] - 1)] += 1
     for (empresa_id, fiscal_year), count in annual_process_counts.items():
@@ -502,15 +504,22 @@ def collect_company_accounting_progress(*, empresa_id: int, fiscal_year: int) ->
     )
     prepared_f29_months.update(_controlled_f29_no_declaration_months(empresa, fiscal_year))
 
-    annual_process = (
+    annual_process_candidate = (
         ProcesoRentaAnual.objects.filter(
             empresa=empresa,
             anio_tributario=tax_year,
             estado__in=PREPARED_OR_BETTER_TAX_STATES,
         )
+        .select_related('source_bundle')
         .order_by('-id')
         .first()
     )
+    annual_process_has_frozen_bundle = (
+        annual_process_candidate is not None
+        and annual_process_candidate.source_bundle_id is not None
+        and annual_process_candidate.source_bundle.estado == EstadoAnnualTaxSourceBundle.FROZEN
+    )
+    annual_process = annual_process_candidate if annual_process_has_frozen_bundle else None
     if annual_process is None:
         annual_trial_balance_ready = False
         prepared_workbook_types = set()
@@ -579,10 +588,19 @@ def collect_company_accounting_progress(*, empresa_id: int, fiscal_year: int) ->
         ),
         _single_phase(
             key='annual_process',
-            label='Proceso de renta anual preparado',
-            exists=annual_process is not None,
-            blocking_issue_code='company_accounting.annual_process_missing',
-            message='Falta ProcesoRentaAnual preparado o superior para el AT correspondiente.',
+            label='Proceso de renta anual trazable preparado',
+            exists=annual_process_has_frozen_bundle,
+            blocking_issue_code=(
+                'company_accounting.annual_process_source_bundle_missing'
+                if annual_process_candidate is not None
+                else 'company_accounting.annual_process_missing'
+            ),
+            message=(
+                'ProcesoRentaAnual preparado requiere AnnualTaxSourceBundle congelado para ser trazable.'
+                if annual_process_candidate is not None
+                else 'Falta ProcesoRentaAnual preparado o superior para el AT correspondiente.'
+            ),
+            missing_label='source_bundle_congelado' if annual_process_candidate is not None else 'required',
         ),
         _single_phase(
             key='annual_trial_balance',
