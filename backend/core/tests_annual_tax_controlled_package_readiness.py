@@ -177,6 +177,40 @@ class AnnualTaxControlledPackageReadinessTests(SimpleTestCase):
         self.assertEqual(result['missing_value_paths'], [])
         self.assertFalse(result['safety']['uses_expected_outputs_as_inputs'])
         self.assertEqual(result['summary']['ownership_snapshot']['participants_count'], 2)
+        self.assertFalse(result['summary']['labor_previsional_source']['required'])
+
+    def test_labor_previsional_required_without_source_blocks_writer(self):
+        package = self._complete_package()
+        package['labor_previsional'] = {
+            'required': True,
+            'required_by_ddjj_forms': ['1887'],
+            'source_ref': '',
+            'source_refs': [{'path_ref': 'payroll-support-controlled'}],
+            'monthly_support_months': list(range(1, 13)),
+        }
+
+        result = audit_annual_tax_controlled_package_readiness(payload=package)
+
+        self.assertFalse(result['ready_for_db_writer'])
+        self.assertIn('labor_previsional_source_missing', result['blockers'])
+        self.assertIn('$.labor_previsional.source_ref', result['missing_value_paths'])
+        self.assertTrue(result['summary']['labor_previsional_source']['required'])
+
+    def test_labor_previsional_required_with_source_is_ready(self):
+        package = self._complete_package()
+        package['labor_previsional'] = {
+            'required': True,
+            'required_by_ddjj_forms': ['1887'],
+            'source_ref': 'labor-previsional-ac2024-controlled',
+            'source_refs': [{'path_ref': 'payroll-support-controlled'}],
+            'monthly_support_months': list(range(1, 13)),
+        }
+
+        result = audit_annual_tax_controlled_package_readiness(payload=package)
+
+        self.assertTrue(result['ready_for_db_writer'])
+        self.assertEqual(result['blockers'], [])
+        self.assertTrue(result['summary']['labor_previsional_source']['source_ref_present'])
 
     def test_complete_monthly_package_without_ownership_is_not_ready_for_annual_generation(self):
         result = audit_annual_tax_controlled_package_readiness(

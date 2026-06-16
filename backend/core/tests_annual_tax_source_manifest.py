@@ -35,6 +35,10 @@ class AnnualTaxSourceManifestTests(SimpleTestCase):
                 root,
                 f'Ano_2024/03_Libro_Venta/2024-{month:02d}_Libro_Venta.pdf',
             )
+            self._write(
+                root,
+                f'Ano_2024/05_Remuneraciones/2024-{month:02d}_Liquidaciones_Resumen.pdf',
+            )
 
         self._write(root, 'Ano_2024/01_Libros_Anuales/Libro_Diario_2024.pdf')
         self._write(root, 'Ano_2024/01_Libros_Anuales/Libro_Mayor_2024.pdf')
@@ -79,6 +83,9 @@ class AnnualTaxSourceManifestTests(SimpleTestCase):
         self.assertEqual(manifest['coverage']['rcv_months'], list(range(1, 13)))
         self.assertEqual(manifest['coverage']['f29_months'], list(range(1, 13)))
         self.assertEqual(manifest['coverage']['missing_ddjj_forms'], [])
+        self.assertTrue(manifest['coverage']['labor_previsional_required'])
+        self.assertTrue(manifest['coverage']['labor_previsional_source_present'])
+        self.assertEqual(manifest['coverage']['labor_previsional_required_by_ddjj_forms'], ['1887'])
         self.assertEqual(manifest['coverage']['missing_annual_ledger_keys'], [])
         self.assertTrue(manifest['coverage']['ownership_source_present'])
         self.assertEqual(manifest['coverage']['ownership_source_files_count'], 1)
@@ -88,6 +95,7 @@ class AnnualTaxSourceManifestTests(SimpleTestCase):
         self.assertEqual(manifest['summary']['category_counts']['annual_balance_expected_output'], 1)
         self.assertEqual(manifest['summary']['category_counts']['annual_tax_register_expected_output'], 5)
         self.assertEqual(manifest['summary']['category_counts']['ddjj_expected_output'], 6)
+        self.assertEqual(manifest['summary']['category_counts']['payroll_support'], 12)
         self.assertEqual(manifest['summary']['category_counts']['f22_expected_output'], 1)
         self.assertEqual(bundle['source_kind'], 'snapshot_controlado')
         self.assertEqual(bundle['estado_sugerido'], 'borrador')
@@ -103,6 +111,30 @@ class AnnualTaxSourceManifestTests(SimpleTestCase):
         self.assertFalse(manifest['safety']['contains_absolute_source_paths'])
         self.assertFalse(manifest['safety']['copied_source_files'])
         self.assertFalse(manifest['safety']['uses_sii_real'])
+
+    def test_manifest_requires_labor_previsional_source_when_dj1887_is_accepted(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            self._build_complete_source_tree(source_root)
+            for path in (source_root / 'Ano_2024/05_Remuneraciones').glob('*'):
+                path.unlink()
+
+            manifest = build_annual_tax_source_manifest(
+                source_root=source_root,
+                company_ref='inmobiliaria-puig',
+                commercial_year=2024,
+                tax_year=2025,
+            )
+
+        checks = {item['key']: item for item in manifest['coverage']['checks']}
+        self.assertFalse(manifest['coverage']['ready_for_mirror_source_bundle'])
+        self.assertTrue(manifest['coverage']['labor_previsional_required'])
+        self.assertFalse(manifest['coverage']['labor_previsional_source_present'])
+        self.assertEqual(checks['labor_previsional_source']['status'], 'missing')
+        self.assertIn(
+            'Cargar fuente laboral/previsional revisable para DJ1887/remuneraciones antes de preparar el paquete anual controlado.',
+            manifest['mirror_proof_readiness']['next_actions'],
+        )
 
     def test_manifest_requires_ownership_source_for_annual_mirror_source_bundle(self):
         with TemporaryDirectory() as temp_dir:

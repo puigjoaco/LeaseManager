@@ -32,6 +32,10 @@ class AnnualTaxControlledLoadPlanTests(SimpleTestCase):
                 root,
                 f'Ano_2024/02_Libro_Compra/{month:02d} Enero - Libro Compra 2024.pdf',
             )
+            self._write(
+                root,
+                f'Ano_2024/05_Remuneraciones/2024-{month:02d}_Liquidaciones_Resumen.pdf',
+            )
 
         self._write(root, 'Ano_2024/01_Libros_Anuales/Libro Diario 2024.pdf')
         self._write(root, 'Ano_2024/01_Libros_Anuales/Libro Mayor 2024.pdf')
@@ -83,6 +87,10 @@ class AnnualTaxControlledLoadPlanTests(SimpleTestCase):
         self.assertEqual(by_category['ownership_source_input']['status'], 'blocked')
         self.assertIn('patrimonio.Socio', by_category['ownership_source_input']['target_models'])
         self.assertIn('patrimonio.ParticipacionPatrimonial', by_category['ownership_source_input']['target_models'])
+        self.assertTrue(plan['summary']['labor_previsional_required'])
+        self.assertTrue(plan['summary']['labor_previsional_source_present'])
+        self.assertEqual(by_category['payroll_support']['role'], 'calculation_input')
+        self.assertEqual(by_category['payroll_support']['status'], 'blocked')
         self.assertIn(
             'normalized_controlled_source_package_values_required',
             plan['summary']['missing_capabilities_after_plan'],
@@ -113,6 +121,23 @@ class AnnualTaxControlledLoadPlanTests(SimpleTestCase):
         self.assertEqual(by_category['ownership_source_input']['files_total'], 0)
         self.assertIn('required_source_categories_missing', plan['blockers'])
         self.assertNotIn('ownership_source_candidate', plan['summary']['calculation_input_categories'])
+
+    def test_load_plan_blocks_dj1887_without_labor_previsional_source(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            self._build_complete_source_tree(source_root)
+            for path in (source_root / 'Ano_2024/05_Remuneraciones').glob('*'):
+                path.unlink()
+            manifest = self._manifest(source_root)
+
+        plan = build_annual_tax_controlled_load_plan(manifest=manifest)
+
+        self.assertFalse(plan['summary']['ready_for_db_load'])
+        self.assertTrue(plan['summary']['labor_previsional_required'])
+        self.assertFalse(plan['summary']['labor_previsional_source_present'])
+        self.assertIn('labor_previsional_source_missing', plan['blockers'])
+        self.assertIn('payroll_support', plan['summary']['missing_required_source_categories'])
+        self.assertIn('required_source_categories_missing', plan['blockers'])
 
     def test_load_plan_blocks_manifest_without_file_list(self):
         with TemporaryDirectory() as temp_dir:

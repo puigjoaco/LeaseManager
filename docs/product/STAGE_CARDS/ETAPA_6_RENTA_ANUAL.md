@@ -240,6 +240,12 @@ externa o propia: liquidaciones resumidas, cotizaciones, Previred, LRE, DJ1887,
 certificados, impuesto unico y asiento/centralizacion contable. Sin esa fuente
 la preparacion anual conserva warning de fuente laboral no cargada cuando el
 caso lo requiera; no se inventan remuneraciones desde EDIG ni desde IA libre.
+Desde 2026-06-16, una DJ1887 aceptada en el manifiesto AC/AT activa
+`labor_previsional_source`: `build_annual_tax_source_manifest` no considera
+lista la fuente espejo si falta `payroll_support`, el plan/template arrastran
+`labor_previsional.required=true`, y readiness/writer bloquean paquetes que no
+declaren `labor_previsional.source_ref` no sensible. Esto conserva
+Remuneraciones como fuente revisable, no como payroll autonomo ni calculo final.
 `AnnualTaxTrialBalance` y `AnnualTaxTrialBalanceLine` materializan la capa
 anual de balance de ocho columnas entre contabilidad y RLI/CPT/DJ1847: toman
 un `BalanceComprobacion` aprobado de diciembre, una fuente oficial/experta

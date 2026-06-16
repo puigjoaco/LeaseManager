@@ -14,6 +14,7 @@ from core.reference_validation import contains_sensitive_reference, redact_sensi
 
 MANIFEST_SCHEMA_VERSION = 'annual-tax-source-manifest.v1'
 EXPECTED_DDJJ_FORMS = ('1835', '1837', '1847', '1887', '1926', '1948')
+LABOR_PREVISIONAL_DDJJ_FORMS = ('1887',)
 EXPECTED_ANNUAL_TAX_REGISTER_KEYS = (
     'capital_propio',
     'determinacion_rai',
@@ -428,6 +429,8 @@ def _coverage(files: list[SourceFile], *, f29_no_declaration_months: tuple[int, 
     f29_no_declaration = _normalize_months(f29_no_declaration_months)
     f29_controlled_months = sorted(set(f29_months).union(f29_no_declaration))
     purchase_sales_months = months_for('purchase_sales_books_support')
+    payroll_support_months = months_for('payroll_support')
+    payroll_support_files_count = len(by_category.get('payroll_support', []))
     annual_ledger_keys = sorted({item.artifact_key for item in by_category.get('annual_ledger_input', []) if item.artifact_key})
     missing_ledger_keys = [key for key in ('libro_diario', 'libro_mayor', 'libro_inventario') if key not in annual_ledger_keys]
     annual_tax_register_keys = sorted(
@@ -441,6 +444,10 @@ def _coverage(files: list[SourceFile], *, f29_no_declaration_months: tuple[int, 
     missing_tax_register_keys = [
         key for key in EXPECTED_ANNUAL_TAX_REGISTER_KEYS if key not in annual_tax_register_keys
     ]
+    labor_previsional_required_by_forms = [
+        form for form in LABOR_PREVISIONAL_DDJJ_FORMS if form in ddjj_forms
+    ]
+    labor_previsional_required = bool(labor_previsional_required_by_forms)
 
     checks = [
         {
@@ -495,6 +502,19 @@ def _coverage(files: list[SourceFile], *, f29_no_declaration_months: tuple[int, 
             'missing_months': [month for month in MONTHS if month not in purchase_sales_months],
         },
         {
+            'key': 'labor_previsional_source',
+            'status': 'ready' if (not labor_previsional_required or payroll_support_files_count > 0) else 'missing',
+            'files': payroll_support_files_count,
+            'months': payroll_support_months,
+            'required': labor_previsional_required,
+            'required_by_ddjj_forms': labor_previsional_required_by_forms,
+            'note': (
+                'DJ1887 aceptada exige fuente laboral/previsional revisable; no se infiere desde DDJJ final ni EDIG.'
+                if labor_previsional_required
+                else 'Fuente laboral/previsional no requerida por las DDJJ aceptadas detectadas.'
+            ),
+        },
+        {
             'key': 'ddjj_expected_outputs',
             'status': 'ready' if not missing_ddjj else 'partial',
             'forms': ddjj_forms,
@@ -526,6 +546,7 @@ def _coverage(files: list[SourceFile], *, f29_no_declaration_months: tuple[int, 
             'ownership_source',
             'annual_balance_expected_output',
             'annual_tax_register_expected_outputs',
+            'labor_previsional_source',
             'ddjj_expected_outputs',
             'f22_expected_output',
         }
@@ -539,6 +560,11 @@ def _coverage(files: list[SourceFile], *, f29_no_declaration_months: tuple[int, 
         'f29_no_declaration_months': f29_no_declaration,
         'f29_controlled_months': f29_controlled_months,
         'purchase_sales_months': purchase_sales_months,
+        'payroll_support_months': payroll_support_months,
+        'payroll_support_files_count': payroll_support_files_count,
+        'labor_previsional_required': labor_previsional_required,
+        'labor_previsional_required_by_ddjj_forms': labor_previsional_required_by_forms,
+        'labor_previsional_source_present': payroll_support_files_count > 0,
         'ddjj_forms': ddjj_forms,
         'missing_ddjj_forms': missing_ddjj,
         'annual_ledger_keys': annual_ledger_keys,
@@ -601,6 +627,10 @@ def _mirror_proof_readiness(coverage: dict[str, Any]) -> dict[str, Any]:
 
 def _mirror_proof_blocked_next_actions(coverage: dict[str, Any]) -> list[str]:
     actions = ['Completar fuentes AC2024/AT2025 minimas antes de iniciar procesamiento.']
+    if coverage.get('labor_previsional_required') and not coverage.get('labor_previsional_source_present'):
+        actions.append(
+            'Cargar fuente laboral/previsional revisable para DJ1887/remuneraciones antes de preparar el paquete anual controlado.'
+        )
     if coverage.get('ownership_source_candidate_present') and not coverage.get('ownership_source_present'):
         actions.append(
             'Revisar candidatos legales de ownership y convertirlos, si son vigentes y suficientes, en snapshot controlado de socios/participaciones AC2024.'
