@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -19,6 +20,8 @@ from contabilidad.models import (
 from core.annual_tax_controlled_load_plan import COMPARISON_ONLY_CATEGORIES
 from core.annual_tax_source_manifest import payload_hash
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
+from patrimonio.models import ParticipacionPatrimonial, Socio
+from patrimonio.validators import validate_rut
 from sii.models import (
     CapacidadSII,
     EstadoMonthlyTaxFact,
@@ -63,6 +66,22 @@ def _decimal(value: Any, *, field_name: str) -> Decimal:
         raise ValueError(f'{field_name} debe ser decimal.') from error
 
 
+def _date(value: Any, *, field_name: str, required: bool = True) -> date | None:
+    if value in (None, '') and not required:
+        return None
+    try:
+        return date.fromisoformat(str(value))
+    except (TypeError, ValueError) as error:
+        raise ValueError(f'{field_name} debe ser fecha ISO YYYY-MM-DD.') from error
+
+
+def _validated_rut(value: Any, *, field_name: str) -> str:
+    try:
+        return validate_rut(str(value or '').strip())
+    except ValidationError as error:
+        raise ValueError(f'{field_name} debe ser un RUT valido.') from error
+
+
 def _forbidden_expected_output_paths(value: Any, path: str = '$') -> list[str]:
     paths: list[str] = []
     if isinstance(value, dict):
@@ -78,6 +97,62 @@ def _forbidden_expected_output_paths(value: Any, path: str = '$') -> list[str]:
         for index, item in enumerate(value):
             paths.extend(_forbidden_expected_output_paths(item, f'{path}[{index}]'))
     return paths
+
+
+def _validate_ownership_snapshot(ownership: Any, *, commercial_year: int) -> None:
+    if ownership in (None, {}):
+        return
+    if not isinstance(ownership, dict):
+        raise ValueError('ownership debe ser un objeto JSON cuando se informa.')
+    _required_text(ownership, 'source_ref')
+    as_of = _date(ownership.get('as_of'), field_name='ownership.as_of')
+    if as_of.year != commercial_year:
+        raise ValueError('ownership.as_of debe pertenecer al ano comercial del paquete.')
+    participants = ownership.get('participants')
+    if not isinstance(participants, list) or not participants:
+        raise ValueError('ownership.participants debe contener socios vigentes.')
+
+    period_start = date(commercial_year, 1, 1)
+    period_end = date(commercial_year, 12, 31)
+    total_percentage = Decimal('0.00')
+    seen_ruts: set[str] = set()
+    for index, participant in enumerate(participants):
+        if not isinstance(participant, dict):
+            raise ValueError(f'ownership.participants[{index}] debe ser un objeto JSON.')
+        participant_type = str(participant.get('participant_type') or 'socio').strip().lower()
+        if participant_type != 'socio':
+            raise ValueError('ownership solo acepta participantes tipo socio para empresa_owner en el boundary actual.')
+        _required_text(participant, 'participant_ref')
+        _required_text(participant, 'evidence_ref')
+        name = str(participant.get('name') or '').strip()
+        if not name:
+            raise ValueError(f'ownership.participants[{index}].name es obligatorio.')
+        rut = _validated_rut(participant.get('rut'), field_name=f'ownership.participants[{index}].rut')
+        if rut in seen_ruts:
+            raise ValueError(f'ownership contiene RUT de socio duplicado: participants[{index}].rut.')
+        seen_ruts.add(rut)
+        percentage = _decimal(
+            participant.get('percentage'),
+            field_name=f'ownership.participants[{index}].percentage',
+        )
+        if percentage <= Decimal('0.00') or percentage > Decimal('100.00'):
+            raise ValueError('ownership.participants[].percentage debe estar entre 0.01 y 100.00.')
+        starts_on = _date(
+            participant.get('vigente_desde') or period_start.isoformat(),
+            field_name=f'ownership.participants[{index}].vigente_desde',
+        )
+        ends_on = _date(
+            participant.get('vigente_hasta'),
+            field_name=f'ownership.participants[{index}].vigente_hasta',
+            required=False,
+        )
+        if ends_on and ends_on < starts_on:
+            raise ValueError('ownership.participants[].vigente_hasta no puede ser anterior a vigente_desde.')
+        if starts_on > period_end or (ends_on and ends_on < period_start):
+            raise ValueError('ownership.participants[] debe solaparse con el ano comercial del paquete.')
+        total_percentage += percentage
+    if total_percentage != Decimal('100.00'):
+        raise ValueError('ownership.participants debe sumar 100.00%.')
 
 
 def _validate_package(payload: dict[str, Any]) -> tuple[int, int, str, str, str]:
@@ -103,6 +178,7 @@ def _validate_package(payload: dict[str, Any]) -> tuple[int, int, str, str, str]
     tax_year = int(payload.get('tax_year') or 0)
     if commercial_year < 2000 or tax_year != commercial_year + 1:
         raise ValueError('commercial_year y tax_year deben formar un par AC/AT valido.')
+    _validate_ownership_snapshot(payload.get('ownership'), commercial_year=commercial_year)
 
     months = payload.get('months')
     if not isinstance(months, list) or not months:
@@ -150,6 +226,64 @@ def _save_validated(obj) -> None:
     except ValidationError as error:
         raise ValueError(error.message_dict if hasattr(error, 'message_dict') else error.messages) from error
     obj.save()
+
+
+def _apply_ownership_snapshot(
+    *,
+    empresa,
+    package: dict[str, Any],
+    commercial_year: int,
+    source_manifest_hash: str,
+    responsible_ref: str,
+    approval_ref: str,
+    counts: dict[str, dict[str, int]],
+) -> dict[str, Any]:
+    ownership = package.get('ownership')
+    if not isinstance(ownership, dict) or not ownership:
+        return {'present': False, 'participants_loaded': 0}
+    participants = ownership['participants']
+    for participant in participants:
+        rut = _validated_rut(participant.get('rut'), field_name='ownership.participant.rut')
+        socio, created = _get_existing_or_new(Socio, rut=rut)
+        socio.nombre = str(participant.get('name') or '').strip()
+        socio.activo = True
+        _save_validated(socio)
+        _mark_count(counts, 'Socio', created)
+
+        starts_on = _date(
+            participant.get('vigente_desde') or f'{commercial_year}-01-01',
+            field_name='ownership.participant.vigente_desde',
+        )
+        ends_on = _date(
+            participant.get('vigente_hasta'),
+            field_name='ownership.participant.vigente_hasta',
+            required=False,
+        )
+        participation, created = _get_existing_or_new(
+            ParticipacionPatrimonial,
+            empresa_owner=empresa,
+            participante_socio=socio,
+            vigente_desde=starts_on,
+            vigente_hasta=ends_on,
+        )
+        participation.porcentaje = _decimal(
+            participant.get('percentage'),
+            field_name='ownership.participant.percentage',
+        )
+        participation.activo = True
+        _save_validated(participation)
+        _mark_count(counts, 'ParticipacionPatrimonial', created)
+
+    return {
+        'present': True,
+        'source_ref': ownership['source_ref'],
+        'as_of': ownership['as_of'],
+        'participants_loaded': len(participants),
+        'source_manifest_hash': source_manifest_hash,
+        'responsible_ref': responsible_ref,
+        'approval_ref': approval_ref,
+        'final_tax_calculation': False,
+    }
 
 
 def _snapshot_summary(
@@ -373,6 +507,15 @@ def apply_annual_tax_controlled_db_load(*, empresa, package: dict[str, Any], wri
 
     if write_database:
         with transaction.atomic():
+            ownership_summary = _apply_ownership_snapshot(
+                empresa=empresa,
+                package=package,
+                commercial_year=commercial_year,
+                source_manifest_hash=source_manifest_hash,
+                responsible_ref=responsible_ref,
+                approval_ref=approval_ref,
+                counts=counts,
+            )
             for month_payload in sorted(package['months'], key=lambda item: int(item['month'])):
                 _apply_month(
                     empresa=empresa,
@@ -384,6 +527,8 @@ def apply_annual_tax_controlled_db_load(*, empresa, package: dict[str, Any], wri
                     approval_ref=approval_ref,
                     counts=counts,
                 )
+    else:
+        ownership_summary = {'present': bool(package.get('ownership')), 'participants_loaded': 0}
 
     blockers = []
     if not complete_12_months:
@@ -401,6 +546,7 @@ def apply_annual_tax_controlled_db_load(*, empresa, package: dict[str, Any], wri
         'months_validated': months,
         'complete_12_months': complete_12_months,
         'expected_outputs_used_as_inputs': False,
+        'ownership_snapshot': ownership_summary,
         'created_updated': counts,
         'ready_for_annual_generation': write_database and complete_12_months and not blockers,
         'blockers': blockers,

@@ -17,6 +17,7 @@ from core.annual_tax_controlled_db_load import (
 from core.annual_tax_controlled_mirror_run import run_annual_tax_controlled_mirror
 from patrimonio.models import Empresa
 from sii.models import (
+    AnnualEnterpriseRegisterMovement,
     AnnualTaxSourceBundle,
     AnnualTaxTrialBalanceLine,
     AnnualTaxWorkbookLine,
@@ -122,6 +123,35 @@ class AnnualTaxControlledMirrorRunTests(TestCase):
             'months': months,
         }
 
+    def _with_ownership(self, package):
+        package['ownership'] = {
+            'source_ref': 'ownership-structure-2024-controlled',
+            'as_of': '2024-12-31',
+            'participants': [
+                {
+                    'participant_type': 'socio',
+                    'participant_ref': 'socio-controlled-one',
+                    'name': 'Socio Controlado Uno',
+                    'rut': '11111111-1',
+                    'percentage': '60.00',
+                    'vigente_desde': '2024-01-01',
+                    'vigente_hasta': None,
+                    'evidence_ref': 'ownership-evidence-controlled-one',
+                },
+                {
+                    'participant_type': 'socio',
+                    'participant_ref': 'socio-controlled-two',
+                    'name': 'Socio Controlado Dos',
+                    'rut': '22222222-2',
+                    'percentage': '40.00',
+                    'vigente_desde': '2024-01-01',
+                    'vigente_hasta': None,
+                    'evidence_ref': 'ownership-evidence-controlled-two',
+                },
+            ],
+        }
+        return package
+
     def _load_monthly_package(self, empresa, package=None):
         return apply_annual_tax_controlled_db_load(
             empresa=empresa,
@@ -172,6 +202,28 @@ class AnnualTaxControlledMirrorRunTests(TestCase):
         self.assertEqual(bundle.source_label, 'inmobiliaria-puig-ac2024-controlled-writer')
         self.assertEqual(bundle.resumen_fuentes['monthly_tax_fact_months'], list(range(1, 13)))
         self.assertEqual(bundle.resumen_fuentes['obligation_months'], [1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
+
+    def test_controlled_mirror_uses_ownership_snapshot_for_participation_registers(self):
+        empresa = self._create_empresa()
+        self._load_monthly_package(empresa, package=self._with_ownership(self._package()))
+
+        run_annual_tax_controlled_mirror(
+            **self._mirror_kwargs(empresa),
+            write_database=True,
+        )
+
+        missing_movements = AnnualEnterpriseRegisterMovement.objects.filter(
+            origen='participacion_patrimonial_missing',
+        )
+        self.assertFalse(missing_movements.exists())
+        participation_movements = AnnualEnterpriseRegisterMovement.objects.filter(
+            origen='participacion_patrimonial',
+        )
+        self.assertEqual(participation_movements.count(), 4)
+        for movement in participation_movements:
+            self.assertNotIn('participation_source_missing', movement.warnings)
+            self.assertEqual(movement.source_payload['source'], 'participacion_patrimonial')
+            self.assertFalse(movement.source_payload['final_tax_calculation'])
 
     def test_controlled_mirror_uses_december_inventory_lines_for_trial_balance(self):
         empresa = self._create_empresa()

@@ -126,6 +126,14 @@ LibroDiario, LibroMayor, BalanceComprobacion, obligaciones, F29 y
 MonthlyTaxFact, rechazando refs sensibles y cualquier Balance/RLI/CPT/RAI/DDJJ/
 F22 final usado como input. Por defecto opera en dry-run para validar sin
 escribir DB.
+El mismo paquete puede incluir `ownership` como snapshot patrimonial controlado:
+fuente no sensible, fecha `as_of`, socios con RUT valido, porcentajes, vigencias
+y evidencia no sensible. El writer materializa `Socio` y
+`ParticipacionPatrimonial` solo cuando se aplica contra DB local/controlada, y
+el mirror anual usa esas participaciones para RETIROS/DIVIDENDOS. Si la fuente
+patrimonial no existe, la arquitectura no inventa porcentajes desde cuentas de
+retiro ni desde F22/DDJJ finales; conserva warning de revision hasta cargar una
+fuente societaria controlada.
 `audit_annual_tax_controlled_package_readiness` audita el template o paquete
 antes de aplicar el writer: confirma 12 meses, refs de control, valores de
 libros/balance, estado F29, estado laboral/previsional y ausencia de outputs

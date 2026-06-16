@@ -2534,6 +2534,15 @@ rechaza Balance/RLI/CPT/RAI/DDJJ/F22 finales como insumos. La arquitectura aun
 no queda completa de punta a punta: faltan paquete normalizado desde fuentes
 AC2024, capa anual y comparacion contra outputs esperados.
 
+Nota 2026-06-15: Renta Anual/Etapa 6 agrega `ownership` al paquete controlado
+AC/AT. El writer valida fuente patrimonial no sensible, fecha `as_of`, socios
+con RUT valido, vigencias y porcentajes que suman 100.00%, y materializa
+`Socio` + `ParticipacionPatrimonial` en DB local/controlada. El mirror anual
+usa esas participaciones para registros RETIROS/DIVIDENDOS y elimina
+`participation_source_missing` cuando la fuente existe. Para Inmobiliaria Puig
+AC2024 real sigue pendiente localizar o cargar esa fuente societaria
+independiente; no se infiere desde cuentas de retiro ni desde F22/DDJJ finales.
+
 Nota 2026-06-15: Renta Anual/Etapa 6 agrega template de paquete normalizado
 AC2024/AT2025. `build_annual_tax_controlled_db_load_template` toma el
 manifiesto read-only, prearma 12 meses para carga controlada, separa refs de

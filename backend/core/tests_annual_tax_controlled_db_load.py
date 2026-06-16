@@ -23,7 +23,7 @@ from core.annual_tax_controlled_db_load import (
     CONTROLLED_DB_LOAD_SCHEMA_VERSION,
     apply_annual_tax_controlled_db_load,
 )
-from patrimonio.models import Empresa
+from patrimonio.models import Empresa, ParticipacionPatrimonial, Socio
 from sii.models import (
     CapacidadSII,
     CapacidadTributariaSII,
@@ -116,6 +116,35 @@ class AnnualTaxControlledDbLoadTests(TestCase):
             ],
         }
 
+    def _with_ownership(self, package):
+        package['ownership'] = {
+            'source_ref': 'ownership-structure-2024-controlled',
+            'as_of': '2024-12-31',
+            'participants': [
+                {
+                    'participant_type': 'socio',
+                    'participant_ref': 'socio-controlled-one',
+                    'name': 'Socio Controlado Uno',
+                    'rut': '11111111-1',
+                    'percentage': '60.00',
+                    'vigente_desde': '2024-01-01',
+                    'vigente_hasta': None,
+                    'evidence_ref': 'ownership-evidence-controlled-one',
+                },
+                {
+                    'participant_type': 'socio',
+                    'participant_ref': 'socio-controlled-two',
+                    'name': 'Socio Controlado Dos',
+                    'rut': '22222222-2',
+                    'percentage': '40.00',
+                    'vigente_desde': '2024-01-01',
+                    'vigente_hasta': None,
+                    'evidence_ref': 'ownership-evidence-controlled-two',
+                },
+            ],
+        }
+        return package
+
     def test_apply_controlled_package_materializes_monthly_accounting_and_tax_facts(self):
         empresa = self._create_empresa()
 
@@ -157,6 +186,50 @@ class AnnualTaxControlledDbLoadTests(TestCase):
         self.assertEqual(second_result['created_updated']['CierreMensualContable']['updated'], 12)
         self.assertEqual(CierreMensualContable.objects.filter(empresa=empresa).count(), 12)
         self.assertEqual(MonthlyTaxFact.objects.filter(empresa=empresa).count(), 12)
+
+    def test_apply_controlled_package_materializes_ownership_snapshot(self):
+        empresa = self._create_empresa()
+        package = self._with_ownership(self._package())
+
+        result = apply_annual_tax_controlled_db_load(
+            empresa=empresa,
+            package=package,
+            write_database=True,
+        )
+
+        self.assertTrue(result['ready_for_annual_generation'])
+        self.assertTrue(result['ownership_snapshot']['present'])
+        self.assertEqual(result['ownership_snapshot']['participants_loaded'], 2)
+        self.assertFalse(result['ownership_snapshot']['final_tax_calculation'])
+        self.assertEqual(Socio.objects.filter(rut__in=['11111111-1', '22222222-2']).count(), 2)
+        participations = ParticipacionPatrimonial.objects.filter(empresa_owner=empresa).order_by('porcentaje')
+        self.assertEqual(participations.count(), 2)
+        self.assertEqual(sum(item.porcentaje for item in participations), 100)
+
+        second_result = apply_annual_tax_controlled_db_load(
+            empresa=empresa,
+            package=package,
+            write_database=True,
+        )
+        self.assertEqual(second_result['created_updated']['Socio']['updated'], 2)
+        self.assertEqual(second_result['created_updated']['ParticipacionPatrimonial']['updated'], 2)
+        self.assertEqual(ParticipacionPatrimonial.objects.filter(empresa_owner=empresa).count(), 2)
+
+    def test_apply_rejects_incomplete_ownership_snapshot_without_writing(self):
+        empresa = self._create_empresa()
+        package = self._with_ownership(self._package())
+        package['ownership']['participants'][1]['percentage'] = '39.00'
+
+        with self.assertRaisesMessage(ValueError, '100.00%'):
+            apply_annual_tax_controlled_db_load(
+                empresa=empresa,
+                package=package,
+                write_database=True,
+            )
+
+        self.assertEqual(Socio.objects.count(), 0)
+        self.assertEqual(ParticipacionPatrimonial.objects.filter(empresa_owner=empresa).count(), 0)
+        self.assertEqual(MonthlyTaxFact.objects.filter(empresa=empresa).count(), 0)
 
     def test_apply_rejects_expected_outputs_as_inputs_without_writing(self):
         empresa = self._create_empresa()
