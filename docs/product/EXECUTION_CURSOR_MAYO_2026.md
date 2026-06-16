@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `main-clean-next-traceable-front`. |
+| Frente activo | `stage6-mirror-proof-wrapper`. |
 | Fuente exacta | `main` posterior al merge de PR #860 (`5fecfd2f`) y PR #859 (`2883fa65`). |
-| Brecha activa | No hay paquete tactico abierto. La prueba espejo Inmobiliaria Puig AC2024/AT2025 ya tiene gate unico integrado: `audit_annual_tax_mirror_proof` combina fuente/manifiesto, comparador de outputs esperados, readiness Etapa 6 y boundary de seguridad. |
-| Motivo de prioridad | Evitar reabrir paquetes cerrados o metatareas. La siguiente decision debe salir del estado real del repo y trazabilidad, no de contexto auxiliar viejo. |
-| Worktree | Ningun worktree tactico activo despues de PR #860. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
-| Rama | `main` limpio despues de PR #860. Para el proximo paquete no trivial abrir worktree hermano `codex/...` desde `main`. |
-| Estado | PR #860 cerro el gate espejo AC2024/AT2025. El gate distingue fuente documentada, arquitectura espejo, comparacion lista, readiness lista, seguridad y revision pendiente; no declara completitud si quedan artefactos con revision responsable. No usa `.env`, SII real, credenciales, DB historica, EDIG ejecutable ni outputs finales como input. |
-| Gate esperado | Para AC2024/AT2025 controlado o autorizado, ejecutar `audit_annual_tax_mirror_proof` con salida bajo `local-evidence/` y `--fail-on-incomplete` si se quiere impedir cierre falso. Para otros frentes, elegir el siguiente paquete trazable y proporcional desde `main` limpio. |
+| Brecha activa | Existe worktree tactico sucio con un wrapper Stage 6 mirror proof pendiente de revisar/cerrar. No abrir otro frente hasta terminarlo, pausarlo explicitamente o descartarlo con instruccion segura. |
+| Motivo de prioridad | Evitar perder o pisar cambios locales existentes y mantener una sola continuacion objetiva tras PR #860/#861. |
+| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-mirror-proof-wrapper` en rama `codex/stage6-mirror-proof-wrapper`, con cambios locales en cursor, stage card, trazabilidad, `scripts/run-acceptance-workflows.ps1` y `scripts/run-stage6-mirror-proof-gate.ps1`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `codex/stage6-mirror-proof-wrapper` en el worktree tactico indicado. `main` queda limpio despues de PR #861. |
+| Estado | PR #860 cerro el gate espejo AC2024/AT2025 en backend/CLI/docs y PR #861 cerro el cursor post-merge. Queda pendiente inspeccionar el worktree `stage6-mirror-proof-wrapper` para decidir si sus cambios complementan el gate como wrapper operativo o si deben pausarse/descartarse. |
+| Gate esperado | Primero ejecutar `git status --short --branch` y revisar el diff del worktree `stage6-mirror-proof-wrapper`. Si se conserva, validar proporcionalmente el wrapper Stage 6 y cerrar con PR/CI/merge; si no corresponde, pausarlo en cursor o descartarlo solo con instruccion segura. |
 | Estado al cerrar paquete | No reabrir prompts de goal, boundary contable de PR #859, selector anual, ownership, respaldo tributario, bienes raices, DDJJ/F22 semantico, Balance General, RLI/CPT/RAI/SAC ni EDIG como bloqueo general salvo bug nuevo. El gate espejo queda como punto unico para decir preparado, parcial o bloqueado. |
 | Bloqueos relacionados | Sin autorizacion o fuente real no se debe presentar SII, declarar calculo tributario final ni afirmar cierre productivo. El bloqueo externo queda como condicion de cierre real/productivo, no como freno para seguir por el siguiente frente seguro. |
 | Politica de reanudacion | No reabrir goal prompts, EDIG ni paquetes mergeados. No usar `.env`, secretos, DB real, produccion, SII real ni integraciones externas sin autorizacion explicita. Si falta fuente externa, continuar con preparacion local segura y trazable. |
-| Siguiente accion | Continuar con el siguiente frente trazable desbloqueado desde `main` limpio. Si el usuario quiere convertir AC2024/AT2025 desde prueba controlada a revision con fuente real/autorizada, pedir una unica autorizacion concreta y correr el gate espejo; si no, avanzar por preparacion local segura. |
+| Siguiente accion | Continuar o cerrar `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-mirror-proof-wrapper` antes de abrir otro frente. No reabrir prompts de goal ni paquetes AC2024 ya mergeados salvo bug nuevo. |
 
 ## Actualizacion
 
