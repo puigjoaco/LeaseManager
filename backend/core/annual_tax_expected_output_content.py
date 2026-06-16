@@ -150,6 +150,58 @@ def _expected_files(manifest: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+def _blocking_identity_extraction_errors(
+    extraction_errors: list[dict[str, str]],
+    *,
+    accepted_ddjj_forms: list[str],
+    f22_folios: list[str],
+    register_keys_with_text: list[str],
+    balance_text_extractable: bool,
+) -> list[dict[str, str]]:
+    missing_ddjj_forms = set(EXPECTED_DDJJ_FORMS) - set(accepted_ddjj_forms)
+    missing_register_keys = set(EXPECTED_ANNUAL_TAX_REGISTER_KEYS) - set(register_keys_with_text)
+    blocking_errors: list[dict[str, str]] = []
+    for error in extraction_errors:
+        category = error.get('category')
+        artifact_key = error.get('artifact_key')
+        if category == 'ddjj_expected_output' and missing_ddjj_forms:
+            blocking_errors.append(error)
+        elif category == 'f22_expected_output' and not f22_folios:
+            blocking_errors.append(error)
+        elif category == 'annual_balance_expected_output' and not balance_text_extractable:
+            blocking_errors.append(error)
+        elif category == 'annual_tax_register_expected_output' and artifact_key in missing_register_keys:
+            blocking_errors.append(error)
+    return blocking_errors
+
+
+def _blocking_document_semantic_extraction_errors(
+    extraction_errors: list[dict[str, str]],
+    *,
+    expected_ddjj_forms: list[str],
+    f22_expected_ready: bool,
+    missing_documents: list[dict[str, Any]],
+) -> list[dict[str, str]]:
+    missing_ddjj_forms = set(EXPECTED_DDJJ_FORMS) - set(expected_ddjj_forms)
+    missing_document_categories = {
+        str(item.get('category') or '').strip()
+        for item in missing_documents
+        if str(item.get('category') or '').strip()
+    }
+    blocking_errors: list[dict[str, str]] = []
+    for error in extraction_errors:
+        category = error.get('category')
+        if category == 'ddjj_expected_output' and (
+            missing_ddjj_forms or 'ddjj_expected_output' in missing_document_categories
+        ):
+            blocking_errors.append(error)
+        elif category == 'f22_expected_output' and (
+            not f22_expected_ready or 'f22_expected_output' in missing_document_categories
+        ):
+            blocking_errors.append(error)
+    return blocking_errors
+
+
 def extract_expected_output_content_signals(*, source_root: Path, manifest: dict[str, Any]) -> dict[str, Any]:
     source_root = source_root.expanduser().resolve()
     if not source_root.exists() or not source_root.is_dir():
@@ -234,8 +286,15 @@ def extract_expected_output_content_signals(*, source_root: Path, manifest: dict
         signal['category'] == 'annual_balance_expected_output' and signal['text_extractable']
         for signal in signals
     )
+    blocking_extraction_errors = _blocking_identity_extraction_errors(
+        extraction_errors,
+        accepted_ddjj_forms=accepted_ddjj_forms,
+        f22_folios=f22_folios,
+        register_keys_with_text=register_keys_with_text,
+        balance_text_extractable=balance_text_extractable,
+    )
     identity_ready = (
-        not extraction_errors
+        not blocking_extraction_errors
         and set(accepted_ddjj_forms) >= set(EXPECTED_DDJJ_FORMS)
         and bool(f22_folios)
         and balance_text_extractable
@@ -258,6 +317,7 @@ def extract_expected_output_content_signals(*, source_root: Path, manifest: dict
             'balance_text_extractable': balance_text_extractable,
             'identity_signals_ready': identity_ready,
             'value_equality_extractors_ready': False,
+            'blocking_extraction_errors_total': len(blocking_extraction_errors),
         },
         'extraction_errors': extraction_errors,
         'safety': {
@@ -507,9 +567,15 @@ def extract_expected_output_document_semantic_signals(
         item['category'] == 'f22_expected_output' and item['expected_ready']
         for item in expected_documents
     )
+    blocking_extraction_errors = _blocking_document_semantic_extraction_errors(
+        extraction_errors,
+        expected_ddjj_forms=expected_ddjj_forms,
+        f22_expected_ready=f22_expected_ready,
+        missing_documents=missing_documents,
+    )
     document_semantic_ready = (
         bool(comparisons)
-        and not extraction_errors
+        and not blocking_extraction_errors
         and not missing_documents
         and set(expected_ddjj_forms) >= set(EXPECTED_DDJJ_FORMS)
         and f22_expected_ready
@@ -533,6 +599,7 @@ def extract_expected_output_document_semantic_signals(
             'expected_ddjj_forms_ready': expected_ddjj_forms,
             'f22_expected_ready': f22_expected_ready,
             'document_semantic_ready': document_semantic_ready,
+            'blocking_extraction_errors_total': len(blocking_extraction_errors),
         },
         'extraction_errors': extraction_errors,
         'safety': {

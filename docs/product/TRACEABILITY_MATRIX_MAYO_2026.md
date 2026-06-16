@@ -26,6 +26,16 @@ gates. `ready_for_company_accounting_review` significa paquete local preparado
 para revision responsable, no cierre contable, calculo de renta final ni
 presentacion SII.
 
+Nota 2026-06-16: El comparador de outputs esperados de Etapa 6 separa errores
+de extraccion diagnosticos de errores bloqueantes. Identidad y semantica
+documental ahora exponen `blocking_extraction_errors_total`: archivos
+historicos, baseline, rechazados o no decisivos permanecen como evidencia de
+diagnostico, pero no bloquean si las DDJJ aceptadas esperadas, F22, Balance,
+registros anuales y documentos comparados estan presentes. El contraste contra
+la comparacion AC2024/AT2025 previa convierte 3520 errores de identidad y 3515
+errores semanticos en 0 bloqueantes; los bloqueos de valores y revision de
+artefactos siguen separados y no se declaran como cierre tributario final.
+
 Nota 2026-06-16: El auditor de progreso contable/renta distingue F29 faltante
 de mes controlado sin declaracion. Si existe `MonthlyTaxFact` normalizado con
 F29 `no_aplica` y `no_declaration=true`, el mes cuenta como cobertura F29

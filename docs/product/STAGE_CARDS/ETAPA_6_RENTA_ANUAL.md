@@ -228,6 +228,19 @@ repo fuera de `local-evidence/`, bloquea migraciones contra `real_autorizado` y
 usa `--fail-on-incomplete` solo cuando se quiere exigir completitud probada. El
 comando Django queda como motor; el wrapper es el camino seguro para runs
 manuales o evidenciales.
+`compare_annual_tax_expected_outputs` distingue errores de extraccion
+diagnosticos de errores bloqueantes para identidad y semantica documental. Los
+errores siguen registrados en `extraction_errors`, pero el resumen expone
+`blocking_extraction_errors_total` y solo bloquea cuando falta la evidencia
+decisiva de la misma familia: DDJJ aceptadas esperadas, F22 trazable, Balance,
+registros anuales o documentos generados comparables. Archivos historicos,
+baseline, rechazados o no decisivos no deben reabrir
+`expected_output_identity_extraction_errors`,
+`expected_output_document_semantic_extraction_errors` ni
+`expected_output_value_extractors_partial` cuando esas senales decisivas ya
+estan presentes. Esto no elimina `expected_output_value_extraction_errors` ni
+declara igualdad numerica final; conserva esos bloqueos cuando los valores
+comparables siguen pendientes o incompletos.
 `MonthlyTaxFact` materializa la capa mensual anualizable: por cada empresa,
 ano comercial y mes normaliza el cierre aprobado, obligaciones mensuales,
 F29 si existe, distribuciones de arriendo y liquidacion de empresa, con

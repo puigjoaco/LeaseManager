@@ -411,6 +411,57 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
         rendered_evidence = json.dumps(evidence, default=str)
         self.assertNotIn('https://private.example.test/token', rendered_evidence)
 
+    def test_non_decisive_expected_output_extraction_errors_do_not_block_identity_or_semantics(self):
+        empresa = self._create_empresa()
+        self._load_and_generate_annual_layer(empresa)
+
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            manifest = self._manifest()
+            manifest['files'].extend(
+                [
+                    {
+                        'category': 'ddjj_expected_output',
+                        'role': 'expected_output',
+                        'path_ref': 'historical-ddjj-baseline-xls-ref',
+                        'artifact_key': 'ddjj_metadata',
+                        'relative_path': 'historical/ddjj_baseline.xls',
+                        'ddjj_forms': ['1835'],
+                        'output_status': 'baseline',
+                    },
+                    {
+                        'category': 'f22_expected_output',
+                        'role': 'expected_output',
+                        'path_ref': 'historical-f22-rejected-xls-ref',
+                        'artifact_key': 'f22',
+                        'relative_path': 'historical/f22_rejected.xls',
+                        'output_status': 'rejected',
+                    },
+                ]
+            )
+            self._write_expected_output_sources(source_root, manifest)
+
+            result = compare_annual_tax_expected_outputs(
+                empresa=empresa,
+                commercial_year=2024,
+                tax_year=2025,
+                manifest=manifest,
+                source_root=source_root,
+            )
+
+        content_summary = result['expected_output_content_signals']['summary']
+        semantic_summary = result['expected_output_document_semantic_signals']['summary']
+
+        self.assertGreater(content_summary['extraction_errors_total'], 0)
+        self.assertEqual(content_summary['blocking_extraction_errors_total'], 0)
+        self.assertTrue(content_summary['identity_signals_ready'])
+        self.assertGreater(semantic_summary['extraction_errors_total'], 0)
+        self.assertEqual(semantic_summary['blocking_extraction_errors_total'], 0)
+        self.assertTrue(semantic_summary['document_semantic_ready'])
+        self.assertNotIn('expected_output_identity_extraction_errors', result['summary']['blockers'])
+        self.assertNotIn('expected_output_document_semantic_extraction_errors', result['summary']['blockers'])
+        self.assertNotIn('expected_output_value_extractors_partial', result['summary']['blockers'])
+
     def test_comparator_reports_missing_annual_process_as_blocker(self):
         empresa = self._create_empresa()
 
