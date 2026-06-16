@@ -1548,11 +1548,19 @@ class AnnualTaxSourceBundle(OperationalSIITextNormalizationMixin, TimestampedMod
                 normalized_obligation_months = sorted({int(month) for month in obligation_months})
             except (TypeError, ValueError):
                 normalized_obligation_months = []
-            if normalized_obligation_months != list(range(1, 13)):
+            monthly_tax_fact_months = summary.get('monthly_tax_fact_months') or []
+            try:
+                normalized_monthly_tax_fact_months = sorted({int(month) for month in monthly_tax_fact_months})
+            except (TypeError, ValueError):
+                normalized_monthly_tax_fact_months = []
+            if (
+                normalized_obligation_months != list(range(1, 13))
+                and normalized_monthly_tax_fact_months != list(range(1, 13))
+            ):
                 _add_error(
                     errors,
                     'resumen_fuentes',
-                    'AnnualTaxSourceBundle congelado requiere obligaciones mensuales trazables para los doce meses.',
+                    'AnnualTaxSourceBundle congelado requiere obligaciones o hechos tributarios mensuales trazables para los doce meses.',
                 )
         if errors:
             raise ValidationError(errors)

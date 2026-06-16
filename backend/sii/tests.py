@@ -100,6 +100,7 @@ from .models import (
     TaxYearRuleSet,
     TipoAnnualTaxOfficialSource,
 )
+from .services import freeze_annual_tax_source_bundle
 
 
 class SiiAPITests(APITestCase):
@@ -1351,6 +1352,30 @@ class SiiAPITests(APITestCase):
                 monto_calculado='10011.10',
                 estado_preparacion='preparado',
             )
+
+    def test_annual_tax_source_bundle_accepts_full_monthly_facts_when_no_declaration_month_exists(self):
+        empresa = self._create_active_empresa(nombre='SourceBundleNoDeclarationCo', rut='63636363-6')
+        config = self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887'])
+        self._create_twelve_approved_closes(empresa, fiscal_year=2026)
+        ObligacionTributariaMensual.objects.filter(empresa=empresa, anio=2026, mes=2).delete()
+        rule_set = TaxYearRuleSet.objects.get(anio_tributario=2027, estado=EstadoReglaTributariaAnual.APPROVED)
+
+        bundle = freeze_annual_tax_source_bundle(
+            empresa,
+            2027,
+            config,
+            rule_set,
+            source_kind=SourceKindRentaAnual.CONTROLLED_SNAPSHOT,
+            source_label='source-bundle-no-declaration-controlled',
+            authorization_ref='source-bundle-no-declaration-auth',
+            responsible_ref='source-bundle-no-declaration-owner',
+        )
+
+        self.assertEqual(bundle.estado, EstadoAnnualTaxSourceBundle.FROZEN)
+        self.assertEqual(bundle.resumen_fuentes['obligation_months'], [1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
+        self.assertEqual(bundle.resumen_fuentes['monthly_tax_fact_months'], list(range(1, 13)))
+        self.assertEqual(bundle.resumen_fuentes['monthly_tax_facts_total'], 12)
+        bundle.full_clean()
 
     def _create_annual_trial_balance_source(self, empresa, fiscal_year=2026):
         revenue_account, _ = CuentaContable.objects.get_or_create(

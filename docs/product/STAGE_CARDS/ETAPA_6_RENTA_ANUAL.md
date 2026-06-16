@@ -91,6 +91,103 @@ no sensibles desde cierres mensuales, obligaciones PPM/F29 y configuracion
 fiscal, conserva hash SHA-256 del payload anual normalizado y se enlaza al
 `ProcesoRentaAnual` para que DDJJ/F22 partan desde un dossier revisable, no
 desde inferencia libre ni automatizacion tributaria autonoma.
+`build_annual_tax_source_manifest` prepara la entrada controlada previa al
+bundle para pilotos historicos como Inmobiliaria Puig AC2024/AT2025: lee una
+carpeta externa en modo read-only, clasifica archivos como entradas, soportes o
+salidas esperadas, calcula hashes, no copia documentos al repo y emite un
+borrador no sensible de `AnnualTaxSourceBundle`. Este manifiesto confirma si
+existen fuentes suficientes para una prueba espejo desde libros cerrados, pero
+no crea cierres mensuales ni hechos tributarios en DB y no reemplaza revision
+experta.
+Para evitar una prueba circular, el manifiesto separa explicitamente inputs de
+calculo y objetivos de comparacion: Libro Diario, Libro Mayor, Libro
+Inventario, RCV, F29, compra/venta, remuneraciones y fuente societaria/
+patrimonial pueden alimentar carga controlada; Balance General, RLI, CPT, RAI,
+Capital Propio, Rentas Empresariales, DDJJ y F22 quedan como salidas esperadas/
+baseline. LeaseManager no puede declarar que genero esos artefactos si antes
+los uso como insumo de calculo.
+El manifiesto tambien exige `ownership_source_input` para considerar completa
+la fuente de prueba espejo anual. En la carpeta real AC2024/AT2025 de
+Inmobiliaria Puig, RCV, F29 controlado, libros anuales, DDJJ, F22 y registros
+esperados estan cubiertos, pero `ready_for_mirror_source_bundle=false` porque no
+se encontro fuente societaria independiente (`ownership_source_present=false`).
+Ademas distingue candidatos legales de fuente controlada: escrituras,
+extractos, inscripciones o Diario Oficial en contexto societario quedan como
+`ownership_source_candidate` de soporte/revision. La corrida real detecta 15
+candidatos, pero no los usa como input de calculo ni desbloquea la prueba anual
+hasta que una fuente suficiente sea revisada y convertida en snapshot
+controlado de socios/participaciones vigentes. Las escrituras de propiedades no
+se clasifican como ownership societario.
+`review_annual_tax_ownership_candidates` revisa esos candidatos sin guardar
+texto crudo, RUTs ni nombres: en la evidencia real AC2024/AT2025 los PDFs no
+son extraibles por `pdftotext`, por lo que 10 quedan como candidatos legales
+para OCR/revision manual, 3 se excluyen por nulos/sin efecto y 2 quedan como
+soporte de aportes/propiedades. El resultado permite avanzar a snapshot
+controlado, pero no cierra la fuente ownership ni crea socios/porcentajes por
+inferencia.
+`build_annual_tax_ownership_snapshot_template` prepara el puente hacia el
+writer anual: desde la revision real genera 10 `candidate_sources`, un
+`ownership_patch_template` con `participants=[]` y reglas para completar socios,
+RUT, porcentajes, vigencias y evidencia no sensible. El template no esta listo
+para DB hasta que esa informacion sea completada por OCR/revision controlada y
+aprobacion responsable.
+`build_annual_tax_ownership_visual_review_packet` prepara esa revision: renderiza
+paginas iniciales de los 10 candidatos a PNG bajo `local-evidence`, con indice
+por hash/path_ref. La corrida real produce 19 paginas sin errores. Las imagenes
+pueden contener datos sensibles, por lo que no se versionan ni se usan como
+calculo; sirven para OCR/revision manual previa a completar el snapshot.
+`build_annual_tax_controlled_load_plan` traduce ese manifiesto a un plan de
+carga contra modelos canonicos de LeaseManager sin escribir DB: cierres,
+libros, balance, obligaciones, F29, hechos mensuales y balance tributario
+anual. Para Inmobiliaria Puig AC2024/AT2025 el plan confirma que los outputs
+esperados no se usan como input, pero `ready_for_db_load=false` hasta tener
+parser/carga manual controlada para libros anuales, F29 PDF, remuneraciones y
+fuente societaria, mas un paquete normalizado de entrada, capa anual generada y
+comparacion de outputs esperados.
+`build_annual_tax_controlled_db_load_template` crea el template seguro de ese
+paquete normalizado desde el manifiesto: prearma 12 meses, separa refs de
+entrada y `comparison_targets`, y deja los valores contables/tributarios vacios
+para parser o carga manual controlada. No escribe DB ni convierte outputs
+esperados en insumos. Los meses F29 marcados en el manifiesto como sin
+declaracion quedan modelados como `no_aplica`, no como documento faltante.
+`apply_annual_tax_controlled_db_load` materializa ese paquete normalizado en DB
+local/controlada solo con `--apply`: crea o actualiza cierres mensuales,
+LibroDiario, LibroMayor, BalanceComprobacion, obligaciones, F29 y
+MonthlyTaxFact, rechazando refs sensibles y cualquier Balance/RLI/CPT/RAI/DDJJ/
+F22 final usado como input. Por defecto opera en dry-run para validar sin
+escribir DB.
+El mismo paquete puede incluir `ownership` como snapshot patrimonial controlado:
+fuente no sensible, fecha `as_of`, socios con RUT valido, porcentajes, vigencias
+y evidencia no sensible. El writer materializa `Socio` y
+`ParticipacionPatrimonial` solo cuando se aplica contra DB local/controlada, y
+el mirror anual usa esas participaciones para RETIROS/DIVIDENDOS. Si la fuente
+patrimonial no existe, la arquitectura no inventa porcentajes desde cuentas de
+retiro ni desde F22/DDJJ finales; conserva warning de revision hasta cargar una
+fuente societaria controlada.
+`audit_annual_tax_controlled_package_readiness` audita el template o paquete
+antes de aplicar el writer: confirma 12 meses, refs de control, valores de
+libros/balance, estado F29, estado laboral/previsional y ausencia de outputs
+finales usados como input. Ademas separa `ready_for_db_writer` de
+`ready_for_annual_generation`: la contabilidad mensual puede estar completa y
+aplicable al writer, pero la generacion anual/mirror queda bloqueada si falta
+`ownership` como snapshot patrimonial controlado para registros de retiros y
+dividendos. Contra el template real de Inmobiliaria Puig AC2024/AT2025 confirma
+que no faltan meses y que existen objetivos de comparacion, pero mantiene
+`ready_for_db_writer=false` hasta completar 132 campos normalizados; contra el
+draft real v3, `ready_for_db_writer=true` y `ready_for_annual_generation=false`
+por `ownership_snapshot_missing`. Febrero y diciembre F29 `no_aplica` no cuentan
+como faltantes.
+`build_annual_tax_controlled_values_draft` completa ese paquete desde fuentes
+AC2024 permitidas y read-only: Libro Diario, Libro Mayor, Libro Inventario, F29
+y libros de remuneraciones. La corrida real de Inmobiliaria Puig rellena 180
+campos, queda `ready_for_db_writer=true` y permite aplicar el writer contra
+SQLite local/controlado para materializar 12 cierres mensuales, 12 libros
+diario/mayor, 12 balances, 10 F29, 10 obligaciones y 12 `MonthlyTaxFact`. El
+Libro Inventario se conserva como lineas de balance anual en diciembre para que
+el mirror genere `AnnualTaxTrialBalanceLine` desde cuentas controladas reales de
+entrada. Esta carga no usa outputs finales como input y no declara cierre de
+renta; las comparaciones posteriores cubren valores comparables y semantica
+DDJJ/F22, pero queda pendiente revision responsable y gates finales.
 `MonthlyTaxFact` materializa la capa mensual anualizable: por cada empresa,
 ano comercial y mes normaliza el cierre aprobado, obligaciones mensuales,
 F29 si existe, distribuciones de arriendo y liquidacion de empresa, con
@@ -550,6 +647,44 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   ref, responsable, evidencia y payload anual redactados; el admin es solo
   lectura para preservar que la checklist proviene del motor anual y no de una
   edicion manual opaca.
+- `AnnualTaxSourceBundle` acepta como trazabilidad anual completa los 12
+  `MonthlyTaxFact` normalizados aun si algunos meses no tienen F29/obligacion
+  por no declaracion controlada; no se deben inventar obligaciones para cerrar
+  el ano.
+- `run_annual_tax_controlled_mirror` prepara la prueba espejo AC2024/AT2025
+  desde la DB local controlada: valida 12 hechos mensuales, crea capacidades
+  DDJJ/F22 locales, rule set/mappings/layouts, source bundle
+  `snapshot_controlado` y artefactos anuales locales sin usar SII real,
+  credenciales ni outputs finales como input. Su salida sigue siendo revisable
+  y `final_tax_calculation=false`.
+- `compare_annual_tax_expected_outputs` compara cobertura y trazabilidad de
+  Balance/RLI/CPT/RAI/DDJJ/F22 esperados contra artefactos anuales generados
+  por LeaseManager. Con `--source-root`, `extract_expected_output_content_signals`
+  agrega identidad de DDJJ aceptadas, F22, Balance y registros tributarios desde
+  una fuente externa read-only, y `extract_expected_output_value_signals`
+  compara presencia de valores generados en Balance y registros tributarios sin
+  guardar texto bruto, tokens numericos crudos ni montos crudos. Ademas
+  `extract_expected_output_document_semantic_signals` compara DDJJ aceptadas con
+  folio y F22 con folio contra DDJJ/F22 preparados y layouts anuales preparados,
+  sin guardar texto bruto ni folios crudos. No escribe DB, no lee SII real y no
+  usa esos outputs como insumo de calculo.
+- La normalizacion anual AC2024/AT2025 distingue lineas soporte y lineas
+  comparables mediante `source_payload.expected_output_artifacts`. RLI/CPT se
+  generan desde Libro Inventario y resultado contable, incluyendo mappings sobre
+  varios clasificadores DJ1847; RAI/SAC se preparan para revision, pero no se
+  fuerzan como igualdad final de valores. La corrida v2 queda con 132 targets
+  comparables, 102 presentes y 30 ausentes concentrados en Balance General; no
+  hay faltantes no-balancearios, pero Etapa 6 sigue parcial.
+- La comparacion v4 AC2024/AT2025 corrige la falsa brecha de Balance General:
+  el draft fusiona Libro Inventario con totales anuales de Libro Mayor para
+  preservar sumas/saldos por cuenta, y el extractor de valores esperados evita
+  fusionar codigo de cuenta, numero de local y columnas monetarias tras
+  normalizar texto PDF. Resultado local: 138 targets comparables, 138 presentes
+  y 0 ausentes, sin usar outputs finales como input ni guardar montos crudos.
+- La comparacion v5 agrega semantica documental DDJJ/F22. Resultado local:
+  7/7 documentos DDJJ/F22 comparados, 138/138 valores comparables presentes, 0
+  faltantes y sin categorias esperadas sin soporte. Etapa 6 sigue parcial por
+  revision de artefactos generados/responsable y gates finales.
 
 ```powershell
 scripts\run-stage6-readiness-gate.ps1 -PythonExe backend\.venv\Scripts\python.exe

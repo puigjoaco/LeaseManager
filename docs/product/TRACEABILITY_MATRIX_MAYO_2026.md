@@ -25,6 +25,56 @@ futura solo puede ser sandbox observacional con datos ficticios y brecha
 concreta de UI/export. El camino sigue siendo capa anual revisable,
 responsable y gate SII, no API REST asumida ni presentacion autonoma.
 
+Nota 2026-06-15: La prueba espejo Inmobiliaria Puig AC2024/AT2025 agrega
+extractor de identidad para outputs esperados externos read-only. El
+comparador anual ya no se queda solo en cobertura: con `--source-root` reconoce
+senales de DDJJ aceptadas 1835/1837/1847/1887/1926/1948, F22, Balance y
+registros tributarios esperados, sin guardar texto bruto ni usar esas salidas
+como input de calculo. La conclusion espejo sigue pendiente de extractores de
+igualdad de valores, revision responsable de artefactos generados y gates de
+Etapa 6.
+
+Nota 2026-06-15: La prueba espejo agrega un primer extractor de valores para
+Balance y registros tributarios esperados. El comparador no guarda montos
+crudos ni tokens numericos crudos; solo registra refs hash y conteos. Contra la
+SQLite local AC2024/AT2025, cobertura e identidad estan listas. Tras cargar
+Libro Inventario como input anual permitido, el mirror genera 45 lineas de
+balance anual y el comparador pasa a 139 targets comparables: 100 presentes en
+outputs esperados y 39 ausentes. Los ausentes se concentran en parte del Balance
+y en registros tributarios RLI/CPT/RAI/SAC; DDJJ/F22 siguen fuera del extractor
+de valores. El siguiente avance debe reconciliar calculos/semantica de valores,
+no declarar cierre.
+
+Nota 2026-06-15: La normalizacion anual posterior separa lineas comparables de
+lineas soporte. RLI/CPT se alimentan desde Libro Inventario y resultado contable
+con mappings sobre varios clasificadores DJ1847, y `source_payload` declara que
+artefactos finales puede comparar cada linea. RAI/SAC quedan preparados como
+registros revisables, no como igualdad final automatica. En la SQLite v2
+controlada se generan 44 lineas de balance anual, 7 lineas workbook y 9
+movimientos; el comparador pasa a 132 targets comparables, 102 presentes y 30
+ausentes, todos concentrados en `balance_general`. Esto elimina falsos
+faltantes no-balancearios sin cerrar Etapa 6: siguen pendientes Balance faltante,
+DDJJ/F22 semantico, bienes raices, soporte tributario y revision responsable.
+
+Nota 2026-06-15: La prueba espejo AC2024/AT2025 corrige la lectura de valores
+del Balance General esperado. El draft anual fusiona Libro Inventario con
+totales anuales de Libro Mayor para conservar sumas/saldos por cuenta, y el
+extractor de outputs esperados deja de aceptar espacios como separadores de
+miles despues de normalizar texto PDF, evitando tokens fusionados con codigos de
+cuenta o numeros de local. La comparacion v4 queda con 138 targets comparables,
+138 presentes y 0 ausentes, sin usar outputs finales como input ni guardar texto
+bruto, tokens crudos o montos. Etapa 6 sigue parcial por revision de artefactos
+generados y por falta de extractor semantico DDJJ/F22.
+
+Nota 2026-06-15: La comparacion v5 agrega semantica documental DDJJ/F22. El
+extractor acepta DDJJ solo si estan aceptadas y con folio, acepta F22 con folio,
+deduplica por formulario, ignora documentos rechazados/anulados o resumenes como
+objetivo final, y compara contra DDJJ/F22 preparados y layouts anuales
+preparados por LeaseManager. Resultado local AC2024/AT2025: 7/7 documentos
+DDJJ/F22 y 138/138 targets de valores comparables presentes, sin categorias
+esperadas sin soporte. La prueba espejo sigue parcial por revision de artefactos
+generados/responsable y gates finales, no por DDJJ/F22 semantico.
+
 Nota 2026-06-13: La investigacion local de EDIG AT2026 queda mapeada como
 referencia funcional no normativa en
 `docs/product/RENTA_ANUAL_EDIG_AT2026_MAPPING.md`, con runbook de sandbox en
@@ -100,6 +150,31 @@ boundary de regimen soportado. Una `ConfiguracionFiscalEmpresa` activa fuera de
 senales locales, pero bloquea `ready_for_company_accounting_review` y
 `ready_for_stage6_renta_anual` con issues especificos hasta que exista gate,
 ADR y validacion oficial/experta para ampliar el regimen automatizable.
+
+Nota 2026-06-15: Para Inmobiliaria Puig AC2024/AT2025 se agrega
+`build_annual_tax_source_manifest` como paso previo a la prueba espejo. El
+comando inventaria una carpeta externa en modo read-only, clasifica archivos
+como entradas, soportes o salidas esperadas, calcula hashes y produce un
+borrador no sensible de `AnnualTaxSourceBundle`. La corrida local contra
+`Ano_2024` confirma entrada minima para espejo desde libros cerrados: RCV 12/12,
+F29 12/12 controlado considerando meses sin declaracion, libros
+Diario/Mayor/Inventario como inputs, compra/venta 12/12, Balance General y
+registros RLI/CPT/RAI/Capital Propio/Rentas Empresariales como objetivos de
+comparacion, DDJJ 1835/1837/1847/1887/1926/1948 aceptadas y F22 presente. No
+carga DB, no copia documentos y no cierra renta: el siguiente paso es
+transformar ese manifiesto en carga controlada de cierres/hechos mensuales y
+generar artefactos LeaseManager para compararlos contra esos outputs esperados,
+sin usarlos como input de calculo.
+
+Nota 2026-06-15: Se agrega `build_annual_tax_controlled_load_plan` como plan
+ejecutable previo al loader DB. El plan mapea el manifiesto AC2024/AT2025 hacia
+modelos canonicos (`CierreMensualContable`, `LibroDiario`, `LibroMayor`,
+`BalanceComprobacion`, `ObligacionTributariaMensual`, `F29PreparacionMensual`,
+`MonthlyTaxFact`, `AnnualTaxTrialBalanceLine`) y confirma que Balance/RLI/CPT/
+RAI/DDJJ/F22 son comparacion, no insumo. La corrida real queda en
+`ready_for_db_load=false` porque faltan parser/carga manual controlada para
+libros anuales, F29 PDF y remuneraciones; pasos posteriores ya quedan
+trazados por writer DB local, run anual controlado y comparador de cobertura.
 
 Nota 2026-06-14: Etapa 6 agrega `AnnualTaxTrialBalance` como capa anual de
 balance de ocho columnas entre `BalanceComprobacion` y RLI/CPT/DJ1847.
@@ -2450,6 +2525,116 @@ en RLI/CPT/RAI/SAC/DDJJ/F22 mediante una capa anual intermedia. Esto refuerza
 que Etapa 6 debe aceptar fuente laboral/previsional revisable cuando aplique,
 pero no habilita payroll completo, copia de EDIG, reglas fiscales propias ni
 presentacion SII automatica.
+
+Nota 2026-06-15: Renta Anual/Etapa 6 agrega writer DB local controlado para la
+prueba espejo Inmobiliaria Puig AC2024/AT2025. `apply_annual_tax_controlled_db_load`
+acepta solo un paquete JSON normalizado, opera en dry-run salvo `--apply`,
+materializa cierres, libros, balance, obligaciones, F29 y MonthlyTaxFact, y
+rechaza Balance/RLI/CPT/RAI/DDJJ/F22 finales como insumos. La arquitectura aun
+no queda completa de punta a punta: faltan paquete normalizado desde fuentes
+AC2024, capa anual y comparacion contra outputs esperados.
+
+Nota 2026-06-15: Renta Anual/Etapa 6 agrega `ownership` al paquete controlado
+AC/AT. El writer valida fuente patrimonial no sensible, fecha `as_of`, socios
+con RUT valido, vigencias y porcentajes que suman 100.00%, y materializa
+`Socio` + `ParticipacionPatrimonial` en DB local/controlada. El mirror anual
+usa esas participaciones para registros RETIROS/DIVIDENDOS y elimina
+`participation_source_missing` cuando la fuente existe. Para Inmobiliaria Puig
+AC2024 real sigue pendiente localizar o cargar esa fuente societaria
+independiente; no se infiere desde cuentas de retiro ni desde F22/DDJJ finales.
+
+Nota 2026-06-15: `build_annual_tax_source_manifest` agrega
+`ownership_source_input` como insumo requerido para la prueba espejo anual. El
+manifiesto real AC2024/AT2025 confirma RCV 12/12, F29 controlado 12/12, DDJJ,
+F22, libros anuales y registros tributarios esperados completos, pero mantiene
+`ready_for_mirror_source_bundle=false` porque `ownership_source_present=false`.
+Esta regla adelanta el bloqueo al inventario de fuentes y evita iniciar una
+prueba anual completa sin fuente societaria independiente.
+
+Nota 2026-06-15: el manifiesto AC2024/AT2025 ahora distingue fuente societaria
+controlada de candidatos legales. Escrituras, extractos, inscripciones o Diario
+Oficial en contexto societario quedan como `ownership_source_candidate`
+soporte/revision, no como input de calculo. La corrida real encuentra 15
+candidatos (`ownership_source_candidate_present=true`) y mantiene
+`ownership_source_present=false`, por lo que la prueba anual sigue bloqueada
+hasta convertir una fuente suficiente en snapshot controlado de socios y
+participaciones vigentes. Las escrituras de propiedades no se clasifican como
+ownership societario.
+
+Nota 2026-06-15: `review_annual_tax_ownership_candidates` revisa esos
+candidatos sin texto bruto, RUTs ni nombres en el JSON. La corrida real
+AC2024/AT2025 confirma que los PDFs no entregan capa de texto util por
+`pdftotext`; quedan 10 documentos legales como
+`manual_review_required_legal_candidate`, 3 documentos nulos/sin efecto
+excluidos y 2 aportes/propiedades como soporte. Esto permite avanzar a OCR o
+revision manual controlada para preparar el snapshot, pero no cierra
+`ownership_source_input` ni genera socios/porcentajes automaticamente.
+
+Nota 2026-06-15: `build_annual_tax_ownership_snapshot_template` convierte esa
+revision en un template seguro para completar `ownership` despues de OCR o
+revision manual. La corrida real genera 10 fuentes candidatas, deja
+`participants=[]`, `ready_for_controlled_db_load=false` y
+`can_patch_controlled_db_load_package_after_manual_completion=true`. El template
+calza con el writer anual, pero exige completar socios, RUTs, porcentajes,
+vigencias y evidencia no sensible antes de cargar DB o ejecutar el mirror final.
+
+Nota 2026-06-15: `build_annual_tax_ownership_visual_review_packet` renderiza
+las primeras paginas de esos candidatos a PNG bajo `local-evidence` para OCR o
+revision manual. La corrida real genera 19 paginas de 10 candidatos, sin errores
+de render. Las imagenes pueden contener datos sensibles y no se versionan; el
+indice JSON conserva solo hashes, `path_ref`, tipos documentales y nombres de
+archivo locales. Este paquete deja preparada la revision visual, pero no cierra
+ownership ni autoriza DB hasta completar el template con fuente suficiente.
+
+Nota 2026-06-15: `audit_annual_tax_controlled_package_readiness` separa readiness
+de writer DB y readiness anual. El draft AC2024/AT2025 v3 queda con
+`ready_for_db_writer=true` y `missing_paths_count=0`, pero
+`ready_for_annual_generation=false` por `ownership_snapshot_missing`. Esta regla
+evita declarar completa la prueba espejo si faltan socios/participaciones
+vigentes, aunque la contabilidad mensual ya pueda cargarse.
+
+Nota 2026-06-15: Renta Anual/Etapa 6 agrega template de paquete normalizado
+AC2024/AT2025. `build_annual_tax_controlled_db_load_template` toma el
+manifiesto read-only, prearma 12 meses para carga controlada, separa refs de
+entrada y objetivos de comparacion, y no escribe DB. El siguiente trabajo es
+completar esos valores por parser o carga manual controlada y aplicar el
+writer local antes de generar/comparar artefactos AT2025.
+
+Nota 2026-06-15: Renta Anual/Etapa 6 agrega auditor de completitud para el
+paquete controlado AC2024/AT2025. `audit_annual_tax_controlled_package_readiness`
+lee un template/paquete JSON, no escribe DB, no lee documentos fuente y reporta
+campos faltantes antes del writer. Contra el template real Inmobiliaria Puig
+confirma 12 meses, sin meses faltantes y con objetivos de comparacion, pero
+mantiene `ready_for_db_writer=false` por 132 campos normalizados pendientes.
+
+Nota 2026-06-15: Renta Anual/Etapa 6 agrega draft de valores AC2024 y aplica
+writer local controlado para Inmobiliaria Puig. `build_annual_tax_controlled_values_draft`
+extrae Libro Diario, Libro Mayor, F29 y remuneraciones desde fuentes permitidas,
+rellena 176 campos, deja `ready_for_db_writer=true` y `apply_annual_tax_controlled_db_load`
+materializa 12 `MonthlyTaxFact` normalizados en SQLite local ignorado. El gate
+queda parcial porque faltan capacidades anuales DDJJ/F22, source bundle en DB,
+proceso anual, DDJJ/F22/documento soporte y comparacion contra outputs esperados.
+
+Nota 2026-06-15: Renta Anual/Etapa 6 agrega run anual controlado AC2024/AT2025.
+`AnnualTaxSourceBundle` diferencia meses con obligacion declarada de meses con
+hecho tributario mensual normalizado, permitiendo F29 `no_aplica` sin inventar
+obligaciones. `run_annual_tax_controlled_mirror` crea capacidades DDJJ/F22,
+TaxYearRuleSet, mappings, layouts, fuente de balance anual preview, bundle
+`snapshot_controlado`, ProcesoRentaAnual, DDJJ/F22, matriz, dossier, export y
+checklist sobre SQLite local ignorado. El gate ya no falla por falta de proceso
+anual, DDJJ/F22 o source bundle; queda parcial por revision tributaria, bienes
+raices/respaldo y comparador de valores pendiente.
+
+Nota 2026-06-15: Renta Anual/Etapa 6 agrega comparador de cobertura de outputs
+esperados AC2024/AT2025. `compare_annual_tax_expected_outputs` lee el
+manifiesto y la DB local/controlada, no escribe DB, no usa SII real y mantiene
+Balance/RLI/CPT/RAI/DDJJ/F22 finales como comparacion, no como input. Contra
+SQLite local de Inmobiliaria Puig confirma cobertura completa de balance
+tributario, workbooks CPT/RLI, registros DIVIDENDOS/RAI/RETIROS/SAC, DDJJ
+1835/1837/1847/1887/1926/1948 y F22. La prueba espejo sigue parcial por
+warnings/revision de artefactos generados y gates finales; la comparacion v5 ya
+cubre semantica documental DDJJ/F22 y presencia de 138/138 valores comparables
+sin usar outputs finales como input.
 
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |
