@@ -43,6 +43,18 @@ Un proceso preparado sin source bundle congelado conserva la brecha
 `company_accounting.annual_process_source_bundle_missing`; no desbloquea
 revision contable/renta ni cierre tributario final por si solo.
 
+Nota 2026-06-16: El mirror anual conserva esa marca al regenerar
+`MonthlyTaxFact` desde cierres aprobados. Si un mes no tiene
+`F29PreparacionMensual` pero el hecho mensual existente contiene F29
+`no_aplica` + `no_declaration=true`, `sync_monthly_tax_facts` preserva ese
+payload controlado. Con una SQLite local AC2024/AT2025 regenerada, el writer
+carga 12 meses, `run_annual_tax_controlled_mirror` genera `ProcesoRentaAnual`,
+balance anual, RLI/CPT, dossier y export, y
+`audit_company_accounting_progress` queda `classification=preparado`,
+`progress_percent=100`, `f29_monthly=12/12`. Esto sigue siendo preparacion
+revisable: Etapa 6 no se declara cerrada sin revision de warnings, bienes
+raices/comparacion semantica y validacion experta/oficial.
+
 Nota 2026-06-16: DJ1887/remuneraciones queda como boundary de fuente
 laboral-previsional para Etapa 6. Si el manifiesto AC/AT detecta DJ1887
 aceptada, `labor_previsional_source` pasa a requerido: falta de
