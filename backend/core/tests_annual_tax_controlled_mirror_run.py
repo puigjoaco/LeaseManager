@@ -15,6 +15,7 @@ from core.annual_tax_controlled_db_load import (
     apply_annual_tax_controlled_db_load,
 )
 from core.annual_tax_controlled_mirror_run import run_annual_tax_controlled_mirror
+from core.company_accounting_progress import collect_company_accounting_progress
 from core.stage6_renta_anual_readiness import collect_stage6_renta_anual_readiness
 from documentos.models import DocumentoEmitido, EstadoDocumento, TipoDocumental
 from patrimonio.models import Empresa, TipoInmueble
@@ -30,6 +31,7 @@ from sii.models import (
     EstadoGateSII,
     F22PreparacionAnual,
     ProcesoRentaAnual,
+    MonthlyTaxFact,
 )
 
 
@@ -227,6 +229,16 @@ class AnnualTaxControlledMirrorRunTests(TestCase):
         self.assertEqual(bundle.source_label, 'inmobiliaria-puig-ac2024-controlled-writer')
         self.assertEqual(bundle.resumen_fuentes['monthly_tax_fact_months'], list(range(1, 13)))
         self.assertEqual(bundle.resumen_fuentes['obligation_months'], [1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
+        february = MonthlyTaxFact.objects.get(empresa=empresa, anio=2024, mes=2)
+        self.assertIsNone(february.f29_preparacion)
+        self.assertEqual(
+            february.resumen_hecho['f29']['estado_preparacion'],
+            EstadoPreparacionTributaria.NOT_APPLICABLE,
+        )
+        self.assertTrue(february.resumen_hecho['f29']['resumen']['no_declaration'])
+        progress = collect_company_accounting_progress(empresa_id=empresa.id, fiscal_year=2024)
+        self.assertEqual(progress['phases']['f29_monthly']['completed'], 12)
+        self.assertEqual(progress['phases']['f29_monthly']['missing'], [])
 
     def test_controlled_mirror_emits_valid_tax_support_document(self):
         empresa = self._create_empresa()

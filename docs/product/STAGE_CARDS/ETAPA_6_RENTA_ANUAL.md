@@ -383,6 +383,14 @@ sin source bundle congelado se reporta como
 `company_accounting.annual_process_source_bundle_missing`, porque la preparacion
 anual debe nacer de fuentes congeladas antes de tratarse como expediente
 revisable.
+La sincronizacion anual de hechos mensuales conserva esa condicion: si
+`run_annual_tax_controlled_mirror` vuelve a ejecutar `sync_monthly_tax_facts`
+y no existe `F29PreparacionMensual` para un mes, pero el hecho mensual vigente
+trae F29 `no_aplica` + `no_declaration=true`, la marca controlada se preserva
+en el nuevo payload y el progreso no vuelve a degradarse a F29 faltante. En la
+prueba AC2024/AT2025 regenerada, el expediente queda 100% preparado para
+revision responsable despues del mirror anual, sin declarar cierre tributario
+final ni presentacion SII.
 Tanto el selector como el auditor por empresa exponen si la configuracion
 fiscal activa pertenece al regimen automatizable v1
 `EmpresaContabilidadCompletaV1`; si no corresponde, conservan las senales

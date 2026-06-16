@@ -1036,6 +1036,28 @@ def sync_annual_tax_trial_balance(process, rule_set, source_bundle):
     return trial_balance
 
 
+def _controlled_no_declaration_f29_payload(existing_fact: MonthlyTaxFact | None) -> dict | None:
+    if existing_fact is None or not isinstance(existing_fact.resumen_hecho, dict):
+        return None
+    f29_payload = existing_fact.resumen_hecho.get('f29')
+    if not isinstance(f29_payload, dict):
+        return None
+    resumen = f29_payload.get('resumen')
+    if (
+        f29_payload.get('estado_preparacion') == EstadoPreparacionTributaria.NOT_APPLICABLE
+        and isinstance(resumen, dict)
+        and resumen.get('no_declaration') is True
+    ):
+        return {
+            'estado_preparacion': EstadoPreparacionTributaria.NOT_APPLICABLE,
+            'resumen': {
+                'no_declaration': True,
+                'source': str(resumen.get('source') or 'preserved_monthly_tax_fact'),
+            },
+        }
+    return None
+
+
 def sync_monthly_tax_facts(empresa, fiscal_year):
     closes = CierreMensualContable.objects.filter(
         empresa=empresa,
@@ -1057,6 +1079,12 @@ def sync_monthly_tax_facts(empresa, fiscal_year):
             anio=fiscal_year,
             mes=close.mes,
         ).order_by('-id').first()
+        existing_fact = MonthlyTaxFact.objects.filter(
+            empresa=empresa,
+            anio=fiscal_year,
+            mes=close.mes,
+        ).first()
+        controlled_no_declaration_f29 = None if f29 else _controlled_no_declaration_f29_payload(existing_fact)
         distributions = list(
             DistribucionCobroMensual.objects.filter(
                 beneficiario_empresa_owner=empresa,
@@ -1133,6 +1161,8 @@ def sync_monthly_tax_facts(empresa, fiscal_year):
                 for line in liquidation_lines
             ],
         }
+        if controlled_no_declaration_f29 is not None:
+            payload['f29'] = controlled_no_declaration_f29
         fact, _ = MonthlyTaxFact.objects.update_or_create(
             empresa=empresa,
             anio=fiscal_year,
