@@ -195,11 +195,13 @@ canonica compatible y no usa copias posteriores como insumo AC2024. Con
 `ownership` local controlado desde fuente societaria revisada, la prueba espejo
 AC2024/AT2025 ya pasa writer y mirror anual (`ready_for_annual_generation=true`)
 y genera ProcesoRentaAnual, DDJJ/F22 preparados, matriz, dossier, export y
-checklist. El gate Etapa 6 queda parcial solo por dos frentes de cierre:
-`AnnualRealEstateItem` activo en la seccion anual de bienes raices y
-`TaxSupportDocument` usable como respaldo tributario. Ownership, DDJJ/F22
-semantico, Balance General y RLI/CPT/RAI/SAC comparables no deben reabrirse
-como bloqueo general salvo bug nuevo.
+checklist. El mirror tambien emite `TaxSupportDocument` como
+`DocumentoEmitido` de tipo `respaldo_tributario`, usando el generador PDF
+canonico de Documentos con preview auditada y checksum de contenido. El gate
+Etapa 6 queda parcial por un unico frente de cierre: `AnnualRealEstateItem`
+activo en la seccion anual de bienes raices. Ownership, respaldo tributario,
+DDJJ/F22 semantico, Balance General y RLI/CPT/RAI/SAC comparables no deben
+reabrirse como bloqueo general salvo bug nuevo.
 `MonthlyTaxFact` materializa la capa mensual anualizable: por cada empresa,
 ano comercial y mes normaliza el cierre aprobado, obligaciones mensuales,
 F29 si existe, distribuciones de arriendo y liquidacion de empresa, con

@@ -15,6 +15,8 @@ from core.annual_tax_controlled_db_load import (
     apply_annual_tax_controlled_db_load,
 )
 from core.annual_tax_controlled_mirror_run import run_annual_tax_controlled_mirror
+from core.stage6_renta_anual_readiness import collect_stage6_renta_anual_readiness
+from documentos.models import DocumentoEmitido, EstadoDocumento, TipoDocumental
 from patrimonio.models import Empresa
 from sii.models import (
     AnnualEnterpriseRegisterMovement,
@@ -202,6 +204,42 @@ class AnnualTaxControlledMirrorRunTests(TestCase):
         self.assertEqual(bundle.source_label, 'inmobiliaria-puig-ac2024-controlled-writer')
         self.assertEqual(bundle.resumen_fuentes['monthly_tax_fact_months'], list(range(1, 13)))
         self.assertEqual(bundle.resumen_fuentes['obligation_months'], [1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
+
+    def test_controlled_mirror_emits_valid_tax_support_document(self):
+        empresa = self._create_empresa()
+        self._load_monthly_package(empresa, package=self._with_ownership(self._package()))
+
+        result = run_annual_tax_controlled_mirror(
+            **self._mirror_kwargs(empresa),
+            write_database=True,
+        )
+
+        document = DocumentoEmitido.objects.get(tipo_documental=TipoDocumental.TAX_SUPPORT)
+        self.assertEqual(document.estado, EstadoDocumento.ISSUED)
+        self.assertEqual(document.origen, 'generado_sistema')
+        self.assertEqual(document.version_plantilla, 'stage6-v1')
+        self.assertEqual(document.expediente.entidad_tipo, 'proceso_renta_anual')
+        self.assertEqual(document.expediente.entidad_id, str(result['process_id']))
+        self.assertRegex(document.checksum, r'^[0-9a-f]{64}$')
+        self.assertTrue(
+            document.storage_ref.startswith('storage/generated-documents/respaldo_tributario/stage6-v1-')
+        )
+        self.assertTrue(document.storage_ref.endswith('.pdf'))
+        document.full_clean()
+
+        gate = collect_stage6_renta_anual_readiness(
+            stage5_evidence_ref='stage5-ledger-year-controlled-v1',
+            stage4_sii_evidence_ref='stage4-sii-annual-controlled-v1',
+            fiscal_rule_ref='ac2024-tax-rule-review-pending',
+            certificates_proof_ref='ac2024-certificates-proof-pending',
+            responsible_ref='stage6-responsibles-v1',
+            source_label='inmobiliaria-puig-ac2024-controlled-writer',
+            authorization_ref='user-authorized-local-source-review',
+            source_kind='snapshot_controlado',
+        )
+        issue_codes = {issue['code'] for issue in gate['issues']}
+        self.assertNotIn('stage6.tax_support_document_missing', issue_codes)
+        self.assertIn('stage6.real_estate_item_missing', issue_codes)
 
     def test_controlled_mirror_uses_ownership_snapshot_for_participation_registers(self):
         empresa = self._create_empresa()

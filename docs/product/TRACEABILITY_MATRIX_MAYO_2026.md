@@ -87,6 +87,14 @@ Etapa 6 queda parcial por solo dos bloqueos concretos: item anual de bienes
 raices y respaldo tributario usable. No reabrir ownership, DDJJ/F22 semantico,
 Balance ni RLI/CPT/RAI/SAC comparable salvo bug nuevo.
 
+Nota 2026-06-16: El mirror anual controlado ahora emite un
+`DocumentoEmitido` de tipo `respaldo_tributario` con plantilla `stage6-v1`
+desde el generador PDF canonico de Documentos, con preview auditada, checksum
+de contenido y alcance local revisable. La corrida AC2024/AT2025 sobre SQLite
+local ignorada confirma 1 respaldo emitido y el gate Etapa 6 queda parcial por
+un unico bloqueo: `stage6.real_estate_item_missing`. El respaldo no es formato
+oficial SII, no registra presentacion y no constituye calculo tributario final.
+
 Nota 2026-06-13: La investigacion local de EDIG AT2026 queda mapeada como
 referencia funcional no normativa en
 `docs/product/RENTA_ANUAL_EDIG_AT2026_MAPPING.md`, con runbook de sandbox en

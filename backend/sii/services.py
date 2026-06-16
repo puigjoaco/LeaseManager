@@ -3,6 +3,7 @@ import json
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 
+from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import Q
@@ -21,6 +22,22 @@ from contabilidad.models import (
 )
 from cobranza.models import DistribucionCobroMensual
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
+from documentos.models import (
+    DocumentoEmitido,
+    EstadoDocumento,
+    EstadoPlantillaDocumental,
+    EstadoPoliticaFirma,
+    ExpedienteDocumental,
+    ModoFirmaPermitido,
+    PlantillaDocumental,
+    PoliticaFirmaYNotaria,
+    TipoDocumental,
+)
+from documentos.pdf_generation import (
+    build_generated_pdf_payload,
+    emit_generated_pdf_document,
+    preview_generated_pdf_document,
+)
 
 from .models import (
     AnnualEnterpriseRegisterMovement,
@@ -94,6 +111,7 @@ DTE_STATUS_QUERY_STATES = {
     EstadoDTE.REJECTED,
     EstadoDTE.CANCELED,
 }
+ANNUAL_TAX_SUPPORT_TEMPLATE_VERSION = 'stage6-v1'
 
 TAX_STATUS_REQUIRING_REF = {
     EstadoPreparacionTributaria.APPROVED,
@@ -3258,6 +3276,151 @@ def sync_annual_tax_review_checklist(process, rule_set, source_bundle):
     return checklist
 
 
+def _ensure_annual_tax_support_policy_and_template():
+    policy, _ = PoliticaFirmaYNotaria.objects.get_or_create(
+        tipo_documental=TipoDocumental.TAX_SUPPORT,
+        defaults={
+            'requiere_firma_arrendador': False,
+            'requiere_firma_arrendatario': False,
+            'requiere_codeudor': False,
+            'requiere_notaria': False,
+            'modo_firma_permitido': ModoFirmaPermitido.SIMPLE,
+            'estado': EstadoPoliticaFirma.ACTIVE,
+        },
+    )
+    if policy.estado != EstadoPoliticaFirma.ACTIVE:
+        raise ValueError('Respaldo tributario requiere PoliticaFirmaYNotaria activa.')
+
+    template, _ = PlantillaDocumental.objects.get_or_create(
+        tipo_documental=TipoDocumental.TAX_SUPPORT,
+        version_plantilla=ANNUAL_TAX_SUPPORT_TEMPLATE_VERSION,
+        defaults={
+            'plantilla_ref': 'templates/respaldo_tributario/stage6-v1',
+            'checksum_plantilla': _source_bundle_hash(
+                {
+                    'template': 'annual_tax_support_document',
+                    'version': ANNUAL_TAX_SUPPORT_TEMPLATE_VERSION,
+                    'scope': 'controlled-preview',
+                }
+            ),
+            'descripcion': 'Plantilla controlada para respaldo tributario anual revisable.',
+            'estado': EstadoPlantillaDocumental.ACTIVE,
+        },
+    )
+    if template.estado != EstadoPlantillaDocumental.ACTIVE:
+        raise ValueError('Respaldo tributario requiere PlantillaDocumental activa.')
+    return policy, template
+
+
+def _annual_tax_support_actor_user():
+    UserModel = get_user_model()
+    user, created = UserModel.objects.get_or_create(
+        username='system-annual-tax-support',
+        defaults={'is_active': True},
+    )
+    if created:
+        user.set_unusable_password()
+        user.save(update_fields=['password'])
+    return user
+
+
+def _annual_tax_support_expediente(process):
+    expediente, _ = ExpedienteDocumental.objects.get_or_create(
+        entidad_tipo='proceso_renta_anual',
+        entidad_id=str(process.pk),
+        defaults={'owner_operativo': 'tributario-stage6'},
+    )
+    try:
+        expediente.full_clean()
+    except ValidationError as error:
+        reason = _first_validation_error(error)
+        raise ValueError(f'ExpedienteDocumental de respaldo tributario no cumple validacion: {reason}') from error
+    return expediente
+
+
+def _annual_tax_support_lines(process, source_bundle, dossier, annual_export, checklist):
+    return [
+        f'Proceso renta anual: proceso-renta-anual-{process.pk}',
+        f'Empresa ref: empresa-{process.empresa_id}',
+        f'AT {process.anio_tributario} / AC {process.anio_tributario - 1}',
+        f'Source bundle: {source_bundle.pk} hash {str(source_bundle.hash_fuentes or "")[:16]}',
+        f'Dossier: {dossier.pk} hash {str(dossier.hash_dossier or "")[:16]}',
+        f'Export preview: {annual_export.pk} hash {str(annual_export.hash_export or "")[:16]}',
+        f'Checklist: {checklist.pk} complete {checklist.completed_items_total}/{checklist.items_total}',
+        f'Checklist blockers: {checklist.blockers_total} warnings: {checklist.warnings_total}',
+        f'Matriz items: {dossier.artifact_matrix.items_total}',
+        f'DDJJ items: {dossier.artifact_matrix.ddjj_items_total}',
+        f'F22 items: {dossier.artifact_matrix.f22_items_total}',
+        'Alcance: preparacion local controlada y revisable.',
+        'No acredita formato oficial SII.',
+        'No registra presentacion SII.',
+        'No es calculo tributario final.',
+    ]
+
+
+def sync_annual_tax_support_document(process):
+    source_bundle = process.source_bundle
+    if source_bundle is None:
+        raise ValueError('Respaldo tributario requiere AnnualTaxSourceBundle enlazado al proceso.')
+    dossier = AnnualTaxDossier.objects.get(
+        proceso_renta_anual=process,
+        estado=EstadoAnnualTaxDossier.PREPARED,
+    )
+    annual_export = AnnualTaxExport.objects.get(
+        proceso_renta_anual=process,
+        estado=EstadoAnnualTaxExport.PREPARED,
+        export_kind=TipoAnnualTaxExport.PREVIEW_PACKAGE,
+    )
+    checklist = AnnualTaxReviewChecklist.objects.get(
+        proceso_renta_anual=process,
+        estado=EstadoAnnualTaxReviewChecklist.PREPARED,
+    )
+    _ensure_annual_tax_support_policy_and_template()
+    expediente = _annual_tax_support_expediente(process)
+    actor_user = _annual_tax_support_actor_user()
+    title = f'Respaldo tributario controlado AT{process.anio_tributario}'
+    lines = _annual_tax_support_lines(process, source_bundle, dossier, annual_export, checklist)
+    payload = build_generated_pdf_payload(
+        tipo_documental=TipoDocumental.TAX_SUPPORT,
+        version_plantilla=ANNUAL_TAX_SUPPORT_TEMPLATE_VERSION,
+        titulo=title,
+        lineas=lines,
+    )
+    existing = DocumentoEmitido.objects.filter(
+        expediente=expediente,
+        tipo_documental=TipoDocumental.TAX_SUPPORT,
+        version_plantilla=ANNUAL_TAX_SUPPORT_TEMPLATE_VERSION,
+        checksum=payload['checksum'],
+        storage_ref=payload['storage_ref'],
+        estado__in=[EstadoDocumento.ISSUED, EstadoDocumento.FORMALIZED, EstadoDocumento.ARCHIVED],
+    ).first()
+    if existing is not None:
+        try:
+            existing.full_clean()
+        except ValidationError as error:
+            reason = _first_validation_error(error)
+            raise ValueError(f'DocumentoEmitido de respaldo tributario no cumple validacion: {reason}') from error
+        return existing
+
+    preview_generated_pdf_document(
+        expediente=expediente,
+        tipo_documental=TipoDocumental.TAX_SUPPORT,
+        version_plantilla=ANNUAL_TAX_SUPPORT_TEMPLATE_VERSION,
+        titulo=title,
+        lineas=lines,
+        actor_user=actor_user,
+    )
+    document, _pdf_bytes = emit_generated_pdf_document(
+        expediente=expediente,
+        tipo_documental=TipoDocumental.TAX_SUPPORT,
+        version_plantilla=ANNUAL_TAX_SUPPORT_TEMPLATE_VERSION,
+        titulo=title,
+        lineas=lines,
+        actor_user=actor_user,
+    )
+    return document
+
+
 def freeze_annual_tax_source_bundle(
     empresa,
     anio_tributario,
@@ -3479,6 +3642,7 @@ def generate_annual_preparation(empresa, anio_tributario):
     summary = build_annual_summary(empresa, fiscal_year, rule_set, source_bundle, process=process)
     process.resumen_anual = summary
     process.save(update_fields=['resumen_anual', 'updated_at'])
+    sync_annual_tax_support_document(process)
     return process, ddjj, f22
 
 
