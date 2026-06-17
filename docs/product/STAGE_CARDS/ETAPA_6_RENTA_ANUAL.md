@@ -153,6 +153,14 @@ visual opcional se regeneran bajo `local-evidence/` con una sola orden. Esto no
 desbloquea `ownership` por si mismo ni genera participantes; evita que la etapa
 dependa de artefactos locales perdidos y mantiene el siguiente paso en
 revision/OCR y aprobacion responsable.
+`validate_annual_tax_ownership_patch` valida el patch local completado contra
+ese template antes de inyectarlo al paquete controlado. El comando rechaza
+patches versionados fuera de `local-evidence/`, no escribe DB y emite solo un
+reporte redactado con hashes de referencias no sensibles, conteos, porcentaje
+total y rutas faltantes/invalidas. En la evidencia real AC2024/AT2025, el patch
+pendiente queda correctamente bloqueado por `$.ownership.participants` vacio:
+la arquitectura esta lista para recibir ownership controlado, pero no inventa
+socios, RUTs ni porcentajes desde F22/DDJJ, registros finales o inferencia.
 `build_annual_tax_controlled_load_plan` traduce ese manifiesto a un plan de
 carga contra modelos canonicos de LeaseManager sin escribir DB: cierres,
 libros, balance, obligaciones, F29, hechos mensuales y balance tributario
