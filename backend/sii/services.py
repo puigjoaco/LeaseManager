@@ -125,6 +125,7 @@ ANNUAL_TAX_SUPPORT_TEMPLATE_VERSION = 'stage6-v1'
 ANNUAL_TAX_EXPORT_FILE_PACKAGE_VERSION = 'annual-tax-export-file-package-v1'
 ANNUAL_TAX_EXPORT_FILE_PACKAGE_MANIFEST_VERSION = 'annual-tax-export-file-package-manifest-v1'
 ANNUAL_TAX_F22_FIXED_WIDTH_CANDIDATE_VERSION = 'annual-tax-f22-fixed-width-candidate-v1'
+F22_FIXED_WIDTH_ENTRY_REVIEW_STATES = {'approved_for_candidate', 'aprobado_para_candidato'}
 
 TAX_STATUS_REQUIRING_REF = {
     EstadoPreparacionTributaria.APPROVED,
@@ -3802,6 +3803,8 @@ def sync_annual_tax_export(process, rule_set, source_bundle):
 def _normalize_f22_fixed_width_entry(entry):
     if not isinstance(entry, dict):
         raise ValueError('Cada entrada F22 fixed-width debe ser un objeto.')
+    if contains_sensitive_reference(entry):
+        raise ValueError('Cada entrada F22 fixed-width debe usar referencias no sensibles.')
     raw_code = str(
         entry.get('code')
         or entry.get('codigo')
@@ -3827,10 +3830,42 @@ def _normalize_f22_fixed_width_entry(entry):
         value = '0'
     if len(value) > 15:
         raise ValueError('valor F22 fixed-width excede 15 caracteres.')
+    review_state = str(entry.get('review_state') or '').strip().lower()
+    if review_state not in F22_FIXED_WIDTH_ENTRY_REVIEW_STATES:
+        raise ValueError('Cada entrada F22 fixed-width requiere review_state approved_for_candidate.')
+    code_source_ref = str(
+        entry.get('code_source_ref')
+        or entry.get('codigo_source_ref')
+        or entry.get('instruction_source_ref')
+        or ''
+    ).strip()
+    value_source_ref = str(
+        entry.get('value_source_ref')
+        or entry.get('valor_source_ref')
+        or entry.get('amount_source_ref')
+        or ''
+    ).strip()
+    responsible_review_ref = str(
+        entry.get('responsible_review_ref')
+        or entry.get('responsible_ref')
+        or entry.get('reviewed_by_ref')
+        or ''
+    ).strip()
+    for field_name, field_value in (
+        ('code_source_ref', code_source_ref),
+        ('value_source_ref', value_source_ref),
+        ('responsible_review_ref', responsible_review_ref),
+    ):
+        if not is_non_sensitive_reference(field_value):
+            raise ValueError(f'Cada entrada F22 fixed-width requiere {field_name} no sensible.')
     return {
         'code': raw_code,
         'sign': sign,
         'value': value,
+        'review_state': review_state,
+        'code_source_ref': code_source_ref,
+        'value_source_ref': value_source_ref,
+        'responsible_review_ref': responsible_review_ref,
     }
 
 
@@ -3878,6 +3913,22 @@ def build_annual_tax_f22_fixed_width_export_candidate(
         raise ValueError('El candidato F22 fixed-width requiere entradas F22 revisadas explicitamente.')
 
     normalized_entries = [_normalize_f22_fixed_width_entry(entry) for entry in entries]
+    f22_codes = [entry['code'] for entry in normalized_entries]
+    if len(set(f22_codes)) != len(f22_codes):
+        raise ValueError('El candidato F22 fixed-width no permite codigos F22 duplicados.')
+    entry_review_evidence = []
+    for entry in normalized_entries:
+        evidence = {
+            'code': entry['code'],
+            'sign': entry['sign'],
+            'review_state': entry['review_state'],
+            'code_source_ref': entry['code_source_ref'],
+            'value_source_ref': entry['value_source_ref'],
+            'responsible_review_ref': entry['responsible_review_ref'],
+            'value_hash': hashlib.sha256(entry['value'].encode('ascii')).hexdigest(),
+        }
+        evidence['entry_hash'] = hashlib.sha256(_canonical_json_bytes(evidence)).hexdigest()
+        entry_review_evidence.append(evidence)
     type1_records = [
         build_f22_type1_record(normalized_entries[index:index + 4])
         for index in range(0, len(normalized_entries), 4)
@@ -3932,7 +3983,12 @@ def build_annual_tax_f22_fixed_width_export_candidate(
         'type0_records_total': 1,
         'type1_records_total': len(type1_records),
         'f22_codes_total': len(normalized_entries),
-        'f22_codes': [entry['code'] for entry in normalized_entries],
+        'f22_codes': f22_codes,
+        'f22_entry_review_evidence_total': len(entry_review_evidence),
+        'f22_entry_review_evidence': entry_review_evidence,
+        'f22_entry_review_evidence_hash': hashlib.sha256(
+            _canonical_json_bytes(entry_review_evidence)
+        ).hexdigest(),
         'content_hash': hashlib.sha256(content_bytes).hexdigest(),
         'content_size_bytes': len(content_bytes),
         'line_hashes': [hashlib.sha256(record.encode('ascii')).hexdigest() for record in records],
@@ -4028,6 +4084,33 @@ def verify_annual_tax_f22_fixed_width_export_candidate(candidate, package_dir):
         or summary.get('final_tax_calculation') not in (False, None)
     ):
         raise ValueError('El candidato F22 fixed-width no puede declarar formato oficial, presentacion SII ni calculo final.')
+    evidence_entries = summary.get('f22_entry_review_evidence')
+    if (
+        not isinstance(evidence_entries, list)
+        or len(evidence_entries) != int(summary.get('f22_codes_total') or 0)
+        or len(evidence_entries) != len(summary.get('f22_codes') or [])
+    ):
+        raise ValueError('El candidato F22 fixed-width requiere evidencia de revision por cada codigo F22.')
+    evidence_hash = hashlib.sha256(_canonical_json_bytes(evidence_entries)).hexdigest()
+    if evidence_hash != summary.get('f22_entry_review_evidence_hash'):
+        raise ValueError('La evidencia de revision F22 fixed-width no coincide con su hash esperado.')
+    seen_codes = set()
+    for evidence, code in zip(evidence_entries, summary.get('f22_codes') or []):
+        if not isinstance(evidence, dict) or evidence.get('code') != code:
+            raise ValueError('La evidencia de revision F22 fixed-width no coincide con los codigos del candidato.')
+        if code in seen_codes:
+            raise ValueError('El candidato F22 fixed-width no permite codigos F22 duplicados.')
+        seen_codes.add(code)
+        if evidence.get('review_state') not in F22_FIXED_WIDTH_ENTRY_REVIEW_STATES:
+            raise ValueError('La evidencia F22 fixed-width requiere review_state approved_for_candidate.')
+        for field_name in ('code_source_ref', 'value_source_ref', 'responsible_review_ref'):
+            if not is_non_sensitive_reference(evidence.get(field_name)):
+                raise ValueError(f'La evidencia F22 fixed-width requiere {field_name} no sensible.')
+        expected_entry_hash = hashlib.sha256(
+            _canonical_json_bytes({key: value for key, value in evidence.items() if key != 'entry_hash'})
+        ).hexdigest()
+        if evidence.get('entry_hash') != expected_entry_hash:
+            raise ValueError('La evidencia F22 fixed-width contiene entry_hash invalido.')
     return {
         'verified': True,
         'candidate_version': summary.get('candidate_version'),
@@ -4036,6 +4119,7 @@ def verify_annual_tax_f22_fixed_width_export_candidate(candidate, package_dir):
         'content_hash': summary.get('content_hash'),
         'records_total': len(actual_records),
         'f22_codes_total': int(summary.get('f22_codes_total') or 0),
+        'f22_entry_review_evidence_total': len(evidence_entries),
         'official_format': False,
         'sii_submission': False,
         'final_tax_calculation': False,
