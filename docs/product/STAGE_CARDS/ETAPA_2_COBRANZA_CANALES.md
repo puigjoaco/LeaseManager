@@ -292,7 +292,11 @@ condicionados sin envios reales accidentales.
   Todo intento WebPay bloqueado o fallido requiere `motivo_bloqueo` operativo,
   normalizado, no vacio y no sensible; la readiness reporta
   `stage2.webpay_intent.block_reason_missing` para snapshots heredados sin esa
-  razon trazable.
+  razon trazable. Marcar un intento preparado como `fallido` queda como servicio
+  local transaccional: exige actor, motivo operativo, resolucion manual y evento
+  `cobranza.webpay_intento.failed` completo; la readiness reporta
+  `stage2.webpay_intent.failed_event_missing` para fallos heredados sin esa
+  auditoria alineada.
   `provider_payload` no puede contener URLs, tokens, credenciales, correos ni
   claves sensibles; `motivo_bloqueo` de intentos WebPay tampoco puede contener
   referencias sensibles; `restricciones_operativas` del gate WebPay aplica la
@@ -377,6 +381,7 @@ condicionados sin envios reales accidentales.
   UF manual sin evento auditable, refs sensibles en gates, `external_ref`, `return_url_ref`,
   `motivo_bloqueo` o `provider_payload` sensible en intentos WebPay,
   intentos WebPay bloqueados o fallidos sin motivo operativo trazable,
+  intentos WebPay fallidos sin auditoria completa y alineada,
   intentos WebPay confirmados desalineados con el
   pago mensual o sin auditoria manual completa y alineada, pagos pendientes
   vencidos, mora desactualizada, efecto de

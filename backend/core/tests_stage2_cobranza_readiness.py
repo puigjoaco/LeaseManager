@@ -47,6 +47,7 @@ from cobranza.models import (
     PagoMensual,
     RepactacionDeuda,
     ValorUFDiario,
+    WEBPAY_FAILED_EVENT_TYPE,
     WEBPAY_MANUAL_CONFIRM_EVENT_TYPE,
     WEBPAY_PREPARE_EVENT_TYPE,
 )
@@ -2817,6 +2818,68 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage2_cobranza'])
         self.assertIn('stage2.webpay_intent.block_reason_missing', issue_codes)
         self.assertEqual(result['sections']['webpay']['block_reason_missing'], 1)
+
+    def test_failed_webpay_intent_without_failure_audit_event_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        webpay_gate = self._create_valid_webpay_gate()
+        IntentoPagoWebPay.objects.create(
+            pago_mensual=fixture['payment'],
+            gate_cobro=webpay_gate,
+            provider_key='transbank_webpay',
+            monto_clp_snapshot=fixture['payment'].monto_calculado_clp,
+            buy_order='LM-PM-STAGE2-FAIL-AUDIT',
+            session_id='LM-WP-STAGE2-FAIL-AUDIT',
+            return_url_ref='webpay-return-controlled-v1',
+            estado=EstadoIntentoPagoWebPay.FAILED,
+            motivo_bloqueo='Proveedor reporto rechazo controlado.',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.webpay_intent.failed_event_missing', issue_codes)
+        self.assertEqual(result['sections']['webpay']['failed_event_missing'], 1)
+
+    def test_failed_webpay_intent_with_aligned_failure_audit_event_is_accepted(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        webpay_gate = self._create_valid_webpay_gate()
+        intent = IntentoPagoWebPay.objects.create(
+            pago_mensual=fixture['payment'],
+            gate_cobro=webpay_gate,
+            provider_key='transbank_webpay',
+            monto_clp_snapshot=fixture['payment'].monto_calculado_clp,
+            buy_order='LM-PM-STAGE2-FAIL-AUDIT-OK',
+            session_id='LM-WP-STAGE2-FAIL-AUDIT-OK',
+            return_url_ref='webpay-return-controlled-v1',
+            estado=EstadoIntentoPagoWebPay.FAILED,
+            motivo_bloqueo='Proveedor reporto rechazo controlado.',
+        )
+        AuditEvent.objects.create(
+            event_type=WEBPAY_FAILED_EVENT_TYPE,
+            entity_type='webpay_intento',
+            entity_id=str(intent.pk),
+            summary='Intento WebPay marcado fallido con motivo operativo',
+            actor_identifier='stage2-webpay-auditor',
+            metadata={
+                'estado': EstadoIntentoPagoWebPay.FAILED,
+                'pago_mensual_id': fixture['payment'].pk,
+                'gate_cobro_id': webpay_gate.pk,
+                'provider_key': 'transbank_webpay',
+                'return_url_ref': 'webpay-return-controlled-v1',
+                'motivo_bloqueo': 'Proveedor reporto rechazo controlado.',
+                'buy_order': 'LM-PM-STAGE2-FAIL-AUDIT-OK',
+                'session_id': 'LM-WP-STAGE2-FAIL-AUDIT-OK',
+            },
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertNotIn('stage2.webpay_intent.failed_event_missing', issue_codes)
+        self.assertEqual(result['sections']['webpay'].get('failed_event_missing', 0), 0)
 
     def test_channel_gate_with_sensitive_reference_is_blocking(self):
         self._create_payment_matrix()

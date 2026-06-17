@@ -32,6 +32,7 @@ from .models import (
     RepactacionDeuda,
     TipoMovimientoGarantia,
     ValorUFDiario,
+    WEBPAY_FAILED_EVENT_TYPE,
     WEBPAY_MANUAL_CONFIRM_EVENT_TYPE,
     WEBPAY_PREPARE_EVENT_TYPE,
     payment_state_transition_error,
@@ -761,16 +762,22 @@ def get_or_create_webpay_gate(provider_key='transbank_webpay'):
 
 def ensure_manual_resolution_for_webpay_intent(intent, summary, *, actor_user=None, actor_identifier=''):
     actor_identifier = (actor_identifier or '').strip()
+    category = (
+        'cobranza.webpay.fallido'
+        if intent.estado == EstadoIntentoPagoWebPay.FAILED
+        else 'cobranza.webpay.bloqueado'
+    )
     metadata = {
         'intent_id': intent.pk,
         'pago_mensual_id': intent.pago_mensual_id,
         'gate_cobro_id': intent.gate_cobro_id,
         'provider_key': intent.provider_key,
+        'estado': intent.estado,
     }
     if actor_user is None and actor_identifier:
         metadata['actor_identifier'] = actor_identifier
     existing = ManualResolution.objects.filter(
-        category='cobranza.webpay.bloqueado',
+        category=category,
         scope_type='cobranza.webpay',
         scope_reference=str(intent.pk),
         status__in=[ManualResolution.Status.OPEN, ManualResolution.Status.IN_REVIEW],
@@ -794,7 +801,7 @@ def ensure_manual_resolution_for_webpay_intent(intent, summary, *, actor_user=No
             existing.save(update_fields=updates)
         return existing
     return ManualResolution.objects.create(
-        category='cobranza.webpay.bloqueado',
+        category=category,
         scope_type='cobranza.webpay',
         scope_reference=str(intent.pk),
         summary=summary,
@@ -877,6 +884,57 @@ def ensure_webpay_prepare_audit_event(intent, *, actor_user=None, actor_identifi
     )
 
 
+def _webpay_failure_audit_metadata(intent):
+    metadata = {
+        'estado': intent.estado,
+        'pago_mensual_id': intent.pago_mensual_id,
+        'gate_cobro_id': intent.gate_cobro_id,
+        'provider_key': intent.provider_key,
+        'return_url_ref': intent.return_url_ref,
+        'motivo_bloqueo': intent.motivo_bloqueo,
+    }
+    if intent.buy_order.strip():
+        metadata['buy_order'] = intent.buy_order
+    if intent.session_id.strip():
+        metadata['session_id'] = intent.session_id
+    return metadata
+
+
+def _webpay_failure_audit_is_aligned(intent):
+    expected = _webpay_failure_audit_metadata(intent)
+    events = AuditEvent.objects.filter(
+        event_type=WEBPAY_FAILED_EVENT_TYPE,
+        entity_type='webpay_intento',
+        entity_id=str(intent.pk),
+    )
+    for event in events:
+        actor_identifier = (event.actor_identifier or '').strip()
+        if not event.actor_user_id and not actor_identifier:
+            continue
+        metadata = event.metadata if isinstance(event.metadata, dict) else {}
+        if all(str(metadata.get(key, '')) == str(value) for key, value in expected.items()):
+            return True
+    return False
+
+
+def ensure_webpay_failure_audit_event(intent, *, actor_user=None, actor_identifier='', ip_address=None):
+    actor_identifier = (actor_identifier or '').strip()
+    if actor_user is None and not actor_identifier:
+        raise ValueError('La falla WebPay requiere un actor trazable para auditoria.')
+    if _webpay_failure_audit_is_aligned(intent):
+        return
+    create_audit_event(
+        event_type=WEBPAY_FAILED_EVENT_TYPE,
+        entity_type='webpay_intento',
+        entity_id=str(intent.pk),
+        summary='Intento WebPay marcado fallido con motivo operativo',
+        actor_user=actor_user,
+        actor_identifier=actor_identifier,
+        ip_address=ip_address,
+        metadata=_webpay_failure_audit_metadata(intent),
+    )
+
+
 def block_prepared_webpay_intent(
     intent,
     blocking_reason,
@@ -905,6 +963,43 @@ def block_prepared_webpay_intent(
         actor_identifier=actor_identifier,
         ip_address=ip_address,
     )
+
+
+@transaction.atomic
+def fail_prepared_webpay_intent(
+    intent,
+    failure_reason,
+    *,
+    actor_user=None,
+    actor_identifier='',
+    ip_address=None,
+):
+    actor_identifier = (actor_identifier or '').strip()
+    failure_reason = (failure_reason or '').strip()
+    if actor_user is None and not actor_identifier:
+        raise ValueError('La falla WebPay requiere un actor trazable para auditoria.')
+    if intent.estado != EstadoIntentoPagoWebPay.PREPARED:
+        raise ValueError('Solo se puede marcar fallido un intento WebPay preparado.')
+    if not failure_reason:
+        raise ValueError('La falla WebPay requiere motivo operativo trazable.')
+
+    intent.estado = EstadoIntentoPagoWebPay.FAILED
+    intent.motivo_bloqueo = failure_reason
+    intent.full_clean()
+    intent.save(update_fields=['estado', 'motivo_bloqueo', 'updated_at'])
+    ensure_manual_resolution_for_webpay_intent(
+        intent,
+        failure_reason,
+        actor_user=actor_user,
+        actor_identifier=actor_identifier,
+    )
+    ensure_webpay_failure_audit_event(
+        intent,
+        actor_user=actor_user,
+        actor_identifier=actor_identifier,
+        ip_address=ip_address,
+    )
+    return intent
 
 
 @transaction.atomic

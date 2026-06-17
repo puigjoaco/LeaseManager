@@ -50,6 +50,7 @@ from .models import (
     PagoMensual,
     RepactacionDeuda,
     ValorUFDiario,
+    WEBPAY_FAILED_EVENT_TYPE,
     WEBPAY_MANUAL_CONFIRM_EVENT_TYPE,
     WEBPAY_PREPARE_EVENT_TYPE,
 )
@@ -67,6 +68,7 @@ from .admin import (
 )
 from .services import (
     confirm_webpay_intent_manually,
+    fail_prepared_webpay_intent,
     prepare_webpay_intent,
     rebuild_account_state,
     save_repayment_plan,
@@ -2081,6 +2083,83 @@ class CobranzaAPITests(APITestCase):
 
         self.assertFalse(IntentoPagoWebPay.objects.filter(pago_mensual=payment).exists())
         self.assertFalse(AuditEvent.objects.filter(event_type=WEBPAY_PREPARE_EVENT_TYPE).exists())
+
+    def test_webpay_fail_prepared_intent_records_audit_and_resolution(self):
+        payment = self._generate_monthly_payment(codigo='CON-WP-FAIL-SERVICE')
+        gate = GateCobroExterno.objects.create(
+            provider_key='transbank_webpay',
+            estado_gate=EstadoGateCobroExterno.OPEN,
+            evidencia_ref='webpay-sandbox-evidence-ok',
+        )
+        intent = prepare_webpay_intent(
+            payment=payment,
+            gate=gate,
+            return_url_ref='webpay-return-controlled-v1',
+            usuario=self.user,
+            ip_address='127.0.0.1',
+        )
+
+        failed = fail_prepared_webpay_intent(
+            intent,
+            'Proveedor reporto rechazo controlado.',
+            actor_user=self.user,
+            ip_address='127.0.0.1',
+        )
+
+        self.assertEqual(failed.estado, EstadoIntentoPagoWebPay.FAILED)
+        self.assertEqual(failed.motivo_bloqueo, 'Proveedor reporto rechazo controlado.')
+        self.assertTrue(
+            ManualResolution.objects.filter(
+                category='cobranza.webpay.fallido',
+                scope_type='cobranza.webpay',
+                scope_reference=str(intent.pk),
+            ).exists()
+        )
+        audit_event = AuditEvent.objects.get(
+            event_type=WEBPAY_FAILED_EVENT_TYPE,
+            entity_type='webpay_intento',
+            entity_id=str(intent.pk),
+        )
+        self.assertEqual(audit_event.actor_user, self.user)
+        self.assertEqual(audit_event.ip_address, '127.0.0.1')
+        self.assertEqual(audit_event.metadata['estado'], EstadoIntentoPagoWebPay.FAILED)
+        self.assertEqual(audit_event.metadata['motivo_bloqueo'], 'Proveedor reporto rechazo controlado.')
+        self.assertEqual(audit_event.metadata['return_url_ref'], 'webpay-return-controlled-v1')
+
+    def test_webpay_fail_prepared_intent_rolls_back_when_audit_creation_fails(self):
+        payment = self._generate_monthly_payment(codigo='CON-WP-FAIL-AUDITFAIL')
+        gate = GateCobroExterno.objects.create(
+            provider_key='transbank_webpay',
+            estado_gate=EstadoGateCobroExterno.OPEN,
+            evidencia_ref='webpay-sandbox-evidence-ok',
+        )
+        intent = prepare_webpay_intent(
+            payment=payment,
+            gate=gate,
+            return_url_ref='webpay-return-controlled-v1',
+            usuario=self.user,
+            ip_address='127.0.0.1',
+        )
+
+        with patch('cobranza.services.create_audit_event', side_effect=RuntimeError('webpay fail audit unavailable')):
+            with self.assertRaises(RuntimeError):
+                fail_prepared_webpay_intent(
+                    intent,
+                    'Proveedor reporto rechazo controlado.',
+                    actor_user=self.user,
+                    ip_address='127.0.0.1',
+                )
+
+        intent.refresh_from_db()
+        self.assertEqual(intent.estado, EstadoIntentoPagoWebPay.PREPARED)
+        self.assertEqual(intent.motivo_bloqueo, '')
+        self.assertFalse(
+            ManualResolution.objects.filter(
+                category='cobranza.webpay.fallido',
+                scope_type='cobranza.webpay',
+                scope_reference=str(intent.pk),
+            ).exists()
+        )
 
     def test_webpay_prepare_rejects_sensitive_return_reference_before_persisting(self):
         payment = self._generate_monthly_payment(codigo='CON-WP-RETURN-SECRET')
