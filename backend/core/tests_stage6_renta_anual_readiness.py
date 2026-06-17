@@ -103,6 +103,7 @@ from sii.services import (
     sync_annual_tax_trial_balance,
     sync_annual_tax_workbooks,
     sync_monthly_tax_facts,
+    verify_annual_tax_export_file_package,
     write_annual_tax_export_file_package,
 )
 
@@ -2350,6 +2351,14 @@ class Stage6RentaAnualReadinessTests(TestCase):
                 self.assertTrue(path.exists())
                 file_hash = hashlib.sha256(path.read_bytes()).hexdigest()
                 self.assertIn(file_hash, package['summary']['file_hashes'])
+            verification = verify_annual_tax_export_file_package(export, temp_dir)
+            self.assertTrue(verification['verified'])
+            self.assertTrue(verification['ready_for_responsible_review'])
+            self.assertEqual(verification['files_total'], export.target_items_total)
+            self.assertEqual(verification['package_hash'], payload['export_file_package_hash'])
+            self.assertFalse(verification['official_format'])
+            self.assertFalse(verification['sii_submission'])
+            self.assertFalse(verification['final_tax_calculation'])
 
         result = self._collect_with_final_refs()
         issue_codes = {issue['code'] for issue in result['issues']}
@@ -2365,6 +2374,47 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertNotIn('stage6.tax_export_file_package_mismatch', issue_codes)
         self.assertNotIn('stage6.tax_export_file_package_invalid', issue_codes)
         self.assertNotIn('stage6.tax_export_file_package_boundary', issue_codes)
+
+    def test_tax_export_written_package_tamper_is_rejected(self):
+        self._create_valid_local_matrix()
+        export = AnnualTaxExport.objects.get()
+
+        with TemporaryDirectory() as temp_dir:
+            written = write_annual_tax_export_file_package(export, temp_dir)
+            tampered_path = Path(written['written_files'][0])
+            tampered_payload = json.loads(tampered_path.read_text(encoding='utf-8'))
+            tampered_payload['target_code'] = 'F22-TAMPERED'
+            tampered_path.write_text(
+                json.dumps(tampered_payload, sort_keys=True, separators=(',', ':'), ensure_ascii=True),
+                encoding='utf-8',
+            )
+
+            with self.assertRaisesRegex(ValueError, 'hash/tamano esperado'):
+                verify_annual_tax_export_file_package(export, temp_dir)
+
+    def test_tax_export_written_package_noncanonical_manifest_is_rejected(self):
+        self._create_valid_local_matrix()
+        export = AnnualTaxExport.objects.get()
+
+        with TemporaryDirectory() as temp_dir:
+            written = write_annual_tax_export_file_package(export, temp_dir)
+            manifest_path = Path(written['manifest_file'])
+            manifest_payload = json.loads(manifest_path.read_text(encoding='utf-8'))
+            manifest_path.write_text(json.dumps(manifest_payload, indent=2, sort_keys=True), encoding='utf-8')
+
+            with self.assertRaisesRegex(ValueError, 'JSON canonico'):
+                verify_annual_tax_export_file_package(export, temp_dir)
+
+    def test_tax_export_written_package_extra_entry_is_rejected(self):
+        self._create_valid_local_matrix()
+        export = AnnualTaxExport.objects.get()
+
+        with TemporaryDirectory() as temp_dir:
+            write_annual_tax_export_file_package(export, temp_dir)
+            (Path(temp_dir) / 'extra').mkdir()
+
+            with self.assertRaisesRegex(ValueError, 'entradas no permitidas'):
+                verify_annual_tax_export_file_package(export, temp_dir)
 
     def test_tax_export_missing_artifact_contracts_is_blocking(self):
         self._create_valid_local_matrix()

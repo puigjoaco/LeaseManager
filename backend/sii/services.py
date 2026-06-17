@@ -3908,6 +3908,106 @@ def write_annual_tax_export_file_package(export, output_dir):
     }
 
 
+def verify_annual_tax_export_file_package(export, package_dir):
+    expected = build_annual_tax_export_file_package(export)
+    target_dir = Path(package_dir)
+    if not target_dir.exists() or not target_dir.is_dir():
+        raise ValueError('El directorio del paquete exportado no existe o no es un directorio.')
+
+    manifest_path = target_dir / 'manifest.json'
+    if not manifest_path.exists() or not manifest_path.is_file():
+        raise ValueError('El paquete exportado requiere manifest.json.')
+    manifest_bytes = manifest_path.read_bytes()
+    try:
+        manifest_payload = json.loads(manifest_bytes.decode('utf-8'))
+    except UnicodeDecodeError as error:
+        raise ValueError('manifest.json debe estar codificado en utf-8.') from error
+    except json.JSONDecodeError as error:
+        raise ValueError('manifest.json no contiene JSON valido.') from error
+    if not isinstance(manifest_payload, dict):
+        raise ValueError('manifest.json debe contener un objeto JSON.')
+    if manifest_bytes != _canonical_json_bytes(manifest_payload):
+        raise ValueError('manifest.json no esta serializado como JSON canonico.')
+
+    if manifest_payload.get('summary') != expected['summary']:
+        raise ValueError('manifest.json no coincide con el resumen esperado del AnnualTaxExport.')
+    if manifest_payload.get('manifest') != expected['manifest']:
+        raise ValueError('manifest.json no coincide con el manifiesto esperado del AnnualTaxExport.')
+    summary = manifest_payload['summary']
+    if (
+        summary.get('official_format') not in (False, None)
+        or summary.get('sii_submission') not in (False, None)
+        or summary.get('final_tax_calculation') not in (False, None)
+    ):
+        raise ValueError('El resumen del paquete no puede declarar formato oficial, presentacion SII ni calculo final.')
+
+    expected_files = {file_item['file_name']: file_item for file_item in expected['files']}
+    expected_names = set(expected_files)
+    package_entries = list(target_dir.iterdir())
+    invalid_entries = [path.name for path in package_entries if not path.is_file()]
+    if invalid_entries:
+        raise ValueError('El paquete exportado contiene entradas no permitidas.')
+    actual_names = {path.name for path in package_entries}
+    allowed_names = expected_names | {'manifest.json'}
+    if actual_names - allowed_names:
+        raise ValueError('El paquete exportado contiene archivos no declarados en el manifiesto.')
+
+    file_results = []
+    for file_name, expected_file in expected_files.items():
+        path_name = Path(file_name)
+        if path_name.name != file_name or path_name.is_absolute():
+            raise ValueError('El manifiesto de paquete contiene un nombre de archivo no permitido.')
+        file_path = target_dir / file_name
+        if not file_path.exists() or not file_path.is_file():
+            raise ValueError(f'Falta archivo exportado esperado: {file_name}.')
+        actual_bytes = file_path.read_bytes()
+        actual_hash = hashlib.sha256(actual_bytes).hexdigest()
+        actual_size = len(actual_bytes)
+        if actual_hash != expected_file['payload_hash'] or actual_size != expected_file['payload_size_bytes']:
+            raise ValueError(f'El archivo exportado {file_name} no coincide con hash/tamano esperado.')
+        try:
+            actual_payload = json.loads(actual_bytes.decode(expected_file['encoding']))
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise ValueError(f'El archivo exportado {file_name} no contiene JSON canonico valido.') from error
+        expected_payload = json.loads(expected_file['content'])
+        if actual_payload != expected_payload:
+            raise ValueError(f'El archivo exportado {file_name} no coincide con el payload esperado.')
+        if actual_bytes != _canonical_json_bytes(actual_payload):
+            raise ValueError(f'El archivo exportado {file_name} no esta serializado como JSON canonico.')
+        if actual_payload.get('schema') != 'annual-tax-export-file-payload-v1':
+            raise ValueError(f'El archivo exportado {file_name} usa un schema no esperado.')
+        if (
+            actual_payload.get('official_format') not in (False, None)
+            or actual_payload.get('sii_submission') not in (False, None)
+            or actual_payload.get('final_tax_calculation') not in (False, None)
+        ):
+            raise ValueError(
+                f'El archivo exportado {file_name} no puede declarar formato oficial, presentacion SII ni calculo final.'
+            )
+        file_results.append(
+            {
+                'file_name': file_name,
+                'payload_hash': actual_hash,
+                'payload_size_bytes': actual_size,
+                'verified': True,
+            }
+        )
+
+    return {
+        'verified': True,
+        'package_version': expected['summary']['package_version'],
+        'package_hash': expected['summary']['export_file_package_hash'],
+        'hash_export': expected['summary']['hash_export'],
+        'files_total': len(file_results),
+        'manifest_file': str(manifest_path),
+        'file_results': file_results,
+        'official_format': False,
+        'sii_submission': False,
+        'final_tax_calculation': False,
+        'ready_for_responsible_review': True,
+    }
+
+
 def _summary_warning_total(summary, key='by_id'):
     items = summary.get(key) if isinstance(summary, dict) else {}
     if not isinstance(items, dict):
