@@ -18,9 +18,11 @@ from core.annual_tax_controlled_db_load import (
 )
 from core.annual_tax_controlled_mirror_run import run_annual_tax_controlled_mirror
 from core.annual_tax_mirror_proof import audit_annual_tax_mirror_proof
+from core.annual_tax_ownership_patch_validator import OWNERSHIP_PATCH_VALIDATION_SCHEMA_VERSION
 from core.annual_tax_source_manifest import EXPECTED_ANNUAL_TAX_REGISTER_KEYS, EXPECTED_DDJJ_FORMS
 from patrimonio.models import Empresa, TipoInmueble
-from sii.models import CapacidadSII, CapacidadTributariaSII, EstadoGateSII
+from sii.models import CapacidadSII, CapacidadTributariaSII, EstadoGateSII, ProcesoRentaAnual
+from sii.services import mark_annual_tax_generated_warnings_reviewed
 
 
 class AnnualTaxMirrorProofTests(TestCase):
@@ -269,6 +271,34 @@ class AnnualTaxMirrorProofTests(TestCase):
             write_database=True,
         )
 
+    def _review_generated_artifacts(self, empresa):
+        process = ProcesoRentaAnual.objects.get(empresa=empresa, anio_tributario=2025)
+        return mark_annual_tax_generated_warnings_reviewed(
+            process,
+            warning_review_ref='stage6-generated-artifact-review-controlled',
+            apply=True,
+        )
+
+    def _ownership_validation_evidence(self):
+        return {
+            'schema_version': OWNERSHIP_PATCH_VALIDATION_SCHEMA_VERSION,
+            'ready_for_controlled_db_load': True,
+            'ready_for_annual_generation_patch': True,
+            'blockers': [],
+            'missing_paths': [],
+            'invalid_paths': [],
+            'summary': {
+                'participants_count': 1,
+                'percentage_total': '100.00',
+                'percentage_total_is_100': True,
+            },
+            'safety': {
+                'outputs_redacted': True,
+                'stores_rut_values': False,
+                'stores_person_names': False,
+            },
+        }
+
     def _proof_kwargs(self, empresa, manifest, source_root):
         return {
             'empresa': empresa,
@@ -366,6 +396,36 @@ class AnnualTaxMirrorProofTests(TestCase):
         self.assertIn('source.ownership_source_missing', result['summary']['blockers'])
         self.assertNotIn('closed_books_pilot_entry_not_ready', result['summary']['blockers'])
 
+    def test_mirror_proof_accepts_redacted_ownership_and_live_value_comparison(self):
+        empresa = self._create_empresa()
+        self._load_and_generate_annual_layer(empresa)
+        acknowledgement = self._review_generated_artifacts(empresa)
+
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            manifest = self._manifest(ready=False, closed_books_pilot_ready=True)
+            self._write_expected_output_sources(source_root, manifest)
+            result = audit_annual_tax_mirror_proof(
+                **self._proof_kwargs(empresa, manifest, source_root),
+                ownership_evidence=self._ownership_validation_evidence(),
+            )
+
+        self.assertEqual(acknowledgement['after']['pending_warnings_total'], 0)
+        self.assertTrue(result['checks']['closed_books_pilot_entry_ready'])
+        self.assertTrue(result['checks']['ownership_evidence_confirmed'])
+        self.assertFalse(result['checks']['manifest_source_documentation_confirmed'])
+        self.assertTrue(result['checks']['source_documentation_confirmed'])
+        self.assertTrue(result['checks']['comparison_ready_for_mirror_conclusion'])
+        self.assertTrue(result['checks']['comparison_closes_expected_output_value_equality'])
+        self.assertFalse(result['checks']['manifest_architecture_complete_for_mirror_run'])
+        self.assertTrue(result['checks']['architecture_complete_for_mirror_run'])
+        self.assertNotIn('source_documentation_not_confirmed', result['summary']['blockers'])
+        self.assertNotIn('source.ownership_source_missing', result['summary']['blockers'])
+        self.assertNotIn('architecture.expected_output_value_equality_completion', result['summary']['blockers'])
+        self.assertFalse(result['safety']['uses_expected_outputs_as_inputs'])
+        self.assertTrue(result['safety']['expected_outputs_used_as_comparison_only'])
+        self.assertFalse(result['safety']['final_tax_calculation'])
+
     def test_command_writes_proof_and_refuses_versioned_output(self):
         empresa = self._create_empresa()
         self._load_and_generate_annual_layer(empresa)
@@ -377,7 +437,9 @@ class AnnualTaxMirrorProofTests(TestCase):
             manifest = self._manifest()
             self._write_expected_output_sources(source_root, manifest)
             manifest_path = temp_path / 'manifest.json'
+            ownership_evidence_path = temp_path / 'ownership-evidence.json'
             manifest_path.write_text(json.dumps(manifest), encoding='utf-8')
+            ownership_evidence_path.write_text(json.dumps(self._ownership_validation_evidence()), encoding='utf-8')
             output_path = Path(settings.PROJECT_ROOT) / 'local-evidence' / 'stage6' / 'mirror-proof-test.json'
             stdout = StringIO()
             call_command(
@@ -390,6 +452,8 @@ class AnnualTaxMirrorProofTests(TestCase):
                 '2025',
                 '--manifest',
                 str(manifest_path),
+                '--ownership-evidence',
+                str(ownership_evidence_path),
                 '--source-root',
                 str(source_root),
                 '--source-label',
@@ -413,6 +477,7 @@ class AnnualTaxMirrorProofTests(TestCase):
                 stdout=stdout,
             )
             written = json.loads(output_path.read_text(encoding='utf-8'))
+            self.assertTrue(written['checks']['ownership_evidence_confirmed'])
             with self.assertRaises(CommandError):
                 call_command(
                     'audit_annual_tax_mirror_proof',

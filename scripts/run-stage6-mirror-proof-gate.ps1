@@ -11,6 +11,8 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$ManifestPath,
 
+    [string]$OwnershipEvidencePath = '',
+
     [string]$SourceRoot = '',
 
     [ValidateSet('local', 'fixture', 'demo', 'snapshot_controlado', 'real_autorizado')]
@@ -123,6 +125,10 @@ if ([string]::IsNullOrWhiteSpace($PythonExe)) {
 $pythonExe = Resolve-FullPath $PythonExe
 $resolvedOutput = Resolve-FullPath $OutputPath
 $resolvedManifest = Resolve-FullPath $ManifestPath
+$resolvedOwnershipEvidence = ''
+if (-not [string]::IsNullOrWhiteSpace($OwnershipEvidencePath)) {
+    $resolvedOwnershipEvidence = Resolve-FullPath $OwnershipEvidencePath
+}
 $resolvedSourceRoot = ''
 if (-not [string]::IsNullOrWhiteSpace($SourceRoot)) {
     $resolvedSourceRoot = Resolve-FullPath $SourceRoot
@@ -148,11 +154,17 @@ if (Test-PathInsideDirectory $resolvedOutput $repoRoot) {
 if (Test-PathInsideDirectory $resolvedManifest $repoRoot) {
     Assert-Condition (Test-PathInsideDirectory $resolvedManifest $localEvidenceRoot) 'Si el manifiesto queda dentro del repo, debe estar bajo local-evidence/ para no versionar fuentes tributarias.'
 }
+if (-not [string]::IsNullOrWhiteSpace($resolvedOwnershipEvidence) -and (Test-PathInsideDirectory $resolvedOwnershipEvidence $repoRoot)) {
+    Assert-Condition (Test-PathInsideDirectory $resolvedOwnershipEvidence $localEvidenceRoot) 'Si ownership evidence queda dentro del repo, debe estar bajo local-evidence/ para no versionar evidencia societaria.'
+}
 if (-not [string]::IsNullOrWhiteSpace($resolvedSourceRoot) -and (Test-PathInsideDirectory $resolvedSourceRoot $repoRoot)) {
     Assert-Condition (Test-PathInsideDirectory $resolvedSourceRoot $localEvidenceRoot) 'Si source-root queda dentro del repo, debe estar bajo local-evidence/ para no leer outputs versionados como evidencia.'
 }
 
 Assert-Condition (Test-Path -LiteralPath $resolvedManifest -PathType Leaf) "No existe manifest JSON: $resolvedManifest"
+if (-not [string]::IsNullOrWhiteSpace($resolvedOwnershipEvidence)) {
+    Assert-Condition (Test-Path -LiteralPath $resolvedOwnershipEvidence -PathType Leaf) "No existe ownership evidence JSON: $resolvedOwnershipEvidence"
+}
 if (-not [string]::IsNullOrWhiteSpace($resolvedSourceRoot)) {
     Assert-Condition (Test-Path -LiteralPath $resolvedSourceRoot -PathType Container) "No existe source-root: $resolvedSourceRoot"
 }
@@ -204,6 +216,9 @@ try {
     )
     if (-not [string]::IsNullOrWhiteSpace($resolvedSourceRoot)) {
         $auditArgs += @('--source-root', $resolvedSourceRoot)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($resolvedOwnershipEvidence)) {
+        $auditArgs += @('--ownership-evidence', $resolvedOwnershipEvidence)
     }
     if ($FailOnIncomplete) {
         $auditArgs += '--fail-on-incomplete'

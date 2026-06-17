@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `stage6-ownership-review-checklist`. |
-| Fuente exacta | worktree `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-ownership-review-checklist`, sobre `main` `0a3a2500`. |
-| Brecha activa | El validador de patch ownership ya esta integrado; falta una checklist repetible, no sensible y versionable como codigo para coordinar revision/OCR legal, validacion redactada y decision de inyectar `package.ownership`. |
-| Motivo de prioridad | Evita que el siguiente paso dependa de memoria del chat o de artefactos locales sueltos: enumera candidatos, paginas renderizadas, participantes pendientes, porcentaje total, redaccion de salida y readiness sin guardar nombres, RUTs, texto bruto ni rutas crudas. |
-| Worktree | Continuar/cerrar `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-ownership-review-checklist`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
-| Rama | `codex/stage6-ownership-review-checklist`; al cerrar, PR/CI/merge y limpiar worktree. |
-| Estado | `build_annual_tax_ownership_review_checklist` pasa prueba focal. Contra template/visual packet AC2024/AT2025 y patch pendiente sintetico bajo `local-evidence/`, la checklist queda `ready_for_manual_review=true`, `reviewable_candidates_total=10`, `rendered_candidates_total=10`, `ready_for_controlled_db_load=false` y `ownership_patch_missing` por `participants_count=0`. |
-| Gate esperado | El paquete no completa ownership real: deja el control operativo para completar participantes con revision/OCR legal autorizada y revalidar sin exponer PII. |
-| Estado al cerrar paquete | No reabrir labor source ref, bienes raices, DDJJ/F22 semantico, comparador Balance/RLI/CPT/RAI/SAC ni prompts de goal. El siguiente frente real seguira siendo completar `ownership_patch` bajo `local-evidence/` desde revision/OCR legal controlada y reauditar readiness. |
-| Bloqueos relacionados | `ownership_patch_missing` y `ownership_snapshot_missing` hasta completar participantes revisados; `ownership_source_missing` en manifiesto estricto hasta convertir fuente candidata en snapshot controlado. |
+| Frente activo | `stage6-mirror-proof-evidence-bridge`. |
+| Fuente exacta | worktree `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-mirror-proof-evidence-bridge`, sobre `main` `38ef6bc8`. |
+| Brecha activa | El checklist de ownership ya esta integrado y el patch ownership controlado existe bajo `local-evidence/`, pero el proof agregado seguia leyendo solo el manifiesto historico. Eso reabria `ownership_source_missing` y `expected_output_value_equality_completion` aunque la evidencia posterior ya estaba lista. |
+| Motivo de prioridad | Es el gate que responde directamente al objetivo AC2024/AT2025: confirmar si LeaseManager puede partir desde contabilidad/libros cerrados y llegar a artefactos comparables con los finales sin usar outputs esperados como input. El gate debe reflejar el estado real: source/arquitectura/comparacion OK y no falsos bloqueos por manifiesto antiguo. |
+| Worktree | Continuar/cerrar `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-mirror-proof-evidence-bridge`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `codex/stage6-mirror-proof-evidence-bridge`; al cerrar, PR/CI/merge y limpiar worktree. |
+| Estado | Focal `core.tests_annual_tax_mirror_proof` pasa. Corrida real local con `scripts/run-stage6-mirror-proof-gate.ps1 -OwnershipEvidencePath <ownership_patch_controlled_validation.json>` sobre SQLite controlada AC2024/AT2025 queda `classification=parcial`, `source_documentation_confirmed=true`, `ownership_evidence_confirmed=true`, `architecture_complete_for_mirror_run=true`, `comparison_ready_for_mirror_conclusion=true` y unico blocker `stage6.real_estate_item_missing`. |
+| Gate esperado | Este paquete no cierra Etapa 6 ni renta final: corrige el proof para que no repita bloqueos ya resueltos. El cierre objetivo sigue pendiente hasta despejar bienes raices y pasar el gate completo con evidencia. |
+| Estado al cerrar paquete | No reabrir ownership, labor source ref, DDJJ/F22 semantico, comparador Balance/RLI/CPT/RAI/SAC ni prompts de goal. El siguiente frente real debe atacar `stage6.real_estate_item_missing` en la corrida AC2024/AT2025 controlada. |
+| Bloqueos relacionados | `stage6.real_estate_item_missing` sigue siendo el unico bloqueo real del proof actual. Ownership y comparacion de valores quedan cubiertos por evidencia redactada y comparador ejecutado, no por el manifiesto historico aislado. |
 | Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable ni integraciones externas sin autorizacion explicita. Las salidas F22/DDJJ/Balance/RLI/CPT/RAI/SAC esperadas son comparacion externa read-only, nunca input de calculo. |
-| Siguiente accion | Ejecutar validaciones proporcionales del checklist, actualizar evidencia, PR/CI/merge y limpiar `stage6-ownership-review-checklist`; despues completar `ownership_patch` real solo desde revision/OCR legal controlada bajo `local-evidence/`. |
+| Siguiente accion | Ejecutar validaciones proporcionales del bridge, actualizar evidencia, PR/CI/merge y limpiar `stage6-mirror-proof-evidence-bridge`; despues corregir `stage6.real_estate_item_missing` usando el paquete `real_estate` controlado ya detectado, sin abrir SII real ni usar outputs esperados como input. |
 
 ## Actualizacion
 
