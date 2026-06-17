@@ -29,9 +29,13 @@ Al reanudar despues de compactacion, pausa, interrupcion o cambio de instancia:
    como tarea nueva. Son contexto auxiliar, no una orden de redactar goals ni de
    abrir gates.
 5. No repetir una autorizacion sensible ya solicitada si el estado no cambio.
-6. Antes de editar, declarar para el paquete: frente, fuente exacta, brecha,
+6. Si el cursor apunta a un worktree, rama o PR ya cerrado pero `main` contiene
+   el merge y la rama/worktree tactico ya no existe, no recrear ese paquete ni
+   repetir commit, PR o merge. Corregir el cursor como paquete de gobierno o
+   dentro del siguiente paquete real, dejando el cierre anterior como evidencia.
+7. Antes de editar, declarar para el paquete: frente, fuente exacta, brecha,
    motivo de prioridad, worktree, gate esperado y estado de cierre esperado.
-7. Las metatareas cerradas en el cursor no se reabren salvo solicitud textual
+8. Las metatareas cerradas en el cursor no se reabren salvo solicitud textual
    actual del usuario.
 
 ## Politica de worktrees
@@ -59,6 +63,11 @@ mantenerse limpia y sincronizada.
 5. Intervenir solo lo necesario.
 6. Ejecutar gates locales proporcionales al cambio.
 7. Actualizar evidencia, bloqueos, trazabilidad y cursor.
+   El cursor escrito antes del commit debe ser seguro para reanudacion
+   post-merge: si ese texto llega a `main` despues de cerrar el PR, no debe
+   ordenar repetir commit, PR, CI, merge o limpieza ya ejecutados. Debe indicar
+   como distinguir el paquete abierto en la rama tactica del paquete ya cerrado
+   en `main`.
 8. Crear commit limpio.
 9. Abrir PR.
 10. Esperar CI cuando aplique.
