@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `stage6-post-objective-proof`. |
-| Fuente exacta | `main` posterior al paquete `stage6-objective-proof-evidence`; evidencia local controlada bajo `local-evidence/` ignorada por Git. |
-| Brecha activa | La prueba espejo AC2024/AT2025 quedo documentada como confirmada en modo controlado. No reabrir ownership, bienes raices, DDJJ esperadas ni comparador para esta prueba salvo evidencia nueva contradictoria. |
-| Motivo de prioridad | Evitar que reanudaciones conviertan el paquete de evidencia ya cerrado en una nueva tarea. El siguiente avance debe partir de que LeaseManager ya probo la arquitectura espejo desde insumos contables/libros AC2024 hacia artefactos AT2025 comparables, usando outputs finales solo como comparacion read-only. |
-| Worktree | No hay worktree tactico activo esperado para este frente. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Frente activo | `platform-post-ci-actions-upgrade`. |
+| Fuente exacta | `main` posterior al paquete `ci-node24-actions`, que actualiza Release Gate a acciones oficiales GitHub `v6`. |
+| Brecha activa | No queda brecha operativa abierta por advertencias Node20 de acciones antiguas en Release Gate. No reabrir este paquete salvo fallo nuevo de CI o cambio oficial de compatibilidad de GitHub Actions. |
+| Motivo de prioridad | Mantener el camino de cierre con CI limpia y sin advertencias operativas repetitivas, sin tocar producto ni gates externos. |
+| Worktree | No hay worktree tactico activo esperado para este frente despues del merge. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
 | Rama | `main`; abrir un nuevo worktree `codex/...` solo para el siguiente cambio no trivial. |
-| Estado | La evidencia local controlada queda bajo `local-evidence/inmobiliaria-puig/ac2024-at2025-real-estate-ownership-20260617/` e ignorada por Git. El paquete combinado conserva 12 meses, ownership validado y 6 bienes raices. `audit_annual_tax_controlled_package_readiness --fail-on-blocking` queda listo para writer/generacion. `apply_annual_tax_controlled_db_load --apply --fail-on-blocking` carga 12 meses, ownership y 6 bienes raices. `run_annual_tax_controlled_mirror --apply --fail-on-blocking` con las 12 DDJJ esperadas queda `ready_for_generation=true`. `compare_annual_tax_expected_outputs` queda sin blockers. `scripts/run-stage6-mirror-proof-gate.ps1 -FailOnIncomplete` queda `classification=resuelto_confirmado`, `ready_for_architecture_proof=true`, `ready_for_objective_completion=true`, sin blockers. |
-| Gate esperado | Este paquete documenta el cierre de la prueba espejo objetivo AC2024/AT2025. No declara renta final presentada, no abre SII real y no sustituye revision tributaria responsable para produccion. |
-| Estado al cerrar paquete | No reabrir prompts de goal, ownership, labor source ref, bienes raices, DDJJ esperadas, DDJJ/F22 semantico ni comparador Balance/RLI/CPT/RAI/SAC para esta prueba espejo salvo evidencia nueva contradictoria. |
-| Bloqueos relacionados | No quedan blockers del proof objetivo AC2024/AT2025. Los cierres productivos futuros siguen sujetos a responsable tributario, autorizacion explicita, fuentes reales/controladas vigentes y gates externos cuando corresponda. |
+| Estado | Release Gate conserva Python 3.12, Node 22, caches y comandos existentes, pero usa `actions/checkout@v6`, `actions/setup-python@v6` y `actions/setup-node@v6`. El proof espejo AC2024/AT2025 ya quedo documentado como confirmado en modo controlado y no debe reabrirse por reanudacion. |
+| Gate esperado | El paquete es operativo de CI: no declara cierre de etapa, no abre SII real, no usa secretos, no toca `.env`, no usa DB historicas, no ejecuta backfills, no despliega ni habilita integraciones externas. |
+| Estado al cerrar paquete | No reabrir prompts de goal, el proof espejo AC2024/AT2025 ni el upgrade de acciones CI salvo evidencia nueva contradictoria. |
+| Bloqueos relacionados | Ninguno nuevo. Los cierres productivos futuros siguen sujetos a responsable tributario, autorizacion explicita, fuentes reales/controladas vigentes y gates externos cuando corresponda. |
 | Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable ni integraciones externas sin autorizacion explicita. Las salidas F22/DDJJ/Balance/RLI/CPT/RAI/SAC esperadas son comparacion externa read-only, nunca input de calculo. |
-| Siguiente accion | Continuar el proyecto desde el siguiente frente real de producto/arquitectura, partiendo de que la arquitectura espejo AC2024/AT2025 ya quedo probada en modo controlado. No crear tareas de goal prompt ni repetir el cierre de este proof. |
+| Siguiente accion | Continuar el proyecto desde el siguiente frente real de producto/arquitectura segun PRD, trazabilidad y stage cards. No crear tareas de goal prompt, no repetir el cierre del proof espejo y no repetir el upgrade CI salvo fallo nuevo. |
 
 ## Actualizacion
 
