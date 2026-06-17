@@ -61,6 +61,17 @@ alinea el hash de RAI/SAC con el payload canonico del modelo y elimina el falso
 La prueba espejo conserva comparador completo y queda pendiente por
 `stage6.real_estate_item_missing`.
 
+Nota 2026-06-17: `audit_annual_tax_mirror_proof` acepta evidencia redactada de
+ownership posterior al manifiesto (`validate_annual_tax_ownership_patch` o
+checklist) y permite que la comparacion ejecutada cierre la capacidad estatica
+`expected_output_value_equality_completion` cuando queda sin blockers. En la
+corrida AC2024/AT2025 con ownership controlado, el proof deja
+`source_documentation_confirmed=true`,
+`architecture_complete_for_mirror_run=true` y mantiene como unico bloqueo real
+`stage6.real_estate_item_missing`. Esto evita reabrir ownership o valor esperado
+por un manifiesto historico, sin usar outputs finales como input ni declarar
+calculo tributario final.
+
 Nota 2026-06-16: `build_annual_tax_controlled_values_draft` ya materializa
 `real_estate_support` como `package.real_estate`: registro estructurado de
 bienes raices, codigos internos estables, tipo de inmueble, evidencia por

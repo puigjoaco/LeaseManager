@@ -62,6 +62,14 @@ class Command(BaseCommand):
             choices=['snapshot_controlado', 'real_autorizado', 'local', 'fixture', 'demo'],
             help='Tipo de fuente. local/fixture/demo solo diagnostican; snapshot_controlado o real_autorizado prueban cierre controlado.',
         )
+        parser.add_argument(
+            '--ownership-evidence',
+            default='',
+            help=(
+                'JSON redactado de validate_annual_tax_ownership_patch o '
+                'build_annual_tax_ownership_review_checklist para confirmar ownership sin PII.'
+            ),
+        )
         parser.add_argument('--output', default='', help='Ruta opcional para escribir JSON de auditoria.')
         parser.add_argument(
             '--fail-on-incomplete',
@@ -86,6 +94,15 @@ class Command(BaseCommand):
             manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
         except (OSError, json.JSONDecodeError) as error:
             raise CommandError(f'Manifest invalido: {error}') from error
+        ownership_evidence = None
+        if options['ownership_evidence']:
+            ownership_evidence_path = _resolve_path(options['ownership_evidence'])
+            if not ownership_evidence_path.exists() or not ownership_evidence_path.is_file():
+                raise CommandError(f'No existe ownership evidence JSON: {ownership_evidence_path}')
+            try:
+                ownership_evidence = json.loads(ownership_evidence_path.read_text(encoding='utf-8'))
+            except (OSError, json.JSONDecodeError) as error:
+                raise CommandError(f'Ownership evidence invalida: {error}') from error
 
         try:
             empresa = Empresa.objects.get(pk=options['empresa_id'])
@@ -106,6 +123,7 @@ class Command(BaseCommand):
             source_label=options['source_label'],
             authorization_ref=options['authorization_ref'],
             source_kind=options['source_kind'],
+            ownership_evidence=ownership_evidence,
         )
 
         rendered = json.dumps(result, indent=2, ensure_ascii=True, default=str)

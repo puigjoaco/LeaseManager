@@ -249,10 +249,22 @@ fuente/gate externo, aunque los componentes tecnicos existan. Su salida permite
 distinguir avance preparado, prueba arquitectonica, bloqueo externo y cierre
 real, sin usar SII real, credenciales, `.env`, EDIG ejecutable ni outputs
 finales como input.
+Cuando el manifiesto historico todavia marca `ownership_source_missing`, el
+proof puede recibir evidencia posterior redactada de ownership mediante
+`--ownership-evidence`: salida de `validate_annual_tax_ownership_patch` o de
+`build_annual_tax_ownership_review_checklist`, sin nombres, RUTs, texto bruto
+ni rutas crudas. Si esa evidencia esta lista y el piloto de libros cerrados ya
+tenia las demas fuentes, `source_documentation_confirmed` queda verdadero sin
+reescribir el manifiesto ni versionar PII. Del mismo modo, si la comparacion
+ejecutada queda `ready_for_mirror_conclusion=true` y sin blockers de valores,
+el proof cierra la brecha estatica `expected_output_value_equality_completion`
+para esa corrida. Esto no abre SII, no convierte outputs esperados en insumo y
+no reemplaza la validacion experta.
 `scripts/run-stage6-mirror-proof-gate.ps1` es la entrada operativa canonica al
 gate espejo: valida refs no sensibles, rechaza outputs/manifiestos dentro del
 repo fuera de `local-evidence/`, bloquea migraciones contra `real_autorizado` y
-usa `--fail-on-incomplete` solo cuando se quiere exigir completitud probada. El
+acepta `-OwnershipEvidencePath` solo como JSON bajo una ruta permitida. Usa
+`--fail-on-incomplete` solo cuando se quiere exigir completitud probada. El
 comando Django queda como motor; el wrapper es el camino seguro para runs
 manuales o evidenciales.
 `compare_annual_tax_expected_outputs` distingue errores de extraccion
