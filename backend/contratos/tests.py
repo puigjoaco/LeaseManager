@@ -3469,6 +3469,67 @@ class ContratosAPITests(APITestCase):
             ).exists()
         )
 
+    def test_tenant_replacement_endpoint_rejects_common_expenses_without_structured_service(self):
+        mandato = self._create_active_mandato(codigo='MAND-TEN-GC', owner_rut='20202026-1')
+        arrendatario = self._create_arrendatario(rut='21212127-K')
+        current_payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-TEN-GC-C')
+        current_response = self.client.post(reverse('contratos-contrato-list'), current_payload, format='json')
+        self.assertEqual(current_response.status_code, status.HTTP_201_CREATED)
+
+        nuevo_arrendatario = self._create_arrendatario(rut='27272727-6')
+        response = self.client.post(
+            reverse('contratos-contrato-cambio-arrendatario', args=[current_response.data['id']]),
+            {
+                'arrendatario': nuevo_arrendatario.id,
+                'codigo_contrato': 'CTR-TEN-GC-F',
+                'fecha_inicio': '2027-01-01',
+                'fecha_fin_vigente': '2027-12-31',
+                'causal_aviso': 'Cambio de arrendatario con gastos comunes',
+                'tiene_gastos_comunes': True,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('tiene_gastos_comunes', response.data)
+        self.assertFalse(AvisoTermino.objects.filter(contrato_id=current_response.data['id']).exists())
+        self.assertFalse(Contrato.objects.filter(codigo_contrato='CTR-TEN-GC-F').exists())
+
+    def test_tenant_replacement_endpoint_accepts_common_expenses_with_structured_service(self):
+        mandato = self._create_active_mandato(codigo='MAND-TEN-GC-OK', owner_rut='20202027-K')
+        ServicioPropiedad.objects.create(
+            propiedad=mandato.propiedad,
+            tipo_servicio=TipoServicioPropiedad.COMMON_EXPENSES,
+            proveedor_nombre='Administracion Edificio',
+            numero_cliente='GC-200',
+            administrador_nombre='Administracion Edificio',
+            evidencia_ref='gasto-comun-cambio-arrendatario-001',
+            activo=True,
+        )
+        arrendatario = self._create_arrendatario(rut='21212128-8')
+        current_payload = self._base_contract_payload(mandato, arrendatario, codigo='CTR-TEN-GC-OK-C')
+        current_response = self.client.post(reverse('contratos-contrato-list'), current_payload, format='json')
+        self.assertEqual(current_response.status_code, status.HTTP_201_CREATED)
+
+        nuevo_arrendatario = self._create_arrendatario(rut='28282828-4')
+        response = self.client.post(
+            reverse('contratos-contrato-cambio-arrendatario', args=[current_response.data['id']]),
+            {
+                'arrendatario': nuevo_arrendatario.id,
+                'codigo_contrato': 'CTR-TEN-GC-OK-F',
+                'fecha_inicio': '2027-01-01',
+                'fecha_fin_vigente': '2027-12-31',
+                'causal_aviso': 'Cambio de arrendatario con gasto comun estructurado',
+                'tiene_gastos_comunes': True,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data['contrato_nuevo']['tiene_gastos_comunes'])
+        future_contract = Contrato.objects.get(codigo_contrato='CTR-TEN-GC-OK-F')
+        self.assertTrue(future_contract.tiene_gastos_comunes)
+
     def test_tenant_replacement_service_requires_traceable_actor(self):
         mandato = self._create_active_mandato(codigo='MAND-TEN-ACTOR', owner_rut='20202024-5')
         arrendatario = self._create_arrendatario(rut='21212125-3')

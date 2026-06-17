@@ -840,11 +840,11 @@ class Contrato(TimestampedModel):
     def validate_common_expense_service(self):
         if not self.tiene_gastos_comunes or self.estado not in {EstadoContrato.ACTIVE, EstadoContrato.FUTURE}:
             return
-        if not self.pk:
-            return
 
         primary_property_id = getattr(self, '_common_expense_primary_property_id', None)
         if primary_property_id is None:
+            if not self.pk:
+                return
             primary_link = self.contrato_propiedades.filter(
                 rol_en_contrato=RolContratoPropiedad.PRIMARY,
             ).first()
