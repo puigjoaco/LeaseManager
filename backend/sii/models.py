@@ -615,6 +615,7 @@ def _is_sha256(value):
 
 
 SII_PUBLIC_SOURCE_DOMAINS = {
+    'alerce.sii.cl',
     'api.sii.cl',
     'www.sii.cl',
     'www4.sii.cl',

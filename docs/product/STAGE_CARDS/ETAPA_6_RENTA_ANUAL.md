@@ -423,7 +423,14 @@ DDJJ/F22 con `source_kind=f22_export_layout`, pero mantiene obligatoriamente
 `official_format=false`, `sii_submission=false` y
 `final_tax_calculation=false`. Sirve para preparar y revisar el paquete F22; no
 presenta, no sube y no decide la renta final.
-`audit_company_accounting_progress` funciona como cursor operativo por empresa
+`build_stage6_official_compatibility_matrix()` fija esa frontera en codigo para
+AT2026: fuentes SII publicas respaldan certificacion/archivo F22, instrucciones
+F22, portal/software comercial, medios DDJJ, formularios/plazos, casas
+software, autoverificacion e importador. Su validador bloquea API asumida,
+presentacion SII, calculo final y certificacion de consistencia tributaria
+mientras no existan formato/certificacion vigente, autorizacion explicita y
+responsable.
+`audit_company_accounting_progress` funciona como medidor operativo por empresa
 y ano comercial: consolida en JSON si la empresa tiene configuracion fiscal,
 doce cierres, balances aprobados/cuadrados, F29, `ProcesoRentaAnual`,
 `AnnualTaxTrialBalance`, workbooks RLI/CPT, dossier y export local. Esto permite
