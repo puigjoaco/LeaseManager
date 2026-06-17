@@ -34,6 +34,13 @@ WebPay bloqueados o fallidos. `IntentoPagoWebPay.clean()` rechaza estados
 `stage2.webpay_intent.block_reason_missing` para snapshots heredados con
 bloqueos o fallos sin razon operativa.
 
+Nota 2026-06-17: Cobranza/WebPay deja auditables los intentos fallidos.
+`fail_prepared_webpay_intent()` marca un intento `preparado` como `fallido`
+solo con actor y motivo operativo, crea resolucion manual local y emite
+`cobranza.webpay_intento.failed` en la misma transaccion. La readiness reporta
+`stage2.webpay_intent.failed_event_missing` para snapshots heredados con fallos
+sin auditoria completa y alineada.
+
 Nota 2026-06-16: El progreso contable/renta por empresa queda con boundary
 explicito en API, Reporting y backoffice. `audit_company_accounting_progress`
 y `contabilidad/progreso-empresa/` exponen `review_boundary` con

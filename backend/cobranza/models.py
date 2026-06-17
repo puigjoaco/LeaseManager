@@ -24,6 +24,7 @@ EFFECTIVE_CODE_APPLIED_EVENT_TYPE = 'cobranza.pago_mensual.effective_code_applie
 EXCEPTIONAL_PAYMENT_STATE_EVENT_TYPE = 'cobranza.pago_mensual.exceptional_state_resolved'
 WEBPAY_MANUAL_CONFIRM_EVENT_TYPE = 'cobranza.webpay_intento.confirmed_manually'
 WEBPAY_PREPARE_EVENT_TYPE = 'cobranza.webpay_intento.prepared'
+WEBPAY_FAILED_EVENT_TYPE = 'cobranza.webpay_intento.failed'
 
 
 class TimestampedModel(models.Model):
