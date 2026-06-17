@@ -81,6 +81,7 @@ from sii.models import (
 )
 from sii.services import (
     build_annual_tax_export_file_package,
+    build_annual_tax_f22_fixed_width_export_candidate,
     summarize_annual_enterprise_registers,
     summarize_annual_real_estate_sections,
     summarize_annual_tax_artifact_matrices,
@@ -103,7 +104,9 @@ from sii.services import (
     sync_annual_tax_trial_balance,
     sync_annual_tax_workbooks,
     sync_monthly_tax_facts,
+    verify_annual_tax_f22_fixed_width_export_candidate,
     verify_annual_tax_export_file_package,
+    write_annual_tax_f22_fixed_width_export_candidate,
     write_annual_tax_export_file_package,
 )
 
@@ -2374,6 +2377,83 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertNotIn('stage6.tax_export_file_package_mismatch', issue_codes)
         self.assertNotIn('stage6.tax_export_file_package_invalid', issue_codes)
         self.assertNotIn('stage6.tax_export_file_package_boundary', issue_codes)
+
+    def test_tax_export_writes_verifiable_f22_fixed_width_candidate_from_reviewed_codes(self):
+        self._create_valid_local_matrix()
+        export = AnnualTaxExport.objects.get()
+
+        candidate = build_annual_tax_f22_fixed_width_export_candidate(
+            export,
+            rut_number='11111111',
+            rut_dv='1',
+            company_code='QA',
+            client_number='123456',
+            entries=[
+                {'code': '1234', 'sign': '+', 'value': '1000'},
+                {'code': '2345', 'sign': '-', 'value': '250'},
+                {'code': '3456', 'value': '0'},
+                {'code': '4567', 'value': '42'},
+                {'code': '5678', 'value': '900'},
+            ],
+        )
+
+        summary = candidate['summary']
+        records = candidate['records']
+        self.assertEqual(summary['candidate_version'], 'annual-tax-f22-fixed-width-candidate-v1')
+        self.assertEqual(summary['record_format_version'], 'f22-at2026-fixed-width-record-v1')
+        self.assertEqual(summary['record_length'], 90)
+        self.assertEqual(summary['records_total'], 3)
+        self.assertEqual(summary['type0_records_total'], 1)
+        self.assertEqual(summary['type1_records_total'], 2)
+        self.assertEqual(summary['f22_codes_total'], 5)
+        self.assertEqual(summary['f22_codes'], ['1234', '2345', '3456', '4567', '5678'])
+        self.assertTrue(summary['fixed_width_structure_validated'])
+        self.assertFalse(summary['official_format'])
+        self.assertFalse(summary['sii_submission'])
+        self.assertFalse(summary['final_tax_calculation'])
+        self.assertEqual(len(records), 3)
+        self.assertTrue(all(len(record) == 90 for record in records))
+        self.assertEqual(records[0][18:23], '00003')
+        self.assertEqual(records[1][1:5], '1234')
+        self.assertEqual(records[2][1:5], '5678')
+
+        with TemporaryDirectory() as temp_dir:
+            written = write_annual_tax_f22_fixed_width_export_candidate(candidate, temp_dir)
+            self.assertTrue(Path(written['written_file']).exists())
+            self.assertTrue(Path(written['manifest_file']).exists())
+            verification = verify_annual_tax_f22_fixed_width_export_candidate(candidate, temp_dir)
+
+        self.assertTrue(verification['verified'])
+        self.assertTrue(verification['ready_for_responsible_review'])
+        self.assertEqual(verification['records_total'], 3)
+        self.assertEqual(verification['f22_codes_total'], 5)
+        self.assertFalse(verification['official_format'])
+        self.assertFalse(verification['sii_submission'])
+        self.assertFalse(verification['final_tax_calculation'])
+
+    def test_tax_export_f22_fixed_width_candidate_rejects_unreviewed_or_non_numeric_codes(self):
+        self._create_valid_local_matrix()
+        export = AnnualTaxExport.objects.get()
+
+        with self.assertRaisesRegex(ValueError, 'entradas F22 revisadas'):
+            build_annual_tax_f22_fixed_width_export_candidate(
+                export,
+                rut_number='11111111',
+                rut_dv='1',
+                company_code='QA',
+                client_number='123456',
+                entries=[],
+            )
+
+        with self.assertRaisesRegex(ValueError, 'codigo SII numerico de 4 digitos'):
+            build_annual_tax_f22_fixed_width_export_candidate(
+                export,
+                rut_number='11111111',
+                rut_dv='1',
+                company_code='QA',
+                client_number='123456',
+                entries=[{'code': 'F22-PREVIEW', 'value': '1000'}],
+            )
 
     def test_tax_export_written_package_tamper_is_rejected(self):
         self._create_valid_local_matrix()

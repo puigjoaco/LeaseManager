@@ -24,6 +24,14 @@ from contabilidad.models import (
 )
 from cobranza.models import DistribucionCobroMensual
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
+from core.stage6_f22_record_format import (
+    F22_RECORD_FORMAT_SOURCE_URL,
+    F22_RECORD_FORMAT_VERSION,
+    F22_RECORD_LENGTH,
+    build_f22_type0_record,
+    build_f22_type1_record,
+    validate_f22_fixed_width_record,
+)
 from documentos.models import (
     DocumentoEmitido,
     EstadoDocumento,
@@ -116,6 +124,7 @@ DTE_STATUS_QUERY_STATES = {
 ANNUAL_TAX_SUPPORT_TEMPLATE_VERSION = 'stage6-v1'
 ANNUAL_TAX_EXPORT_FILE_PACKAGE_VERSION = 'annual-tax-export-file-package-v1'
 ANNUAL_TAX_EXPORT_FILE_PACKAGE_MANIFEST_VERSION = 'annual-tax-export-file-package-manifest-v1'
+ANNUAL_TAX_F22_FIXED_WIDTH_CANDIDATE_VERSION = 'annual-tax-f22-fixed-width-candidate-v1'
 
 TAX_STATUS_REQUIRING_REF = {
     EstadoPreparacionTributaria.APPROVED,
@@ -3788,6 +3797,250 @@ def sync_annual_tax_export(process, rule_set, source_bundle):
         estado=EstadoAnnualTaxExport.PREPARED,
     ).exclude(pk=export.pk).update(estado=EstadoAnnualTaxExport.RETIRED)
     return export
+
+
+def _normalize_f22_fixed_width_entry(entry):
+    if not isinstance(entry, dict):
+        raise ValueError('Cada entrada F22 fixed-width debe ser un objeto.')
+    raw_code = str(
+        entry.get('code')
+        or entry.get('codigo')
+        or entry.get('codigo_f22')
+        or entry.get('target_code')
+        or ''
+    ).strip().upper()
+    if raw_code.startswith('F22-'):
+        raw_code = raw_code[4:]
+    if not raw_code.isdigit() or len(raw_code) != 4:
+        raise ValueError('Cada entrada F22 fixed-width requiere codigo SII numerico de 4 digitos.')
+    sign = str(entry.get('sign') or entry.get('signo') or '').strip().upper()
+    if sign not in {'', '+', '-'}:
+        raise ValueError('signo F22 debe ser vacio, + o -.')
+    value = str(
+        entry.get('value')
+        or entry.get('valor')
+        or entry.get('monto')
+        or entry.get('monto_clp')
+        or '0'
+    ).strip().upper()
+    if not value:
+        value = '0'
+    if len(value) > 15:
+        raise ValueError('valor F22 fixed-width excede 15 caracteres.')
+    return {
+        'code': raw_code,
+        'sign': sign,
+        'value': value,
+    }
+
+
+def build_annual_tax_f22_fixed_width_export_candidate(
+    export,
+    *,
+    rut_number,
+    rut_dv,
+    company_code,
+    client_number,
+    entries,
+    presentation_code='I',
+    declaration_type='O',
+    declarant_checksum=0,
+    folio=0,
+    send_day=0,
+    send_month=0,
+    send_year=0,
+    send_hour=0,
+    send_minute=0,
+    send_second=0,
+    version_number=0,
+    attention_number=0,
+):
+    if export.estado != EstadoAnnualTaxExport.PREPARED:
+        raise ValueError('AnnualTaxExport debe estar preparado antes de construir candidato F22 fixed-width.')
+    try:
+        export.full_clean()
+    except ValidationError as error:
+        reason = _first_validation_error(error)
+        raise ValueError(f'AnnualTaxExport no cumple validacion de dominio: {reason}') from error
+    payload = export.export_payload if isinstance(export.export_payload, dict) else {}
+    if (
+        export.official_format
+        or export.sii_submission
+        or export.final_tax_calculation
+        or payload.get('official_format') not in (False, None)
+        or payload.get('sii_submission') not in (False, None)
+        or payload.get('final_tax_calculation') not in (False, None)
+    ):
+        raise ValueError('El candidato F22 local no puede partir desde un export con formato oficial, envio SII o calculo final.')
+    if int(payload.get('f22_export_contracts_total') or export.f22_items_total or 0) <= 0:
+        raise ValueError('AnnualTaxExport requiere items F22 antes de construir candidato fixed-width.')
+    if not isinstance(entries, list) or not entries:
+        raise ValueError('El candidato F22 fixed-width requiere entradas F22 revisadas explicitamente.')
+
+    normalized_entries = [_normalize_f22_fixed_width_entry(entry) for entry in entries]
+    type1_records = [
+        build_f22_type1_record(normalized_entries[index:index + 4])
+        for index in range(0, len(normalized_entries), 4)
+    ]
+    total_records = 1 + len(type1_records)
+    header = build_f22_type0_record(
+        anio_tributario=export.anio_tributario,
+        rut_number=rut_number,
+        rut_dv=rut_dv,
+        total_records=total_records,
+        company_code=company_code,
+        client_number=client_number,
+        declarant_checksum=declarant_checksum,
+        presentation_code=presentation_code,
+        declaration_type=declaration_type,
+        folio=folio,
+        send_day=send_day,
+        send_month=send_month,
+        send_year=send_year,
+        send_hour=send_hour,
+        send_minute=send_minute,
+        send_second=send_second,
+        version_number=version_number,
+        attention_number=attention_number,
+    )
+    records = [header, *type1_records]
+    for record in records:
+        issues = validate_f22_fixed_width_record(record)
+        if issues:
+            raise ValueError(f'Registro F22 fixed-width invalido: {"; ".join(issues)}')
+
+    content = '\n'.join(records) + '\n'
+    content_bytes = content.encode('ascii')
+    file_name = f'AT{export.anio_tributario}_F22_FIXED_WIDTH_CANDIDATE.txt'
+    summary = {
+        'candidate_version': ANNUAL_TAX_F22_FIXED_WIDTH_CANDIDATE_VERSION,
+        'record_format_version': F22_RECORD_FORMAT_VERSION,
+        'record_format_source_url': F22_RECORD_FORMAT_SOURCE_URL,
+        'annual_tax_export_id': export.id,
+        'empresa_id': export.empresa_id,
+        'proceso_renta_anual_id': export.proceso_renta_anual_id,
+        'anio_tributario': export.anio_tributario,
+        'anio_comercial': export.anio_comercial,
+        'export_ref': export.export_ref,
+        'hash_export': export.hash_export,
+        'file_name': file_name,
+        'content_type': 'text/plain',
+        'encoding': 'ascii',
+        'line_separator': 'LF_LOCAL_CANDIDATE',
+        'record_length': F22_RECORD_LENGTH,
+        'records_total': len(records),
+        'type0_records_total': 1,
+        'type1_records_total': len(type1_records),
+        'f22_codes_total': len(normalized_entries),
+        'f22_codes': [entry['code'] for entry in normalized_entries],
+        'content_hash': hashlib.sha256(content_bytes).hexdigest(),
+        'content_size_bytes': len(content_bytes),
+        'line_hashes': [hashlib.sha256(record.encode('ascii')).hexdigest() for record in records],
+        'fixed_width_structure_validated': True,
+        'official_format': False,
+        'sii_submission': False,
+        'final_tax_calculation': False,
+        'requires_certification_code': True,
+        'requires_responsible_review': True,
+        'requires_explicit_submission_authorization': True,
+    }
+    return {
+        'summary': summary,
+        'records': records,
+        'content': content,
+    }
+
+
+def write_annual_tax_f22_fixed_width_export_candidate(candidate, output_dir):
+    summary = candidate.get('summary') if isinstance(candidate, dict) else None
+    records = candidate.get('records') if isinstance(candidate, dict) else None
+    content = candidate.get('content') if isinstance(candidate, dict) else None
+    if not isinstance(summary, dict) or not isinstance(records, list) or not isinstance(content, str):
+        raise ValueError('Candidato F22 fixed-width invalido.')
+    file_name = str(summary.get('file_name') or '')
+    if Path(file_name).name != file_name or not file_name.endswith('.txt'):
+        raise ValueError('Nombre de archivo F22 fixed-width no permitido.')
+    target_dir = Path(output_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    file_path = target_dir / file_name
+    file_path.write_bytes(content.encode('ascii'))
+    manifest_path = target_dir / 'f22-fixed-width-candidate-manifest.json'
+    manifest_path.write_text(
+        json.dumps({'summary': summary}, sort_keys=True, separators=(',', ':'), ensure_ascii=True, default=str),
+        encoding='utf-8',
+    )
+    return {
+        **candidate,
+        'output_dir': str(target_dir),
+        'written_file': str(file_path),
+        'manifest_file': str(manifest_path),
+    }
+
+
+def verify_annual_tax_f22_fixed_width_export_candidate(candidate, package_dir):
+    summary = candidate.get('summary') if isinstance(candidate, dict) else None
+    records = candidate.get('records') if isinstance(candidate, dict) else None
+    if not isinstance(summary, dict) or not isinstance(records, list):
+        raise ValueError('Candidato F22 fixed-width invalido.')
+    target_dir = Path(package_dir)
+    if not target_dir.exists() or not target_dir.is_dir():
+        raise ValueError('El directorio del candidato F22 no existe o no es un directorio.')
+
+    file_name = str(summary.get('file_name') or '')
+    manifest_path = target_dir / 'f22-fixed-width-candidate-manifest.json'
+    file_path = target_dir / file_name
+    allowed_names = {file_name, 'f22-fixed-width-candidate-manifest.json'}
+    actual_names = {path.name for path in target_dir.iterdir() if path.is_file()}
+    invalid_entries = [path.name for path in target_dir.iterdir() if not path.is_file()]
+    if invalid_entries or actual_names != allowed_names:
+        raise ValueError('El directorio del candidato F22 contiene entradas no declaradas.')
+    manifest_bytes = manifest_path.read_bytes()
+    try:
+        manifest_payload = json.loads(manifest_bytes.decode('utf-8'))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError('El manifiesto F22 fixed-width no contiene JSON canonico valido.') from error
+    if manifest_bytes != _canonical_json_bytes(manifest_payload):
+        raise ValueError('El manifiesto F22 fixed-width no esta serializado como JSON canonico.')
+    if manifest_payload.get('summary') != summary:
+        raise ValueError('El manifiesto F22 fixed-width no coincide con el candidato esperado.')
+
+    content_bytes = file_path.read_bytes()
+    try:
+        content = content_bytes.decode('ascii')
+    except UnicodeDecodeError as error:
+        raise ValueError('El archivo F22 fixed-width debe estar codificado en ascii.') from error
+    if hashlib.sha256(content_bytes).hexdigest() != summary.get('content_hash'):
+        raise ValueError('El archivo F22 fixed-width no coincide con el hash esperado.')
+    if len(content_bytes) != int(summary.get('content_size_bytes') or 0):
+        raise ValueError('El archivo F22 fixed-width no coincide con el tamano esperado.')
+    if content != candidate.get('content'):
+        raise ValueError('El archivo F22 fixed-width no coincide con el contenido esperado.')
+    actual_records = content.splitlines()
+    if actual_records != records:
+        raise ValueError('Los registros F22 fixed-width no coinciden con el candidato esperado.')
+    for record in actual_records:
+        issues = validate_f22_fixed_width_record(record)
+        if issues:
+            raise ValueError(f'El archivo F22 fixed-width contiene registro invalido: {"; ".join(issues)}')
+    if (
+        summary.get('official_format') not in (False, None)
+        or summary.get('sii_submission') not in (False, None)
+        or summary.get('final_tax_calculation') not in (False, None)
+    ):
+        raise ValueError('El candidato F22 fixed-width no puede declarar formato oficial, presentacion SII ni calculo final.')
+    return {
+        'verified': True,
+        'candidate_version': summary.get('candidate_version'),
+        'record_format_version': summary.get('record_format_version'),
+        'file_name': file_name,
+        'content_hash': summary.get('content_hash'),
+        'records_total': len(actual_records),
+        'f22_codes_total': int(summary.get('f22_codes_total') or 0),
+        'official_format': False,
+        'sii_submission': False,
+        'final_tax_calculation': False,
+        'ready_for_responsible_review': True,
+    }
 
 
 def build_annual_tax_export_file_package(export):

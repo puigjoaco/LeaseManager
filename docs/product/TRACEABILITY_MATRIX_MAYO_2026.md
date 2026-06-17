@@ -50,6 +50,16 @@ Los builders generan registros candidatos y `validate_f22_fixed_width_record`
 rechaza largo, tipo, constantes, posiciones y campos numericos invalidos. La
 capa sigue sin envio SII, sin codigo de certificacion real y sin calculo final.
 
+Nota 2026-06-17: Etapa 6/Renta Anual conecta `AnnualTaxExport` con un candidato
+F22 fixed-width local mediante
+`build_annual_tax_f22_fixed_width_export_candidate()`,
+`write_annual_tax_f22_fixed_width_export_candidate()` y
+`verify_annual_tax_f22_fixed_width_export_candidate()`. La capa escribe y
+verifica archivo/manifest desde disco solo con entradas F22 revisadas
+explicitamente y codigos SII numericos de cuatro digitos; rechaza codigos
+internos no presentables como `F22-PREVIEW`. Sigue sin presentacion SII, codigo
+de certificacion real ni calculo tributario final.
+
 Nota 2026-06-17: Canales/Etapa 2 exige motivo operativo trazable para mensajes
 salientes bloqueados o fallidos. `MensajeSaliente.clean()` rechaza estados
 `bloqueado`/`fallido` sin `motivo_bloqueo` no vacio y no sensible, y

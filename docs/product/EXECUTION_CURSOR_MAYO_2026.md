@@ -25,18 +25,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `codex/stage6-f22-record-format`. |
-| Fuente exacta | `main` en `003cc491`, despues del merge confirmado de PR #905 `codex/stage6-official-compatibility-matrix`. |
-| Brecha activa | Etapa 6 ya tiene matriz de compatibilidad oficial AT2026 y paquete local DDJJ/F22. Falta bajar el `Formato de Registro F22 AT2026` publicado por SII a un contrato fixed-width verificable para que el export local pueda avanzar hacia archivo certificable. |
-| Motivo de prioridad | El objetivo pide archivos exportables/certificables, no solo previews. El formato SII de registro F22 es la primera estructura exacta oficial que puede convertirse en validador/constructor local sin abrir SII real. |
-| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-f22-record-format`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
-| Rama | `codex/stage6-f22-record-format`. |
+| Frente activo | `codex/stage6-f22-fixed-width-export`. |
+| Fuente exacta | `main` en `902d7701`, despues del merge confirmado de PR #906 `codex/stage6-f22-record-format`. |
+| Brecha activa | Etapa 6 ya tiene contrato fixed-width F22 AT2026 y paquete local DDJJ/F22 en JSON. Falta un puente que tome un `AnnualTaxExport` preparado y entradas F22 revisadas explicitamente para escribir/verificar un archivo candidato fixed-width local. |
+| Motivo de prioridad | El objetivo pide archivos exportables/certificables, no solo previews. El siguiente avance correcto es producir archivo candidato F22 estructural cuando existan codigos/valores revisados, sin inventarlos desde target codes internos como `F22-PREVIEW`. |
+| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-f22-fixed-width-export`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `codex/stage6-f22-fixed-width-export`. |
 | Estado | Paquete en curso solo mientras esta rama/worktree exista. Faltan implementacion, docs/evidencia, validaciones, commit, PR, CI, merge y limpieza. |
-| Gate esperado | Este paquete no declara cierre de Etapa 6, no presenta SII ni produce calculo tributario final. Solo agrega contrato/validador local del registro F22 AT2026 con fuente SII publica. |
+| Gate esperado | Este paquete no declara cierre de Etapa 6, no presenta SII ni produce calculo tributario final. Solo agrega constructor/escritor/verificador local de candidato F22 fixed-width desde entradas revisadas explicitamente. |
 | Estado al cerrar paquete | Si `main` contiene el merge de este frente y la rama/worktree ya no existe, no reabrirlo ni repetir PR/CI/merge. Buscar el siguiente frente seguro desde repo limpio. |
 | Bloqueos relacionados | Formato/certificacion F22, DDJJ y presentacion SII siguen bloqueados por formato/certificacion vigente aplicable, responsable tributario, autorizacion explicita y evidencia no sensible. |
 | Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable ni integraciones externas sin autorizacion explicita. Las salidas F22/DDJJ/Balance/RLI/CPT/RAI/SAC esperadas son comparacion externa read-only, nunca input de calculo. |
-| Siguiente accion | Implementar contrato fixed-width F22 AT2026, tests, docs/evidencia y cierre por PR/CI/merge/limpieza si pasa. |
+| Siguiente accion | Implementar candidato F22 fixed-width local desde `AnnualTaxExport`, tests, docs/evidencia y cierre por PR/CI/merge/limpieza si pasa. |
 
 ## Actualizacion
 
