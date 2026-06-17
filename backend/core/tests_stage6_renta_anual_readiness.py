@@ -2253,11 +2253,17 @@ class Stage6RentaAnualReadinessTests(TestCase):
         export = AnnualTaxExport.objects.get()
         payload = export.export_payload
         contracts = payload['export_artifact_contracts']
+        file_manifest = payload['export_file_manifest']
 
         self.assertEqual(payload['export_contracts_total'], export.target_items_total)
         self.assertEqual(payload['ddjj_export_contracts_total'], export.ddjj_items_total)
         self.assertEqual(payload['f22_export_contracts_total'], export.f22_items_total)
+        self.assertEqual(payload['export_files_total'], export.target_items_total)
+        self.assertEqual(payload['ddjj_export_files_total'], export.ddjj_items_total)
+        self.assertEqual(payload['f22_export_files_total'], export.f22_items_total)
+        self.assertRegex(payload['export_file_manifest_hash'], r'^[0-9a-f]{64}$')
         self.assertEqual(len(contracts), export.target_items_total)
+        self.assertEqual(len(file_manifest), export.target_items_total)
         self.assertEqual(
             sum(1 for contract in contracts if contract['target_kind'] == 'DDJJ'),
             export.ddjj_items_total,
@@ -2274,6 +2280,22 @@ class Stage6RentaAnualReadinessTests(TestCase):
             self.assertFalse(contract['final_tax_calculation'])
             self.assertTrue(contract['requires_official_format_gate'])
             self.assertTrue(contract['requires_explicit_submission_authorization'])
+        self.assertEqual(
+            {str(contract['artifact_matrix_item_id']) for contract in contracts},
+            {str(entry['artifact_matrix_item_id']) for entry in file_manifest},
+        )
+        for entry in file_manifest:
+            self.assertEqual(entry['file_manifest_version'], 'annual-tax-export-file-manifest-v1')
+            self.assertEqual(entry['delivery_kind'], 'local_controlled_export_file')
+            self.assertEqual(entry['content_type'], 'application/json')
+            self.assertEqual(entry['encoding'], 'utf-8')
+            self.assertEqual(entry['schema_ref'], 'annual-tax-export-file-payload-v1')
+            self.assertTrue(entry['file_name'].endswith('.json'))
+            self.assertRegex(entry['payload_hash'], r'^[0-9a-f]{64}$')
+            self.assertGreater(entry['payload_size_bytes'], 0)
+            self.assertFalse(entry['official_format'])
+            self.assertFalse(entry['sii_submission'])
+            self.assertFalse(entry['final_tax_calculation'])
 
         result = self._collect_with_final_refs()
         issue_codes = {issue['code'] for issue in result['issues']}
@@ -2281,6 +2303,10 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertNotIn('stage6.tax_export_artifact_contracts_mismatch', issue_codes)
         self.assertNotIn('stage6.tax_export_artifact_contracts_invalid', issue_codes)
         self.assertNotIn('stage6.tax_export_artifact_contract_boundary', issue_codes)
+        self.assertNotIn('stage6.tax_export_file_manifest_missing', issue_codes)
+        self.assertNotIn('stage6.tax_export_file_manifest_mismatch', issue_codes)
+        self.assertNotIn('stage6.tax_export_file_manifest_invalid', issue_codes)
+        self.assertNotIn('stage6.tax_export_file_manifest_boundary', issue_codes)
 
     def test_tax_export_missing_artifact_contracts_is_blocking(self):
         self._create_valid_local_matrix()
@@ -2307,6 +2333,35 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage6_renta_anual'])
         self.assertIn('stage6.tax_export_invalid', issue_codes)
         self.assertIn('stage6.tax_export_artifact_contracts_missing', issue_codes)
+
+    def test_tax_export_missing_file_manifest_is_blocking(self):
+        self._create_valid_local_matrix()
+        process = ProcesoRentaAnual.objects.get()
+        export = AnnualTaxExport.objects.get()
+        payload = dict(export.export_payload)
+        payload.pop('export_file_manifest')
+        payload.pop('export_files_total')
+        payload.pop('ddjj_export_files_total')
+        payload.pop('f22_export_files_total')
+        payload.pop('export_file_manifest_hash')
+        hash_export = hashlib.sha256(
+            json.dumps(payload, sort_keys=True, separators=(',', ':'), ensure_ascii=True, default=str).encode('utf-8')
+        ).hexdigest()
+        AnnualTaxExport.objects.filter(pk=export.pk).update(
+            export_payload=payload,
+            hash_export=hash_export,
+        )
+        summary = dict(process.resumen_anual)
+        summary['annual_tax_exports'] = summarize_annual_tax_exports(process)
+        process.resumen_anual = summary
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.tax_export_invalid', issue_codes)
+        self.assertIn('stage6.tax_export_file_manifest_missing', issue_codes)
 
     def test_tax_export_artifact_contract_boundary_is_blocking(self):
         self._create_valid_local_matrix()
@@ -2336,6 +2391,35 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage6_renta_anual'])
         self.assertIn('stage6.tax_export_invalid', issue_codes)
         self.assertIn('stage6.tax_export_artifact_contract_boundary', issue_codes)
+
+    def test_tax_export_file_manifest_boundary_is_blocking(self):
+        self._create_valid_local_matrix()
+        process = ProcesoRentaAnual.objects.get()
+        export = AnnualTaxExport.objects.get()
+        payload = dict(export.export_payload)
+        file_manifest = [dict(entry) for entry in payload['export_file_manifest']]
+        file_manifest[0]['official_format'] = True
+        file_manifest[0]['sii_submission'] = True
+        file_manifest[0]['final_tax_calculation'] = True
+        payload['export_file_manifest'] = file_manifest
+        hash_export = hashlib.sha256(
+            json.dumps(payload, sort_keys=True, separators=(',', ':'), ensure_ascii=True, default=str).encode('utf-8')
+        ).hexdigest()
+        AnnualTaxExport.objects.filter(pk=export.pk).update(
+            export_payload=payload,
+            hash_export=hash_export,
+        )
+        summary = dict(process.resumen_anual)
+        summary['annual_tax_exports'] = summarize_annual_tax_exports(process)
+        process.resumen_anual = summary
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.tax_export_invalid', issue_codes)
+        self.assertIn('stage6.tax_export_file_manifest_boundary', issue_codes)
 
     def test_invalid_tax_export_is_blocking_without_leak(self):
         self._create_valid_local_matrix()

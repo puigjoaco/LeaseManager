@@ -101,7 +101,7 @@ tener fuente SII/experta, responsable y evidencia no sensible.
 | `AnnualTaxF22ExportLayout` | Materializar formato/certificacion F22 revisable antes del export | fuente oficial/experta, instrucciones/formato/responsable y medio preferente | layout F22 hasheado, payload no sensible y boundary explicito | no habilita formato oficial, envio SII ni calculo final |
 | `F22DraftBuilder` | Mapear a codigos F22 | matriz F22, layout F22, registros intermedios y DDJJ | preview F22 | formato/certificacion vigente y revision responsable |
 | `AnnualTaxDossier` | Generar respaldo revisable | todo lo anterior | PDF/HTML/resumen hash | responsable de revision |
-| `AnnualTaxExport` | Emitir preview/export local controlado | dossier, matriz, layout F22 y fuente de formato/certificacion | export no sensible | autorizacion explicita y gate SII para cualquier salida oficial |
+| `AnnualTaxExport` | Emitir preview/export local controlado | dossier, matriz, layout F22 y fuente de formato/certificacion | export no sensible con manifiesto de archivos locales | autorizacion explicita y gate SII para cualquier salida oficial |
 
 ## Contratos de datos minimos
 
@@ -202,12 +202,15 @@ contratos:
    desde `AnnualTaxDossier`, source bundle, rule set, matriz DDJJ/F22, layout
    F22 y fuente oficial/experta de formato/certificacion, con payload hasheado,
    refs no sensibles, conteos DDJJ/F22, id/hash/medio del layout F22, contratos
-   estructurales `annual-tax-export-artifact-contract-v1` por cada artefacto
-   exportable y flags obligatorios `official_format=false`,
+   estructurales `annual-tax-export-artifact-contract-v1` y manifiesto
+   `annual-tax-export-file-manifest-v1` por cada artefacto/archivo local
+   exportable, con nombres JSON deterministas, hashes de payload y flags
+   obligatorios `official_format=false`,
    `sii_submission=false` y `final_tax_calculation=false`. API/snapshot/admin
    redactan refs/payloads y readiness bloquea si falta export, fuente de
-   formato F22, contratos DDJJ/F22, resumen alineado, revision responsable o si
-   intenta declarar formato oficial/presentacion/calculo final.
+   formato F22, contratos DDJJ/F22, manifiesto de archivos, resumen alineado,
+   revision responsable o si intenta declarar formato oficial/presentacion/
+   calculo final.
 12. `stage6-edig-coverage-matrix`: matriz de cobertura segura, sin dependencia
     runtime de EDIG. Implementado como
     `build-edig-at2026-leasemanager-coverage.ps1`: toma los inventarios
@@ -313,6 +316,8 @@ DJ1847/RLI/CPT, porque ahi ocurre la union real entre contabilidad y renta.
 | Export anual faltante | proceso anual trazable sin `AnnualTaxExport` preparado |
 | Resumen export desalineado | hash, dossier, conteos, flags o ids del proceso no coinciden con el export vigente |
 | Export sin fuente formato F22 | `AnnualTaxExport` no enlaza fuente oficial/experta de formato/certificacion F22 |
+| Manifiesto de archivos faltante | `AnnualTaxExport` preparado sin entrada local por cada artefacto DDJJ/F22 |
+| Manifiesto de archivos desalineado | archivos locales no coinciden con contratos, conteos o hashes del export |
 | Export fuera de boundary | intento de marcar formato oficial SII, presentacion SII o calculo final autonomo |
 | Responsable ausente | DDJJ/F22/dossier avanzado sin `responsable_revision_ref` |
 | Refs sensibles | URLs, tokens, correos, certificados o claves en refs/payloads |

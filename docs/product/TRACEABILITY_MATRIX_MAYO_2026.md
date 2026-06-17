@@ -566,11 +566,12 @@ mediante `AnnualTaxExport`. `generate_annual_preparation()` lo sincroniza
 despues de crear DDJJ/F22 locales, conectado a `AnnualTaxDossier`, source
 bundle, rule set y matriz DDJJ/F22. El payload conserva hash, conteos DDJJ/F22,
 contratos estructurales por artefacto exportable DDJJ/F22, refs no sensibles,
-responsable y flags `official_format=false`,
+responsable, manifiesto `annual-tax-export-file-manifest-v1` por archivo local
+exportable, hashes de payload y flags `official_format=false`,
 `sii_submission=false` y `final_tax_calculation=false`. API/snapshot/admin
 redactan refs/payloads y readiness bloquea procesos trazables sin export, con
-resumen desalineado, invalidos, refs faltantes, contratos exportables
-faltantes/desalineados, revision pendiente o cualquier intento de
+resumen desalineado, invalidos, refs faltantes, contratos o manifiestos
+exportables faltantes/desalineados, revision pendiente o cualquier intento de
 presentacion/formato oficial/calculo final autonomo.
 
 Nota 2026-06-13: Etapa 6/7 convierten el boundary asistido en enforcement
