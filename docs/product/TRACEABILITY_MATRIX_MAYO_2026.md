@@ -2347,6 +2347,13 @@ requieren un `ServicioPropiedad` activo de tipo gasto comun en la propiedad
 principal desde `Contrato.full_clean()` y API; el auditor Etapa 1 conserva la
 deteccion de snapshots heredados.
 
+Nota 2026-06-17: Contratos alinea el flujo guiado de cambio de arrendatario
+con el guard de gastos comunes estructurados. `execute_tenant_replacement`
+pasa la propiedad principal heredada al candidato de `Contrato.full_clean()`
+antes de guardar el contrato futuro, por lo que el endpoint rechaza cambios
+que activan o conservan `tiene_gastos_comunes=True` sin `ServicioPropiedad`
+activo de tipo gasto comun y revierte la transaccion completa.
+
 Nota 2026-05-26: Contratos mueve la cobertura minima de canal operativo a
 guard de escritura. Contratos vigentes/futuros requieren al menos una
 `AsignacionCanalOperacion` activa con `IdentidadDeEnvio` activa en su mandato

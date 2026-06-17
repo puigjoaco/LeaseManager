@@ -193,7 +193,11 @@ contra datos reales o snapshot controlado.
   de construir contratos dependientes. El backoffice de Contratos consume esa
   cobertura del mandato seleccionado, muestra el estado del gasto comun activo
   y bloquea el guardado de contratos vigentes/futuros con gastos comunes cuando
-  la propiedad principal no conserva ese servicio estructurado.
+  la propiedad principal no conserva ese servicio estructurado. El flujo guiado
+  de cambio de arrendatario ejecuta el mismo guard con la propiedad principal
+  heredada antes de guardar el contrato futuro; si falta el servicio
+  estructurado, la transaccion revierte el aviso y no persiste el contrato
+  futuro.
 - Validacion de roles contrato-propiedad: exactamente una propiedad principal
   y, si hay pareja, una propiedad vinculada.
 - Validacion de que cada contrato vigente o futuro cubra una sola propiedad o
@@ -371,10 +375,13 @@ contra datos reales o snapshot controlado.
   registrado y contrato futuro con nuevo arrendatario en una transaccion,
   conserva el contrato/deuda historica sin reescribir identidad, copia las
   propiedades contractuales, inicia un periodo de origen `cambio_arrendatario`
-  y registra auditoria dedicada con actor trazable. `Contrato.full_clean()` y
-  la API bloquean la escritura directa de contratos futuros con arrendatario
-  distinto al vigente si no provienen del flujo guiado o no conservan el evento
-  auditable exacto con actor. El auditor Etapa 1 marca como defectuosos
+  y registra auditoria dedicada con actor trazable. Si el contrato futuro
+  mantiene o activa gastos comunes, el flujo exige que la propiedad principal
+  tenga `ServicioPropiedad` activo de tipo gasto comun antes de persistir el
+  contrato futuro. `Contrato.full_clean()` y la API bloquean la escritura
+  directa de contratos futuros con arrendatario distinto al vigente si no
+  provienen del flujo guiado o no conservan el evento auditable exacto con
+  actor. El auditor Etapa 1 marca como defectuosos
   contratos futuros heredados con arrendatario distinto al vigente si no existe
   el evento auditable completo que vincula contrato anterior, aviso y contrato
   nuevo. El backoffice de Contratos expone el flujo guiado, prepara el cambio
