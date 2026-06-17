@@ -32,6 +32,16 @@ ruptura del boundary oficial. El paquete sigue siendo local/controlado: no
 declara formato oficial SII, API, upload, presentacion ni calculo tributario
 final.
 
+Nota 2026-06-17: Etapa 6/Renta Anual agrega matriz de compatibilidad oficial
+AT2026 en codigo con `build_stage6_official_compatibility_matrix()`. La matriz
+usa fuentes SII publicas para F22 certificable por archivo, instrucciones F22,
+opciones de portal/software comercial, medios DDJJ, formularios/plazos, casas
+software, autoverificacion e importador. El validador rechaza URLs fuera de
+dominios SII seguros, API asumida sin evidencia, presentacion oficial,
+calculo final autonomo o certificacion de consistencia tributaria por el solo
+hecho de existir un gate tecnico de archivo. `alerce.sii.cl` queda permitido
+como subdominio SII publico para ayudas DDJJ.
+
 Nota 2026-06-17: Canales/Etapa 2 exige motivo operativo trazable para mensajes
 salientes bloqueados o fallidos. `MensajeSaliente.clean()` rechaza estados
 `bloqueado`/`fallido` sin `motivo_bloqueo` no vacio y no sensible, y

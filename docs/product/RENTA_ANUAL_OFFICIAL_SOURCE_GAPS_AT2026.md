@@ -7,7 +7,7 @@ tributario final. Su objetivo es evitar que la Etapa 6 avance por inferencia,
 por EDIG, por automatizacion de navegador o por IA autonoma cuando la evidencia
 necesaria es una fuente SII vigente, una certificacion o una revision experta.
 
-Fecha de corte: 2026-06-15.
+Fecha de corte: 2026-06-17.
 
 EDIG AT2026 queda como referencia funcional no normativa: permite entender que
 un software de renta real separa contribuyente, regimen, contabilidad, F29/PPM,
@@ -31,7 +31,7 @@ Las fuentes SII revisadas muestran tres familias distintas:
 
 ## Confirmacion SII posterior al mapeo EDIG
 
-La iteracion del 2026-06-15 contra fuentes oficiales SII confirma que el
+La iteracion del 2026-06-17 contra fuentes oficiales SII confirma que el
 mapeo EDIG va en la direccion correcta, pero no cambia el boundary:
 
 - F22 AT2026 se maneja como proceso de certificacion de software que genera
@@ -48,6 +48,14 @@ mapeo EDIG va en la direccion correcta, pero no cambia el boundary:
   relevantes del mapeo local, entre ellos 1847, 1879, 1887, 1926, 1947, 1948 y
   1949. Esto confirma a EDIG como benchmark funcional de DDJJ, no como fuente
   normativa ni como prueba de una API F22/DDJJ publica.
+- El subdominio oficial `alerce.sii.cl` publica ayudas de autoverificacion y
+  manual de importador DDJJ. Esto confirma caminos de revision/importacion por
+  archivo, no una API REST general ni una autorizacion para presentar desde el
+  core de LeaseManager.
+- La pregunta frecuente SII de F22 sin propuesta mantiene caminos de
+  formulario en pantalla, recuperacion de datos guardados o software comercial.
+  Es consistente con el boundary de portal supervisado o archivo certificado,
+  no con presentacion autonoma por API.
 - F29 confirma el mismo patron: upload/certificacion de archivo, validacion en
   sitio SII y responsabilidad de la casa de software por contenido,
   consistencia y validaciones. Por eso F29 debe entrar al dossier anual como
@@ -55,6 +63,13 @@ mapeo EDIG va en la direccion correcta, pero no cambia el boundary:
 - No se identifico una API REST general oficial para presentar F22/DDJJ desde
   LeaseManager. El camino seguro sigue siendo archivo/layout certificado,
   portal/upload supervisado o integracion formal futura bajo gate.
+
+`backend/core/stage6_official_compatibility.py` baja esta lectura a una matriz
+testeable de compatibilidad AT2026. La matriz conserva
+`public_api_general_available=false`, `official_submission_allowed=false` y
+`final_tax_calculation=false`; cualquier cambio que intente habilitar API,
+presentacion oficial o calculo final debe fallar en tests hasta tener fuente,
+certificacion, autorizacion y responsable.
 
 ## Matriz de brechas
 
@@ -95,6 +110,9 @@ un export local en presentacion oficial.
 | Medios DDJJ Renta 2026 | `https://www.sii.cl/ayudas/ayudas_por_servicios/2120-medios_dj_renta_2026-2171.html` | Fuente para determinar medio por formulario: electronico, transferencia, upload, software comercial o asistentes. |
 | Formularios y plazos DDJJ AT2026 | `https://www.sii.cl/ayudas/ayudas_por_servicios/2120-formularios_y_plazos_2026-2171.html` | Fuente para instrucciones, certificados, resoluciones, vencimientos y layouts por DDJJ. |
 | Casas software DDJJ 2026 | `https://www.sii.cl/ayudas/ayudas_por_servicios/2120-casas_sw_2026-2171.html` | Evidencia de que el camino por archivo certificado existe por formulario, sin entregar logica fiscal. |
+| Autoverificacion DDJJ AT2026 | `https://alerce.sii.cl/dior/dej/html/dj_autoverificacion.html` | Evidencia de ayudas SII para revision de archivos DDJJ; no certifica contenido tributario. |
+| Manual importador DDJJ | `https://alerce.sii.cl/dior/dej/html/manual/DJ_Manual/01.html` | Evidencia de flujo de importador/archivo DDJJ; no prueba API REST general. |
+| Opciones declaracion F22 sin propuesta | `https://www.sii.cl/preguntas_frecuentes/declaracion_renta/001_140_8395.htm` | Evidencia de formulario web, datos guardados o software comercial; no habilita automatizacion autonoma. |
 | DJ1847 AT2026 | `https://www.sii.cl/ayudas/ayudas_por_servicios/renta/2026/instrucciones_dj1847.pdf` | Fuente prioritaria para balance 8 columnas, clasificador de cuentas, ajustes RLI y valores tributarios de activos/pasivos. |
 | Certificacion F29 | `https://www.sii.cl/ayudas/ayudas_por_servicios/2055-procesocertificacion-2056.html` | Fuente para entender archivo/upload F29 y validaciones; F29 alimenta renta, pero su presentacion sigue bajo gate. |
 
@@ -235,3 +253,11 @@ fuentes oficiales/expertas, warnings, payload no sensible y hash. Esa capa
 alimenta `AnnualTaxArtifactMatrix`, `AnnualTaxDossier`, `AnnualTaxExport` y
 `AnnualTaxReviewChecklist` como preparacion revisable, sin archivo oficial,
 sin upload SII, sin presentacion autonoma y sin decision tributaria final.
+
+`build_stage6_official_compatibility_matrix()` consolida la lectura oficial
+AT2026 para F22 y DDJJ en codigo: certificacion F22, instrucciones F22,
+opciones de portal/software comercial, medios DDJJ, formularios/plazos,
+casas software DDJJ, autoverificacion e importador. Su validador rechaza URLs
+fuera de dominios SII publicos, API asumida sin evidencia, presentacion oficial
+habilitada, calculo final autonomo o certificacion de consistencia tributaria
+por el solo hecho de existir un gate tecnico de archivo.

@@ -954,6 +954,24 @@ class SiiAPITests(APITestCase):
         source.save()
         self.assertEqual(source.source_hash, 'a' * 64)
 
+    def test_annual_tax_official_source_accepts_public_sii_alerce_source(self):
+        source = AnnualTaxOfficialSource(
+            anio_tributario=2026,
+            source_key='sii-ddjj-autoverification-at2026',
+            source_type=TipoAnnualTaxOfficialSource.SII_DDJJ_SOFTWARE_HOUSES,
+            title='Autoverificacion DDJJ AT2026',
+            source_url='https://alerce.sii.cl/dior/dej/html/dj_autoverificacion.html',
+            source_ref='sii-ddjj-autoverification-at2026-ref',
+            source_hash='c' * 64,
+            retrieved_on='2026-06-17',
+            responsible_ref='tax-source-reviewer-at2026',
+            estado=EstadoAnnualTaxOfficialSource.REVIEWED,
+            applies_to=DestinoMapeoTributarioAnual.DDJJ,
+            form_code='DDJJ',
+        )
+
+        source.full_clean()
+
     def test_annual_tax_official_source_rejects_future_retrieved_on(self):
         source = AnnualTaxOfficialSource(
             anio_tributario=2027,

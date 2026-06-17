@@ -25,18 +25,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `codex/cursor-terminology-after-verifier`. |
-| Fuente exacta | `main` en `6a016951`, despues del merge confirmado de PR #903 `codex/stage6-export-package-verifier`. |
-| Brecha activa | PR #903 dejo integrado el verificador de paquete anual, pero tambien cambio el lenguaje rector de gobierno sobre el mecanismo de reanudacion. Se debe restaurar `cursor operativo` para mantener coherencia con AGENTS/protocolo y actualizar la evidencia con los conteos reales. |
-| Motivo de prioridad | Es una correccion de gobierno pequena que evita que el mecanismo de reanudacion vuelva a parecer una metatarea o prompt persistente. No cambia producto ni gates. |
-| Worktree | `D:/Proyectos/20_STANDBY/LeaseManager/Worktrees/LeaseManager-cursor-terminology-after-verifier`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
-| Rama | `codex/cursor-terminology-after-verifier`. |
-| Estado | Paquete documental en curso. No toca codigo de producto; faltan higiene/diff-check, commit, PR, CI, merge y limpieza. |
-| Gate esperado | Este paquete no declara cierre de etapa ni cambia gates. Solo restaura lenguaje rector `cursor operativo` y corrige evidencia del verificador ya mergeado. |
+| Frente activo | `codex/stage6-official-compatibility-matrix`. |
+| Fuente exacta | `main` en `3458be43`, despues del merge confirmado de PR #904 `codex/cursor-terminology-after-verifier`. |
+| Brecha activa | Etapa 6 ya genera y verifica paquete local DDJJ/F22. Falta consolidar una matriz propia, testeable y documentada de compatibilidad oficial SII AT2026 para separar archivo/certificacion/upload/portal de cualquier API asumida, presentacion real o calculo final. |
+| Motivo de prioridad | El objetivo pide avanzar desde artefactos comparables hacia salidas revisables/certificables. Antes de producir formatos oficiales, LeaseManager debe registrar que fuentes SII vigentes respaldan cada camino y que limites siguen bloqueados. |
+| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-official-compatibility-matrix`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `codex/stage6-official-compatibility-matrix`. |
+| Estado | Paquete en curso solo mientras esta rama/worktree exista. Validaciones locales completas antes del rebase a `origin/main`; faltan resolver cierre documental post-rebase, higiene/diff-check, commit, PR, CI, merge y limpieza. |
+| Gate esperado | Este paquete no declara cierre de Etapa 6, no genera archivo oficial SII, no presenta renta y no confirma API. Solo baja fuentes SII AT2026 a una matriz local validable que mantiene `official_submission_allowed=false` y `final_tax_calculation=false`. |
 | Estado al cerrar paquete | Si `main` contiene el merge de este frente y la rama/worktree ya no existe, no reabrirlo ni repetir PR/CI/merge. Buscar el siguiente frente seguro desde repo limpio. |
-| Bloqueos relacionados | Formato/certificacion F22, DDJJ y presentacion SII siguen bloqueados por fuente oficial/certificacion vigente, responsable tributario y autorizacion explicita. |
+| Bloqueos relacionados | Formato/certificacion F22, DDJJ y presentacion SII siguen bloqueados por formato/certificacion vigente aplicable, responsable tributario, autorizacion explicita y evidencia no sensible. |
 | Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable ni integraciones externas sin autorizacion explicita. Las salidas F22/DDJJ/Balance/RLI/CPT/RAI/SAC esperadas son comparacion externa read-only, nunca input de calculo. |
-| Siguiente accion | Ejecutar higiene/diff-check finales y cerrar por PR/CI/merge/limpieza si pasa. |
+| Siguiente accion | Completar matriz oficial AT2026, tests, docs/evidencia y cierre por PR/CI/merge/limpieza si pasa. |
 
 ## Actualizacion
 

@@ -28,7 +28,7 @@ function Test-OfficialSourceUrl([string]$url) {
     if ([string]::IsNullOrWhiteSpace($url)) {
         return $true
     }
-    return $url -match '^https://(www\.sii\.cl|www4\.sii\.cl|zeus\.sii\.cl|api\.sii\.cl)/'
+    return $url -match '^https://(alerce\.sii\.cl|www\.sii\.cl|www4\.sii\.cl|zeus\.sii\.cl|api\.sii\.cl)/'
 }
 
 function Get-SourceGapDefinitions {
@@ -62,6 +62,46 @@ function Get-SourceGapDefinitions {
             lease_manager_boundary = 'AnnualTaxArtifactMatrix puede clasificar medio revisable; no presentar sin matriz oficial por formulario y responsable.'
             current_status = 'media_matrix_required'
             next_safe_action = 'Construir matriz DDJJ aplicable a LeaseManager desde esta fuente y revision experta.'
+        },
+        [pscustomobject]@{
+            key = 'ddjj_forms_2026'
+            capability = 'Formularios, plazos e instrucciones DDJJ AT2026'
+            official_source = 'Formularios y plazos de declaraciones juradas Renta 2026'
+            source_url = 'https://www.sii.cl/ayudas/ayudas_por_servicios/2120-formularios_y_plazos_2026-2171.html'
+            evidence_reading = 'SII publica formularios, plazos, instrucciones, certificados y resoluciones para DDJJ AT2026.'
+            lease_manager_boundary = 'AnnualTaxDDJJFormLayout puede registrar fuente y vencimiento revisable; no define calculo final.'
+            current_status = 'official_form_source_required'
+            next_safe_action = 'Usar la fuente para layouts DDJJ con hash/responsable antes de cualquier archivo oficial.'
+        },
+        [pscustomobject]@{
+            key = 'ddjj_software_houses_2026'
+            capability = 'Casas software DDJJ AT2026'
+            official_source = 'Casas de software certificadas para declaraciones juradas Renta 2026'
+            source_url = 'https://www.sii.cl/ayudas/ayudas_por_servicios/2120-casas_sw_2026-2171.html'
+            evidence_reading = 'SII publica proveedores y formularios certificados para DDJJ; esto prueba camino por software, no reglas tributarias.'
+            lease_manager_boundary = 'LeaseManager puede preparar contratos de archivo revisable; certificacion/formato final queda bajo gate.'
+            current_status = 'certified_software_path_exists'
+            next_safe_action = 'No copiar EDIG ni declarar compatibilidad oficial sin certificacion propia/controlada.'
+        },
+        [pscustomobject]@{
+            key = 'ddjj_autoverification_2026'
+            capability = 'Autoverificacion DDJJ AT2026'
+            official_source = 'Ayudas de revision de DDJJ Renta AT2026'
+            source_url = 'https://alerce.sii.cl/dior/dej/html/dj_autoverificacion.html'
+            evidence_reading = 'SII publica ayuda de revision/autoverificacion para archivos DDJJ AT2026.'
+            lease_manager_boundary = 'Sirve para validar concepto de revision de archivo; no abre SII ni certifica contenido tributario.'
+            current_status = 'format_review_help_exists'
+            next_safe_action = 'Modelar la revision como gate local/controlado antes de cualquier certificacion.'
+        },
+        [pscustomobject]@{
+            key = 'ddjj_importer_manual'
+            capability = 'Importador DDJJ'
+            official_source = 'Manual importador de declaraciones juradas'
+            source_url = 'https://alerce.sii.cl/dior/dej/html/manual/DJ_Manual/01.html'
+            evidence_reading = 'SII documenta importador DDJJ como flujo de archivo/CSV, no como API REST general.'
+            lease_manager_boundary = 'LeaseManager puede preparar archivos candidatos revisables; upload/importador requiere gate y responsable.'
+            current_status = 'file_importer_path_exists'
+            next_safe_action = 'No asumir API; conservar salida como paquete local hasta formato/certificacion/autorizacion.'
         },
         [pscustomobject]@{
             key = 'dj1847_balance_rli_cpt'

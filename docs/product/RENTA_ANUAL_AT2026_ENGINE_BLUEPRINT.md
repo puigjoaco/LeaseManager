@@ -229,7 +229,11 @@ contratos:
     DJ1847/RLI/CPT, F22, bienes raices/contribuciones y automatizacion por
     navegador entre preparacion local permitida, fuente oficial/experta
     requerida y presentacion externa bloqueada, sin ejecutar EDIG, sin llamar
-    SII y sin producir archivos oficiales.
+    SII y sin producir archivos oficiales. Desde 2026-06-17 tambien queda
+    respaldado por `build_stage6_official_compatibility_matrix()`, que modela
+    compatibilidad AT2026 para F22/DDJJ con fuentes SII publicas y falla si se
+    intenta asumir API, presentacion oficial, calculo final o certificacion de
+    consistencia tributaria sin gate.
 14. `stage6-official-tax-source-registry`: registro operacional de fuentes
     oficiales/experta. Implementado como `AnnualTaxOfficialSource`: modelo,
     migracion, API/snapshot/admin redactados y readiness bloqueante si una
