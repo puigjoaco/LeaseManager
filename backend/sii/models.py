@@ -3618,6 +3618,66 @@ class AnnualTaxExport(OperationalSIITextNormalizationMixin, TimestampedModel):
                     errors['export_payload'] = 'export_payload debe coincidir con estado, tipo y flags de gate.'
             if self.export_payload.get('sii_submission_attempted'):
                 errors['export_payload'] = 'AnnualTaxExport v1 no registra intentos de presentacion SII.'
+            contracts = self.export_payload.get('export_artifact_contracts')
+            if self.estado == EstadoAnnualTaxExport.PREPARED and not isinstance(contracts, list):
+                _add_error(errors, 'export_payload', 'AnnualTaxExport preparado requiere export_artifact_contracts.')
+            elif isinstance(contracts, list):
+                target_counts = {TipoAnnualTaxArtifactTarget.DDJJ: 0, TipoAnnualTaxArtifactTarget.F22: 0}
+                invalid_contracts = 0
+                boundary_contracts = 0
+                for contract in contracts:
+                    if not isinstance(contract, dict):
+                        invalid_contracts += 1
+                        continue
+                    target_kind = contract.get('target_kind')
+                    if target_kind in target_counts:
+                        target_counts[target_kind] += 1
+                    else:
+                        invalid_contracts += 1
+                    if contract.get('contract_version') != 'annual-tax-export-artifact-contract-v1':
+                        invalid_contracts += 1
+                    if not has_text(contract.get('target_code')):
+                        invalid_contracts += 1
+                    if contract.get('delivery_kind') != 'local_controlled_preview':
+                        invalid_contracts += 1
+                    if not has_text(contract.get('artifact_matrix_item_id')):
+                        invalid_contracts += 1
+                    if not has_text(contract.get('hash_item')):
+                        invalid_contracts += 1
+                    if not has_text(contract.get('review_state')):
+                        invalid_contracts += 1
+                    if contract.get('requires_official_format_gate') is not True:
+                        invalid_contracts += 1
+                    if contract.get('requires_explicit_submission_authorization') is not True:
+                        invalid_contracts += 1
+                    if (
+                        contract.get('official_format') not in (False, None)
+                        or contract.get('sii_submission') not in (False, None)
+                        or contract.get('final_tax_calculation') not in (False, None)
+                    ):
+                        boundary_contracts += 1
+                if len(contracts) != self.target_items_total:
+                    _add_error(errors, 'export_payload', 'export_artifact_contracts debe cubrir todos los items DDJJ/F22.')
+                if target_counts[TipoAnnualTaxArtifactTarget.DDJJ] != self.ddjj_items_total:
+                    _add_error(errors, 'export_payload', 'export_artifact_contracts DDJJ no coincide con ddjj_items_total.')
+                if target_counts[TipoAnnualTaxArtifactTarget.F22] != self.f22_items_total:
+                    _add_error(errors, 'export_payload', 'export_artifact_contracts F22 no coincide con f22_items_total.')
+                for key, expected in (
+                    ('export_contracts_total', self.target_items_total),
+                    ('ddjj_export_contracts_total', self.ddjj_items_total),
+                    ('f22_export_contracts_total', self.f22_items_total),
+                ):
+                    if key in self.export_payload:
+                        try:
+                            matches = int(self.export_payload.get(key) or 0) == int(expected)
+                        except (TypeError, ValueError):
+                            matches = False
+                        if not matches:
+                            _add_error(errors, 'export_payload', f'{key} debe coincidir con los contratos exportables.')
+                if invalid_contracts:
+                    _add_error(errors, 'export_payload', 'export_artifact_contracts contiene contratos invalidos.')
+                if boundary_contracts:
+                    _add_error(errors, 'export_payload', 'export_artifact_contracts no puede declarar formato oficial, presentacion SII ni calculo final.')
             expected_hash = _payload_hash(self.export_payload)
             if self.hash_export and self.hash_export != expected_hash:
                 errors['hash_export'] = 'hash_export debe corresponder al export_payload.'

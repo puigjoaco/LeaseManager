@@ -201,12 +201,13 @@ contratos:
    Implementado como `AnnualTaxExport`: genera un paquete local controlado
    desde `AnnualTaxDossier`, source bundle, rule set, matriz DDJJ/F22, layout
    F22 y fuente oficial/experta de formato/certificacion, con payload hasheado,
-   refs no sensibles, conteos DDJJ/F22, id/hash/medio del layout F22 y flags
-   obligatorios `official_format=false`, `sii_submission=false` y
-   `final_tax_calculation=false`. API/snapshot/admin redactan refs/payloads y
-   readiness bloquea si falta export, fuente de formato F22, resumen alineado,
-   revision responsable o si intenta declarar formato oficial/presentacion/
-   calculo final.
+   refs no sensibles, conteos DDJJ/F22, id/hash/medio del layout F22, contratos
+   estructurales `annual-tax-export-artifact-contract-v1` por cada artefacto
+   exportable y flags obligatorios `official_format=false`,
+   `sii_submission=false` y `final_tax_calculation=false`. API/snapshot/admin
+   redactan refs/payloads y readiness bloquea si falta export, fuente de
+   formato F22, contratos DDJJ/F22, resumen alineado, revision responsable o si
+   intenta declarar formato oficial/presentacion/calculo final.
 12. `stage6-edig-coverage-matrix`: matriz de cobertura segura, sin dependencia
     runtime de EDIG. Implementado como
     `build-edig-at2026-leasemanager-coverage.ps1`: toma los inventarios

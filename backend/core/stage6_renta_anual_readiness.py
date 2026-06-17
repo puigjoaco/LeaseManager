@@ -1027,6 +1027,9 @@ def _collect_annual_tax_export_issues(exports, processes, active_fiscal_company_
                         or int(item_summary.get('target_items_total') or 0) != export.target_items_total
                         or int(item_summary.get('ddjj_items_total') or 0) != export.ddjj_items_total
                         or int(item_summary.get('f22_items_total') or 0) != export.f22_items_total
+                        or int(item_summary.get('export_contracts_total') or 0) != int(payload.get('export_contracts_total') or 0)
+                        or int(item_summary.get('ddjj_export_contracts_total') or 0) != int(payload.get('ddjj_export_contracts_total') or 0)
+                        or int(item_summary.get('f22_export_contracts_total') or 0) != int(payload.get('f22_export_contracts_total') or 0)
                         or int(item_summary.get('warnings_total') or 0) != export.warnings_total
                         or item_summary.get('official_format') is not False
                         or item_summary.get('sii_submission') is not False
@@ -1037,6 +1040,47 @@ def _collect_annual_tax_export_issues(exports, processes, active_fiscal_company_
 
         for export in process_exports:
             payload = export.export_payload if isinstance(export.export_payload, dict) else {}
+            contracts = payload.get('export_artifact_contracts')
+            if not isinstance(contracts, list):
+                counts['tax_export_artifact_contracts_missing'] += 1
+            else:
+                contract_counts = Counter()
+                invalid_contracts = 0
+                boundary_contracts = 0
+                for contract in contracts:
+                    if not isinstance(contract, dict):
+                        invalid_contracts += 1
+                        continue
+                    target_kind = contract.get('target_kind')
+                    contract_counts[target_kind] += 1
+                    if (
+                        contract.get('contract_version') != 'annual-tax-export-artifact-contract-v1'
+                        or target_kind not in {'DDJJ', 'F22'}
+                        or not has_text(contract.get('target_code'))
+                        or contract.get('delivery_kind') != 'local_controlled_preview'
+                        or not has_text(contract.get('artifact_matrix_item_id'))
+                        or not has_text(contract.get('hash_item'))
+                        or not has_text(contract.get('review_state'))
+                        or contract.get('requires_official_format_gate') is not True
+                        or contract.get('requires_explicit_submission_authorization') is not True
+                    ):
+                        invalid_contracts += 1
+                    if (
+                        contract.get('official_format') not in (False, None)
+                        or contract.get('sii_submission') not in (False, None)
+                        or contract.get('final_tax_calculation') not in (False, None)
+                    ):
+                        boundary_contracts += 1
+                if (
+                    len(contracts) != export.target_items_total
+                    or contract_counts['DDJJ'] != export.ddjj_items_total
+                    or contract_counts['F22'] != export.f22_items_total
+                ):
+                    counts['tax_export_artifact_contracts_mismatch'] += 1
+                if invalid_contracts:
+                    counts['tax_export_artifact_contracts_invalid'] += 1
+                if boundary_contracts:
+                    counts['tax_export_artifact_contract_boundary'] += 1
             if not export.official_format_source_id:
                 counts['tax_export_official_format_source_missing'] += 1
             if not has_text(export.responsible_ref):
@@ -2168,6 +2212,26 @@ def collect_stage6_renta_anual_readiness(
             'tax_export_official_format_source_missing',
             'stage6.tax_export_official_format_source_missing',
             'AnnualTaxExport preparado requiere fuente oficial/experta de formato o certificacion F22 antes de cierre.',
+        ),
+        (
+            'tax_export_artifact_contracts_missing',
+            'stage6.tax_export_artifact_contracts_missing',
+            'AnnualTaxExport preparado requiere contratos estructurales por cada artefacto DDJJ/F22 exportable.',
+        ),
+        (
+            'tax_export_artifact_contracts_mismatch',
+            'stage6.tax_export_artifact_contracts_mismatch',
+            'AnnualTaxExport conserva contratos DDJJ/F22 desalineados con sus totales exportables.',
+        ),
+        (
+            'tax_export_artifact_contracts_invalid',
+            'stage6.tax_export_artifact_contracts_invalid',
+            'AnnualTaxExport conserva contratos estructurales incompletos o invalidos.',
+        ),
+        (
+            'tax_export_artifact_contract_boundary',
+            'stage6.tax_export_artifact_contract_boundary',
+            'Los contratos de export anual no pueden declarar formato oficial, presentacion SII ni calculo final.',
         ),
         (
             'tax_export_review_required',
