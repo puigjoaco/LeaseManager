@@ -124,6 +124,16 @@ function Get-SourceGapDefinitions {
             next_safe_action = 'No convertir a formato oficial ni presentar hasta certificacion/formato, autorizacion y responsable.'
         },
         [pscustomobject]@{
+            key = 'f22_record_format_2026'
+            capability = 'Formato de registro F22 AT2026'
+            official_source = 'Formato de Registro F22 AT2026'
+            source_url = 'https://alerce.sii.cl/dior/ren_mp/pdf/6_Formato_de_Registro_F22_AT2026.pdf'
+            evidence_reading = 'SII publica registros fixed-width de largo 90 para F22 AT2026: tipo 0 cabecera y tipo 1 datos de declaracion con cuatro codigos por registro.'
+            lease_manager_boundary = 'LeaseManager puede validar y construir registros candidatos; la certificacion/envio sigue bloqueada por codigo autorizado, revision y gate.'
+            current_status = 'fixed_width_contract_available'
+            next_safe_action = 'Usar contrato local para validar export candidato antes de cualquier certificacion o presentacion.'
+        },
+        [pscustomobject]@{
             key = 'f22_instructions_2026'
             capability = 'Instrucciones operativas F22 2026'
             official_source = 'Suplemento Tributario y Guia Renta 2026'

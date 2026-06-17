@@ -56,6 +56,11 @@ mapeo EDIG va en la direccion correcta, pero no cambia el boundary:
   formulario en pantalla, recuperacion de datos guardados o software comercial.
   Es consistente con el boundary de portal supervisado o archivo certificado,
   no con presentacion autonoma por API.
+- La ayuda oficial `Formato de Registro F22 AT2026` publica registros
+  fixed-width de largo 90 para F22: registro tipo 0 de cabecera/datos para
+  internet y registro tipo 1 de datos de declaracion con cuatro codigos por
+  registro. Esto permite construir un contrato local verificable de archivo
+  candidato, no una presentacion SII ni calculo tributario final.
 - F29 confirma el mismo patron: upload/certificacion de archivo, validacion en
   sitio SII y responsabilidad de la casa de software por contenido,
   consistencia y validaciones. Por eso F29 debe entrar al dossier anual como
@@ -106,6 +111,7 @@ un export local en presentacion oficial.
 | Fuente | URL | Uso correcto |
 | --- | --- | --- |
 | Certificacion F22 AT2026 | `https://www.sii.cl/noticias/2026/060226noti02pcr.htm` | Probar que existe camino de archivo/certificacion F22 2026; no prueba consistencia tributaria del contenido. |
+| Formato de Registro F22 AT2026 | `https://alerce.sii.cl/dior/ren_mp/pdf/6_Formato_de_Registro_F22_AT2026.pdf` | Fuente exacta para contrato fixed-width local: registros tipo 0 y tipo 1 de largo 90. |
 | Instrucciones F22 Renta 2026 | `https://www.sii.cl/servicios_online/renta/guia_trib_suplemento_2026.html` | Fuente para bajar codigos/instrucciones a `TaxCodeMapping` con hash y responsable. |
 | Medios DDJJ Renta 2026 | `https://www.sii.cl/ayudas/ayudas_por_servicios/2120-medios_dj_renta_2026-2171.html` | Fuente para determinar medio por formulario: electronico, transferencia, upload, software comercial o asistentes. |
 | Formularios y plazos DDJJ AT2026 | `https://www.sii.cl/ayudas/ayudas_por_servicios/2120-formularios_y_plazos_2026-2171.html` | Fuente para instrucciones, certificados, resoluciones, vencimientos y layouts por DDJJ. |
@@ -261,3 +267,12 @@ casas software DDJJ, autoverificacion e importador. Su validador rechaza URLs
 fuera de dominios SII publicos, API asumida sin evidencia, presentacion oficial
 habilitada, calculo final autonomo o certificacion de consistencia tributaria
 por el solo hecho de existir un gate tecnico de archivo.
+
+`build_f22_record_format_contract()` baja la fuente `Formato de Registro F22
+AT2026` a un contrato local exacto para registros fixed-width de 90 caracteres:
+tipo 0 para cabecera/datos de internet y tipo 1 para datos de declaracion en
+cuatro pares codigo/signo/valor por linea. `build_f22_type0_record()` y
+`build_f22_type1_record()` generan registros candidatos con datos sinteticos o
+controlados, y `validate_f22_fixed_width_record()` rechaza largo, tipo,
+constantes, posiciones y campos numericos invalidos. Esta capa sigue con
+`official_submission_allowed=false` y `final_tax_calculation=false`.

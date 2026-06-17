@@ -430,6 +430,12 @@ software, autoverificacion e importador. Su validador bloquea API asumida,
 presentacion SII, calculo final y certificacion de consistencia tributaria
 mientras no existan formato/certificacion vigente, autorizacion explicita y
 responsable.
+`build_f22_record_format_contract()` baja el `Formato de Registro F22 AT2026`
+de SII a una estructura local verificable: registros fixed-width de largo 90,
+tipo 0 para cabecera/datos de internet y tipo 1 para cuatro codigos por linea.
+Sus builders y validador permiten avanzar de preview JSON hacia archivo
+candidato, pero no habilitan codigo de certificacion real, envio SII, calculo
+final ni aprobacion sin responsable.
 `audit_company_accounting_progress` funciona como medidor operativo por empresa
 y ano comercial: consolida en JSON si la empresa tiene configuracion fiscal,
 doce cierres, balances aprobados/cuadrados, F29, `ProcesoRentaAnual`,

@@ -25,18 +25,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `codex/stage6-official-compatibility-matrix`. |
-| Fuente exacta | `main` en `3458be43`, despues del merge confirmado de PR #904 `codex/cursor-terminology-after-verifier`. |
-| Brecha activa | Etapa 6 ya genera y verifica paquete local DDJJ/F22. Falta consolidar una matriz propia, testeable y documentada de compatibilidad oficial SII AT2026 para separar archivo/certificacion/upload/portal de cualquier API asumida, presentacion real o calculo final. |
-| Motivo de prioridad | El objetivo pide avanzar desde artefactos comparables hacia salidas revisables/certificables. Antes de producir formatos oficiales, LeaseManager debe registrar que fuentes SII vigentes respaldan cada camino y que limites siguen bloqueados. |
-| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-official-compatibility-matrix`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
-| Rama | `codex/stage6-official-compatibility-matrix`. |
-| Estado | Paquete en curso solo mientras esta rama/worktree exista. Validaciones locales completas antes del rebase a `origin/main`; faltan resolver cierre documental post-rebase, higiene/diff-check, commit, PR, CI, merge y limpieza. |
-| Gate esperado | Este paquete no declara cierre de Etapa 6, no genera archivo oficial SII, no presenta renta y no confirma API. Solo baja fuentes SII AT2026 a una matriz local validable que mantiene `official_submission_allowed=false` y `final_tax_calculation=false`. |
+| Frente activo | `codex/stage6-f22-record-format`. |
+| Fuente exacta | `main` en `003cc491`, despues del merge confirmado de PR #905 `codex/stage6-official-compatibility-matrix`. |
+| Brecha activa | Etapa 6 ya tiene matriz de compatibilidad oficial AT2026 y paquete local DDJJ/F22. Falta bajar el `Formato de Registro F22 AT2026` publicado por SII a un contrato fixed-width verificable para que el export local pueda avanzar hacia archivo certificable. |
+| Motivo de prioridad | El objetivo pide archivos exportables/certificables, no solo previews. El formato SII de registro F22 es la primera estructura exacta oficial que puede convertirse en validador/constructor local sin abrir SII real. |
+| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-f22-record-format`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `codex/stage6-f22-record-format`. |
+| Estado | Paquete en curso solo mientras esta rama/worktree exista. Faltan implementacion, docs/evidencia, validaciones, commit, PR, CI, merge y limpieza. |
+| Gate esperado | Este paquete no declara cierre de Etapa 6, no presenta SII ni produce calculo tributario final. Solo agrega contrato/validador local del registro F22 AT2026 con fuente SII publica. |
 | Estado al cerrar paquete | Si `main` contiene el merge de este frente y la rama/worktree ya no existe, no reabrirlo ni repetir PR/CI/merge. Buscar el siguiente frente seguro desde repo limpio. |
 | Bloqueos relacionados | Formato/certificacion F22, DDJJ y presentacion SII siguen bloqueados por formato/certificacion vigente aplicable, responsable tributario, autorizacion explicita y evidencia no sensible. |
 | Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable ni integraciones externas sin autorizacion explicita. Las salidas F22/DDJJ/Balance/RLI/CPT/RAI/SAC esperadas son comparacion externa read-only, nunca input de calculo. |
-| Siguiente accion | Completar matriz oficial AT2026, tests, docs/evidencia y cierre por PR/CI/merge/limpieza si pasa. |
+| Siguiente accion | Implementar contrato fixed-width F22 AT2026, tests, docs/evidencia y cierre por PR/CI/merge/limpieza si pasa. |
 
 ## Actualizacion
 

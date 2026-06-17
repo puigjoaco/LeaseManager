@@ -42,6 +42,14 @@ calculo final autonomo o certificacion de consistencia tributaria por el solo
 hecho de existir un gate tecnico de archivo. `alerce.sii.cl` queda permitido
 como subdominio SII publico para ayudas DDJJ.
 
+Nota 2026-06-17: Etapa 6/Renta Anual baja el `Formato de Registro F22 AT2026`
+de SII a contrato local verificable con `build_f22_record_format_contract()`.
+El contrato cubre registros fixed-width de largo 90: tipo 0 para cabecera/datos
+de internet y tipo 1 para datos de declaracion con cuatro codigos por registro.
+Los builders generan registros candidatos y `validate_f22_fixed_width_record`
+rechaza largo, tipo, constantes, posiciones y campos numericos invalidos. La
+capa sigue sin envio SII, sin codigo de certificacion real y sin calculo final.
+
 Nota 2026-06-17: Canales/Etapa 2 exige motivo operativo trazable para mensajes
 salientes bloqueados o fallidos. `MensajeSaliente.clean()` rechaza estados
 `bloqueado`/`fallido` sin `motivo_bloqueo` no vacio y no sensible, y

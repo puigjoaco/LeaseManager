@@ -19,12 +19,16 @@ class Stage6OfficialCompatibilityTests(SimpleTestCase):
         self.assertEqual(validate_stage6_official_compatibility_matrix(matrix), [])
 
         row = self._row(matrix, 'f22_certification_2026')
+        format_row = self._row(matrix, 'f22_record_format_2026')
         boundary = row['boundary']
 
         self.assertEqual(row['target_kind'], 'F22')
         self.assertIs(boundary['certified_file_path_exists'], True)
         self.assertIs(boundary['public_api_confirmed'], False)
         self.assertIs(boundary['content_consistency_certified'], False)
+        self.assertIs(format_row['boundary']['fixed_width_record_contract_exists'], True)
+        self.assertEqual(format_row['boundary']['record_length'], 90)
+        self.assertEqual(set(format_row['boundary']['record_types']), {'0', '1'})
         self.assertIs(matrix['official_submission_allowed'], False)
         self.assertIs(matrix['final_tax_calculation'], False)
 
