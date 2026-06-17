@@ -17,6 +17,7 @@ DDJJ_IMPORTER_MANUAL_URL = 'https://alerce.sii.cl/dior/dej/html/manual/DJ_Manual
 F22_CERTIFICATION_2026_URL = 'https://www.sii.cl/noticias/2026/060226noti02pcr.htm'
 F22_INSTRUCTIONS_2026_URL = 'https://www.sii.cl/servicios_online/renta/guia_trib_suplemento_2026.html'
 F22_DECLARATION_OPTIONS_2026_URL = 'https://www.sii.cl/preguntas_frecuentes/declaracion_renta/001_140_8395.htm'
+F22_RECORD_FORMAT_2026_URL = 'https://alerce.sii.cl/dior/ren_mp/pdf/6_Formato_de_Registro_F22_AT2026.pdf'
 
 EXPECTED_DDJJ_MEDIA = {
     'formulario_electronico',
@@ -80,6 +81,18 @@ def build_stage6_official_compatibility_matrix(*, anio_tributario: int = 2026) -
             source_type=TipoAnnualTaxOfficialSource.SII_F22_INSTRUCTIONS,
             source_url=F22_INSTRUCTIONS_2026_URL,
             evidence_reading='SII publica guia/suplemento de Renta 2026 para codigos e instrucciones F22.',
+        ),
+        _row(
+            key='f22_record_format_2026',
+            target_kind='F22',
+            source_type=TipoAnnualTaxOfficialSource.SII_F22_CERTIFICATION,
+            source_url=F22_RECORD_FORMAT_2026_URL,
+            evidence_reading='SII publica formato de registro fixed-width para archivos F22 AT2026.',
+            boundary={
+                'fixed_width_record_contract_exists': True,
+                'record_length': 90,
+                'record_types': ['0', '1'],
+            },
         ),
         _row(
             key='f22_commercial_software_or_portal_2026',
@@ -194,6 +207,18 @@ def validate_stage6_official_compatibility_matrix(matrix: dict[str, Any]) -> lis
             issues.append('f22_certification_2026.public_api_must_not_be_confirmed')
         if boundary.get('content_consistency_certified') is True:
             issues.append('f22_certification_2026.content_consistency_must_not_be_certified')
+
+    f22_record_format = by_key.get('f22_record_format_2026') or {}
+    if not f22_record_format:
+        issues.append('f22_record_format_2026_missing')
+    else:
+        boundary = f22_record_format.get('boundary') or {}
+        if boundary.get('fixed_width_record_contract_exists') is not True:
+            issues.append('f22_record_format_2026.fixed_width_contract_missing')
+        if boundary.get('record_length') != 90:
+            issues.append('f22_record_format_2026.record_length_mismatch')
+        if set(boundary.get('record_types') or []) != {'0', '1'}:
+            issues.append('f22_record_format_2026.record_types_mismatch')
 
     ddjj_media = by_key.get('ddjj_media_2026') or {}
     media = set(ddjj_media.get('supported_media') or [])

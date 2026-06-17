@@ -234,6 +234,13 @@ contratos:
     compatibilidad AT2026 para F22/DDJJ con fuentes SII publicas y falla si se
     intenta asumir API, presentacion oficial, calculo final o certificacion de
     consistencia tributaria sin gate.
+13.1. `stage6-f22-record-format-contract`: contrato local de formato F22
+    AT2026. Implementado como `build_f22_record_format_contract()`,
+    `build_f22_type0_record()`, `build_f22_type1_record()` y
+    `validate_f22_fixed_width_record()`: baja el PDF SII de formato de registro
+    a lineas fixed-width de 90 caracteres para registros tipo 0 y tipo 1. No
+    habilita envio SII, codigo de certificacion real ni calculo tributario
+    final.
 14. `stage6-official-tax-source-registry`: registro operacional de fuentes
     oficiales/experta. Implementado como `AnnualTaxOfficialSource`: modelo,
     migracion, API/snapshot/admin redactados y readiness bloqueante si una
