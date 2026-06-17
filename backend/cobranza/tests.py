@@ -1755,6 +1755,28 @@ class CobranzaAPITests(APITestCase):
             intent.full_clean()
         self.assertIn('motivo_bloqueo', block_error.exception.message_dict)
 
+    def test_webpay_intent_full_clean_rejects_blocked_without_reason(self):
+        payment = self._generate_monthly_payment(codigo='CON-WP-BLOCK-MISSING')
+        gate = GateCobroExterno.objects.create(
+            provider_key='transbank_webpay',
+            estado_gate=EstadoGateCobroExterno.OPEN,
+            evidencia_ref='webpay-gate-evidence-controlled',
+        )
+        intent = IntentoPagoWebPay(
+            pago_mensual=payment,
+            gate_cobro=gate,
+            provider_key='transbank_webpay',
+            monto_clp_snapshot=payment.monto_calculado_clp,
+            buy_order='BUY-BLOCK-MISSING',
+            session_id='SESSION-BLOCK-MISSING',
+            estado=EstadoIntentoPagoWebPay.BLOCKED,
+            motivo_bloqueo='   ',
+        )
+
+        with self.assertRaises(ValidationError) as block_error:
+            intent.full_clean()
+        self.assertIn('motivo_bloqueo', block_error.exception.message_dict)
+
     def test_webpay_intent_refs_normalize_before_persisting(self):
         payment = self._generate_monthly_payment(codigo='CON-WP-REF-NORM')
         payment.monto_pagado_clp = payment.monto_calculado_clp

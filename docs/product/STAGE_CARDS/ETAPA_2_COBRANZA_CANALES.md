@@ -289,6 +289,10 @@ condicionados sin envios reales accidentales.
   auditoria antes de devolver el bloqueo o crear un nuevo intento preparado
   valido. La readiness bloquea snapshots heredados con intentos preparados o
   bloqueados sin evento `cobranza.webpay_intento.prepared` completo y alineado.
+  Todo intento WebPay bloqueado requiere `motivo_bloqueo` operativo,
+  normalizado, no vacio y no sensible; la readiness reporta
+  `stage2.webpay_intent.block_reason_missing` para snapshots heredados sin esa
+  razon trazable.
   `provider_payload` no puede contener URLs, tokens, credenciales, correos ni
   claves sensibles; `motivo_bloqueo` de intentos WebPay tampoco puede contener
   referencias sensibles; `restricciones_operativas` del gate WebPay aplica la
@@ -372,6 +376,7 @@ condicionados sin envios reales accidentales.
   incluyendo deteccion de
   UF manual sin evento auditable, refs sensibles en gates, `external_ref`, `return_url_ref`,
   `motivo_bloqueo` o `provider_payload` sensible en intentos WebPay,
+  intentos WebPay bloqueados sin motivo operativo trazable,
   intentos WebPay confirmados desalineados con el
   pago mensual o sin auditoria manual completa y alineada, pagos pendientes
   vencidos, mora desactualizada, efecto de

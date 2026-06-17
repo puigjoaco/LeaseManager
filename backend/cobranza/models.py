@@ -779,6 +779,8 @@ class IntentoPagoWebPay(TimestampedModel):
                     )
                 }
             )
+        if self.estado == EstadoIntentoPagoWebPay.BLOCKED and not self.motivo_bloqueo.strip():
+            raise ValidationError({'motivo_bloqueo': 'Intento WebPay bloqueado requiere motivo operativo trazable.'})
         if self.motivo_bloqueo.strip() and contains_sensitive_reference(self.motivo_bloqueo):
             raise ValidationError(
                 {'motivo_bloqueo': 'motivo_bloqueo no debe contener URLs, tokens, credenciales ni correos.'}
