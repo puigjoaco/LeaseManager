@@ -1358,6 +1358,29 @@ class CanalesAPITests(APITestCase):
 
         self.assertIn('motivo_bloqueo', error.exception.message_dict)
 
+    def test_message_rejects_blocked_or_failed_without_reason_on_full_clean(self):
+        _, contrato = self._create_contract_context(codigo='CH-BLOCK-REASON-MISSING')
+        gate_data = self._create_gate(canal='email')
+        gate = CanalMensajeria.objects.get(pk=gate_data['id'])
+
+        for estado in (EstadoMensajeSaliente.BLOCKED, EstadoMensajeSaliente.FAILED):
+            with self.subTest(estado=estado):
+                message = MensajeSaliente(
+                    canal='email',
+                    canal_mensajeria=gate,
+                    contrato=contrato,
+                    destinatario='tenant@example.com',
+                    asunto='Bloqueo sin motivo',
+                    cuerpo='Mensaje sin motivo operativo',
+                    estado=estado,
+                    motivo_bloqueo='   ',
+                )
+
+                with self.assertRaises(ValidationError) as error:
+                    message.full_clean()
+
+                self.assertIn('motivo_bloqueo', error.exception.message_dict)
+
     def test_message_provenance_fields_normalize_before_persisting(self):
         empresa, contrato = self._create_contract_context(codigo='CH-MSG-PROV-NORM')
         gate_data = self._create_gate(canal='email')

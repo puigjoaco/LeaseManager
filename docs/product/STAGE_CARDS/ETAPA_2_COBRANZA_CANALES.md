@@ -145,6 +145,10 @@ condicionados sin envios reales accidentales.
   normalizado, mandato operativo activo, contexto WhatsApp valido o formalizacion
   documental cuando corresponda; mensajes `enviado` requieren `external_ref`
   trazable no sensible normalizado y timestamp de envio.
+- Mensajes salientes en estado `bloqueado` o `fallido` requieren
+  `motivo_bloqueo` operativo, normalizado, no vacio y no sensible. La readiness
+  reporta `stage2.message.block_reason_missing` para snapshots heredados que
+  hayan quedado sin motivo trazable.
 - Mensajes preparados o enviados asociados a un contrato o documento
   contractual solo pueden usar una `IdentidadDeEnvio` autorizada para ese
   contrato: override explicito del contrato o asignacion activa del mandato
@@ -372,7 +376,8 @@ condicionados sin envios reales accidentales.
   pago mensual o sin auditoria manual completa y alineada, pagos pendientes
   vencidos, mora desactualizada, efecto de
   codigo efectivo descuadrado o sin evento auditable, motivos de bloqueo de
-  mensajes salientes sensibles heredados, pagos por acuerdo de
+  mensajes salientes sensibles heredados, mensajes salientes bloqueados o
+  fallidos sin motivo operativo trazable, pagos por acuerdo de
   termino o condonados sin resolucion trazable o sin evento auditable, y
   estados de cuenta con score faltante, desalineado u observaciones sensibles,
   sin enviar mensajes ni conectar proveedores externos. Para cierre debe ejecutarse

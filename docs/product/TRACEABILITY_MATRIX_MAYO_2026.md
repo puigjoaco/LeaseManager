@@ -20,6 +20,13 @@ Node 22, caches y comandos existentes, pero evita que el cierre operativo
 genere advertencias por runtime Node20 de acciones antiguas. No cambia producto,
 datos, gates externos ni autorizaciones.
 
+Nota 2026-06-17: Canales/Etapa 2 exige motivo operativo trazable para mensajes
+salientes bloqueados o fallidos. `MensajeSaliente.clean()` rechaza estados
+`bloqueado`/`fallido` sin `motivo_bloqueo` no vacio y no sensible, y
+`audit_stage2_cobranza_readiness` reporta
+`stage2.message.block_reason_missing` para snapshots heredados con esa brecha.
+Esto conserva fallbacks y fallos visibles sin abrir proveedores externos.
+
 Nota 2026-06-16: El progreso contable/renta por empresa queda con boundary
 explicito en API, Reporting y backoffice. `audit_company_accounting_progress`
 y `contabilidad/progreso-empresa/` exponen `review_boundary` con

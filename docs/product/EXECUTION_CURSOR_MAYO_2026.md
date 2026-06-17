@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `stage1-post-tenant-replacement-common-expense`. |
-| Fuente exacta | `main` posterior al paquete `stage1-tenant-replacement-common-expense` cuando el PR quede mergeado. |
-| Brecha activa | El flujo guiado de cambio de arrendatario queda alineado con el guard de gastos comunes estructurados: no debe permitir contrato futuro con `tiene_gastos_comunes=True` si la propiedad principal heredada no tiene `ServicioPropiedad` activo de tipo gasto comun. |
-| Motivo de prioridad | Etapa 1/Contratos ya exigia el guard en altas/ediciones directas, pero el flujo guiado creaba un candidato pre-save antes de copiar relaciones de propiedad; el paquete evita que ese camino persista contratos futuros incompletos. |
-| Worktree | Paquete trabajado en `D:/Proyectos/10_ACTIVOS/LeaseManager-stage1-tenant-replacement-common-expense` con rama `codex/stage1-tenant-replacement-common-expense`; al cerrar el PR debe eliminarse. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
-| Rama | `codex/stage1-tenant-replacement-common-expense` hasta merge; despues volver a `main` limpio. |
-| Estado | `Contrato.full_clean()` valida gastos comunes pre-save cuando recibe `_common_expense_primary_property_id`, y `execute_tenant_replacement` pasa la propiedad principal heredada al contrato futuro antes de `full_clean()`. Tests focales e impactados, checks, gate local Etapa 1, frontend y acceptance local pasaron como preparacion segura. |
-| Gate esperado | El paquete no declara cierre de Etapa 1; no usa secretos, no toca `.env`, no usa DB historicas, datos reales, snapshots autorizados, backfills, deploys ni integraciones externas. |
-| Estado al cerrar paquete | No reabrir prompts de goal, proof espejo AC2024/AT2025, upgrade de acciones CI, matcher CI ni este guard de cambio de arrendatario salvo fallo nuevo o evidencia contradictoria. |
+| Frente activo | `stage2-message-block-reason`. |
+| Fuente exacta | `main` en `7bcbb6b0` como base del worktree, mas paquete `codex/stage2-message-block-reason` hasta merge. |
+| Brecha activa | Mensajes salientes en estado `bloqueado` o `fallido` no deben quedar sin `motivo_bloqueo` operativo, normalizado, no vacio y no sensible. |
+| Motivo de prioridad | Etapa 2/Canales ya redactaba motivos sensibles, pero faltaba impedir o detectar snapshots con bloqueos/fallos sin razon trazable; eso ocultaba fallbacks y fallos operativos. |
+| Worktree | Paquete en `D:/Proyectos/10_ACTIVOS/LeaseManager-stage2-message-block-reason` con rama `codex/stage2-message-block-reason`; al cerrar el PR debe eliminarse. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `codex/stage2-message-block-reason` hasta merge; despues volver a `main` limpio. |
+| Estado | Dominio, readiness, pruebas focales, suite impactada, checks, gate local Etapa 2, frontend build/lint y acceptance local pasaron como preparacion segura. Falta commit, PR, CI, merge y limpieza. |
+| Gate esperado | El paquete no declara cierre de Etapa 2; no usa secretos, no toca `.env`, no usa DB historicas, datos reales, snapshots autorizados, proveedores externos, backfills, deploys ni integraciones externas. |
+| Estado al cerrar paquete | No reabrir prompts de goal, proof espejo AC2024/AT2025, upgrade de acciones CI, matcher CI, guard de cambio de arrendatario ni este guard de motivo de bloqueo salvo fallo nuevo o evidencia contradictoria. |
 | Bloqueos relacionados | Ninguno nuevo. Los cierres productivos futuros siguen sujetos a responsable tributario, autorizacion explicita, fuentes reales/controladas vigentes y gates externos cuando corresponda. |
 | Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable ni integraciones externas sin autorizacion explicita. Las salidas F22/DDJJ/Balance/RLI/CPT/RAI/SAC esperadas son comparacion externa read-only, nunca input de calculo. |
-| Siguiente accion | Cerrar este paquete con commit, PR, CI, merge y limpieza; despues continuar el proyecto desde el siguiente frente real de producto/arquitectura segun PRD, trazabilidad y stage cards. No crear tareas de goal prompt, no repetir el cierre del proof espejo, no repetir el upgrade CI, no repetir el ajuste de matcher ni reabrir este guard salvo fallo nuevo. |
+| Siguiente accion | Cerrar este paquete con commit, PR, CI, merge y limpieza; despues continuar el proyecto desde el siguiente frente real de producto/arquitectura segun PRD, trazabilidad y stage cards. No crear tareas de goal prompt, no repetir el cierre del proof espejo, no repetir el upgrade CI, no repetir el ajuste de matcher ni reabrir paquetes ya cerrados salvo fallo nuevo. |
 
 ## Actualizacion
 

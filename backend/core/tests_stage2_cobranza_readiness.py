@@ -2117,6 +2117,31 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertNotIn('mail.example.test', json.dumps(result))
         self.assertNotIn('callback?token=secret', json.dumps(result))
 
+    def test_blocked_or_failed_message_without_reason_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        email_gate = self._create_valid_email_gate()
+        self._create_valid_webpay_gate()
+        for estado in (EstadoMensajeSaliente.BLOCKED, EstadoMensajeSaliente.FAILED):
+            MensajeSaliente.objects.create(
+                canal=CanalOperacion.EMAIL,
+                canal_mensajeria=email_gate,
+                identidad_envio=fixture['identity'],
+                contrato=fixture['contract'],
+                arrendatario=fixture['tenant'],
+                destinatario=fixture['tenant'].email,
+                asunto=f'Mensaje {estado} sin motivo',
+                cuerpo='No debe quedar sin motivo operativo.',
+                estado=estado,
+                motivo_bloqueo='   ',
+            )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.message.block_reason_missing', issue_codes)
+        self.assertEqual(result['sections']['messages']['block_reason_missing'], 2)
+
     def test_blocked_whatsapp_without_fallback_trace_is_blocking(self):
         fixture = self._create_payment_matrix()
         self._create_valid_email_gate()
