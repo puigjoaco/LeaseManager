@@ -2945,6 +2945,13 @@ que la arquitectura actual puede partir desde insumos contables AC2024 y llegar
 a artefactos AT2025 comparables; no equivale a presentacion real SII ni a renta
 final aprobada sin responsable tributario.
 
+Nota 2026-06-17: PlataformaBase/CI ajusta Release Gate para remover el matcher
+generico `python` de `actions/setup-python` justo antes de acceptance. La suite
+mantiene tracebacks esperados de rollback/auditoria en logs y sigue fallando por
+exit code cuando corresponde, pero evita anotaciones falsas de PR generadas por
+tests negativos que pasan correctamente. No cambia cobertura, comandos del gate,
+Python 3.12, Node 22 ni gates externos.
+
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |
 | Gobierno documental | Fuente de verdad, AGENTS, README, cursor operativo | `docs/governance`, `AGENTS.md`, `ORDEN_DE_LECTURA.md`, `.gitignore`, `docs/product/EXECUTION_CURSOR_MAYO_2026.md` | 0 | resuelto_confirmado | PR con CI verde y docs consistentes | Mantener actualizado al cambiar fuentes; bloqueos y evidencia son controles operativos de cierre, no arquitectura de producto; el cursor gobierna reanudaciones, worktrees tacticos y metatareas cerradas; artefactos locales de herramienta como `.codex-spreadsheet/`, `.playwright-cli/`, capturas PNG en el root y archivos manuales `CONFIDENCIAL`/`NO_SUBIR` quedan ignorados para no ensuciar `main` ni confundirse con paquetes activos; acceptance ejecuta `assert-repo-hygiene.ps1 -IncludeUntracked` para detectar artefactos sensibles no versionados ni ignorados sin leer secretos. |
