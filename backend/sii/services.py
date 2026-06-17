@@ -1515,6 +1515,9 @@ def summarize_annual_tax_exports(process):
             'target_items_total': export.target_items_total,
             'ddjj_items_total': export.ddjj_items_total,
             'f22_items_total': export.f22_items_total,
+            'export_contracts_total': payload.get('export_contracts_total'),
+            'ddjj_export_contracts_total': payload.get('ddjj_export_contracts_total'),
+            'f22_export_contracts_total': payload.get('f22_export_contracts_total'),
             'warnings_total': export.warnings_total,
             'official_format': export.official_format,
             'sii_submission': export.sii_submission,
@@ -3318,6 +3321,7 @@ def _annual_tax_dossier_summary(process, rule_set, source_bundle, matrix):
                 'id': item.id,
                 'target_kind': item.target_kind,
                 'target_code': item.target_code,
+                'medio_sii': item.medio_sii,
                 'source_kind': item.source_kind,
                 'source_model': item.source_model,
                 'source_object_id': item.source_object_id,
@@ -3445,6 +3449,43 @@ def _f22_export_format_source_from_bundle(source_bundle):
         return None
 
 
+def _annual_tax_export_artifact_contract(item):
+    target_kind = str(item.get('target_kind') or '')
+    export_role = 'ddjj_package_part' if target_kind == TipoAnnualTaxArtifactTarget.DDJJ else 'f22_preview_part'
+    return {
+        'contract_version': 'annual-tax-export-artifact-contract-v1',
+        'artifact_matrix_item_id': item.get('id'),
+        'target_kind': target_kind,
+        'target_code': item.get('target_code'),
+        'export_role': export_role,
+        'delivery_kind': 'local_controlled_preview',
+        'medio_sii': item.get('medio_sii'),
+        'source_kind': item.get('source_kind'),
+        'source_model': item.get('source_model'),
+        'source_object_id': item.get('source_object_id'),
+        'source_hash': item.get('source_hash'),
+        'hash_item': item.get('hash_item'),
+        'review_state': item.get('review_state'),
+        'structural_validation': 'contract_ready_for_responsible_review',
+        'official_format': False,
+        'sii_submission': False,
+        'final_tax_calculation': False,
+        'requires_official_format_gate': True,
+        'requires_explicit_submission_authorization': True,
+    }
+
+
+def _annual_tax_export_artifact_contracts(item_refs):
+    return [
+        _annual_tax_export_artifact_contract(item)
+        for item in item_refs
+        if item.get('target_kind') in {
+            TipoAnnualTaxArtifactTarget.DDJJ,
+            TipoAnnualTaxArtifactTarget.F22,
+        }
+    ]
+
+
 def _annual_tax_export_summary(process, dossier, ddjj, f22, official_format_source=None):
     dossier_summary = dossier.resumen_dossier if isinstance(dossier.resumen_dossier, dict) else {}
     process_summary = process.resumen_anual if isinstance(process.resumen_anual, dict) else {}
@@ -3478,6 +3519,13 @@ def _annual_tax_export_summary(process, dossier, ddjj, f22, official_format_sour
         f22_items_total = int(f22_items_total or 0)
     except (TypeError, ValueError):
         f22_items_total = 0
+    export_artifact_contracts = _annual_tax_export_artifact_contracts(item_refs)
+    ddjj_export_contracts_total = sum(
+        1 for contract in export_artifact_contracts if contract.get('target_kind') == TipoAnnualTaxArtifactTarget.DDJJ
+    )
+    f22_export_contracts_total = sum(
+        1 for contract in export_artifact_contracts if contract.get('target_kind') == TipoAnnualTaxArtifactTarget.F22
+    )
     return {
         'empresa_id': process.empresa_id,
         'proceso_renta_anual_id': process.id,
@@ -3505,9 +3553,13 @@ def _annual_tax_export_summary(process, dossier, ddjj, f22, official_format_sour
         'target_items_total': ddjj_items_total + f22_items_total,
         'ddjj_items_total': ddjj_items_total,
         'f22_items_total': f22_items_total,
+        'export_contracts_total': len(export_artifact_contracts),
+        'ddjj_export_contracts_total': ddjj_export_contracts_total,
+        'f22_export_contracts_total': f22_export_contracts_total,
         'warnings_total': dossier.warnings_total,
         'review_state': dossier.review_state,
         'export_items': export_items,
+        'export_artifact_contracts': export_artifact_contracts,
         'official_format': False,
         'sii_submission': False,
         'final_tax_calculation': False,

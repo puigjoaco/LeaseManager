@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | Ningun paquete tactico abierto. |
-| Fuente exacta | `main` en `5e41d11a`, despues del merge confirmado de PR #898 `codex/stage2-webpay-fail-endpoint`. |
-| Brecha activa | Ninguna brecha en curso. La API y backoffice para registrar fallos WebPay controlados quedaron integrados en PR #898. |
-| Motivo de prioridad | Mantener el cursor coherente con el estado real evita que una reanudacion recree worktrees eliminados o repita commit, PR, CI, merge y limpieza de paquetes ya cerrados. |
-| Worktree | No hay worktree tactico activo para producto. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
-| Rama | `main` limpio y sincronizado con `origin/main`; abrir una nueva rama `codex/...` solo cuando se seleccione el siguiente frente. |
-| Estado | PR #898 cerrado y validado: focal 4 tests OK, suite impactada 233 tests OK, `manage.py check` OK, `makemigrations --check` OK, gate local Etapa 2 parcial esperado, frontend build/lint OK, acceptance local 1505 tests OK, CI PR OK, Release Gate main OK, branch/worktree tactico eliminado. |
-| Gate esperado | El paquete cerrado no declara cierre de Etapa 2; no uso secretos, no toco `.env`, no uso DB historicas, datos reales, snapshots autorizados, Transbank/WebPay real, proveedores externos, backfills, deploys ni integraciones externas. |
-| Estado al cerrar paquete | No reabrir prompts de goal, proof espejo AC2024/AT2025, upgrade de acciones CI, matcher CI, guard de cambio de arrendatario, guard de motivo de mensajes, guard de motivo WebPay bloqueado, guard de motivo WebPay fallido, auditoria WebPay fallida ni endpoint/backoffice WebPay fallido salvo fallo nuevo o evidencia contradictoria. |
-| Bloqueos relacionados | Ninguno nuevo. Los cierres productivos futuros siguen sujetos a responsable tributario, autorizacion explicita, fuentes reales/controladas vigentes y gates externos cuando corresponda. |
+| Frente activo | `codex/stage6-export-artifact-contracts`. |
+| Fuente exacta | `main` en `db94db6c`, despues del merge confirmado de PR #899 `codex/cursor-post-merge-state`. |
+| Brecha activa | Etapa 6 necesita bajar la frontera oficial/exportable a contratos estructurales dentro de `AnnualTaxExport`: cada DDJJ/F22 exportable local debe tener contrato con fuente, hash, medio, revision y flags que mantengan `official_format=false`, `sii_submission=false` y `final_tax_calculation=false`. |
+| Motivo de prioridad | La prueba espejo ya confirmo artefactos comparables; la siguiente capa segura es explicitar que el export local conoce sus artefactos exportables sin confundirlos con archivo SII oficial/certificado. |
+| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-export-artifact-contracts`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `codex/stage6-export-artifact-contracts`. |
+| Estado | Paquete en curso. Main estaba limpio y sincronizado antes de abrirlo; se elimino el worktree limpio ya mergeado `codex/cursor-post-merge-state`. |
+| Gate esperado | Este paquete no declara cierre de Etapa 6 ni genera archivo oficial SII. Solo agrega contratos estructurales al export local controlado y readiness bloqueante si faltan o intentan abrir formato oficial/presentacion/calculo final. |
+| Estado al cerrar paquete | No reabrir proof espejo AC2024/AT2025 ni paquetes ya cerrados salvo fallo nuevo o evidencia contradictoria. |
+| Bloqueos relacionados | Formato/certificacion F22, DDJJ y presentacion SII siguen bloqueados por fuente oficial/certificacion vigente, responsable tributario y autorizacion explicita. |
 | Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable ni integraciones externas sin autorizacion explicita. Si este cursor contradice el estado real porque nombra una rama/worktree ya eliminado y `main` contiene el merge correspondiente, tratar el paquete como cerrado, corregir el cursor y continuar con el siguiente frente seguro; no recrear el paquete anterior. Las salidas F22/DDJJ/Balance/RLI/CPT/RAI/SAC esperadas son comparacion externa read-only, nunca input de calculo. |
-| Siguiente accion | Seleccionar el siguiente frente real de producto/arquitectura desde PRD, trazabilidad y stage cards, abrir worktree `codex/...` y avanzar con paquete pequeno, verificable y sin secretos. No crear tareas de goal prompt, no repetir el cierre del proof espejo, no repetir el upgrade CI, no repetir el ajuste de matcher ni reabrir paquetes ya cerrados salvo fallo nuevo. |
+| Siguiente accion | Implementar y validar contratos de artefactos exportables en `AnnualTaxExport`, documentar evidencia y cerrar por PR/CI/merge/limpieza si pasa. |
 
 ## Actualizacion
 

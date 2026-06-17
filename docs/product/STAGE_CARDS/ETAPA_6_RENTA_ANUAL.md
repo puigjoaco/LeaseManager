@@ -375,9 +375,10 @@ sensibles. El dossier conserva `final_tax_calculation=false` y
 export o presentacion, no para que LeaseManager decida la renta final.
 `AnnualTaxExport` materializa el preview/export local controlado: empaqueta el
 dossier y la matriz DDJJ/F22 en un payload hasheado, con refs no sensibles,
-responsable, conteos DDJJ/F22 y flags obligatorios `official_format=false`,
-`sii_submission=false` y `final_tax_calculation=false`. Es una salida revisable
-del motor anual, no un formato oficial SII ni una presentacion.
+responsable, conteos DDJJ/F22, contratos estructurales por artefacto exportable
+DDJJ/F22 y flags obligatorios `official_format=false`, `sii_submission=false` y
+`final_tax_calculation=false`. Es una salida revisable del motor anual, no un
+formato oficial SII ni una presentacion.
 `AnnualTaxReviewChecklist` materializa la revision responsable previa a
 cualquier aprobacion: toma dossier, export local, source bundle, rule set y
 matriz DDJJ/F22, arma items de control por categoria, conserva refs no
@@ -585,11 +586,14 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   SII por conveniencia.
 - `AnnualTaxExport` preparado requiere proceso anual, source bundle, rule set,
   matriz DDJJ/F22 y dossier coherentes; refs no sensibles, responsable,
-  `export_ref`, payload exportable, `hash_export`, conteos DDJJ/F22 y resumen
-  en `ProcesoRentaAnual.resumen_anual.annual_tax_exports` alineados.
+  `export_ref`, payload exportable, `hash_export`, conteos DDJJ/F22, contratos
+  `annual-tax-export-artifact-contract-v1` por cada artefacto exportable y
+  resumen en `ProcesoRentaAnual.resumen_anual.annual_tax_exports` alineados.
 - `AnnualTaxExport` bloquea readiness si falta, si esta desalineado, si contiene
-  refs/payloads sensibles, si hay revision pendiente o si intenta declarar
-  formato oficial SII, presentacion SII o calculo fiscal final autonomo.
+  refs/payloads sensibles, si faltan contratos exportables, si los contratos no
+  cubren todos los items DDJJ/F22, si hay revision pendiente o si el export o
+  sus contratos intentan declarar formato oficial SII, presentacion SII o
+  calculo fiscal final autonomo.
 - `AnnualTaxReviewChecklist` preparado requiere proceso anual, dossier, export
   local, source bundle, rule set y matriz DDJJ/F22 coherentes; refs no
   sensibles, responsable, evidencia, `review_payload`, `hash_checklist`,
@@ -647,8 +651,9 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   invalidos o con revision pendiente.
 - `generate_annual_preparation()` sincroniza `AnnualTaxExport` despues de crear
   DDJJ/F22 locales. La readiness bloquea procesos trazables sin export/preview
-  controlado, con resumen desalineado, invalidos, refs faltantes o cualquier
-  intento de presentacion/formato oficial/calculo final.
+  controlado, con resumen desalineado, invalidos, refs faltantes, contratos
+  exportables faltantes/desalineados o cualquier intento de
+  presentacion/formato oficial/calculo final.
 - `generate_annual_preparation()` sincroniza `AnnualTaxReviewChecklist` despues
   del export local controlado. La readiness bloquea procesos trazables sin
   checklist, con resumen desalineado, invalidos, refs/evidencia faltantes,
