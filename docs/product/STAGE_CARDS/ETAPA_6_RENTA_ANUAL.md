@@ -879,6 +879,16 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   7/7 documentos DDJJ/F22 comparados, 138/138 valores comparables presentes, 0
   faltantes y sin categorias esperadas sin soporte. Etapa 6 sigue parcial por
   revision de artefactos generados/responsable y gates finales.
+- La prueba espejo AC2024/AT2025 con ownership y bienes raices completos queda
+  confirmada el 2026-06-17: paquete controlado local con 12 meses, ownership
+  validado y 6 bienes raices; writer local con 12 `MonthlyTaxFact`, ownership y
+  bienes raices cargados; mirror anual con las 12 DDJJ esperadas, F22, balance,
+  RLI/CPT, RAI/SAC/retiros/dividendos, matriz, dossier, export y checklist; y
+  `scripts/run-stage6-mirror-proof-gate.ps1 -FailOnIncomplete` termina
+  `classification=resuelto_confirmado`, `ready_for_architecture_proof=true` y
+  `ready_for_objective_completion=true`. Esto confirma la arquitectura para el
+  objetivo espejo de Inmobiliaria Puig AC2024/AT2025, sin abrir SII real ni
+  declarar renta final presentada.
 
 ```powershell
 scripts\run-stage6-readiness-gate.ps1 -PythonExe backend\.venv\Scripts\python.exe

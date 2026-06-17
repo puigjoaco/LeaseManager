@@ -2924,6 +2924,21 @@ Esto fija la proxima accion objetiva: completar snapshot controlado de
 ownership/bienes raices y revisar artefactos anuales, no reabrir goal prompts,
 EDIG ni metatareas ya cerradas.
 
+Nota 2026-06-17: la prueba espejo AC2024/AT2025 solicitada para Inmobiliaria
+Puig queda confirmada en modo controlado. Se recompuso un paquete local ignorado
+por Git que combina 12 meses, ownership validado y 6 bienes raices; el writer
+local cargo 12 `MonthlyTaxFact`, ownership y bienes raices; la corrida anual
+genero F22, balance, workbooks, registros, matriz, dossier, export, checklist y
+las 12 DDJJ esperadas por el manifiesto/comparador; `compare_annual_tax_expected_outputs`
+quedo sin blockers; y `scripts/run-stage6-mirror-proof-gate.ps1 -FailOnIncomplete`
+termino `classification=resuelto_confirmado`, `ready_for_architecture_proof=true`
+y `ready_for_objective_completion=true`. La confirmacion no usa `.env`,
+secretos, DB historica, SII real, EDIG ejecutable ni salidas finales como input:
+las salidas esperadas se usaron solo como comparacion read-only. Esto confirma
+que la arquitectura actual puede partir desde insumos contables AC2024 y llegar
+a artefactos AT2025 comparables; no equivale a presentacion real SII ni a renta
+final aprobada sin responsable tributario.
+
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |
 | Gobierno documental | Fuente de verdad, AGENTS, README, cursor operativo | `docs/governance`, `AGENTS.md`, `ORDEN_DE_LECTURA.md`, `.gitignore`, `docs/product/EXECUTION_CURSOR_MAYO_2026.md` | 0 | resuelto_confirmado | PR con CI verde y docs consistentes | Mantener actualizado al cambiar fuentes; bloqueos y evidencia son controles operativos de cierre, no arquitectura de producto; el cursor gobierna reanudaciones, worktrees tacticos y metatareas cerradas; artefactos locales de herramienta como `.codex-spreadsheet/`, `.playwright-cli/`, capturas PNG en el root y archivos manuales `CONFIDENCIAL`/`NO_SUBIR` quedan ignorados para no ensuciar `main` ni confundirse con paquetes activos; acceptance ejecuta `assert-repo-hygiene.ps1 -IncludeUntracked` para detectar artefactos sensibles no versionados ni ignorados sin leer secretos. |
