@@ -76,6 +76,15 @@ jobs:
         shell: pwsh
         run: npx playwright install chromium
 
+      - name: Disable Python traceback annotations for acceptance tests
+        shell: pwsh
+        run: |
+          # setup-python registers a broad Python traceback matcher. The release
+          # gate intentionally keeps rollback tracebacks in logs for tests that
+          # assert transaction safety, but the exit code remains the source of
+          # truth for real failures.
+          Write-Output "::remove-matcher owner=python::"
+
       - name: Run deterministic release gate
         shell: pwsh
         run: .\scripts\run-acceptance-workflows.ps1 -SkipSmoke
