@@ -2091,6 +2091,10 @@ function App() {
     external_ref: '',
     fecha_pago_webpay: todayIso(),
   })
+  const [webpayFailDraft, setWebpayFailDraft] = useState({
+    intento_id: '',
+    failure_reason: '',
+  })
   const [conexionDraft, setConexionDraft] = useState({
     cuenta_recaudadora: '',
     provider_key: 'banco_de_chile',
@@ -4910,6 +4914,28 @@ function App() {
     }
   }
 
+  async function handleFailWebpayIntent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canEditCobranza) return
+    if (!webpayFailDraft.intento_id) {
+      setFormError('Debes seleccionar un intento WebPay preparado.')
+      return
+    }
+    const ok = await submitCreate(
+      `/api/v1/cobranza/webpay-intentos/${Number(webpayFailDraft.intento_id)}/marcar-fallido/`,
+      {
+        failure_reason: webpayFailDraft.failure_reason,
+      },
+      'Fallo WebPay local registrado correctamente.',
+    )
+    if (ok) {
+      setWebpayFailDraft({
+        intento_id: '',
+        failure_reason: '',
+      })
+    }
+  }
+
   async function handleCreateConexion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!canEditConciliacion) return
@@ -7129,6 +7155,9 @@ function App() {
           webpayConfirmDraft={webpayConfirmDraft}
           setWebpayConfirmDraft={setWebpayConfirmDraft}
           handleConfirmWebpayIntent={handleConfirmWebpayIntent}
+          webpayFailDraft={webpayFailDraft}
+          setWebpayFailDraft={setWebpayFailDraft}
+          handleFailWebpayIntent={handleFailWebpayIntent}
           contratos={contratos}
           pagos={pagos}
           gatesCobro={gatesCobro}

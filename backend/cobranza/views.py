@@ -53,12 +53,14 @@ from .serializers import (
     RepactacionDeudaSerializer,
     ValorUFDiarioSerializer,
     WebPayIntentConfirmSerializer,
+    WebPayIntentFailSerializer,
     WebPayIntentPrepareSerializer,
 )
 from .services import (
     build_account_state_summary,
     calculate_monthly_amount,
     confirm_webpay_intent_manually,
+    fail_prepared_webpay_intent,
     prepare_webpay_intent,
     rebuild_account_state,
     refresh_overdue_payments,
@@ -721,6 +723,38 @@ class WebPayIntentManualConfirmView(APIView):
                 actor_user=request.user,
                 ip_address=request.META.get('REMOTE_ADDR'),
             )
+        except ValueError as error:
+            return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(IntentoPagoWebPaySerializer(intent).data, status=status.HTTP_200_OK)
+
+
+class WebPayIntentFailView(APIView):
+    permission_classes = [OperationalModulePermission]
+
+    def post(self, request, pk):
+        intent = generics.get_object_or_404(
+            scope_queryset_for_user(
+                IntentoPagoWebPay.objects.select_related('pago_mensual__contrato', 'gate_cobro'),
+                request.user,
+                property_paths=('pago_mensual__contrato__mandato_operacion__propiedad_id',),
+                bank_account_paths=('pago_mensual__contrato__mandato_operacion__cuenta_recaudadora_id',),
+            ),
+            pk=pk,
+        )
+        serializer = WebPayIntentFailSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            intent = fail_prepared_webpay_intent(
+                intent,
+                serializer.validated_data['failure_reason'],
+                actor_user=request.user,
+                ip_address=request.META.get('REMOTE_ADDR'),
+            )
+        except DjangoValidationError as error:
+            payload = error.message_dict if hasattr(error, 'message_dict') else {'detail': error.messages}
+            raise ValidationError(payload)
         except ValueError as error:
             return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
 

@@ -2400,6 +2400,87 @@ class CobranzaAPITests(APITestCase):
             ).exists()
         )
 
+    def test_webpay_fail_endpoint_marks_prepared_intent_failed_with_audit(self):
+        payment = self._generate_monthly_payment(codigo='CON-WP-FAIL-API')
+        gate = GateCobroExterno.objects.create(
+            provider_key='transbank_webpay',
+            estado_gate=EstadoGateCobroExterno.OPEN,
+            evidencia_ref='webpay-sandbox-evidence-ok',
+        )
+        intent = self.client.post(
+            reverse('cobranza-webpay-prepare', args=[payment.pk]),
+            {'gate_cobro': gate.pk, 'return_url_ref': 'webpay-return-controlled-v1'},
+            format='json',
+        )
+        self.assertEqual(intent.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.post(
+            reverse('cobranza-webpay-intent-fail', args=[intent.data['id']]),
+            {'failure_reason': 'Proveedor reporto rechazo controlado.'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['estado'], EstadoIntentoPagoWebPay.FAILED)
+        self.assertEqual(response.data['motivo_bloqueo'], 'Proveedor reporto rechazo controlado.')
+        payment.refresh_from_db()
+        self.assertEqual(payment.estado_pago, EstadoPago.PENDING)
+        self.assertEqual(payment.monto_pagado_clp, Decimal('0.00'))
+        self.assertTrue(
+            ManualResolution.objects.filter(
+                category='cobranza.webpay.fallido',
+                scope_type='cobranza.webpay',
+                scope_reference=str(intent.data['id']),
+            ).exists()
+        )
+        audit_event = AuditEvent.objects.get(
+            event_type=WEBPAY_FAILED_EVENT_TYPE,
+            entity_type='webpay_intento',
+            entity_id=str(intent.data['id']),
+        )
+        self.assertEqual(audit_event.actor_user, self.user)
+        self.assertEqual(audit_event.metadata['motivo_bloqueo'], 'Proveedor reporto rechazo controlado.')
+        self.assertEqual(audit_event.metadata['pago_mensual_id'], payment.pk)
+
+    def test_webpay_fail_endpoint_rejects_sensitive_reason_without_mutation(self):
+        payment = self._generate_monthly_payment(codigo='CON-WP-FAIL-SECRET')
+        gate = GateCobroExterno.objects.create(
+            provider_key='transbank_webpay',
+            estado_gate=EstadoGateCobroExterno.OPEN,
+            evidencia_ref='webpay-sandbox-evidence-ok',
+        )
+        intent = self.client.post(
+            reverse('cobranza-webpay-prepare', args=[payment.pk]),
+            {'gate_cobro': gate.pk, 'return_url_ref': 'webpay-return-controlled-v1'},
+            format='json',
+        )
+        self.assertEqual(intent.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.post(
+            reverse('cobranza-webpay-intent-fail', args=[intent.data['id']]),
+            {'failure_reason': 'https://transbank.example.test/error?token=secret'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        stored_intent = IntentoPagoWebPay.objects.get(pk=intent.data['id'])
+        self.assertEqual(stored_intent.estado, EstadoIntentoPagoWebPay.PREPARED)
+        self.assertEqual(stored_intent.motivo_bloqueo, '')
+        self.assertFalse(
+            ManualResolution.objects.filter(
+                category='cobranza.webpay.fallido',
+                scope_type='cobranza.webpay',
+                scope_reference=str(intent.data['id']),
+            ).exists()
+        )
+        self.assertFalse(
+            AuditEvent.objects.filter(
+                event_type=WEBPAY_FAILED_EVENT_TYPE,
+                entity_type='webpay_intento',
+                entity_id=str(intent.data['id']),
+            ).exists()
+        )
+
     def test_webpay_confirmed_intent_requires_payment_alignment(self):
         payment = self._generate_monthly_payment(codigo='CON-WP-ALIGN')
         gate = GateCobroExterno.objects.create(
