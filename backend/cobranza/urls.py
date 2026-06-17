@@ -28,6 +28,7 @@ from .views import (
     RepactacionDeudaListCreateView,
     ValorUFDiarioDetailView,
     ValorUFDiarioListCreateView,
+    WebPayIntentFailView,
     WebPayIntentManualConfirmView,
     WebPayIntentPrepareView,
 )
@@ -48,6 +49,7 @@ urlpatterns = [
     path('webpay-intentos/', IntentoPagoWebPayListView.as_view(), name='cobranza-webpay-intent-list'),
     path('webpay-intentos/<int:pk>/', IntentoPagoWebPayDetailView.as_view(), name='cobranza-webpay-intent-detail'),
     path('webpay-intentos/<int:pk>/confirmar-manual/', WebPayIntentManualConfirmView.as_view(), name='cobranza-webpay-intent-confirm-manual'),
+    path('webpay-intentos/<int:pk>/marcar-fallido/', WebPayIntentFailView.as_view(), name='cobranza-webpay-intent-fail'),
     path('pagos-mensuales/distribuciones/', DistribucionCobroMensualListView.as_view(), name='cobranza-distribucion-list'),
     path('pagos-mensuales/distribuciones/<int:pk>/', DistribucionCobroMensualDetailView.as_view(), name='cobranza-distribucion-detail'),
     path('garantias/', GarantiaContractualListCreateView.as_view(), name='cobranza-garantia-list'),

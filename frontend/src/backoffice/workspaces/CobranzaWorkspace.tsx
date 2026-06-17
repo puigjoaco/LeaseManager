@@ -46,6 +46,7 @@ type GarantiaTraceDraft = { garantiaId: string; aceptacion_parcial_ref: string; 
 type EstadoCuentaDraft = { arrendatario_id: string }
 type WebpayPrepareDraft = { pago_mensual: string; gate_cobro: string; provider_key: string; return_url_ref: string }
 type WebpayConfirmDraft = { intento_id: string; external_ref: string; fecha_pago_webpay: string }
+type WebpayFailDraft = { intento_id: string; failure_reason: string }
 
 const UF_SOURCE_OPTIONS = [
   { value: 'UF.BancoCentral', label: 'Banco Central' },
@@ -116,6 +117,9 @@ export function CobranzaWorkspace({
   webpayConfirmDraft,
   setWebpayConfirmDraft,
   handleConfirmWebpayIntent,
+  webpayFailDraft,
+  setWebpayFailDraft,
+  handleFailWebpayIntent,
   contratos,
   pagos,
   gatesCobro,
@@ -174,6 +178,9 @@ export function CobranzaWorkspace({
   webpayConfirmDraft: WebpayConfirmDraft
   setWebpayConfirmDraft: Dispatch<SetStateAction<WebpayConfirmDraft>>
   handleConfirmWebpayIntent: (event: FormEvent<HTMLFormElement>) => Promise<void>
+  webpayFailDraft: WebpayFailDraft
+  setWebpayFailDraft: Dispatch<SetStateAction<WebpayFailDraft>>
+  handleFailWebpayIntent: (event: FormEvent<HTMLFormElement>) => Promise<void>
   contratos: ContratoItem[]
   pagos: PagoMensualItem[]
   gatesCobro: GateCobroExternoItem[]
@@ -381,6 +388,18 @@ export function CobranzaWorkspace({
             <input placeholder="External ref no sensible" value={webpayConfirmDraft.external_ref} onChange={(event) => setWebpayConfirmDraft((current) => ({ ...current, external_ref: event.target.value }))} />
             <input type="date" value={webpayConfirmDraft.fecha_pago_webpay} onChange={(event) => setWebpayConfirmDraft((current) => ({ ...current, fecha_pago_webpay: event.target.value }))} />
             <button type="submit" className="button-secondary" disabled={isSubmitting || !canEditCobranza || !webpayConfirmDraft.intento_id || !webpayConfirmDraft.external_ref || !webpayConfirmDraft.fecha_pago_webpay}>Confirmar manual</button>
+          </form>
+          <form className="entity-form subform" onSubmit={handleFailWebpayIntent}>
+            <select value={webpayFailDraft.intento_id} onChange={(event) => setWebpayFailDraft((current) => ({ ...current, intento_id: event.target.value }))}>
+              <option value="">Selecciona intento preparado</option>
+              {preparedWebpayIntents.map((item) => {
+                const pago = pagoById.get(item.pago_mensual)
+                const label = pago ? `${contratoById.get(pago.contrato)?.codigo_contrato || pago.contrato} · ${pago.mes}/${pago.anio}` : `Pago ${item.pago_mensual}`
+                return <option key={item.id} value={item.id}>{label} · {item.buy_order || item.id}</option>
+              })}
+            </select>
+            <input placeholder="Motivo fallo no sensible" value={webpayFailDraft.failure_reason} onChange={(event) => setWebpayFailDraft((current) => ({ ...current, failure_reason: event.target.value }))} />
+            <button type="submit" className="button-secondary" disabled={isSubmitting || !canEditCobranza || !webpayFailDraft.intento_id || !webpayFailDraft.failure_reason}>Marcar fallido</button>
           </form>
         </section>
       </section>

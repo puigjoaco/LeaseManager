@@ -304,10 +304,11 @@ condicionados sin envios reales accidentales.
   Transbank ni marca pago confirmado sin revalidar el gate.
 - Backoffice Cobranza debe exponer ese flujo WebPay solo como operacion local:
   seleccionar pago mensual, gate/provider, `return_url_ref` no sensible,
-  preparar intento local y confirmar manualmente un intento `preparado` con
-  `external_ref` no sensible y `fecha_pago_webpay`. La UI muestra gates,
-  intentos, fechas y payloads unicamente desde API/snapshot redactados, sin
-  reinyectar placeholders sensibles en formularios ni llamar Transbank.
+  preparar intento local, confirmar manualmente un intento `preparado` con
+  `external_ref` no sensible y `fecha_pago_webpay`, o marcarlo `fallido` con
+  motivo operativo no sensible. La UI muestra gates, intentos, fechas y payloads
+  unicamente desde API/snapshot redactados, sin reinyectar placeholders
+  sensibles en formularios ni llamar Transbank.
 - APIs y snapshots de Canales/Cobranza redactan refs sensibles ya persistidas
   antes de devolver gates, mensajes salientes o intentos WebPay al backoffice;
   esto cubre `evidencia_ref`, `restricciones_operativas`, `external_ref`,

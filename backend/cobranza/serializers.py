@@ -367,6 +367,10 @@ class WebPayIntentConfirmSerializer(serializers.Serializer):
     fecha_pago_webpay = serializers.DateField(required=True)
 
 
+class WebPayIntentFailSerializer(serializers.Serializer):
+    failure_reason = serializers.CharField(required=True, allow_blank=False, trim_whitespace=True)
+
+
 class DistribucionCobroMensualSerializer(serializers.ModelSerializer):
     beneficiario_tipo = serializers.CharField(read_only=True)
     beneficiario_id = serializers.IntegerField(read_only=True)
