@@ -2827,6 +2827,15 @@ solo hashes/redaccion. Contra el template real y un patch pendiente confirma el
 bloqueo exacto `$.ownership.participants`, sin exponer nombres/RUTs ni escribir
 DB.
 
+Nota 2026-06-16: `build_annual_tax_ownership_review_checklist` agrega una cola
+de revision no sensible entre el paquete visual, la validacion redactada y la
+inyeccion de `package.ownership`. Contra la evidencia AC2024/AT2025, el
+checklist confirma 10 candidatos revisables y 10 renderizados, `participants=0`,
+`blocking_items_total=2` y `ready_for_controlled_db_load=false` por
+`ownership_patch_missing`. La pieza no lee SII real, no escribe DB, no guarda
+rutas crudas, nombres, RUTs ni texto bruto, y deja como siguiente accion
+completar el patch bajo `local-evidence/` desde revision/OCR legal controlada.
+
 Nota 2026-06-15: `audit_annual_tax_controlled_package_readiness` separa readiness
 de writer DB y readiness anual. El draft AC2024/AT2025 v3 queda con
 `ready_for_db_writer=true` y `missing_paths_count=0`, pero
