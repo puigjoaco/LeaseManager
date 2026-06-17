@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `stage2-webpay-failed-audit`. |
-| Fuente exacta | `main` en `4ed4c203` como base del worktree, despues del merge confirmado de `codex/stage2-webpay-failed-reason` en PR #895. |
-| Brecha activa | Intentos WebPay en estado `fallido` deben tener evento auditable dedicado, actor trazable, motivo operativo alineado y resolucion manual local, sin llamar proveedor externo. |
-| Motivo de prioridad | Etapa 2/WebPay ya exige motivo para fallidos, pero faltaba una ruta transaccional y readiness que impidiera snapshots heredados con fallos sin auditoria completa. |
-| Worktree | Paquete en `D:/Proyectos/10_ACTIVOS/LeaseManager-stage2-webpay-failed-audit` con rama `codex/stage2-webpay-failed-audit`; al cerrar el PR debe eliminarse. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
-| Rama | `codex/stage2-webpay-failed-audit` hasta merge; despues volver a `main` limpio. |
-| Estado | Implementacion y validaciones locales completas: focal, suite impactada, `makemigrations --check`, gate local Etapa 2, frontend build/lint y acceptance local pasaron. Falta commit, PR, CI, merge y limpieza. |
-| Gate esperado | El paquete no declara cierre de Etapa 2; no usa secretos, no toca `.env`, no usa DB historicas, datos reales, snapshots autorizados, Transbank/WebPay real, proveedores externos, backfills, deploys ni integraciones externas. |
-| Estado al cerrar paquete | No reabrir prompts de goal, proof espejo AC2024/AT2025, upgrade de acciones CI, matcher CI, guard de cambio de arrendatario, guard de motivo de mensajes, guard de motivo WebPay bloqueado, guard de motivo WebPay fallido ni esta auditoria WebPay fallida salvo fallo nuevo o evidencia contradictoria. |
+| Frente activo | Ningun paquete tactico abierto. |
+| Fuente exacta | `main` en `3a79b4e1`, despues del merge confirmado de PR #896 `codex/stage2-webpay-failed-audit`. |
+| Brecha activa | Ninguna brecha en curso. La auditoria obligatoria para intentos WebPay `fallido` quedo integrada en PR #896. |
+| Motivo de prioridad | Mantener el cursor coherente con el estado real evita que una reanudacion reabra un worktree eliminado o repita un paquete ya cerrado. |
+| Worktree | No hay worktree tactico activo para producto. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `main` limpio y sincronizado con `origin/main`; abrir una nueva rama `codex/...` solo cuando se seleccione el siguiente frente. |
+| Estado | PR #896 cerrado y validado: focal 4 tests OK, suite impactada 231 tests OK, gate local Etapa 2 parcial esperado, frontend build/lint OK, acceptance local 1503 tests OK, CI PR OK, Release Gate main OK, branch/worktree tactico eliminado. |
+| Gate esperado | El paquete cerrado no declara cierre de Etapa 2; no uso secretos, no toco `.env`, no uso DB historicas, datos reales, snapshots autorizados, Transbank/WebPay real, proveedores externos, backfills, deploys ni integraciones externas. |
+| Estado al cerrar paquete | No reabrir prompts de goal, proof espejo AC2024/AT2025, upgrade de acciones CI, matcher CI, guard de cambio de arrendatario, guard de motivo de mensajes, guard de motivo WebPay bloqueado, guard de motivo WebPay fallido ni auditoria WebPay fallida salvo fallo nuevo o evidencia contradictoria. |
 | Bloqueos relacionados | Ninguno nuevo. Los cierres productivos futuros siguen sujetos a responsable tributario, autorizacion explicita, fuentes reales/controladas vigentes y gates externos cuando corresponda. |
 | Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable ni integraciones externas sin autorizacion explicita. Las salidas F22/DDJJ/Balance/RLI/CPT/RAI/SAC esperadas son comparacion externa read-only, nunca input de calculo. |
-| Siguiente accion | Cerrar este paquete con commit, PR, CI, merge y limpieza; despues continuar el proyecto desde el siguiente frente real de producto/arquitectura segun PRD, trazabilidad y stage cards. No crear tareas de goal prompt, no repetir el cierre del proof espejo, no repetir el upgrade CI, no repetir el ajuste de matcher ni reabrir paquetes ya cerrados salvo fallo nuevo. |
+| Siguiente accion | Seleccionar el siguiente frente real de producto/arquitectura desde PRD, trazabilidad y stage cards, abrir worktree `codex/...` y avanzar con paquete pequeno, verificable y sin secretos. No crear tareas de goal prompt, no repetir el cierre del proof espejo, no repetir el upgrade CI, no repetir el ajuste de matcher ni reabrir paquetes ya cerrados salvo fallo nuevo. |
 
 ## Actualizacion
 
