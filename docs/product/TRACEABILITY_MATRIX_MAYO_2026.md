@@ -60,6 +60,13 @@ explicitamente y codigos SII numericos de cuatro digitos; rechaza codigos
 internos no presentables como `F22-PREVIEW`. Sigue sin presentacion SII, codigo
 de certificacion real ni calculo tributario final.
 
+Nota 2026-06-17: Etapa 6/Renta Anual endurece el candidato F22 fixed-width con
+evidencia por entrada. Cada codigo/valor requiere `review_state` aprobado para
+candidato, fuente no sensible del codigo, fuente no sensible del valor y
+responsable revisor. El manifest conserva hashes por linea y el verificador
+rechaza codigos duplicados, refs sensibles o evidencia alterada antes de tratar
+el archivo como revisable.
+
 Nota 2026-06-17: Canales/Etapa 2 exige motivo operativo trazable para mensajes
 salientes bloqueados o fallidos. `MensajeSaliente.clean()` rechaza estados
 `bloqueado`/`fallido` sin `motivo_bloqueo` no vacio y no sensible, y

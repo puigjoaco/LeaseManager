@@ -286,3 +286,8 @@ preserva bytes ASCII exactos y
 manifest desde disco para validar hash, tamano, largos y registros. La capa
 rechaza codigos internos no numericos como `F22-PREVIEW`, no presenta SII, no
 usa codigo de certificacion real y no declara calculo tributario final.
+Ademas, cada entrada F22 fixed-width debe conservar evidencia no sensible por
+linea: estado `approved_for_candidate`, fuente del codigo, fuente del valor y
+responsable revisor. El manifest hashea esa evidencia y el verificador bloquea
+duplicados, refs sensibles o evidencia alterada; esto acerca el archivo local a
+un dossier revisable/certificable sin convertirlo en presentacion oficial.

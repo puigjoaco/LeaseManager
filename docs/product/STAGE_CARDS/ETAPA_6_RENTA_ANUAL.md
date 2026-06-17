@@ -444,6 +444,10 @@ ASCII exactos y el verificador reabre el archivo/manifest desde disco, valida
 hashes, largos y registros. Si no hay entradas revisadas o el codigo es interno
 como `F22-PREVIEW`, falla en vez de inventar contenido presentable. Sigue sin
 declarar formato oficial certificado, envio SII ni calculo tributario final.
+Cada entrada del candidato exige trazabilidad minima no sensible:
+`review_state=approved_for_candidate`, fuente del codigo, fuente del valor y
+responsable revisor. Esa evidencia queda hasheada por linea en el manifest, y
+el verificador bloquea codigos duplicados, refs sensibles o evidencia alterada.
 `audit_company_accounting_progress` funciona como medidor operativo por empresa
 y ano comercial: consolida en JSON si la empresa tiene configuracion fiscal,
 doce cierres, balances aprobados/cuadrados, F29, `ProcesoRentaAnual`,

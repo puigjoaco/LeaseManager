@@ -2389,11 +2389,48 @@ class Stage6RentaAnualReadinessTests(TestCase):
             company_code='QA',
             client_number='123456',
             entries=[
-                {'code': '1234', 'sign': '+', 'value': '1000'},
-                {'code': '2345', 'sign': '-', 'value': '250'},
-                {'code': '3456', 'value': '0'},
-                {'code': '4567', 'value': '42'},
-                {'code': '5678', 'value': '900'},
+                {
+                    'code': '1234',
+                    'sign': '+',
+                    'value': '1000',
+                    'review_state': 'approved_for_candidate',
+                    'code_source_ref': 'sii-f22-at2026-code-1234',
+                    'value_source_ref': 'lm-rli-reviewed-line-1234',
+                    'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+                },
+                {
+                    'code': '2345',
+                    'sign': '-',
+                    'value': '250',
+                    'review_state': 'approved_for_candidate',
+                    'code_source_ref': 'sii-f22-at2026-code-2345',
+                    'value_source_ref': 'lm-cpt-reviewed-line-2345',
+                    'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+                },
+                {
+                    'code': '3456',
+                    'value': '0',
+                    'review_state': 'approved_for_candidate',
+                    'code_source_ref': 'sii-f22-at2026-code-3456',
+                    'value_source_ref': 'lm-fiscal-config-reviewed-line-3456',
+                    'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+                },
+                {
+                    'code': '4567',
+                    'value': '42',
+                    'review_state': 'approved_for_candidate',
+                    'code_source_ref': 'sii-f22-at2026-code-4567',
+                    'value_source_ref': 'lm-ddjj-reviewed-line-4567',
+                    'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+                },
+                {
+                    'code': '5678',
+                    'value': '900',
+                    'review_state': 'approved_for_candidate',
+                    'code_source_ref': 'sii-f22-at2026-code-5678',
+                    'value_source_ref': 'lm-real-estate-reviewed-line-5678',
+                    'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+                },
             ],
         )
 
@@ -2407,6 +2444,12 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertEqual(summary['type1_records_total'], 2)
         self.assertEqual(summary['f22_codes_total'], 5)
         self.assertEqual(summary['f22_codes'], ['1234', '2345', '3456', '4567', '5678'])
+        self.assertEqual(summary['f22_entry_review_evidence_total'], 5)
+        self.assertEqual(len(summary['f22_entry_review_evidence']), 5)
+        self.assertEqual(summary['f22_entry_review_evidence'][0]['code_source_ref'], 'sii-f22-at2026-code-1234')
+        self.assertEqual(summary['f22_entry_review_evidence'][0]['value_source_ref'], 'lm-rli-reviewed-line-1234')
+        self.assertEqual(summary['f22_entry_review_evidence'][0]['review_state'], 'approved_for_candidate')
+        self.assertIn('entry_hash', summary['f22_entry_review_evidence'][0])
         self.assertTrue(summary['fixed_width_structure_validated'])
         self.assertFalse(summary['official_format'])
         self.assertFalse(summary['sii_submission'])
@@ -2427,11 +2470,12 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertTrue(verification['ready_for_responsible_review'])
         self.assertEqual(verification['records_total'], 3)
         self.assertEqual(verification['f22_codes_total'], 5)
+        self.assertEqual(verification['f22_entry_review_evidence_total'], 5)
         self.assertFalse(verification['official_format'])
         self.assertFalse(verification['sii_submission'])
         self.assertFalse(verification['final_tax_calculation'])
 
-    def test_tax_export_f22_fixed_width_candidate_rejects_unreviewed_or_non_numeric_codes(self):
+    def test_tax_export_f22_fixed_width_candidate_rejects_unreviewed_non_numeric_or_duplicate_codes(self):
         self._create_valid_local_matrix()
         export = AnnualTaxExport.objects.get()
 
@@ -2445,6 +2489,16 @@ class Stage6RentaAnualReadinessTests(TestCase):
                 entries=[],
             )
 
+        with self.assertRaisesRegex(ValueError, 'review_state approved_for_candidate'):
+            build_annual_tax_f22_fixed_width_export_candidate(
+                export,
+                rut_number='11111111',
+                rut_dv='1',
+                company_code='QA',
+                client_number='123456',
+                entries=[{'code': '1234', 'value': '1000'}],
+            )
+
         with self.assertRaisesRegex(ValueError, 'codigo SII numerico de 4 digitos'):
             build_annual_tax_f22_fixed_width_export_candidate(
                 export,
@@ -2453,6 +2507,40 @@ class Stage6RentaAnualReadinessTests(TestCase):
                 company_code='QA',
                 client_number='123456',
                 entries=[{'code': 'F22-PREVIEW', 'value': '1000'}],
+            )
+
+        reviewed_entry = {
+            'code': '1234',
+            'value': '1000',
+            'review_state': 'approved_for_candidate',
+            'code_source_ref': 'sii-f22-at2026-code-1234',
+            'value_source_ref': 'lm-reviewed-line-1234',
+            'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+        }
+        with self.assertRaisesRegex(ValueError, 'codigos F22 duplicados'):
+            build_annual_tax_f22_fixed_width_export_candidate(
+                export,
+                rut_number='11111111',
+                rut_dv='1',
+                company_code='QA',
+                client_number='123456',
+                entries=[reviewed_entry, reviewed_entry],
+            )
+
+        with self.assertRaisesRegex(ValueError, 'referencias no sensibles'):
+            build_annual_tax_f22_fixed_width_export_candidate(
+                export,
+                rut_number='11111111',
+                rut_dv='1',
+                company_code='QA',
+                client_number='123456',
+                entries=[
+                    {
+                        **reviewed_entry,
+                        'code': '2345',
+                        'value_source_ref': 'secret://f22-value-source',
+                    }
+                ],
             )
 
     def test_tax_export_written_package_tamper_is_rejected(self):

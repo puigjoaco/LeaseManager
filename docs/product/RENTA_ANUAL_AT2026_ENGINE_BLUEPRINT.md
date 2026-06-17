@@ -250,6 +250,11 @@ contratos:
     explicitamente, escribe bytes ASCII fixed-width y verifica archivo/manifest
     desde disco. Rechaza codigos internos no numericos y mantiene bloqueados
     certificacion real, envio SII y calculo final.
+13.3. `stage6-f22-entry-provenance`: evidencia por entrada del candidato F22.
+    Cada codigo/valor requiere `review_state=approved_for_candidate`, fuente no
+    sensible del codigo, fuente no sensible del valor y responsable revisor. El
+    manifest hashea la evidencia por linea y el verificador bloquea duplicados,
+    refs sensibles o cambios de evidencia.
 14. `stage6-official-tax-source-registry`: registro operacional de fuentes
     oficiales/experta. Implementado como `AnnualTaxOfficialSource`: modelo,
     migracion, API/snapshot/admin redactados y readiness bloqueante si una
