@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `platform-ci-python-matcher-noise`. |
-| Fuente exacta | `main` posterior al paquete `ci-node24-actions`, con worktree tactico abierto desde `f688b332`. |
-| Brecha activa | Release Gate pasa, pero el matcher generico de tracebacks Python de `actions/setup-python` puede convertir excepciones esperadas de tests negativos de rollback/auditoria en anotaciones de error del PR, degradando la senal de CI sin representar fallos reales. |
-| Motivo de prioridad | Mantener el camino de cierre con CI legible: los logs y exit codes siguen siendo la fuente de verdad, pero las anotaciones deben reservarse para fallos reales accionables. |
-| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-ci-python-matcher-noise` en rama `codex/ci-python-matcher-noise`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
-| Rama | `codex/ci-python-matcher-noise`; al cerrar, mergear a `main`, eliminar rama/worktree tactico y dejar `main` limpio. |
-| Estado | En curso: Release Gate conserva Python 3.12, Node 22, caches, comandos existentes y acciones oficiales GitHub `v6`; el paquete solo remueve el matcher `python` antes de ejecutar acceptance para que los tracebacks esperados sigan en logs sin generar anotaciones falsas. El proof espejo AC2024/AT2025 ya quedo documentado como confirmado en modo controlado y no debe reabrirse por reanudacion. |
+| Frente activo | `platform-post-ci-python-matcher-noise`. |
+| Fuente exacta | `main` posterior al paquete `ci-python-matcher-noise`, mergeado en PR #890. |
+| Brecha activa | No queda brecha operativa abierta por anotaciones falsas de tracebacks Python esperados en Release Gate. No reabrir este paquete salvo fallo nuevo de CI o cambio oficial del matcher de `actions/setup-python`. |
+| Motivo de prioridad | Mantener el camino de cierre con CI legible: los logs y exit codes siguen siendo la fuente de verdad, pero las anotaciones quedan reservadas para fallos reales accionables. |
+| Worktree | No hay worktree tactico activo esperado para este frente despues del merge. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `main`; abrir un nuevo worktree `codex/...` solo para el siguiente cambio no trivial. |
+| Estado | Release Gate conserva Python 3.12, Node 22, caches, comandos existentes y acciones oficiales GitHub `v6`; el paquete remueve el matcher `python` antes de ejecutar acceptance para que los tracebacks esperados sigan en logs sin generar anotaciones falsas. El proof espejo AC2024/AT2025 ya quedo documentado como confirmado en modo controlado y no debe reabrirse por reanudacion. |
 | Gate esperado | El paquete es operativo de CI: no declara cierre de etapa, no abre SII real, no usa secretos, no toca `.env`, no usa DB historicas, no ejecuta backfills, no despliega ni habilita integraciones externas. |
 | Estado al cerrar paquete | No reabrir prompts de goal, el proof espejo AC2024/AT2025, el upgrade de acciones CI ni este ajuste de matcher salvo evidencia nueva contradictoria. |
 | Bloqueos relacionados | Ninguno nuevo. Los cierres productivos futuros siguen sujetos a responsable tributario, autorizacion explicita, fuentes reales/controladas vigentes y gates externos cuando corresponda. |
 | Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable ni integraciones externas sin autorizacion explicita. Las salidas F22/DDJJ/Balance/RLI/CPT/RAI/SAC esperadas son comparacion externa read-only, nunca input de calculo. |
-| Siguiente accion | Validar workflow, acceptance local proporcional, PR/CI/merge/limpieza y luego continuar el proyecto desde el siguiente frente real de producto/arquitectura segun PRD, trazabilidad y stage cards. No crear tareas de goal prompt, no repetir el cierre del proof espejo y no repetir el upgrade CI salvo fallo nuevo. |
+| Siguiente accion | Continuar el proyecto desde el siguiente frente real de producto/arquitectura segun PRD, trazabilidad y stage cards. No crear tareas de goal prompt, no repetir el cierre del proof espejo, no repetir el upgrade CI y no repetir el ajuste de matcher salvo fallo nuevo. |
 
 ## Actualizacion
 
