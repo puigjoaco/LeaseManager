@@ -207,7 +207,11 @@ contratos:
    exportable. Tambien materializa `annual-tax-export-file-package-v1`: paquete
    local de archivos JSON canonicos con nombres deterministas, contenido
    verificable por hash/tamano y `manifest.json` escribible fuera del repo para
-   revision controlada. Sus flags obligatorios siguen siendo
+   revision controlada. `verify_annual_tax_export_file_package` reabre ese
+   directorio desde disco y valida `manifest.json`, archivos esperados,
+   ausencia de archivos extra, hashes, tamanos, JSON canonico y boundary
+   no-oficial antes de considerarlo apto para revision responsable. Sus flags
+   obligatorios siguen siendo
    `official_format=false`,
    `sii_submission=false` y `final_tax_calculation=false`. API/snapshot/admin
    redactan refs/payloads y readiness bloquea si falta export, fuente de

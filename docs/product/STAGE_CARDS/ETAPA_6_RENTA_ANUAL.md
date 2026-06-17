@@ -381,6 +381,10 @@ exportable, paquete materializable `annual-tax-export-file-package-v1` con
 archivos JSON canonicos/hash/tamano/`manifest.json`, nombres deterministas y
 flags obligatorios `official_format=false`, `sii_submission=false` y
 `final_tax_calculation=false`.
+`verify_annual_tax_export_file_package` permite reabrir el directorio escrito
+fuera del repo y comprobar que `manifest.json`, archivos esperados, hashes,
+tamanos, JSON canonico y boundary no-oficial siguen alineados con el
+`AnnualTaxExport` preparado.
 Es una salida revisable del motor anual, no un formato oficial SII ni una
 presentacion.
 `AnnualTaxReviewChecklist` materializa la revision responsable previa a
@@ -594,7 +598,9 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   `annual-tax-export-artifact-contract-v1` por cada artefacto exportable,
   manifiesto `annual-tax-export-file-manifest-v1` por cada archivo local,
   paquete `annual-tax-export-file-package-v1` materializable y resumen en
-  `ProcesoRentaAnual.resumen_anual.annual_tax_exports` alineados.
+  `ProcesoRentaAnual.resumen_anual.annual_tax_exports` alineados. El paquete
+  escrito fuera del repo debe poder revalidarse desde disco antes de revision
+  responsable.
 - `AnnualTaxExport` bloquea readiness si falta, si esta desalineado, si contiene
   refs/payloads sensibles, si faltan contratos exportables o manifiesto de
   archivos locales, si falta el paquete local materializable, si contratos,
