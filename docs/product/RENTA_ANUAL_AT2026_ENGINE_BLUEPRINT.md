@@ -204,13 +204,16 @@ contratos:
    refs no sensibles, conteos DDJJ/F22, id/hash/medio del layout F22, contratos
    estructurales `annual-tax-export-artifact-contract-v1` y manifiesto
    `annual-tax-export-file-manifest-v1` por cada artefacto/archivo local
-   exportable, con nombres JSON deterministas, hashes de payload y flags
-   obligatorios `official_format=false`,
+   exportable. Tambien materializa `annual-tax-export-file-package-v1`: paquete
+   local de archivos JSON canonicos con nombres deterministas, contenido
+   verificable por hash/tamano y `manifest.json` escribible fuera del repo para
+   revision controlada. Sus flags obligatorios siguen siendo
+   `official_format=false`,
    `sii_submission=false` y `final_tax_calculation=false`. API/snapshot/admin
    redactan refs/payloads y readiness bloquea si falta export, fuente de
    formato F22, contratos DDJJ/F22, manifiesto de archivos, resumen alineado,
-   revision responsable o si intenta declarar formato oficial/presentacion/
-   calculo final.
+   paquete local materializable, revision responsable o si intenta declarar
+   formato oficial/presentacion/calculo final.
 12. `stage6-edig-coverage-matrix`: matriz de cobertura segura, sin dependencia
     runtime de EDIG. Implementado como
     `build-edig-at2026-leasemanager-coverage.ps1`: toma los inventarios
@@ -318,6 +321,8 @@ DJ1847/RLI/CPT, porque ahi ocurre la union real entre contabilidad y renta.
 | Export sin fuente formato F22 | `AnnualTaxExport` no enlaza fuente oficial/experta de formato/certificacion F22 |
 | Manifiesto de archivos faltante | `AnnualTaxExport` preparado sin entrada local por cada artefacto DDJJ/F22 |
 | Manifiesto de archivos desalineado | archivos locales no coinciden con contratos, conteos o hashes del export |
+| Paquete local faltante | `AnnualTaxExport` preparado sin manifiesto materializable de archivos JSON |
+| Paquete local invalido | contenido canonico, hashes, tamanos o boundary del paquete no coinciden con los manifiestos |
 | Export fuera de boundary | intento de marcar formato oficial SII, presentacion SII o calculo final autonomo |
 | Responsable ausente | DDJJ/F22/dossier avanzado sin `responsable_revision_ref` |
 | Refs sensibles | URLs, tokens, correos, certificados o claves en refs/payloads |
