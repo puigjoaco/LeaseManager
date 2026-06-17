@@ -635,6 +635,9 @@ def _collect_message_issues(messages) -> dict[str, int]:
             message.full_clean()
         except ValidationError:
             counts['invalid_model'] += 1
+        if message.estado in {EstadoMensajeSaliente.BLOCKED, EstadoMensajeSaliente.FAILED}:
+            if not message.motivo_bloqueo.strip():
+                counts['block_reason_missing'] += 1
         if message.motivo_bloqueo.strip() and contains_sensitive_reference(message.motivo_bloqueo):
             counts['block_reason_sensitive'] += 1
         if message.estado == EstadoMensajeSaliente.SENT:
@@ -1861,6 +1864,14 @@ def collect_stage2_cobranza_readiness(
                 'stage2.message.block_reason_sensitive',
                 'Existen mensajes salientes con motivo de bloqueo sensible heredado.',
                 count=message_issues['block_reason_sensitive'],
+            )
+        )
+    if message_issues.get('block_reason_missing'):
+        issues.append(
+            _issue(
+                'stage2.message.block_reason_missing',
+                'Existen mensajes salientes bloqueados o fallidos sin motivo operativo trazable.',
+                count=message_issues['block_reason_missing'],
             )
         )
     if message_issues.get('prepared_or_sent_not_ready'):

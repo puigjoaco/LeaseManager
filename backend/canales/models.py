@@ -440,7 +440,12 @@ class MensajeSaliente(OperationalChannelTextNormalizationMixin, TimestampedModel
                 errors['enviado_at'] = 'Mensaje enviado requiere timestamp de envio.'
         if contains_sensitive_reference(self.provider_payload, include_sensitive_keys=True):
             errors['provider_payload'] = 'provider_payload no debe contener URLs, tokens, credenciales ni correos.'
-        if self.motivo_bloqueo and contains_sensitive_reference(self.motivo_bloqueo):
+        if self.estado in {EstadoMensajeSaliente.BLOCKED, EstadoMensajeSaliente.FAILED}:
+            if not self.motivo_bloqueo:
+                errors['motivo_bloqueo'] = 'Mensaje bloqueado o fallido requiere motivo operativo trazable.'
+            elif contains_sensitive_reference(self.motivo_bloqueo):
+                errors['motivo_bloqueo'] = 'motivo_bloqueo no debe contener URLs, tokens, credenciales ni correos.'
+        elif self.motivo_bloqueo and contains_sensitive_reference(self.motivo_bloqueo):
             errors['motivo_bloqueo'] = 'motivo_bloqueo no debe contener URLs, tokens, credenciales ni correos.'
         if self.estado in {EstadoMensajeSaliente.PREPARED, EstadoMensajeSaliente.SENT}:
             if self.canal_mensajeria.estado_gate != EstadoGateCanal.OPEN:
