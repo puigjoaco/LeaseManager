@@ -2796,6 +2796,28 @@ class Stage2CobranzaReadinessTests(TestCase):
         self.assertIn('stage2.webpay_intent.block_reason_missing', issue_codes)
         self.assertEqual(result['sections']['webpay']['block_reason_missing'], 1)
 
+    def test_failed_webpay_intent_without_reason_is_blocking(self):
+        fixture = self._create_payment_matrix()
+        self._create_valid_email_gate()
+        webpay_gate = self._create_valid_webpay_gate()
+        IntentoPagoWebPay.objects.create(
+            pago_mensual=fixture['payment'],
+            gate_cobro=webpay_gate,
+            provider_key='transbank_webpay',
+            monto_clp_snapshot=fixture['payment'].monto_calculado_clp,
+            buy_order='LM-PM-STAGE2-FAIL-MISSING',
+            session_id='LM-WP-STAGE2-FAIL-MISSING',
+            estado=EstadoIntentoPagoWebPay.FAILED,
+            motivo_bloqueo='   ',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage2_cobranza'])
+        self.assertIn('stage2.webpay_intent.block_reason_missing', issue_codes)
+        self.assertEqual(result['sections']['webpay']['block_reason_missing'], 1)
+
     def test_channel_gate_with_sensitive_reference_is_blocking(self):
         self._create_payment_matrix()
         email_gate = self._create_valid_email_gate()

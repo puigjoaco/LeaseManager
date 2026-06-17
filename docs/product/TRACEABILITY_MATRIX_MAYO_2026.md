@@ -28,11 +28,11 @@ salientes bloqueados o fallidos. `MensajeSaliente.clean()` rechaza estados
 Esto conserva fallbacks y fallos visibles sin abrir proveedores externos.
 
 Nota 2026-06-17: Cobranza/WebPay exige motivo operativo trazable para intentos
-WebPay bloqueados. `IntentoPagoWebPay.clean()` rechaza estado
-`bloqueado_gate` sin `motivo_bloqueo` no vacio y no sensible, y
+WebPay bloqueados o fallidos. `IntentoPagoWebPay.clean()` rechaza estados
+`bloqueado_gate`/`fallido` sin `motivo_bloqueo` no vacio y no sensible, y
 `audit_stage2_cobranza_readiness` reporta
 `stage2.webpay_intent.block_reason_missing` para snapshots heredados con
-bloqueos sin razon operativa.
+bloqueos o fallos sin razon operativa.
 
 Nota 2026-06-16: El progreso contable/renta por empresa queda con boundary
 explicito en API, Reporting y backoffice. `audit_company_accounting_progress`
