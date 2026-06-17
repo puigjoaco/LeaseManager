@@ -28,12 +28,12 @@ nueva.
 | Motivo de prioridad | Los contratos por artefacto ya existen; la siguiente capa hacia archivos exportables/certificables es manifestar archivos locales verificables sin declarar aun formato oficial SII. |
 | Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-export-file-manifest`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
 | Rama | `codex/stage6-export-file-manifest`. |
-| Estado | Paquete en curso. Main estaba limpio y sincronizado antes de abrirlo. |
+| Estado | Implementacion y validaciones locales completas en el worktree tactico: focal 3 tests OK, suite impactada 322 tests OK, `manage.py check` OK, `makemigrations --check` OK, gate local Etapa 6 parcial esperado, `npm ci`, build, lint y acceptance local 1510 tests OK. Falta commit, PR, CI, merge y limpieza solo si esta rama aun no esta integrada en `main`. |
 | Gate esperado | Este paquete no declara cierre de Etapa 6 ni genera archivo oficial SII. Solo agrega manifiesto de archivos locales controlados y readiness bloqueante si faltan, no cuadran o intentan abrir formato oficial/presentacion/calculo final. |
 | Estado al cerrar paquete | No reabrir contratos estructurales, proof espejo AC2024/AT2025 ni paquetes ya cerrados salvo fallo nuevo o evidencia contradictoria. |
 | Bloqueos relacionados | Formato/certificacion F22, DDJJ y presentacion SII siguen bloqueados por fuente oficial/certificacion vigente, responsable tributario y autorizacion explicita. |
 | Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable ni integraciones externas sin autorizacion explicita. Si este cursor contradice el estado real porque nombra una rama/worktree ya eliminado y `main` contiene el merge correspondiente, tratar el paquete como cerrado, corregir el cursor y continuar con el siguiente frente seguro; no recrear el paquete anterior. Las salidas F22/DDJJ/Balance/RLI/CPT/RAI/SAC esperadas son comparacion externa read-only, nunca input de calculo. |
-| Siguiente accion | Implementar y validar manifiesto de archivos locales exportables en `AnnualTaxExport`, documentar evidencia y cerrar por PR/CI/merge/limpieza si pasa. |
+| Siguiente accion | Si la rama/worktree `codex/stage6-export-file-manifest` sigue activa, cerrar por commit, PR, CI, merge y limpieza. Si `main` ya contiene el merge de esta rama y el worktree/branch no existe, tratar el paquete como cerrado y seleccionar el siguiente frente seguro. |
 
 ## Actualizacion
 
