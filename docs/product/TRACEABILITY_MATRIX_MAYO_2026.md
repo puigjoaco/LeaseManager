@@ -67,6 +67,15 @@ responsable revisor. El manifest conserva hashes por linea y el verificador
 rechaza codigos duplicados, refs sensibles o evidencia alterada antes de tratar
 el archivo como revisable.
 
+Nota 2026-06-17: Etapa 6/Renta Anual deriva entradas F22 fixed-width desde la
+matriz anual con `build_f22_fixed_width_entries_from_artifact_matrix()`. La
+capa toma `AnnualTaxExport` preparado y solo acepta items activos F22 generados
+por `TaxCodeMapping` del mismo rule set, fuente oficial/experta lista, codigo
+SII numerico de cuatro digitos y metadata revisada para valor/signo/evidencia.
+Asi el candidato F22 deja de depender de una lista manual aislada y queda
+trazado a la capa tributaria intermedia. No habilita certificacion real, envio
+SII ni calculo tributario final.
+
 Nota 2026-06-17: Canales/Etapa 2 exige motivo operativo trazable para mensajes
 salientes bloqueados o fallidos. `MensajeSaliente.clean()` rechaza estados
 `bloqueado`/`fallido` sin `motivo_bloqueo` no vacio y no sensible, y

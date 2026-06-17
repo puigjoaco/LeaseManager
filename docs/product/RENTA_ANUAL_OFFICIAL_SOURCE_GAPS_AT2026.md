@@ -291,3 +291,11 @@ linea: estado `approved_for_candidate`, fuente del codigo, fuente del valor y
 responsable revisor. El manifest hashea esa evidencia y el verificador bloquea
 duplicados, refs sensibles o evidencia alterada; esto acerca el archivo local a
 un dossier revisable/certificable sin convertirlo en presentacion oficial.
+`build_f22_fixed_width_entries_from_artifact_matrix()` conecta esa exigencia
+con la matriz anual: solo deriva entradas desde items activos `F22` originados
+en `TaxCodeMapping` del mismo rule set del export, con fuente oficial/experta
+lista y metadata revisada para valor/signo/evidencia. Asi el valor candidato ya
+no entra como lista manual aislada, sino como salida trazada desde la capa
+tributaria intermedia. La brecha externa sigue abierta: esto no sustituye
+certificacion SII, codigo de software, validacion tributaria experta ni envio
+oficial.

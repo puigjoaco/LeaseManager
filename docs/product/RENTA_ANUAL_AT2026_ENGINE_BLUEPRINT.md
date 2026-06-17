@@ -255,6 +255,15 @@ contratos:
     sensible del codigo, fuente no sensible del valor y responsable revisor. El
     manifest hashea la evidencia por linea y el verificador bloquea duplicados,
     refs sensibles o cambios de evidencia.
+13.4. `stage6-f22-mapping-derived-entries`: derivacion desde la matriz anual.
+    Implementado como `build_f22_fixed_width_entries_from_artifact_matrix()`:
+    toma `AnnualTaxExport` preparado y obtiene entradas desde
+    `AnnualTaxArtifactMatrixItem` activos de destino `F22` que provienen de
+    `TaxCodeMapping` del mismo `TaxYearRuleSet`, con fuente oficial/experta
+    lista, codigo destino numerico de cuatro digitos y metadata revisada para
+    valor, signo, fuente del codigo, fuente del valor y responsable. Rechaza
+    codigos internos, mappings de otro rule set, evidencia faltante o duplicados
+    antes de escribir el candidato fixed-width.
 14. `stage6-official-tax-source-registry`: registro operacional de fuentes
     oficiales/experta. Implementado como `AnnualTaxOfficialSource`: modelo,
     migracion, API/snapshot/admin redactados y readiness bloqueante si una
