@@ -14,6 +14,12 @@ decide ni presenta renta/tributacion final de forma autonoma. La aprobacion o
 presentacion externa exige gate aplicable, responsable trazado y validacion
 experta/oficial cuando corresponda.
 
+Nota 2026-06-17: El Release Gate queda alineado con acciones oficiales GitHub
+`v6` para `checkout`, `setup-python` y `setup-node`. Mantiene Python 3.12,
+Node 22, caches y comandos existentes, pero evita que el cierre operativo
+genere advertencias por runtime Node20 de acciones antiguas. No cambia producto,
+datos, gates externos ni autorizaciones.
+
 Nota 2026-06-16: El progreso contable/renta por empresa queda con boundary
 explicito en API, Reporting y backoffice. `audit_company_accounting_progress`
 y `contabilidad/progreso-empresa/` exponen `review_boundary` con
