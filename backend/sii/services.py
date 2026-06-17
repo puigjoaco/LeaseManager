@@ -1518,6 +1518,10 @@ def summarize_annual_tax_exports(process):
             'export_contracts_total': payload.get('export_contracts_total'),
             'ddjj_export_contracts_total': payload.get('ddjj_export_contracts_total'),
             'f22_export_contracts_total': payload.get('f22_export_contracts_total'),
+            'export_files_total': payload.get('export_files_total'),
+            'ddjj_export_files_total': payload.get('ddjj_export_files_total'),
+            'f22_export_files_total': payload.get('f22_export_files_total'),
+            'export_file_manifest_hash': payload.get('export_file_manifest_hash'),
             'warnings_total': export.warnings_total,
             'official_format': export.official_format,
             'sii_submission': export.sii_submission,
@@ -3486,6 +3490,83 @@ def _annual_tax_export_artifact_contracts(item_refs):
     ]
 
 
+def _annual_tax_export_file_slug(value):
+    slug = ''.join(
+        character if character.isalnum() else '-'
+        for character in str(value or '').strip().upper()
+    )
+    slug = '-'.join(part for part in slug.split('-') if part)
+    return slug or 'ARTIFACTO'
+
+
+def _annual_tax_export_file_payload(process, contract):
+    return {
+        'schema': 'annual-tax-export-file-payload-v1',
+        'anio_tributario': process.anio_tributario,
+        'anio_comercial': process.anio_tributario - 1,
+        'artifact_matrix_item_id': contract.get('artifact_matrix_item_id'),
+        'target_kind': contract.get('target_kind'),
+        'target_code': contract.get('target_code'),
+        'medio_sii': contract.get('medio_sii'),
+        'source_kind': contract.get('source_kind'),
+        'source_model': contract.get('source_model'),
+        'source_object_id': contract.get('source_object_id'),
+        'source_hash': contract.get('source_hash'),
+        'hash_item': contract.get('hash_item'),
+        'review_state': contract.get('review_state'),
+        'artifact_contract_version': contract.get('contract_version'),
+        'official_format': False,
+        'sii_submission': False,
+        'final_tax_calculation': False,
+    }
+
+
+def _annual_tax_export_file_manifest_entry(process, contract):
+    file_payload = _annual_tax_export_file_payload(process, contract)
+    payload_bytes = json.dumps(
+        file_payload,
+        sort_keys=True,
+        separators=(',', ':'),
+        ensure_ascii=True,
+        default=str,
+    ).encode('utf-8')
+    target_kind = str(contract.get('target_kind') or '')
+    target_code = _annual_tax_export_file_slug(contract.get('target_code'))
+    artifact_id = _annual_tax_export_file_slug(contract.get('artifact_matrix_item_id'))
+    return {
+        'file_manifest_version': 'annual-tax-export-file-manifest-v1',
+        'artifact_matrix_item_id': contract.get('artifact_matrix_item_id'),
+        'target_kind': target_kind,
+        'target_code': contract.get('target_code'),
+        'file_role': 'ddjj_local_export_candidate' if target_kind == TipoAnnualTaxArtifactTarget.DDJJ else 'f22_local_export_candidate',
+        'file_name': f'AT{process.anio_tributario}_{target_kind}_{target_code}_{artifact_id}.json',
+        'content_type': 'application/json',
+        'encoding': 'utf-8',
+        'schema_ref': 'annual-tax-export-file-payload-v1',
+        'delivery_kind': 'local_controlled_export_file',
+        'medio_sii': contract.get('medio_sii'),
+        'source_contract_version': contract.get('contract_version'),
+        'payload_hash': hashlib.sha256(payload_bytes).hexdigest(),
+        'payload_size_bytes': len(payload_bytes),
+        'official_format': False,
+        'sii_submission': False,
+        'final_tax_calculation': False,
+        'requires_official_format_gate': True,
+        'requires_explicit_submission_authorization': True,
+    }
+
+
+def _annual_tax_export_file_manifest(process, contracts):
+    return [
+        _annual_tax_export_file_manifest_entry(process, contract)
+        for contract in contracts
+        if contract.get('target_kind') in {
+            TipoAnnualTaxArtifactTarget.DDJJ,
+            TipoAnnualTaxArtifactTarget.F22,
+        }
+    ]
+
+
 def _annual_tax_export_summary(process, dossier, ddjj, f22, official_format_source=None):
     dossier_summary = dossier.resumen_dossier if isinstance(dossier.resumen_dossier, dict) else {}
     process_summary = process.resumen_anual if isinstance(process.resumen_anual, dict) else {}
@@ -3526,6 +3607,13 @@ def _annual_tax_export_summary(process, dossier, ddjj, f22, official_format_sour
     f22_export_contracts_total = sum(
         1 for contract in export_artifact_contracts if contract.get('target_kind') == TipoAnnualTaxArtifactTarget.F22
     )
+    export_file_manifest = _annual_tax_export_file_manifest(process, export_artifact_contracts)
+    ddjj_export_files_total = sum(
+        1 for entry in export_file_manifest if entry.get('target_kind') == TipoAnnualTaxArtifactTarget.DDJJ
+    )
+    f22_export_files_total = sum(
+        1 for entry in export_file_manifest if entry.get('target_kind') == TipoAnnualTaxArtifactTarget.F22
+    )
     return {
         'empresa_id': process.empresa_id,
         'proceso_renta_anual_id': process.id,
@@ -3556,10 +3644,15 @@ def _annual_tax_export_summary(process, dossier, ddjj, f22, official_format_sour
         'export_contracts_total': len(export_artifact_contracts),
         'ddjj_export_contracts_total': ddjj_export_contracts_total,
         'f22_export_contracts_total': f22_export_contracts_total,
+        'export_files_total': len(export_file_manifest),
+        'ddjj_export_files_total': ddjj_export_files_total,
+        'f22_export_files_total': f22_export_files_total,
+        'export_file_manifest_hash': _source_bundle_hash(export_file_manifest),
         'warnings_total': dossier.warnings_total,
         'review_state': dossier.review_state,
         'export_items': export_items,
         'export_artifact_contracts': export_artifact_contracts,
+        'export_file_manifest': export_file_manifest,
         'official_format': False,
         'sii_submission': False,
         'final_tax_calculation': False,

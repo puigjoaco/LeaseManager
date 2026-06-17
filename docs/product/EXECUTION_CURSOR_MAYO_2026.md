@@ -22,18 +22,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `codex/stage6-export-artifact-contracts`. |
-| Fuente exacta | `main` en `db94db6c`, despues del merge confirmado de PR #899 `codex/cursor-post-merge-state`. |
-| Brecha activa | Etapa 6 necesita bajar la frontera oficial/exportable a contratos estructurales dentro de `AnnualTaxExport`: cada DDJJ/F22 exportable local debe tener contrato con fuente, hash, medio, revision y flags que mantengan `official_format=false`, `sii_submission=false` y `final_tax_calculation=false`. |
-| Motivo de prioridad | La prueba espejo ya confirmo artefactos comparables; la siguiente capa segura es explicitar que el export local conoce sus artefactos exportables sin confundirlos con archivo SII oficial/certificado. |
-| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-export-artifact-contracts`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
-| Rama | `codex/stage6-export-artifact-contracts`. |
-| Estado | Paquete en curso. Main estaba limpio y sincronizado antes de abrirlo; se elimino el worktree limpio ya mergeado `codex/cursor-post-merge-state`. |
-| Gate esperado | Este paquete no declara cierre de Etapa 6 ni genera archivo oficial SII. Solo agrega contratos estructurales al export local controlado y readiness bloqueante si faltan o intentan abrir formato oficial/presentacion/calculo final. |
-| Estado al cerrar paquete | No reabrir proof espejo AC2024/AT2025 ni paquetes ya cerrados salvo fallo nuevo o evidencia contradictoria. |
+| Frente activo | `codex/stage6-export-file-manifest`. |
+| Fuente exacta | `main` en `a37eecf4`, despues del merge confirmado de PR #900 `codex/stage6-export-artifact-contracts`. |
+| Brecha activa | Etapa 6 necesita que el export local controlado declare manifiesto de archivos por cada DDJJ/F22: nombre deterministico, tipo, encoding, schema, hash de payload y flags que mantengan `official_format=false`, `sii_submission=false` y `final_tax_calculation=false`. |
+| Motivo de prioridad | Los contratos por artefacto ya existen; la siguiente capa hacia archivos exportables/certificables es manifestar archivos locales verificables sin declarar aun formato oficial SII. |
+| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-export-file-manifest`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `codex/stage6-export-file-manifest`. |
+| Estado | Implementacion y validaciones locales completas en el worktree tactico: focal 3 tests OK, suite impactada 322 tests OK, `manage.py check` OK, `makemigrations --check` OK, gate local Etapa 6 parcial esperado, `npm ci`, build, lint y acceptance local 1510 tests OK. Falta commit, PR, CI, merge y limpieza solo si esta rama aun no esta integrada en `main`. |
+| Gate esperado | Este paquete no declara cierre de Etapa 6 ni genera archivo oficial SII. Solo agrega manifiesto de archivos locales controlados y readiness bloqueante si faltan, no cuadran o intentan abrir formato oficial/presentacion/calculo final. |
+| Estado al cerrar paquete | No reabrir contratos estructurales, proof espejo AC2024/AT2025 ni paquetes ya cerrados salvo fallo nuevo o evidencia contradictoria. |
 | Bloqueos relacionados | Formato/certificacion F22, DDJJ y presentacion SII siguen bloqueados por fuente oficial/certificacion vigente, responsable tributario y autorizacion explicita. |
 | Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable ni integraciones externas sin autorizacion explicita. Si este cursor contradice el estado real porque nombra una rama/worktree ya eliminado y `main` contiene el merge correspondiente, tratar el paquete como cerrado, corregir el cursor y continuar con el siguiente frente seguro; no recrear el paquete anterior. Las salidas F22/DDJJ/Balance/RLI/CPT/RAI/SAC esperadas son comparacion externa read-only, nunca input de calculo. |
-| Siguiente accion | Implementar y validar contratos de artefactos exportables en `AnnualTaxExport`, documentar evidencia y cerrar por PR/CI/merge/limpieza si pasa. |
+| Siguiente accion | Si la rama/worktree `codex/stage6-export-file-manifest` sigue activa, cerrar por commit, PR, CI, merge y limpieza. Si `main` ya contiene el merge de esta rama y el worktree/branch no existe, tratar el paquete como cerrado y seleccionar el siguiente frente seguro. |
 
 ## Actualizacion
 

@@ -74,6 +74,11 @@ SENSITIVE_REFERENCE_PATTERN = re.compile(
     r'(:\/\/|@|password|passwd|pwd|secret|token|bearer|api[_-]?key|credential|credencial)',
     re.IGNORECASE,
 )
+SHA256_PATTERN = re.compile(r'^[0-9a-f]{64}$')
+
+
+def _is_sha256(value) -> bool:
+    return bool(SHA256_PATTERN.match(str(value or '').strip()))
 
 AUTHORIZED_STAGE6_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
 STAGE6_ANNUAL_STATUS_UPDATE_EVENT_TYPES = (
@@ -1030,6 +1035,10 @@ def _collect_annual_tax_export_issues(exports, processes, active_fiscal_company_
                         or int(item_summary.get('export_contracts_total') or 0) != int(payload.get('export_contracts_total') or 0)
                         or int(item_summary.get('ddjj_export_contracts_total') or 0) != int(payload.get('ddjj_export_contracts_total') or 0)
                         or int(item_summary.get('f22_export_contracts_total') or 0) != int(payload.get('f22_export_contracts_total') or 0)
+                        or int(item_summary.get('export_files_total') or 0) != int(payload.get('export_files_total') or 0)
+                        or int(item_summary.get('ddjj_export_files_total') or 0) != int(payload.get('ddjj_export_files_total') or 0)
+                        or int(item_summary.get('f22_export_files_total') or 0) != int(payload.get('f22_export_files_total') or 0)
+                        or item_summary.get('export_file_manifest_hash') != payload.get('export_file_manifest_hash')
                         or int(item_summary.get('warnings_total') or 0) != export.warnings_total
                         or item_summary.get('official_format') is not False
                         or item_summary.get('sii_submission') is not False
@@ -1081,6 +1090,77 @@ def _collect_annual_tax_export_issues(exports, processes, active_fiscal_company_
                     counts['tax_export_artifact_contracts_invalid'] += 1
                 if boundary_contracts:
                     counts['tax_export_artifact_contract_boundary'] += 1
+            file_manifest = payload.get('export_file_manifest')
+            if not isinstance(file_manifest, list):
+                counts['tax_export_file_manifest_missing'] += 1
+            else:
+                file_counts = Counter()
+                file_artifact_ids = set()
+                contract_artifact_ids = set()
+                invalid_files = 0
+                boundary_files = 0
+                seen_file_names = set()
+                if isinstance(contracts, list):
+                    contract_artifact_ids = {
+                        str(contract.get('artifact_matrix_item_id'))
+                        for contract in contracts
+                        if isinstance(contract, dict) and has_text(contract.get('artifact_matrix_item_id'))
+                    }
+                for entry in file_manifest:
+                    if not isinstance(entry, dict):
+                        invalid_files += 1
+                        continue
+                    artifact_id = entry.get('artifact_matrix_item_id')
+                    if has_text(artifact_id):
+                        file_artifact_ids.add(str(artifact_id))
+                    else:
+                        invalid_files += 1
+                    target_kind = entry.get('target_kind')
+                    file_counts[target_kind] += 1
+                    file_name = str(entry.get('file_name') or '').strip()
+                    if file_name in seen_file_names:
+                        invalid_files += 1
+                    seen_file_names.add(file_name)
+                    if (
+                        entry.get('file_manifest_version') != 'annual-tax-export-file-manifest-v1'
+                        or target_kind not in {'DDJJ', 'F22'}
+                        or not has_text(entry.get('target_code'))
+                        or not file_name.lower().endswith('.json')
+                        or '/' in file_name
+                        or '\\' in file_name
+                        or entry.get('content_type') != 'application/json'
+                        or entry.get('encoding') != 'utf-8'
+                        or entry.get('schema_ref') != 'annual-tax-export-file-payload-v1'
+                        or entry.get('delivery_kind') != 'local_controlled_export_file'
+                        or entry.get('source_contract_version') != 'annual-tax-export-artifact-contract-v1'
+                        or not _is_sha256(entry.get('payload_hash'))
+                        or entry.get('requires_official_format_gate') is not True
+                        or entry.get('requires_explicit_submission_authorization') is not True
+                    ):
+                        invalid_files += 1
+                    try:
+                        valid_size = int(entry.get('payload_size_bytes') or 0) > 0
+                    except (TypeError, ValueError):
+                        valid_size = False
+                    if not valid_size:
+                        invalid_files += 1
+                    if (
+                        entry.get('official_format') not in (False, None)
+                        or entry.get('sii_submission') not in (False, None)
+                        or entry.get('final_tax_calculation') not in (False, None)
+                    ):
+                        boundary_files += 1
+                if (
+                    len(file_manifest) != export.target_items_total
+                    or file_counts['DDJJ'] != export.ddjj_items_total
+                    or file_counts['F22'] != export.f22_items_total
+                    or (contract_artifact_ids and file_artifact_ids != contract_artifact_ids)
+                ):
+                    counts['tax_export_file_manifest_mismatch'] += 1
+                if invalid_files:
+                    counts['tax_export_file_manifest_invalid'] += 1
+                if boundary_files:
+                    counts['tax_export_file_manifest_boundary'] += 1
             if not export.official_format_source_id:
                 counts['tax_export_official_format_source_missing'] += 1
             if not has_text(export.responsible_ref):
@@ -2232,6 +2312,26 @@ def collect_stage6_renta_anual_readiness(
             'tax_export_artifact_contract_boundary',
             'stage6.tax_export_artifact_contract_boundary',
             'Los contratos de export anual no pueden declarar formato oficial, presentacion SII ni calculo final.',
+        ),
+        (
+            'tax_export_file_manifest_missing',
+            'stage6.tax_export_file_manifest_missing',
+            'AnnualTaxExport preparado requiere manifiesto de archivos locales por cada artefacto DDJJ/F22.',
+        ),
+        (
+            'tax_export_file_manifest_mismatch',
+            'stage6.tax_export_file_manifest_mismatch',
+            'AnnualTaxExport conserva un manifiesto de archivos desalineado con contratos o totales exportables.',
+        ),
+        (
+            'tax_export_file_manifest_invalid',
+            'stage6.tax_export_file_manifest_invalid',
+            'AnnualTaxExport conserva un manifiesto de archivos incompleto o invalido.',
+        ),
+        (
+            'tax_export_file_manifest_boundary',
+            'stage6.tax_export_file_manifest_boundary',
+            'El manifiesto de archivos no puede declarar formato oficial, presentacion SII ni calculo final.',
         ),
         (
             'tax_export_review_required',
