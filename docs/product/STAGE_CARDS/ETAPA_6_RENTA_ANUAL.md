@@ -436,6 +436,14 @@ tipo 0 para cabecera/datos de internet y tipo 1 para cuatro codigos por linea.
 Sus builders y validador permiten avanzar de preview JSON hacia archivo
 candidato, pero no habilitan codigo de certificacion real, envio SII, calculo
 final ni aprobacion sin responsable.
+`build_annual_tax_f22_fixed_width_export_candidate()` conecta ese contrato con
+`AnnualTaxExport`: desde un export anual preparado y entradas F22 revisadas
+explicitamente con codigos SII numericos de cuatro digitos, construye un
+archivo candidato fixed-width local y verificable. El escritor preserva bytes
+ASCII exactos y el verificador reabre el archivo/manifest desde disco, valida
+hashes, largos y registros. Si no hay entradas revisadas o el codigo es interno
+como `F22-PREVIEW`, falla en vez de inventar contenido presentable. Sigue sin
+declarar formato oficial certificado, envio SII ni calculo tributario final.
 `audit_company_accounting_progress` funciona como medidor operativo por empresa
 y ano comercial: consolida en JSON si la empresa tiene configuracion fiscal,
 doce cierres, balances aprobados/cuadrados, F29, `ProcesoRentaAnual`,

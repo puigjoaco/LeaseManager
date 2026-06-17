@@ -276,3 +276,13 @@ cuatro pares codigo/signo/valor por linea. `build_f22_type0_record()` y
 controlados, y `validate_f22_fixed_width_record()` rechaza largo, tipo,
 constantes, posiciones y campos numericos invalidos. Esta capa sigue con
 `official_submission_allowed=false` y `final_tax_calculation=false`.
+
+`build_annual_tax_f22_fixed_width_export_candidate()` usa ese contrato desde un
+`AnnualTaxExport` preparado para escribir un candidato F22 fixed-width local
+solo cuando recibe entradas revisadas explicitamente con codigos SII numericos
+de cuatro digitos y valores. `write_annual_tax_f22_fixed_width_export_candidate()`
+preserva bytes ASCII exactos y
+`verify_annual_tax_f22_fixed_width_export_candidate()` reabre archivo y
+manifest desde disco para validar hash, tamano, largos y registros. La capa
+rechaza codigos internos no numericos como `F22-PREVIEW`, no presenta SII, no
+usa codigo de certificacion real y no declara calculo tributario final.

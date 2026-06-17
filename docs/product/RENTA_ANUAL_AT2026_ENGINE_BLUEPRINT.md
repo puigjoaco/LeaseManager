@@ -241,6 +241,15 @@ contratos:
     a lineas fixed-width de 90 caracteres para registros tipo 0 y tipo 1. No
     habilita envio SII, codigo de certificacion real ni calculo tributario
     final.
+13.2. `stage6-f22-fixed-width-export-candidate`: puente desde export anual a
+    archivo candidato F22. Implementado como
+    `build_annual_tax_f22_fixed_width_export_candidate()`,
+    `write_annual_tax_f22_fixed_width_export_candidate()` y
+    `verify_annual_tax_f22_fixed_width_export_candidate()`: toma
+    `AnnualTaxExport` preparado mas codigos/valores F22 revisados
+    explicitamente, escribe bytes ASCII fixed-width y verifica archivo/manifest
+    desde disco. Rechaza codigos internos no numericos y mantiene bloqueados
+    certificacion real, envio SII y calculo final.
 14. `stage6-official-tax-source-registry`: registro operacional de fuentes
     oficiales/experta. Implementado como `AnnualTaxOfficialSource`: modelo,
     migracion, API/snapshot/admin redactados y readiness bloqueante si una
