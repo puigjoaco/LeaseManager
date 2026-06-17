@@ -3682,11 +3682,11 @@ class AnnualTaxExport(OperationalSIITextNormalizationMixin, TimestampedModel):
                 if boundary_contracts:
                     _add_error(errors, 'export_payload', 'export_artifact_contracts no puede declarar formato oficial, presentacion SII ni calculo final.')
             file_manifest = self.export_payload.get('export_file_manifest')
+            file_artifact_ids = set()
             if self.estado == EstadoAnnualTaxExport.PREPARED and not isinstance(file_manifest, list):
                 _add_error(errors, 'export_payload', 'AnnualTaxExport preparado requiere export_file_manifest.')
             elif isinstance(file_manifest, list):
                 file_counts = {TipoAnnualTaxArtifactTarget.DDJJ: 0, TipoAnnualTaxArtifactTarget.F22: 0}
-                file_artifact_ids = set()
                 invalid_files = 0
                 boundary_files = 0
                 seen_file_names = set()
@@ -3763,6 +3763,99 @@ class AnnualTaxExport(OperationalSIITextNormalizationMixin, TimestampedModel):
                     _add_error(errors, 'export_payload', 'export_file_manifest contiene archivos invalidos.')
                 if boundary_files:
                     _add_error(errors, 'export_payload', 'export_file_manifest no puede declarar formato oficial, presentacion SII ni calculo final.')
+            package_manifest = self.export_payload.get('export_file_package_manifest')
+            if self.estado == EstadoAnnualTaxExport.PREPARED and not isinstance(package_manifest, list):
+                _add_error(errors, 'export_payload', 'AnnualTaxExport preparado requiere export_file_package_manifest.')
+            elif isinstance(package_manifest, list):
+                package_counts = {TipoAnnualTaxArtifactTarget.DDJJ: 0, TipoAnnualTaxArtifactTarget.F22: 0}
+                package_artifact_ids = set()
+                invalid_package_files = 0
+                boundary_package_files = 0
+                seen_package_file_names = set()
+                for entry in package_manifest:
+                    if not isinstance(entry, dict):
+                        invalid_package_files += 1
+                        continue
+                    artifact_id = entry.get('artifact_matrix_item_id')
+                    if has_text(artifact_id):
+                        package_artifact_ids.add(str(artifact_id))
+                    else:
+                        invalid_package_files += 1
+                    target_kind = entry.get('target_kind')
+                    if target_kind in package_counts:
+                        package_counts[target_kind] += 1
+                    else:
+                        invalid_package_files += 1
+                    file_name = str(entry.get('file_name') or '').strip()
+                    if file_name in seen_package_file_names:
+                        invalid_package_files += 1
+                    seen_package_file_names.add(file_name)
+                    if (
+                        entry.get('package_entry_version') != 'annual-tax-export-file-package-manifest-v1'
+                        or not has_text(entry.get('target_code'))
+                        or not file_name.lower().endswith('.json')
+                        or '/' in file_name
+                        or '\\' in file_name
+                        or entry.get('content_type') != 'application/json'
+                        or entry.get('encoding') != 'utf-8'
+                        or entry.get('schema_ref') != 'annual-tax-export-file-payload-v1'
+                        or entry.get('delivery_kind') != 'local_controlled_export_package'
+                        or entry.get('materialized_from') != 'annual-tax-export-file-payload-v1'
+                        or entry.get('canonical_json') != 'sort_keys_ascii_compact'
+                        or not _is_sha256(entry.get('payload_hash'))
+                        or not _is_sha256(entry.get('manifest_payload_hash'))
+                        or entry.get('payload_hash') != entry.get('manifest_payload_hash')
+                        or entry.get('requires_official_format_gate') is not True
+                        or entry.get('requires_explicit_submission_authorization') is not True
+                    ):
+                        invalid_package_files += 1
+                    try:
+                        payload_size = int(entry.get('payload_size_bytes') or 0)
+                        manifest_size = int(entry.get('manifest_payload_size_bytes') or 0)
+                        valid_size = payload_size > 0 and payload_size == manifest_size
+                    except (TypeError, ValueError):
+                        valid_size = False
+                    if not valid_size:
+                        invalid_package_files += 1
+                    if (
+                        entry.get('official_format') not in (False, None)
+                        or entry.get('sii_submission') not in (False, None)
+                        or entry.get('final_tax_calculation') not in (False, None)
+                    ):
+                        boundary_package_files += 1
+                if len(package_manifest) != self.target_items_total:
+                    _add_error(errors, 'export_payload', 'export_file_package_manifest debe cubrir todos los items DDJJ/F22.')
+                if package_counts[TipoAnnualTaxArtifactTarget.DDJJ] != self.ddjj_items_total:
+                    _add_error(errors, 'export_payload', 'export_file_package_manifest DDJJ no coincide con ddjj_items_total.')
+                if package_counts[TipoAnnualTaxArtifactTarget.F22] != self.f22_items_total:
+                    _add_error(errors, 'export_payload', 'export_file_package_manifest F22 no coincide con f22_items_total.')
+                if contract_artifact_ids and package_artifact_ids != contract_artifact_ids:
+                    _add_error(errors, 'export_payload', 'export_file_package_manifest debe coincidir con los contratos exportables.')
+                if file_artifact_ids and package_artifact_ids != file_artifact_ids:
+                    _add_error(errors, 'export_payload', 'export_file_package_manifest debe coincidir con export_file_manifest.')
+                for key, expected in (
+                    ('export_file_package_files_total', self.target_items_total),
+                    ('ddjj_export_package_files_total', self.ddjj_items_total),
+                    ('f22_export_package_files_total', self.f22_items_total),
+                ):
+                    if key in self.export_payload:
+                        try:
+                            matches = int(self.export_payload.get(key) or 0) == int(expected)
+                        except (TypeError, ValueError):
+                            matches = False
+                        if not matches:
+                            _add_error(errors, 'export_payload', f'{key} debe coincidir con el paquete exportable.')
+                if self.export_payload.get('export_file_package_version') not in (None, 'annual-tax-export-file-package-v1'):
+                    _add_error(errors, 'export_payload', 'export_file_package_version debe ser annual-tax-export-file-package-v1.')
+                package_hash = self.export_payload.get('export_file_package_hash')
+                if package_hash is not None and not _is_sha256(package_hash):
+                    _add_error(errors, 'export_payload', 'export_file_package_hash debe ser SHA-256.')
+                elif package_hash is not None and package_hash != _payload_hash(package_manifest):
+                    _add_error(errors, 'export_payload', 'export_file_package_hash debe corresponder al manifiesto de paquete.')
+                if invalid_package_files:
+                    _add_error(errors, 'export_payload', 'export_file_package_manifest contiene archivos invalidos.')
+                if boundary_package_files:
+                    _add_error(errors, 'export_payload', 'export_file_package_manifest no puede declarar formato oficial, presentacion SII ni calculo final.')
             expected_hash = _payload_hash(self.export_payload)
             if self.hash_export and self.hash_export != expected_hash:
                 errors['hash_export'] = 'hash_export debe corresponder al export_payload.'

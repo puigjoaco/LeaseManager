@@ -20,6 +20,15 @@ Node 22, caches y comandos existentes, pero evita que el cierre operativo
 genere advertencias por runtime Node20 de acciones antiguas. No cambia producto,
 datos, gates externos ni autorizaciones.
 
+Nota 2026-06-17: Etapa 6/Renta Anual avanza desde manifiesto de archivos hacia
+paquete local materializable. `AnnualTaxExport` conserva
+`export_file_package_manifest` y `export_file_package_hash`; los servicios
+`build_annual_tax_export_file_package` y
+`write_annual_tax_export_file_package` generan archivos JSON canonicos por cada
+DDJJ/F22 y `manifest.json` verificable por hash/tamano. El paquete sigue siendo
+local/controlado: no declara formato oficial SII, API, upload, presentacion ni
+calculo tributario final.
+
 Nota 2026-06-17: Canales/Etapa 2 exige motivo operativo trazable para mensajes
 salientes bloqueados o fallidos. `MensajeSaliente.clean()` rechaza estados
 `bloqueado`/`fallido` sin `motivo_bloqueo` no vacio y no sensible, y

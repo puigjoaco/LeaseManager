@@ -377,8 +377,10 @@ export o presentacion, no para que LeaseManager decida la renta final.
 dossier y la matriz DDJJ/F22 en un payload hasheado, con refs no sensibles,
 responsable, conteos DDJJ/F22, contratos estructurales por artefacto exportable
 DDJJ/F22, manifiesto `annual-tax-export-file-manifest-v1` por archivo local
-exportable, nombres JSON deterministas, hashes de payload y flags obligatorios
-`official_format=false`, `sii_submission=false` y `final_tax_calculation=false`.
+exportable, paquete materializable `annual-tax-export-file-package-v1` con
+archivos JSON canonicos/hash/tamano/`manifest.json`, nombres deterministas y
+flags obligatorios `official_format=false`, `sii_submission=false` y
+`final_tax_calculation=false`.
 Es una salida revisable del motor anual, no un formato oficial SII ni una
 presentacion.
 `AnnualTaxReviewChecklist` materializa la revision responsable previa a
@@ -590,14 +592,16 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   matriz DDJJ/F22 y dossier coherentes; refs no sensibles, responsable,
   `export_ref`, payload exportable, `hash_export`, conteos DDJJ/F22, contratos
   `annual-tax-export-artifact-contract-v1` por cada artefacto exportable,
-  manifiesto `annual-tax-export-file-manifest-v1` por cada archivo local y
-  resumen en `ProcesoRentaAnual.resumen_anual.annual_tax_exports` alineados.
+  manifiesto `annual-tax-export-file-manifest-v1` por cada archivo local,
+  paquete `annual-tax-export-file-package-v1` materializable y resumen en
+  `ProcesoRentaAnual.resumen_anual.annual_tax_exports` alineados.
 - `AnnualTaxExport` bloquea readiness si falta, si esta desalineado, si contiene
   refs/payloads sensibles, si faltan contratos exportables o manifiesto de
-  archivos locales, si los contratos/manifiestos no cubren todos los items
-  DDJJ/F22, si hay revision pendiente o si el export, sus contratos o sus
-  archivos intentan declarar formato oficial SII, presentacion SII o calculo
-  fiscal final autonomo.
+  archivos locales, si falta el paquete local materializable, si contratos,
+  manifiestos o paquete no cubren todos los items DDJJ/F22, si hay revision
+  pendiente o si el export, sus contratos, manifiestos o archivos intentan
+  declarar formato oficial SII, presentacion SII o calculo fiscal final
+  autonomo.
 - `AnnualTaxReviewChecklist` preparado requiere proceso anual, dossier, export
   local, source bundle, rule set y matriz DDJJ/F22 coherentes; refs no
   sensibles, responsable, evidencia, `review_payload`, `hash_checklist`,

@@ -2,6 +2,7 @@ import hashlib
 import json
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
+from pathlib import Path
 
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -113,6 +114,8 @@ DTE_STATUS_QUERY_STATES = {
     EstadoDTE.CANCELED,
 }
 ANNUAL_TAX_SUPPORT_TEMPLATE_VERSION = 'stage6-v1'
+ANNUAL_TAX_EXPORT_FILE_PACKAGE_VERSION = 'annual-tax-export-file-package-v1'
+ANNUAL_TAX_EXPORT_FILE_PACKAGE_MANIFEST_VERSION = 'annual-tax-export-file-package-manifest-v1'
 
 TAX_STATUS_REQUIRING_REF = {
     EstadoPreparacionTributaria.APPROVED,
@@ -1522,6 +1525,11 @@ def summarize_annual_tax_exports(process):
             'ddjj_export_files_total': payload.get('ddjj_export_files_total'),
             'f22_export_files_total': payload.get('f22_export_files_total'),
             'export_file_manifest_hash': payload.get('export_file_manifest_hash'),
+            'export_file_package_version': payload.get('export_file_package_version'),
+            'export_file_package_files_total': payload.get('export_file_package_files_total'),
+            'ddjj_export_package_files_total': payload.get('ddjj_export_package_files_total'),
+            'f22_export_package_files_total': payload.get('f22_export_package_files_total'),
+            'export_file_package_hash': payload.get('export_file_package_hash'),
             'warnings_total': export.warnings_total,
             'official_format': export.official_format,
             'sii_submission': export.sii_submission,
@@ -3521,15 +3529,19 @@ def _annual_tax_export_file_payload(process, contract):
     }
 
 
-def _annual_tax_export_file_manifest_entry(process, contract):
-    file_payload = _annual_tax_export_file_payload(process, contract)
-    payload_bytes = json.dumps(
-        file_payload,
+def _canonical_json_bytes(payload):
+    return json.dumps(
+        payload,
         sort_keys=True,
         separators=(',', ':'),
         ensure_ascii=True,
         default=str,
     ).encode('utf-8')
+
+
+def _annual_tax_export_file_manifest_entry(process, contract):
+    file_payload = _annual_tax_export_file_payload(process, contract)
+    payload_bytes = _canonical_json_bytes(file_payload)
     target_kind = str(contract.get('target_kind') or '')
     target_code = _annual_tax_export_file_slug(contract.get('target_code'))
     artifact_id = _annual_tax_export_file_slug(contract.get('artifact_matrix_item_id'))
@@ -3565,6 +3577,52 @@ def _annual_tax_export_file_manifest(process, contracts):
             TipoAnnualTaxArtifactTarget.F22,
         }
     ]
+
+
+def _annual_tax_export_file_package_manifest_entry(process, contract, file_entry):
+    file_payload = _annual_tax_export_file_payload(process, contract)
+    payload_bytes = _canonical_json_bytes(file_payload)
+    return {
+        'package_entry_version': ANNUAL_TAX_EXPORT_FILE_PACKAGE_MANIFEST_VERSION,
+        'artifact_matrix_item_id': contract.get('artifact_matrix_item_id'),
+        'target_kind': contract.get('target_kind'),
+        'target_code': contract.get('target_code'),
+        'file_name': file_entry.get('file_name'),
+        'content_type': file_entry.get('content_type'),
+        'encoding': file_entry.get('encoding'),
+        'schema_ref': file_entry.get('schema_ref'),
+        'delivery_kind': 'local_controlled_export_package',
+        'materialized_from': 'annual-tax-export-file-payload-v1',
+        'canonical_json': 'sort_keys_ascii_compact',
+        'payload_hash': hashlib.sha256(payload_bytes).hexdigest(),
+        'payload_size_bytes': len(payload_bytes),
+        'manifest_payload_hash': file_entry.get('payload_hash'),
+        'manifest_payload_size_bytes': file_entry.get('payload_size_bytes'),
+        'official_format': False,
+        'sii_submission': False,
+        'final_tax_calculation': False,
+        'requires_official_format_gate': True,
+        'requires_explicit_submission_authorization': True,
+    }
+
+
+def _annual_tax_export_file_package_manifest(process, contracts, file_manifest):
+    contracts_by_artifact = {
+        str(contract.get('artifact_matrix_item_id')): contract
+        for contract in contracts
+        if contract.get('target_kind') in {
+            TipoAnnualTaxArtifactTarget.DDJJ,
+            TipoAnnualTaxArtifactTarget.F22,
+        }
+    }
+    package_entries = []
+    for file_entry in file_manifest:
+        artifact_id = str(file_entry.get('artifact_matrix_item_id') or '')
+        contract = contracts_by_artifact.get(artifact_id)
+        if contract is None:
+            continue
+        package_entries.append(_annual_tax_export_file_package_manifest_entry(process, contract, file_entry))
+    return package_entries
 
 
 def _annual_tax_export_summary(process, dossier, ddjj, f22, official_format_source=None):
@@ -3614,6 +3672,17 @@ def _annual_tax_export_summary(process, dossier, ddjj, f22, official_format_sour
     f22_export_files_total = sum(
         1 for entry in export_file_manifest if entry.get('target_kind') == TipoAnnualTaxArtifactTarget.F22
     )
+    export_file_package_manifest = _annual_tax_export_file_package_manifest(
+        process,
+        export_artifact_contracts,
+        export_file_manifest,
+    )
+    ddjj_export_package_files_total = sum(
+        1 for entry in export_file_package_manifest if entry.get('target_kind') == TipoAnnualTaxArtifactTarget.DDJJ
+    )
+    f22_export_package_files_total = sum(
+        1 for entry in export_file_package_manifest if entry.get('target_kind') == TipoAnnualTaxArtifactTarget.F22
+    )
     return {
         'empresa_id': process.empresa_id,
         'proceso_renta_anual_id': process.id,
@@ -3648,6 +3717,12 @@ def _annual_tax_export_summary(process, dossier, ddjj, f22, official_format_sour
         'ddjj_export_files_total': ddjj_export_files_total,
         'f22_export_files_total': f22_export_files_total,
         'export_file_manifest_hash': _source_bundle_hash(export_file_manifest),
+        'export_file_package_version': ANNUAL_TAX_EXPORT_FILE_PACKAGE_VERSION,
+        'export_file_package_manifest': export_file_package_manifest,
+        'export_file_package_files_total': len(export_file_package_manifest),
+        'ddjj_export_package_files_total': ddjj_export_package_files_total,
+        'f22_export_package_files_total': f22_export_package_files_total,
+        'export_file_package_hash': _source_bundle_hash(export_file_package_manifest),
         'warnings_total': dossier.warnings_total,
         'review_state': dossier.review_state,
         'export_items': export_items,
@@ -3713,6 +3788,124 @@ def sync_annual_tax_export(process, rule_set, source_bundle):
         estado=EstadoAnnualTaxExport.PREPARED,
     ).exclude(pk=export.pk).update(estado=EstadoAnnualTaxExport.RETIRED)
     return export
+
+
+def build_annual_tax_export_file_package(export):
+    if export.estado != EstadoAnnualTaxExport.PREPARED:
+        raise ValueError('AnnualTaxExport debe estar preparado antes de materializar archivos locales.')
+    try:
+        export.full_clean()
+    except ValidationError as error:
+        reason = _first_validation_error(error)
+        raise ValueError(f'AnnualTaxExport no cumple validacion de dominio: {reason}') from error
+
+    payload = export.export_payload if isinstance(export.export_payload, dict) else {}
+    contracts = payload.get('export_artifact_contracts')
+    file_manifest = payload.get('export_file_manifest')
+    package_manifest = payload.get('export_file_package_manifest')
+    if not isinstance(contracts, list) or not isinstance(file_manifest, list) or not isinstance(package_manifest, list):
+        raise ValueError('AnnualTaxExport requiere contratos, manifiesto de archivos y manifiesto de paquete.')
+
+    contracts_by_artifact = {
+        str(contract.get('artifact_matrix_item_id')): contract
+        for contract in contracts
+        if isinstance(contract, dict) and has_text(contract.get('artifact_matrix_item_id'))
+    }
+    package_by_artifact = {
+        str(entry.get('artifact_matrix_item_id')): entry
+        for entry in package_manifest
+        if isinstance(entry, dict) and has_text(entry.get('artifact_matrix_item_id'))
+    }
+    files = []
+    for file_entry in file_manifest:
+        if not isinstance(file_entry, dict):
+            raise ValueError('export_file_manifest contiene entradas invalidas.')
+        artifact_id = str(file_entry.get('artifact_matrix_item_id') or '')
+        contract = contracts_by_artifact.get(artifact_id)
+        package_entry = package_by_artifact.get(artifact_id)
+        if contract is None or package_entry is None:
+            raise ValueError('El manifiesto de paquete no coincide con contratos y archivos.')
+        file_payload = _annual_tax_export_file_payload(export.proceso_renta_anual, contract)
+        file_bytes = _canonical_json_bytes(file_payload)
+        payload_hash = hashlib.sha256(file_bytes).hexdigest()
+        payload_size = len(file_bytes)
+        if payload_hash != file_entry.get('payload_hash') or payload_size != file_entry.get('payload_size_bytes'):
+            raise ValueError('El contenido materializado no coincide con export_file_manifest.')
+        if payload_hash != package_entry.get('payload_hash') or payload_size != package_entry.get('payload_size_bytes'):
+            raise ValueError('El contenido materializado no coincide con export_file_package_manifest.')
+        if (
+            package_entry.get('official_format') not in (False, None)
+            or package_entry.get('sii_submission') not in (False, None)
+            or package_entry.get('final_tax_calculation') not in (False, None)
+        ):
+            raise ValueError('El paquete local no puede declarar formato oficial, presentacion SII ni calculo final.')
+        files.append(
+            {
+                'file_name': file_entry.get('file_name'),
+                'content_type': file_entry.get('content_type'),
+                'encoding': file_entry.get('encoding'),
+                'payload_hash': payload_hash,
+                'payload_size_bytes': payload_size,
+                'content': file_bytes.decode('utf-8'),
+            }
+        )
+
+    package_summary = {
+        'package_version': payload.get('export_file_package_version') or ANNUAL_TAX_EXPORT_FILE_PACKAGE_VERSION,
+        'annual_tax_export_id': export.id,
+        'empresa_id': export.empresa_id,
+        'proceso_renta_anual_id': export.proceso_renta_anual_id,
+        'anio_tributario': export.anio_tributario,
+        'anio_comercial': export.anio_comercial,
+        'export_ref': export.export_ref,
+        'hash_export': export.hash_export,
+        'files_total': len(files),
+        'ddjj_files_total': sum(1 for entry in package_manifest if entry.get('target_kind') == TipoAnnualTaxArtifactTarget.DDJJ),
+        'f22_files_total': sum(1 for entry in package_manifest if entry.get('target_kind') == TipoAnnualTaxArtifactTarget.F22),
+        'export_file_manifest_hash': payload.get('export_file_manifest_hash'),
+        'export_file_package_hash': payload.get('export_file_package_hash'),
+        'file_names': [file_item['file_name'] for file_item in files],
+        'file_hashes': [file_item['payload_hash'] for file_item in files],
+        'official_format': False,
+        'sii_submission': False,
+        'final_tax_calculation': False,
+        'requires_official_format_gate': True,
+        'requires_explicit_submission_authorization': True,
+    }
+    expected_hash = _source_bundle_hash(package_manifest)
+    if package_summary['export_file_package_hash'] != expected_hash:
+        raise ValueError('export_file_package_hash no coincide con el manifiesto de paquete.')
+    return {
+        'summary': package_summary,
+        'manifest': package_manifest,
+        'files': files,
+    }
+
+
+def write_annual_tax_export_file_package(export, output_dir):
+    package = build_annual_tax_export_file_package(export)
+    target_dir = Path(output_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    written_files = []
+    for file_item in package['files']:
+        file_path = target_dir / file_item['file_name']
+        file_path.write_text(file_item['content'], encoding=file_item['encoding'])
+        written_files.append(str(file_path))
+    manifest_path = target_dir / 'manifest.json'
+    manifest_payload = {
+        'summary': package['summary'],
+        'manifest': package['manifest'],
+    }
+    manifest_path.write_text(
+        json.dumps(manifest_payload, sort_keys=True, separators=(',', ':'), ensure_ascii=True, default=str),
+        encoding='utf-8',
+    )
+    return {
+        **package,
+        'output_dir': str(target_dir),
+        'written_files': written_files,
+        'manifest_file': str(manifest_path),
+    }
 
 
 def _summary_warning_total(summary, key='by_id'):
