@@ -2819,6 +2819,14 @@ indice JSON conserva solo hashes, `path_ref`, tipos documentales y nombres de
 archivo locales. Este paquete deja preparada la revision visual, pero no cierra
 ownership ni autoriza DB hasta completar el template con fuente suficiente.
 
+Nota 2026-06-16: `validate_annual_tax_ownership_patch` agrega el control previo
+para completar ownership sin versionar PII. Valida el patch local contra el
+template AC2024/AT2025, exige source/ref/aprobacion no sensibles, socios con RUT
+valido, vigencia que cubra el ano comercial y porcentaje total 100, y devuelve
+solo hashes/redaccion. Contra el template real y un patch pendiente confirma el
+bloqueo exacto `$.ownership.participants`, sin exponer nombres/RUTs ni escribir
+DB.
+
 Nota 2026-06-15: `audit_annual_tax_controlled_package_readiness` separa readiness
 de writer DB y readiness anual. El draft AC2024/AT2025 v3 queda con
 `ready_for_db_writer=true` y `missing_paths_count=0`, pero
