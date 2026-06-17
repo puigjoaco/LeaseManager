@@ -953,6 +953,29 @@ def _complete_labor_previsional_source_ref(
     )
 
 
+def _review_labor_previsional_expected_refs(
+    *,
+    package: dict[str, Any],
+    source_root: Path,
+    file_index: dict[str, dict[str, Any]],
+    reviewed_payroll_refs: set[str],
+    extraction_errors: list[str],
+) -> None:
+    labor = package.get('labor_previsional')
+    if not isinstance(labor, dict) or labor.get('required') is not True:
+        return
+
+    for path_ref in _labor_previsional_expected_refs(labor):
+        if path_ref in reviewed_payroll_refs:
+            continue
+        try:
+            parse_payroll_text(_extract_text(_source_path(source_root, file_index, path_ref)))
+        except ValueError as error:
+            extraction_errors.append(f'$.labor_previsional.source_refs:{path_ref}:{error}')
+            continue
+        reviewed_payroll_refs.add(path_ref)
+
+
 def build_annual_tax_controlled_values_draft(
     *,
     manifest: dict[str, Any],
@@ -1102,6 +1125,13 @@ def build_annual_tax_controlled_values_draft(
             except ValueError as error:
                 extraction_errors.append(f'{month_path}.payroll:{error}')
 
+    _review_labor_previsional_expected_refs(
+        package=package,
+        source_root=source_root,
+        file_index=file_index,
+        reviewed_payroll_refs=reviewed_payroll_refs,
+        extraction_errors=extraction_errors,
+    )
     _complete_labor_previsional_source_ref(
         package=package,
         reviewed_payroll_refs=reviewed_payroll_refs,
