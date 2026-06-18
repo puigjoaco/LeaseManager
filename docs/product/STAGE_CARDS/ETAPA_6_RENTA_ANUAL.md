@@ -467,6 +467,20 @@ registro de control tipo 0 desde JSON inline o archivo, escribe el ZIP local y
 lo verifica desde disco. Su salida conserva solo hashes y conteos, sin RUT,
 archivo derivado del RUT ni registros crudos, y mantiene
 `ready_for_submission=false` hasta gate oficial/autorizacion explicita.
+`build_annual_tax_presentation_review_bundle()` consolida un bundle local de
+revision previa a presentacion desde artefactos ya materializados: paquete
+`AnnualTaxExport`, candidato F22 fixed-width y candidatos DDJJ ASCII/ZIP. El
+builder reabre cada directorio, valida manifiestos canonicos, hashes, conteos,
+ausencia de archivos extra, evidencia de revision y boundary externo antes de
+producir `annual-tax-presentation-review-bundle.json`. El comando
+`materialize_annual_tax_presentation_review_bundle` expone esa consolidacion
+como herramienta operativa bajo `local-evidence/` o ruta externa controlada,
+rechaza destinos versionados y directorios no vacios, y no imprime RUT,
+registros, nombres derivados de RUT, `company_code` ni `client_number`. El
+bundle solo marca `preparado_para_revision` o
+`aprobado_para_presentacion_controlada` segun decision responsable registrada;
+mantiene `ready_for_sii_submission=false`, `official_format=false`,
+`sii_submission=false` y `final_tax_calculation=false`.
 `AnnualTaxF22ExportLayout` materializa la capa F22 por ano tributario antes del
 export local: conserva `form_code=F22`, medio preferente, refs no sensibles de
 certificacion/formato/instrucciones/responsable, fuentes oficiales/expertas,
@@ -737,6 +751,12 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   responsable trazable y
   `automatic_approval=false`. Estados observados, aprobaciones incompletas o
   aprobaciones automaticas bloquean readiness.
+- El bundle local de revision de presentacion no reemplaza la decision
+  tributaria ni el gate externo: solo agrupa artefactos ya materializados y
+  verificados para revision responsable. Aunque la decision del checklist sea
+  `aprobado_para_presentacion`, el bundle conserva
+  `ready_for_sii_submission=false` y no puede declarar formato oficial,
+  presentacion SII, autorizacion de envio ni calculo tributario final.
 - Para workbooks RLI/CPT y registros empresariales, el checklist distingue
   `warnings_total` de `warnings_pending_review_total`: los warnings ya
   revisados con referencia no sensible quedan visibles como advertencia

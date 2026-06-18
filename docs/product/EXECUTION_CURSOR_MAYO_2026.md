@@ -25,14 +25,14 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `codex/stage6-ddjj-candidate-materializers`. |
-| Fuente exacta | `main` en `4aa67e42`, despues del merge confirmado de PR #922 `codex/stage6-candidate-destination-guards`. |
-| Brecha activa | Los candidatos DDJJ ASCII y ZIP tienen builders, writers y verificadores, pero no una superficie operativa equivalente al materializador F22 para producir evidencia local verificable bajo `local-evidence/` sin imprimir RUT ni registros crudos. |
-| Motivo de prioridad | Etapa 6 necesita que F22 y DDJJ tengan paridad de materializacion local revisable: comandos reproducibles, guard de salida versionada, rechazo de destinos no vacios y stdout con hashes/conteos, no identificadores tributarios. |
-| Worktree | `D:/Proyectos/LeaseManager-stage6-ddjj-candidate-materializers`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
-| Rama | `codex/stage6-ddjj-candidate-materializers`. |
-| Estado | Paquete en ejecucion: agrega comandos `materialize_annual_tax_ddjj_ascii_candidate` y `materialize_annual_tax_ddjj_zip_candidate`, cobertura focal y documentacion de boundary. |
-| Gate esperado | Este paquete no declara formato oficial DDJJ, no sube archivos, no presenta SII, no calcula impuesto final y no usa datos reales. Solo crea evidencia candidata local verificable para revision responsable. |
+| Frente activo | `codex/stage6-presentation-review-bundle`. |
+| Fuente exacta | `main` en `725e65cd`, despues del merge confirmado de PR #923 `codex/stage6-ddjj-candidate-materializers`. |
+| Brecha activa | F22, DDJJ ASCII/ZIP y paquete `AnnualTaxExport` ya pueden materializarse localmente por separado, pero falta una superficie operativa unica que arme un bundle verificable de revision previa a presentacion desde artefactos ya materializados, sin exponer identificadores ni declarar envio SII. |
+| Motivo de prioridad | Etapa 6 necesita unir evidencia local revisable en un paquete de presentacion controlada: export package, candidato F22, candidato DDJJ ASCII/ZIP, decision actual del checklist, hashes y boundary externo. Eso permite revision responsable sin convertir LeaseManager en motor autonomo de renta o presentacion. |
+| Worktree | `D:/Proyectos/LeaseManager-stage6-presentation-review-bundle`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `codex/stage6-presentation-review-bundle`. |
+| Estado | Paquete en ejecucion: agrega verificador/builder de bundle de revision de presentacion, comando `materialize_annual_tax_presentation_review_bundle`, cobertura focal y documentacion de boundary. |
+| Gate esperado | Este paquete no declara formato oficial, certificacion, upload, presentacion SII, autorizacion de envio ni calculo tributario final. Solo consolida evidencia candidata local ya verificada para revision responsable. |
 | Estado al cerrar paquete | Si `main` contiene el merge de este frente y la rama/worktree ya no existe, no reabrirlo ni repetir PR/CI/merge. Buscar el siguiente frente seguro desde repo limpio. |
 | Bloqueos relacionados | La decision tributaria final, formato/certificacion F22/DDJJ, codigo autorizado por SII, contenido tributario final y presentacion SII siguen bloqueados por responsable tributario, autorizacion explicita, formato/certificacion vigente aplicable y evidencia no sensible. |
 | Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable ni integraciones externas sin autorizacion explicita. La aprobacion para presentacion solo puede existir como decision y evidencia trazables no sensibles; nunca como salida automatica del motor local. |
