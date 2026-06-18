@@ -3270,6 +3270,14 @@ bundle final en una raiz vacia bajo `local-evidence/` o ruta externa controlada,
 con hashes y conteos sin imprimir RUTs, registros ni codigos sensibles. No abre
 SII, no declara formato oficial, no calcula renta final y no presenta.
 
+Nota 2026-06-18: Renta Anual agrega
+`materialize_annual_tax_sii_certification_readiness_packet` como packet local
+posterior al paquete controlado. El manifest enumera gates externos requeridos
+para certificacion/presentacion SII real y conserva envio bloqueado incluso
+cuando las refs externas estan presentes: no cambia `official_format=false`,
+`official_submission_allowed=false`, `sii_submission=false`,
+`ready_for_sii_submission=false` ni `final_tax_calculation=false`.
+
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |
 | Gobierno documental | Fuente de verdad, AGENTS, README, cursor operativo | `docs/governance`, `AGENTS.md`, `ORDEN_DE_LECTURA.md`, `.gitignore`, `docs/product/EXECUTION_CURSOR_MAYO_2026.md` | 0 | resuelto_confirmado | PR con CI verde y docs consistentes | Mantener actualizado al cambiar fuentes; bloqueos y evidencia son controles operativos de cierre, no arquitectura de producto; el cursor gobierna reanudaciones, worktrees tacticos y metatareas cerradas; artefactos locales de herramienta como `.codex-spreadsheet/`, `.playwright-cli/`, capturas PNG en el root y archivos manuales `CONFIDENCIAL`/`NO_SUBIR` quedan ignorados para no ensuciar `main` ni confundirse con paquetes activos; acceptance ejecuta `assert-repo-hygiene.ps1 -IncludeUntracked` para detectar artefactos sensibles no versionados ni ignorados sin leer secretos. |

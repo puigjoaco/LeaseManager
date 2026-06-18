@@ -133,6 +133,9 @@ ANNUAL_TAX_DDJJ_ASCII_CANDIDATE_VERSION = 'annual-tax-ddjj-ascii-candidate-v1'
 ANNUAL_TAX_DDJJ_ZIP_CANDIDATE_VERSION = 'annual-tax-ddjj-zip-candidate-v1'
 ANNUAL_TAX_PRESENTATION_REVIEW_BUNDLE_VERSION = 'annual-tax-presentation-review-bundle-v1'
 ANNUAL_TAX_CONTROLLED_PRESENTATION_PACKAGE_VERSION = 'annual-tax-controlled-presentation-package-v1'
+ANNUAL_TAX_SII_CERTIFICATION_READINESS_PACKET_VERSION = (
+    'annual-tax-sii-certification-readiness-packet-v1'
+)
 F22_FIXED_WIDTH_ENTRY_REVIEW_STATES = {'approved_for_candidate', 'aprobado_para_candidato'}
 F22_CERTIFICATION_CODE_REVIEW_STATES = {
     'synthetic_for_local_candidate',
@@ -6585,6 +6588,387 @@ def verify_annual_tax_controlled_presentation_package(
         'requires_explicit_submission_authorization': True,
         'requires_manual_sii_step': True,
         'requires_responsible_review': False,
+    }
+
+
+SII_CERTIFICATION_EXTERNAL_REQUIREMENTS = (
+    (
+        'official_format_gate',
+        'Confirmar formato oficial/certificable vigente para el ano tributario.',
+        'official_format_authorization_ref',
+    ),
+    (
+        'f22_certification_authorization',
+        'Tener autorizacion/codigo/certificacion F22 revisada para el paquete.',
+        'f22_certification_authorization_ref',
+    ),
+    (
+        'ddjj_certification_or_upload_path',
+        'Tener ruta certificada o medio SII autorizado por formulario DDJJ.',
+        'ddjj_certification_authorization_ref',
+    ),
+    (
+        'sii_authenticated_environment',
+        'Definir ambiente SII autenticado, supervisado y autorizado.',
+        'sii_environment_ref',
+    ),
+    (
+        'explicit_submission_authorization',
+        'Contar con autorizacion expresa para cualquier presentacion o carga SII.',
+        'submission_authorization_ref',
+    ),
+    (
+        'responsible_tax_signoff',
+        'Registrar visto bueno tributario responsable para contenido y criterio.',
+        'responsible_tax_signoff_ref',
+    ),
+    (
+        'rollback_plan',
+        'Tener plan de rollback/rectificacion si el flujo externo falla.',
+        'rollback_plan_ref',
+    ),
+    (
+        'evidence_archive',
+        'Archivar evidencia no sensible de inputs, salidas y revision.',
+        'evidence_archive_ref',
+    ),
+)
+
+
+def _sii_certification_readiness_packet_hash(packet_payload):
+    payload = dict(packet_payload)
+    summary = dict(payload.get('summary') or {})
+    summary.pop('packet_hash', None)
+    payload['summary'] = summary
+    return _source_bundle_hash(payload)
+
+
+def _optional_non_sensitive_reference(value, field_name):
+    normalized = str(value or '').strip()
+    if normalized:
+        return _ensure_non_sensitive_reference(normalized, field_name)
+    return ''
+
+
+def build_annual_tax_sii_certification_readiness_packet(
+    controlled_package_dir,
+    *,
+    certification_review_ref,
+    responsible_ref,
+    official_format_authorization_ref='',
+    f22_certification_authorization_ref='',
+    ddjj_certification_authorization_ref='',
+    sii_environment_ref='',
+    submission_authorization_ref='',
+    responsible_tax_signoff_ref='',
+    rollback_plan_ref='',
+    evidence_archive_ref='',
+    packet_note='',
+):
+    certification_review_ref = _ensure_non_sensitive_reference(
+        certification_review_ref,
+        'certification_review_ref',
+    )
+    responsible_ref = _ensure_non_sensitive_reference(responsible_ref, 'responsible_ref')
+    if not certification_review_ref:
+        raise ValueError('El readiness de certificacion requiere certification_review_ref trazable.')
+    if not responsible_ref:
+        raise ValueError('El readiness de certificacion requiere responsible_ref trazable.')
+
+    external_refs = {
+        'official_format_authorization_ref': _optional_non_sensitive_reference(
+            official_format_authorization_ref,
+            'official_format_authorization_ref',
+        ),
+        'f22_certification_authorization_ref': _optional_non_sensitive_reference(
+            f22_certification_authorization_ref,
+            'f22_certification_authorization_ref',
+        ),
+        'ddjj_certification_authorization_ref': _optional_non_sensitive_reference(
+            ddjj_certification_authorization_ref,
+            'ddjj_certification_authorization_ref',
+        ),
+        'sii_environment_ref': _optional_non_sensitive_reference(
+            sii_environment_ref,
+            'sii_environment_ref',
+        ),
+        'submission_authorization_ref': _optional_non_sensitive_reference(
+            submission_authorization_ref,
+            'submission_authorization_ref',
+        ),
+        'responsible_tax_signoff_ref': _optional_non_sensitive_reference(
+            responsible_tax_signoff_ref,
+            'responsible_tax_signoff_ref',
+        ),
+        'rollback_plan_ref': _optional_non_sensitive_reference(
+            rollback_plan_ref,
+            'rollback_plan_ref',
+        ),
+        'evidence_archive_ref': _optional_non_sensitive_reference(
+            evidence_archive_ref,
+            'evidence_archive_ref',
+        ),
+    }
+    packet_note = _ensure_non_sensitive_text(packet_note, 'packet_note')
+
+    package_dir = Path(controlled_package_dir)
+    controlled_manifest = _read_canonical_annual_tax_manifest(
+        package_dir,
+        'annual-tax-controlled-presentation-package.json',
+        'Paquete controlado anual',
+    )
+    controlled_summary = controlled_manifest.get('summary') or {}
+    if controlled_summary.get('package_hash') != _controlled_presentation_package_hash(controlled_manifest):
+        raise ValueError('El paquete controlado anual no coincide con su hash.')
+    controlled_boundary = controlled_manifest.get('boundary') or {}
+    if (
+        controlled_boundary.get('official_format') not in (False, None)
+        or controlled_boundary.get('official_submission_allowed') not in (False, None)
+        or controlled_boundary.get('sii_submission') not in (False, None)
+        or controlled_boundary.get('sii_submission_attempted') not in (False, None)
+        or controlled_boundary.get('final_tax_calculation') not in (False, None)
+        or controlled_boundary.get('ready_for_sii_submission') not in (False, None)
+    ):
+        raise ValueError(
+            'El readiness de certificacion no puede partir desde un paquete que declara formato oficial, '
+            'presentacion SII o calculo final.'
+        )
+    if controlled_summary.get('ready_for_controlled_presentation_package') is not True:
+        raise ValueError('El readiness de certificacion requiere paquete controlado preparado.')
+    if controlled_summary.get('classification') != 'preparado_para_presentacion_controlada':
+        raise ValueError('El readiness de certificacion requiere paquete controlado aprobado.')
+
+    requirements = []
+    missing_keys = []
+    for key, description, ref_field in SII_CERTIFICATION_EXTERNAL_REQUIREMENTS:
+        ref_value = external_refs[ref_field]
+        provided = bool(ref_value)
+        if not provided:
+            missing_keys.append(key)
+        requirements.append(
+            {
+                'key': key,
+                'description': description,
+                'ref_field': ref_field,
+                'status': 'provided_for_external_review' if provided else 'external_gate_required',
+                'provided': provided,
+                'ref': ref_value,
+                'ref_hash': hashlib.sha256(ref_value.encode('utf-8')).hexdigest() if provided else '',
+            }
+        )
+
+    ready_for_external_certification_review = not missing_keys
+    classification = (
+        'preparado_para_revision_externa_no_envio'
+        if ready_for_external_certification_review
+        else 'preparado_para_certificacion_externa_con_bloqueos'
+    )
+    boundary = {
+        'official_format': False,
+        'official_submission_allowed': False,
+        'sii_submission': False,
+        'sii_submission_attempted': False,
+        'final_tax_calculation': False,
+        'ready_for_sii_submission': False,
+        'public_api_general_available': False,
+        'requires_external_sii_certification': True,
+        'requires_explicit_submission_authorization': True,
+        'requires_manual_sii_step': True,
+        'leasemanager_boundary': 'certification_readiness_only',
+    }
+    summary = {
+        'packet_version': ANNUAL_TAX_SII_CERTIFICATION_READINESS_PACKET_VERSION,
+        'controlled_package_version': controlled_summary.get('package_version'),
+        'controlled_package_hash': controlled_summary.get('package_hash'),
+        'presentation_bundle_hash': controlled_summary.get('presentation_bundle_hash'),
+        'annual_tax_export_id': controlled_summary.get('annual_tax_export_id'),
+        'empresa_id': controlled_summary.get('empresa_id'),
+        'proceso_renta_anual_id': controlled_summary.get('proceso_renta_anual_id'),
+        'anio_tributario': controlled_summary.get('anio_tributario'),
+        'anio_comercial': controlled_summary.get('anio_comercial'),
+        'classification': classification,
+        'external_requirements_total': len(requirements),
+        'external_requirements_provided_total': sum(1 for item in requirements if item['provided']),
+        'missing_external_gate_keys': missing_keys,
+        'ready_for_external_certification_review': ready_for_external_certification_review,
+        'ready_for_sii_submission': False,
+        'official_format': False,
+        'official_submission_allowed': False,
+        'sii_submission': False,
+        'sii_submission_attempted': False,
+        'final_tax_calculation': False,
+        'certification_review_ref_hash': hashlib.sha256(
+            certification_review_ref.encode('utf-8')
+        ).hexdigest(),
+        'responsible_ref_hash': hashlib.sha256(responsible_ref.encode('utf-8')).hexdigest(),
+    }
+    packet = {
+        'summary': summary,
+        'certification_review': {
+            'certification_review_ref': certification_review_ref,
+            'responsible_ref': responsible_ref,
+            'packet_note': packet_note,
+        },
+        'controlled_package': {
+            'package_version': controlled_summary.get('package_version'),
+            'package_hash': controlled_summary.get('package_hash'),
+            'classification': controlled_summary.get('classification'),
+            'ready_for_controlled_presentation_package': controlled_summary.get(
+                'ready_for_controlled_presentation_package'
+            ),
+            'ready_for_controlled_presentation_review': controlled_summary.get(
+                'ready_for_controlled_presentation_review'
+            ),
+            'artifact_coverage_ready': controlled_summary.get('artifact_coverage_ready'),
+            'official_compatibility_ready': controlled_summary.get('official_compatibility_ready'),
+            'official_compatibility_issue_codes': controlled_summary.get(
+                'official_compatibility_issue_codes'
+            )
+            or [],
+        },
+        'external_requirements': requirements,
+        'boundary': boundary,
+        'issues': [
+            {
+                'code': f'stage6.sii_certification_readiness.{key}',
+                'severity': 'external_gate_required',
+            }
+            for key in missing_keys
+        ],
+    }
+    packet['summary']['packet_hash'] = _sii_certification_readiness_packet_hash(packet)
+    return packet
+
+
+def write_annual_tax_sii_certification_readiness_packet(
+    controlled_package_dir,
+    output_dir,
+    *,
+    certification_review_ref,
+    responsible_ref,
+    official_format_authorization_ref='',
+    f22_certification_authorization_ref='',
+    ddjj_certification_authorization_ref='',
+    sii_environment_ref='',
+    submission_authorization_ref='',
+    responsible_tax_signoff_ref='',
+    rollback_plan_ref='',
+    evidence_archive_ref='',
+    packet_note='',
+):
+    packet = build_annual_tax_sii_certification_readiness_packet(
+        controlled_package_dir,
+        certification_review_ref=certification_review_ref,
+        responsible_ref=responsible_ref,
+        official_format_authorization_ref=official_format_authorization_ref,
+        f22_certification_authorization_ref=f22_certification_authorization_ref,
+        ddjj_certification_authorization_ref=ddjj_certification_authorization_ref,
+        sii_environment_ref=sii_environment_ref,
+        submission_authorization_ref=submission_authorization_ref,
+        responsible_tax_signoff_ref=responsible_tax_signoff_ref,
+        rollback_plan_ref=rollback_plan_ref,
+        evidence_archive_ref=evidence_archive_ref,
+        packet_note=packet_note,
+    )
+    target_dir = _prepare_clean_annual_tax_output_dir(
+        output_dir,
+        'El destino del readiness de certificacion SII debe ser un directorio.',
+        'El directorio destino del readiness de certificacion SII debe estar vacio antes de materializar.',
+    )
+    manifest_path = target_dir / 'annual-tax-sii-certification-readiness-packet.json'
+    manifest_path.write_text(
+        json.dumps(packet, sort_keys=True, separators=(',', ':'), ensure_ascii=True, default=str),
+        encoding='utf-8',
+    )
+    return {
+        **packet,
+        'output_dir': str(target_dir),
+        'manifest_file': str(manifest_path),
+    }
+
+
+def verify_annual_tax_sii_certification_readiness_packet(
+    controlled_package_dir,
+    packet_dir,
+    *,
+    certification_review_ref,
+    responsible_ref,
+    official_format_authorization_ref='',
+    f22_certification_authorization_ref='',
+    ddjj_certification_authorization_ref='',
+    sii_environment_ref='',
+    submission_authorization_ref='',
+    responsible_tax_signoff_ref='',
+    rollback_plan_ref='',
+    evidence_archive_ref='',
+    packet_note='',
+):
+    expected = build_annual_tax_sii_certification_readiness_packet(
+        controlled_package_dir,
+        certification_review_ref=certification_review_ref,
+        responsible_ref=responsible_ref,
+        official_format_authorization_ref=official_format_authorization_ref,
+        f22_certification_authorization_ref=f22_certification_authorization_ref,
+        ddjj_certification_authorization_ref=ddjj_certification_authorization_ref,
+        sii_environment_ref=sii_environment_ref,
+        submission_authorization_ref=submission_authorization_ref,
+        responsible_tax_signoff_ref=responsible_tax_signoff_ref,
+        rollback_plan_ref=rollback_plan_ref,
+        evidence_archive_ref=evidence_archive_ref,
+        packet_note=packet_note,
+    )
+    target_dir = Path(packet_dir)
+    if not target_dir.exists() or not target_dir.is_dir():
+        raise ValueError('El directorio del readiness de certificacion SII no existe o no es un directorio.')
+    entries = list(target_dir.iterdir())
+    if {entry.name for entry in entries if entry.is_file()} != {
+        'annual-tax-sii-certification-readiness-packet.json'
+    }:
+        raise ValueError('El readiness de certificacion SII contiene archivos no declarados.')
+    if any(not entry.is_file() for entry in entries):
+        raise ValueError('El readiness de certificacion SII contiene entradas no permitidas.')
+    manifest_payload = _read_canonical_annual_tax_manifest(
+        target_dir,
+        'annual-tax-sii-certification-readiness-packet.json',
+        'Readiness de certificacion SII anual',
+    )
+    if manifest_payload != expected:
+        raise ValueError('El readiness de certificacion SII no coincide con el estado esperado.')
+    if manifest_payload['summary'].get('packet_hash') != _sii_certification_readiness_packet_hash(manifest_payload):
+        raise ValueError('El readiness de certificacion SII no coincide con su hash.')
+    boundary = manifest_payload.get('boundary') if isinstance(manifest_payload, dict) else {}
+    if (
+        boundary.get('official_format') not in (False, None)
+        or boundary.get('official_submission_allowed') not in (False, None)
+        or boundary.get('sii_submission') not in (False, None)
+        or boundary.get('sii_submission_attempted') not in (False, None)
+        or boundary.get('final_tax_calculation') not in (False, None)
+        or boundary.get('ready_for_sii_submission') not in (False, None)
+    ):
+        raise ValueError(
+            'El readiness de certificacion SII no puede declarar formato oficial, presentacion SII ni calculo final.'
+        )
+    return {
+        'verified': True,
+        'packet_version': manifest_payload['summary']['packet_version'],
+        'packet_hash': manifest_payload['summary']['packet_hash'],
+        'classification': manifest_payload['summary']['classification'],
+        'controlled_package_hash': manifest_payload['summary']['controlled_package_hash'],
+        'external_requirements_total': manifest_payload['summary']['external_requirements_total'],
+        'external_requirements_provided_total': manifest_payload['summary']['external_requirements_provided_total'],
+        'missing_external_gate_keys': manifest_payload['summary']['missing_external_gate_keys'],
+        'ready_for_external_certification_review': manifest_payload['summary'][
+            'ready_for_external_certification_review'
+        ],
+        'ready_for_sii_submission': False,
+        'official_format': False,
+        'official_submission_allowed': False,
+        'sii_submission': False,
+        'sii_submission_attempted': False,
+        'final_tax_calculation': False,
+        'requires_external_sii_certification': True,
+        'requires_explicit_submission_authorization': True,
+        'requires_manual_sii_step': True,
     }
 
 

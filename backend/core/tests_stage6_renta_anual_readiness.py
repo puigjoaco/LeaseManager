@@ -118,6 +118,7 @@ from sii.services import (
     verify_annual_tax_export_file_package,
     verify_annual_tax_presentation_review_bundle,
     verify_annual_tax_controlled_presentation_package,
+    verify_annual_tax_sii_certification_readiness_packet,
     write_annual_tax_ddjj_ascii_export_candidate,
     write_annual_tax_ddjj_zip_export_candidate,
     write_annual_tax_f22_fixed_width_export_candidate,
@@ -4399,6 +4400,250 @@ class Stage6RentaAnualReadinessTests(TestCase):
                 **self._f22_local_certification_kwargs(),
             )
         self.assertFalse(blocked_output.exists())
+
+    def _materialize_controlled_presentation_package_for_certification(self, temp_dir):
+        export, _mapping = self._add_reviewed_f22_fixed_width_mapping_and_resync(code='1234', value='1000')
+        process = ProcesoRentaAnual.objects.get()
+        rule_set = TaxYearRuleSet.objects.get()
+        source_bundle = AnnualTaxSourceBundle.objects.get()
+        sync_annual_tax_review_checklist(process, rule_set, source_bundle)
+        checklist = AnnualTaxReviewChecklist.objects.get(annual_export=export)
+        register_annual_tax_review_decision(
+            checklist,
+            review_decision_state=EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION,
+            decision_ref='annual-tax-manual-approval-at2026-controlled',
+            decision_evidence_ref='annual-tax-manual-approval-evidence-at2026-controlled',
+            responsible_ref='tax-reviewer-final-approval-controlled',
+            reason='manual_review_completed_for_controlled_package',
+        )
+        ddjj_item = AnnualTaxArtifactMatrixItem.objects.filter(target_kind='DDJJ', target_code='DDJJ-1887').first()
+        self.assertIsNotNone(ddjj_item)
+        ddjj_inputs = {
+            '1887': {
+                'records': self._ddjj_ascii_records(ddjj_item),
+                'transfer_control_record': {
+                    'record': '0' + 'T' * 23,
+                    'review_state': 'approved_for_candidate',
+                    'transfer_source_ref': 'sii-ddjj-at2026-transfer-control-reviewed',
+                    'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+                },
+            }
+        }
+        output_dir = Path(temp_dir) / 'controlled-presentation-package'
+        call_command(
+            'materialize_annual_tax_controlled_presentation_package',
+            export_id=export.pk,
+            rut_number='97030000',
+            rut_dv='0',
+            company_code='QA',
+            client_number='123456',
+            ddjj_inputs_json=json.dumps(ddjj_inputs),
+            output_dir=str(output_dir),
+            handoff_authorization_ref='annual-tax-controlled-handoff-authorization-at2026',
+            responsible_ref='tax-reviewer-controlled-handoff-at2026',
+            presentation_window_ref='presentation-window-at2026-controlled-local',
+            package_note='controlled_handoff_without_sii_submission',
+            stdout=StringIO(),
+            **self._f22_local_certification_kwargs(),
+        )
+        return {
+            'export': export,
+            'output_dir': output_dir,
+            'controlled_package_dir': output_dir / 'controlled-presentation-handoff',
+        }
+
+    def test_materialize_annual_tax_sii_certification_readiness_packet_blocks_submission_without_external_refs(self):
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            fixture = self._materialize_controlled_presentation_package_for_certification(temp_dir)
+            output_dir = Path(temp_dir) / 'sii-certification-readiness'
+            stdout = StringIO()
+
+            call_command(
+                'materialize_annual_tax_sii_certification_readiness_packet',
+                controlled_package_dir=str(fixture['controlled_package_dir']),
+                output_dir=str(output_dir),
+                certification_review_ref='stage6-sii-certification-readiness-review-at2026',
+                responsible_ref='tax-reviewer-sii-certification-readiness-at2026',
+                packet_note='readiness_review_without_sii_submission',
+                stdout=stdout,
+            )
+
+            result = json.loads(stdout.getvalue())
+            verification = verify_annual_tax_sii_certification_readiness_packet(
+                fixture['controlled_package_dir'],
+                output_dir,
+                certification_review_ref='stage6-sii-certification-readiness-review-at2026',
+                responsible_ref='tax-reviewer-sii-certification-readiness-at2026',
+                packet_note='readiness_review_without_sii_submission',
+            )
+
+            self.assertTrue(result['materialized'])
+            self.assertEqual(result['packet_hash'], verification['packet_hash'])
+            self.assertEqual(result['classification'], 'preparado_para_certificacion_externa_con_bloqueos')
+            self.assertEqual(result['external_requirements_total'], 8)
+            self.assertEqual(result['external_requirements_provided_total'], 0)
+            self.assertEqual(
+                set(result['missing_external_gate_keys']),
+                {
+                    'official_format_gate',
+                    'f22_certification_authorization',
+                    'ddjj_certification_or_upload_path',
+                    'sii_authenticated_environment',
+                    'explicit_submission_authorization',
+                    'responsible_tax_signoff',
+                    'rollback_plan',
+                    'evidence_archive',
+                },
+            )
+            self.assertFalse(result['ready_for_external_certification_review'])
+            self.assertFalse(result['ready_for_sii_submission'])
+            self.assertFalse(result['official_format'])
+            self.assertFalse(result['official_submission_allowed'])
+            self.assertFalse(result['sii_submission'])
+            self.assertFalse(result['sii_submission_attempted'])
+            self.assertFalse(result['final_tax_calculation'])
+            self.assertTrue(result['requires_external_sii_certification'])
+            self.assertTrue(result['requires_explicit_submission_authorization'])
+            self.assertTrue(result['requires_manual_sii_step'])
+            self.assertTrue((output_dir / result['manifest_file']).is_file())
+
+            rendered = stdout.getvalue()
+            manifest = (output_dir / result['manifest_file']).read_text(encoding='utf-8')
+            for sensitive_value in (
+                '97030000',
+                '97030000.887',
+                'QA',
+                '123456',
+                'AAAAAAAAAAAAAAAAAAAAAAA',
+                'BBBBBBBBBBBBBBBBBBBBBBB',
+                'CCCCCCCCCCCCCCCCCCCCCCC',
+                'TTTTTTTTTTTTTTTTTTTTTTT',
+            ):
+                self.assertNotIn(sensitive_value, rendered)
+                self.assertNotIn(sensitive_value, manifest)
+
+    def test_materialize_annual_tax_sii_certification_readiness_packet_with_external_refs_still_blocks_submission(self):
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            fixture = self._materialize_controlled_presentation_package_for_certification(temp_dir)
+            output_dir = Path(temp_dir) / 'sii-certification-readiness'
+            stdout = StringIO()
+            external_refs = {
+                'official_format_authorization_ref': 'sii-at2026-official-format-reviewed',
+                'f22_certification_authorization_ref': 'sii-f22-at2026-certification-reviewed',
+                'ddjj_certification_authorization_ref': 'sii-ddjj-at2026-upload-reviewed',
+                'sii_environment_ref': 'sii-supervised-environment-at2026-reviewed',
+                'submission_authorization_ref': 'explicit-submission-authorization-at2026-reviewed',
+                'responsible_tax_signoff_ref': 'tax-responsible-signoff-at2026-reviewed',
+                'rollback_plan_ref': 'sii-presentation-rollback-plan-at2026-reviewed',
+                'evidence_archive_ref': 'sii-presentation-evidence-archive-at2026-reviewed',
+            }
+
+            call_command(
+                'materialize_annual_tax_sii_certification_readiness_packet',
+                controlled_package_dir=str(fixture['controlled_package_dir']),
+                output_dir=str(output_dir),
+                certification_review_ref='stage6-sii-certification-readiness-review-at2026',
+                responsible_ref='tax-reviewer-sii-certification-readiness-at2026',
+                packet_note='readiness_review_without_sii_submission',
+                stdout=stdout,
+                **external_refs,
+            )
+
+            result = json.loads(stdout.getvalue())
+            verification = verify_annual_tax_sii_certification_readiness_packet(
+                fixture['controlled_package_dir'],
+                output_dir,
+                certification_review_ref='stage6-sii-certification-readiness-review-at2026',
+                responsible_ref='tax-reviewer-sii-certification-readiness-at2026',
+                packet_note='readiness_review_without_sii_submission',
+                **external_refs,
+            )
+
+            self.assertEqual(result['packet_hash'], verification['packet_hash'])
+            self.assertEqual(result['classification'], 'preparado_para_revision_externa_no_envio')
+            self.assertEqual(result['external_requirements_total'], 8)
+            self.assertEqual(result['external_requirements_provided_total'], 8)
+            self.assertEqual(result['missing_external_gate_keys'], [])
+            self.assertTrue(result['ready_for_external_certification_review'])
+            self.assertFalse(result['ready_for_sii_submission'])
+            self.assertFalse(result['official_format'])
+            self.assertFalse(result['official_submission_allowed'])
+            self.assertFalse(result['sii_submission'])
+            self.assertFalse(result['sii_submission_attempted'])
+            self.assertFalse(result['final_tax_calculation'])
+            self.assertTrue(result['requires_external_sii_certification'])
+            self.assertTrue(result['requires_explicit_submission_authorization'])
+            self.assertTrue(result['requires_manual_sii_step'])
+
+    def test_materialize_annual_tax_sii_certification_readiness_packet_rejects_sensitive_external_refs(self):
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            fixture = self._materialize_controlled_presentation_package_for_certification(temp_dir)
+            output_dir = Path(temp_dir) / 'sii-certification-readiness'
+
+            with self.assertRaisesMessage(CommandError, 'sii_environment_ref'):
+                call_command(
+                    'materialize_annual_tax_sii_certification_readiness_packet',
+                    controlled_package_dir=str(fixture['controlled_package_dir']),
+                    output_dir=str(output_dir),
+                    certification_review_ref='stage6-sii-certification-readiness-review-at2026',
+                    responsible_ref='tax-reviewer-sii-certification-readiness-at2026',
+                    sii_environment_ref='https://www.sii.cl/session?token=secret',
+                    stdout=StringIO(),
+                )
+
+            self.assertFalse(output_dir.exists())
+
+    def test_materialize_annual_tax_sii_certification_readiness_packet_rejects_nonempty_output_dir(self):
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            fixture = self._materialize_controlled_presentation_package_for_certification(temp_dir)
+            output_dir = Path(temp_dir) / 'sii-certification-readiness'
+            output_dir.mkdir()
+            stale_file = output_dir / 'stale.txt'
+            stale_file.write_text('previous certification readiness residue', encoding='utf-8')
+
+            with self.assertRaisesMessage(CommandError, 'debe estar vacio'):
+                call_command(
+                    'materialize_annual_tax_sii_certification_readiness_packet',
+                    controlled_package_dir=str(fixture['controlled_package_dir']),
+                    output_dir=str(output_dir),
+                    certification_review_ref='stage6-sii-certification-readiness-review-at2026',
+                    responsible_ref='tax-reviewer-sii-certification-readiness-at2026',
+                    stdout=StringIO(),
+                )
+
+            self.assertTrue(stale_file.exists())
+
+    def test_materialize_annual_tax_sii_certification_readiness_packet_rejects_versioned_repo_output(self):
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            fixture = self._materialize_controlled_presentation_package_for_certification(temp_dir)
+            blocked_output = Path(settings.PROJECT_ROOT) / 'docs' / 'stage6-certification-readiness'
+
+            with self.assertRaisesMessage(CommandError, 'local-evidence'):
+                call_command(
+                    'materialize_annual_tax_sii_certification_readiness_packet',
+                    controlled_package_dir=str(fixture['controlled_package_dir']),
+                    output_dir=str(blocked_output),
+                    certification_review_ref='stage6-sii-certification-readiness-review-at2026',
+                    responsible_ref='tax-reviewer-sii-certification-readiness-at2026',
+                    stdout=StringIO(),
+                )
+
+            self.assertFalse(blocked_output.exists())
 
     def test_materialize_annual_tax_presentation_review_bundle_rejects_nonempty_output_dir(self):
         local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
