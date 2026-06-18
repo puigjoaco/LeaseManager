@@ -764,6 +764,17 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   `aprobado_para_presentacion`, el bundle conserva
   `ready_for_sii_submission=false` y no puede declarar formato oficial,
   presentacion SII, autorizacion de envio ni calculo tributario final.
+- La aprobacion responsable del checklist tampoco basta para clasificar el
+  bundle como `aprobado_para_presentacion_controlada` si la compatibilidad
+  oficial del ano tributario conserva brechas bloqueantes. El bundle incluye
+  `official_compatibility`, `official_compatibility_ready`,
+  `official_compatibility_issue_codes` y
+  `official_compatibility_blocking_gap_keys`; si existen issues o gaps
+  bloqueantes, queda `preparado_con_brecha_oficial`, mantiene
+  `ready_for_controlled_presentation_review=false` y readiness reporta
+  `stage6.tax_review_checklist_official_compatibility_gap`. En particular,
+  AT2025 no puede heredar el contrato fixed-width AT2026 mientras exista la
+  brecha `f22_record_format_2025`.
 - Para workbooks RLI/CPT y registros empresariales, el checklist distingue
   `warnings_total` de `warnings_pending_review_total`: los warnings ya
   revisados con referencia no sensible quedan visibles como advertencia

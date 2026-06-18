@@ -42,6 +42,10 @@ EXPECTED_DDJJ_MEDIA = {
     'software_comercial',
     'asistente',
 }
+PRESENTATION_BLOCKING_GAP_FLAGS = (
+    'required_before_official_use',
+    'required_before_official_f22_file',
+)
 
 
 def _row(
@@ -323,6 +327,32 @@ def validate_stage6_official_compatibility_matrix(matrix: dict[str, Any]) -> lis
         issues.append(f'ddjj_importer_manual_{anio_tributario}_missing')
 
     return issues
+
+
+def summarize_stage6_official_compatibility_for_presentation(*, anio_tributario: int) -> dict[str, Any]:
+    matrix = build_stage6_official_compatibility_matrix(anio_tributario=anio_tributario)
+    issue_codes = validate_stage6_official_compatibility_matrix(matrix)
+    known_gaps = [gap for gap in matrix.get('known_gaps') or [] if isinstance(gap, dict)]
+    blocking_gaps = [
+        gap
+        for gap in known_gaps
+        if any(gap.get(flag) is True for flag in PRESENTATION_BLOCKING_GAP_FLAGS)
+    ]
+    return {
+        'schema_version': 'stage6-official-presentation-compatibility-summary-v1',
+        'matrix_schema_version': matrix.get('schema_version'),
+        'anio_tributario': matrix.get('anio_tributario'),
+        'supported_tax_years': matrix.get('supported_tax_years') or [],
+        'verified_on': matrix.get('verified_on'),
+        'issue_codes': sorted(issue_codes),
+        'known_gap_keys': sorted(str(gap.get('key') or '') for gap in known_gaps if gap.get('key')),
+        'blocking_gap_keys': sorted(str(gap.get('key') or '') for gap in blocking_gaps if gap.get('key')),
+        'ready_for_controlled_presentation_approval': not issue_codes and not blocking_gaps,
+        'official_submission_allowed': False,
+        'public_api_general_available': False,
+        'final_tax_calculation': False,
+        'requires_responsible_review': True,
+    }
 
 
 def assert_stage6_official_compatibility_matrix(matrix: dict[str, Any]) -> None:

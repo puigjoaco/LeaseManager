@@ -5,6 +5,7 @@ from django.test import SimpleTestCase
 from core.stage6_official_compatibility import (
     EXPECTED_DDJJ_MEDIA,
     build_stage6_official_compatibility_matrix,
+    summarize_stage6_official_compatibility_for_presentation,
     validate_stage6_official_compatibility_matrix,
 )
 from sii.models import is_safe_public_sii_source_url
@@ -108,3 +109,23 @@ class Stage6OfficialCompatibilityTests(SimpleTestCase):
         issues = validate_stage6_official_compatibility_matrix(matrix)
 
         self.assertIn('unsupported_tax_year', issues)
+
+    def test_presentation_summary_blocks_at2025_until_f22_record_format_is_confirmed(self):
+        summary = summarize_stage6_official_compatibility_for_presentation(anio_tributario=2025)
+
+        self.assertFalse(summary['ready_for_controlled_presentation_approval'])
+        self.assertEqual(summary['issue_codes'], [])
+        self.assertIn('f22_record_format_2025', summary['known_gap_keys'])
+        self.assertIn('f22_record_format_2025', summary['blocking_gap_keys'])
+        self.assertFalse(summary['official_submission_allowed'])
+        self.assertFalse(summary['final_tax_calculation'])
+
+    def test_presentation_summary_allows_at2026_only_as_controlled_review_gate(self):
+        summary = summarize_stage6_official_compatibility_for_presentation(anio_tributario=2026)
+
+        self.assertTrue(summary['ready_for_controlled_presentation_approval'])
+        self.assertEqual(summary['issue_codes'], [])
+        self.assertEqual(summary['blocking_gap_keys'], [])
+        self.assertFalse(summary['official_submission_allowed'])
+        self.assertFalse(summary['public_api_general_available'])
+        self.assertFalse(summary['final_tax_calculation'])
