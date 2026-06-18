@@ -3678,6 +3678,12 @@ class Stage6RentaAnualReadinessTests(TestCase):
 
             self.assertEqual(bundle['summary']['classification'], 'aprobado_para_presentacion_controlada')
             self.assertTrue(bundle['summary']['ready_for_controlled_presentation_review'])
+            self.assertTrue(bundle['summary']['artifact_coverage_ready'])
+            self.assertEqual(bundle['summary']['artifact_coverage_issue_codes'], [])
+            self.assertTrue(bundle['artifact_coverage']['ready_for_presentation_artifact_coverage'])
+            self.assertEqual(bundle['artifact_coverage']['expected_ddjj_forms_total'], 1)
+            self.assertEqual(bundle['artifact_coverage']['provided_ddjj_ascii_forms'], ['1887'])
+            self.assertEqual(bundle['artifact_coverage']['provided_ddjj_zip_forms'], ['1887'])
             self.assertTrue(bundle['summary']['official_compatibility_ready'])
             self.assertEqual(bundle['summary']['official_compatibility_blocking_gap_keys'], [])
             self.assertEqual(bundle['issues'], [])
@@ -3740,6 +3746,175 @@ class Stage6RentaAnualReadinessTests(TestCase):
             )
             self.assertTrue(bundle['boundary']['requires_responsible_review'])
             self.assertFalse(bundle['boundary']['ready_for_sii_submission'])
+
+    def test_presentation_review_bundle_blocks_controlled_approval_when_f22_candidate_is_missing(self):
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            inputs = self._materialize_presentation_review_inputs(temp_dir)
+            export = inputs['export']
+            checklist = AnnualTaxReviewChecklist.objects.get(annual_export=export)
+            register_annual_tax_review_decision(
+                checklist,
+                review_decision_state=EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION,
+                decision_ref='annual-tax-manual-approval-at2026-controlled',
+                decision_evidence_ref='annual-tax-manual-approval-evidence-at2026-controlled',
+                responsible_ref='tax-reviewer-final-approval-controlled',
+                reason='manual_review_completed_but_f22_candidate_missing',
+            )
+
+            bundle = build_annual_tax_presentation_review_bundle(
+                export,
+                export_package_dir=inputs['export_package_dir'],
+                ddjj_ascii_candidate_dirs=[inputs['ddjj_ascii_dir']],
+                ddjj_zip_candidate_dirs=[inputs['ddjj_zip_dir']],
+            )
+
+            self.assertEqual(bundle['summary']['classification'], 'preparado_con_cobertura_incompleta')
+            self.assertFalse(bundle['summary']['ready_for_controlled_presentation_review'])
+            self.assertFalse(bundle['summary']['artifact_coverage_ready'])
+            self.assertIn(
+                'stage6.presentation_artifact_coverage.f22_candidate_missing',
+                bundle['summary']['artifact_coverage_issue_codes'],
+            )
+            self.assertIn(
+                'stage6.presentation_review.artifact_coverage_gap',
+                {issue['code'] for issue in bundle['issues']},
+            )
+            self.assertTrue(bundle['summary']['official_compatibility_ready'])
+            self.assertTrue(bundle['boundary']['requires_responsible_review'])
+            self.assertFalse(bundle['boundary']['ready_for_sii_submission'])
+
+    def test_presentation_review_bundle_blocks_controlled_approval_when_ddjj_zip_is_missing(self):
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            inputs = self._materialize_presentation_review_inputs(temp_dir)
+            export = inputs['export']
+            checklist = AnnualTaxReviewChecklist.objects.get(annual_export=export)
+            register_annual_tax_review_decision(
+                checklist,
+                review_decision_state=EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION,
+                decision_ref='annual-tax-manual-approval-at2026-controlled',
+                decision_evidence_ref='annual-tax-manual-approval-evidence-at2026-controlled',
+                responsible_ref='tax-reviewer-final-approval-controlled',
+                reason='manual_review_completed_but_ddjj_zip_missing',
+            )
+
+            bundle = build_annual_tax_presentation_review_bundle(
+                export,
+                export_package_dir=inputs['export_package_dir'],
+                f22_candidate_dir=inputs['f22_dir'],
+                ddjj_ascii_candidate_dirs=[inputs['ddjj_ascii_dir']],
+            )
+
+            self.assertEqual(bundle['summary']['classification'], 'preparado_con_cobertura_incompleta')
+            self.assertFalse(bundle['summary']['ready_for_controlled_presentation_review'])
+            self.assertFalse(bundle['summary']['artifact_coverage_ready'])
+            self.assertIn(
+                'stage6.presentation_artifact_coverage.ddjj_zip_missing',
+                bundle['summary']['artifact_coverage_issue_codes'],
+            )
+            self.assertIn(
+                'stage6.presentation_review.artifact_coverage_gap',
+                {issue['code'] for issue in bundle['issues']},
+            )
+            self.assertTrue(bundle['summary']['official_compatibility_ready'])
+            self.assertTrue(bundle['boundary']['requires_responsible_review'])
+            self.assertFalse(bundle['boundary']['ready_for_sii_submission'])
+
+    def test_presentation_review_bundle_blocks_controlled_approval_when_ddjj_candidate_is_unexpected(self):
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            inputs = self._materialize_presentation_review_inputs(temp_dir)
+            unexpected_ascii_dir = Path(temp_dir) / 'ddjj-ascii-unexpected-candidate'
+            unexpected_ascii_dir.mkdir()
+            for source_path in inputs['ddjj_ascii_dir'].iterdir():
+                if source_path.is_file():
+                    (unexpected_ascii_dir / source_path.name).write_bytes(source_path.read_bytes())
+            manifest_path = unexpected_ascii_dir / 'ddjj-ascii-candidate-manifest.json'
+            manifest_payload = json.loads(manifest_path.read_text(encoding='utf-8'))
+            manifest_payload['summary']['form_code'] = '9999'
+            manifest_path.write_text(
+                json.dumps(
+                    manifest_payload,
+                    sort_keys=True,
+                    separators=(',', ':'),
+                    ensure_ascii=True,
+                    default=str,
+                ),
+                encoding='utf-8',
+            )
+            export = inputs['export']
+            checklist = AnnualTaxReviewChecklist.objects.get(annual_export=export)
+            register_annual_tax_review_decision(
+                checklist,
+                review_decision_state=EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION,
+                decision_ref='annual-tax-manual-approval-at2026-controlled',
+                decision_evidence_ref='annual-tax-manual-approval-evidence-at2026-controlled',
+                responsible_ref='tax-reviewer-final-approval-controlled',
+                reason='manual_review_completed_but_ddjj_candidate_unexpected',
+            )
+
+            bundle = build_annual_tax_presentation_review_bundle(
+                export,
+                export_package_dir=inputs['export_package_dir'],
+                f22_candidate_dir=inputs['f22_dir'],
+                ddjj_ascii_candidate_dirs=[inputs['ddjj_ascii_dir'], unexpected_ascii_dir],
+                ddjj_zip_candidate_dirs=[inputs['ddjj_zip_dir']],
+            )
+
+            self.assertEqual(bundle['summary']['classification'], 'preparado_con_cobertura_incompleta')
+            self.assertFalse(bundle['summary']['artifact_coverage_ready'])
+            self.assertEqual(bundle['artifact_coverage']['unexpected_ddjj_ascii_forms'], ['9999'])
+            self.assertIn(
+                'stage6.presentation_artifact_coverage.ddjj_ascii_unexpected_form',
+                bundle['summary']['artifact_coverage_issue_codes'],
+            )
+            self.assertIn(
+                'stage6.presentation_review.artifact_coverage_gap',
+                {issue['code'] for issue in bundle['issues']},
+            )
+
+    def test_presentation_review_bundle_blocks_controlled_approval_when_ddjj_ascii_candidate_is_duplicated(self):
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            inputs = self._materialize_presentation_review_inputs(temp_dir)
+            export = inputs['export']
+            checklist = AnnualTaxReviewChecklist.objects.get(annual_export=export)
+            register_annual_tax_review_decision(
+                checklist,
+                review_decision_state=EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION,
+                decision_ref='annual-tax-manual-approval-at2026-controlled',
+                decision_evidence_ref='annual-tax-manual-approval-evidence-at2026-controlled',
+                responsible_ref='tax-reviewer-final-approval-controlled',
+                reason='manual_review_completed_but_ddjj_ascii_candidate_duplicated',
+            )
+
+            bundle = build_annual_tax_presentation_review_bundle(
+                export,
+                export_package_dir=inputs['export_package_dir'],
+                f22_candidate_dir=inputs['f22_dir'],
+                ddjj_ascii_candidate_dirs=[inputs['ddjj_ascii_dir'], inputs['ddjj_ascii_dir']],
+                ddjj_zip_candidate_dirs=[inputs['ddjj_zip_dir']],
+            )
+
+            self.assertEqual(bundle['summary']['classification'], 'preparado_con_cobertura_incompleta')
+            self.assertFalse(bundle['summary']['artifact_coverage_ready'])
+            self.assertIn(
+                'stage6.presentation_artifact_coverage.ddjj_ascii_duplicate',
+                bundle['summary']['artifact_coverage_issue_codes'],
+            )
+            self.assertIn(
+                'stage6.presentation_review.artifact_coverage_gap',
+                {issue['code'] for issue in bundle['issues']},
+            )
 
     def test_materialize_annual_tax_ddjj_candidate_commands_reject_nonempty_output_dirs(self):
         self._create_valid_local_matrix()
@@ -3881,6 +4056,8 @@ class Stage6RentaAnualReadinessTests(TestCase):
             self.assertEqual(result['classification'], 'preparado_para_revision')
             self.assertEqual(result['artifacts_total'], 4)
             self.assertEqual(result['artifacts_verified_total'], 4)
+            self.assertTrue(result['verification']['artifact_coverage_ready'])
+            self.assertEqual(result['verification']['artifact_coverage_issue_codes'], [])
             self.assertEqual(
                 result['artifact_kinds'],
                 [
