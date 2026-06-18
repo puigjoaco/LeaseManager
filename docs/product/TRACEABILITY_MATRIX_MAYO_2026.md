@@ -3101,6 +3101,14 @@ resumen anual y auditoria. Esto mueve la capa anual hacia revision/presentacion
 controlada por responsable; no abre SII, no declara formato oficial, no intenta
 presentacion y no calcula renta final.
 
+Nota 2026-06-18: el backoffice SII incorpora la operacion de esa decision
+responsable sobre el checklist anual. El snapshot expone `review_decision_*`
+redactado, la tabla muestra avance, warnings, bloqueos, evidencia y responsable,
+y el formulario registra `preparado`, `observado` o
+`aprobado_para_presentacion` mediante el endpoint transaccional. Esto mantiene
+la frontera de revision controlada: no envia SII, no convierte el export local
+en formato oficial y no calcula renta final.
+
 Nota 2026-06-17: PlataformaBase/CI ajusta Release Gate para remover el matcher
 generico `python` de `actions/setup-python` justo antes de acceptance. La suite
 mantiene tracebacks esperados de rollback/auditoria en logs y sigue fallando por

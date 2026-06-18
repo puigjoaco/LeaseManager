@@ -4617,6 +4617,8 @@ class SiiAPITests(APITestCase):
             checklist_ref='https://sii.example.test/checklist?token=secret',
             responsible_ref='Bearer checklist-secret',
             evidence_ref='https://sii.example.test/evidence?token=secret',
+            review_decision_ref='https://sii.example.test/decision?token=secret',
+            review_decision_evidence_ref='Bearer decision-evidence-secret',
             review_payload={'api_key': 'secret-checklist-value'},
         )
         checklist.refresh_from_db()
@@ -4645,11 +4647,16 @@ class SiiAPITests(APITestCase):
         self.assertEqual(checklist_data['checklist_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(checklist_data['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(checklist_data['evidence_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(checklist_data['review_decision_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(checklist_data['review_decision_evidence_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_checklist_data['checklist_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_checklist_data['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(snapshot_checklist_data['evidence_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_checklist_data['review_decision_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(snapshot_checklist_data['review_decision_evidence_ref'], REDACTED_SENSITIVE_REFERENCE)
         self.assertNotIn('token=secret', serialized_payload)
         self.assertNotIn('checklist-secret', serialized_payload)
+        self.assertNotIn('decision-evidence-secret', serialized_payload)
         self.assertNotIn('secret-checklist-value', serialized_payload)
 
     def test_generate_annual_preparation_rejects_source_changes_after_bundle_freeze(self):
