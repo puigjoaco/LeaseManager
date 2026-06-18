@@ -25,18 +25,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `codex/stage6-candidate-destination-guards`. |
-| Fuente exacta | `main` en `6c3fc843`, despues del merge confirmado de PR #921 `codex/stage6-export-destination-guard`. |
-| Brecha activa | Los writers locales de candidatos F22 fixed-width, DDJJ ASCII y DDJJ ZIP aun aceptaban directorios destino existentes y podian mezclar restos de corridas previas antes de que el verificador rechazara el paquete. |
-| Motivo de prioridad | La evidencia local revisable debe nacer desde destinos limpios en todas las salidas candidatas, no solo en el paquete anual agregado; restos previos no pueden coexistir con archivos o manifests nuevos. |
-| Worktree | `D:/Proyectos/LeaseManager-stage6-candidate-destination-guards`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
-| Rama | `codex/stage6-candidate-destination-guards`. |
-| Estado | Paquete validado localmente. Se agrega guard comun para exigir destino inexistente o directorio vacio antes de escribir candidatos F22/DDJJ y manifests locales. Pendiente solo PR, CI remoto, merge y limpieza. |
-| Gate esperado | Este paquete no declara formato oficial certificado, no presenta SII, no calcula impuesto final y no usa datos reales. Solo uniforma el boundary local de materializacion de candidatos revisables. |
+| Frente activo | `codex/stage6-ddjj-candidate-materializers`. |
+| Fuente exacta | `main` en `4aa67e42`, despues del merge confirmado de PR #922 `codex/stage6-candidate-destination-guards`. |
+| Brecha activa | Los candidatos DDJJ ASCII y ZIP tienen builders, writers y verificadores, pero no una superficie operativa equivalente al materializador F22 para producir evidencia local verificable bajo `local-evidence/` sin imprimir RUT ni registros crudos. |
+| Motivo de prioridad | Etapa 6 necesita que F22 y DDJJ tengan paridad de materializacion local revisable: comandos reproducibles, guard de salida versionada, rechazo de destinos no vacios y stdout con hashes/conteos, no identificadores tributarios. |
+| Worktree | `D:/Proyectos/LeaseManager-stage6-ddjj-candidate-materializers`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `codex/stage6-ddjj-candidate-materializers`. |
+| Estado | Paquete en ejecucion: agrega comandos `materialize_annual_tax_ddjj_ascii_candidate` y `materialize_annual_tax_ddjj_zip_candidate`, cobertura focal y documentacion de boundary. |
+| Gate esperado | Este paquete no declara formato oficial DDJJ, no sube archivos, no presenta SII, no calcula impuesto final y no usa datos reales. Solo crea evidencia candidata local verificable para revision responsable. |
 | Estado al cerrar paquete | Si `main` contiene el merge de este frente y la rama/worktree ya no existe, no reabrirlo ni repetir PR/CI/merge. Buscar el siguiente frente seguro desde repo limpio. |
 | Bloqueos relacionados | La decision tributaria final, formato/certificacion F22/DDJJ, codigo autorizado por SII, contenido tributario final y presentacion SII siguen bloqueados por responsable tributario, autorizacion explicita, formato/certificacion vigente aplicable y evidencia no sensible. |
 | Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable ni integraciones externas sin autorizacion explicita. La aprobacion para presentacion solo puede existir como decision y evidencia trazables no sensibles; nunca como salida automatica del motor local. |
-| Siguiente accion | Cerrar paquete con commit, PR, CI remoto, merge y limpieza. Si `main` ya contiene el merge de este frente, no reabrirlo: tomar el siguiente frente seguro desde repo limpio. |
+| Siguiente accion | Completar validaciones proporcionales, registrar evidencia, cerrar con commit, PR, CI remoto, merge y limpieza. Si `main` ya contiene el merge de este frente, no reabrirlo: tomar el siguiente frente seguro desde repo limpio. |
 
 ## Actualizacion
 

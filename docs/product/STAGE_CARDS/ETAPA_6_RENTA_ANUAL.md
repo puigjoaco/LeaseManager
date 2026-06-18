@@ -441,6 +441,13 @@ certificacion y envio SII quedan bajo gate externo/autorizacion.
 El escritor solo materializa el candidato si el destino es inexistente o un
 directorio vacio, para impedir que un manifest DDJJ ASCII nuevo conviva con
 archivos residuales de una corrida anterior.
+`materialize_annual_tax_ddjj_ascii_candidate` expone esa materializacion como
+herramienta operativa controlada: recibe `AnnualTaxExport`, formulario, RUT
+declarante y registros revisados desde JSON inline o archivo, escribe bajo
+`local-evidence/` por defecto o ruta externa controlada y verifica archivo y
+manifest desde disco. El stdout no imprime RUT ni registros crudos; entrega
+hashes, conteos, extension y manifest para revision responsable. Sigue sin
+formato oficial, upload SII, presentacion ni calculo final.
 `build_annual_tax_ddjj_zip_export_candidate()` envuelve el candidato DDJJ
 ASCII en un paquete ZIP local de transferencia candidata: exige el candidato
 ASCII verificado y un registro tipo 0 revisado, no sensible y de largo fijo,
@@ -454,6 +461,12 @@ oficial, certificacion, upload SII, codigo de software ni calculo final.
 El escritor del ZIP candidato aplica el mismo guard de destino limpio: rechaza
 rutas que no sean directorio y directorios no vacios antes de crear el ZIP o su
 manifest.
+`materialize_annual_tax_ddjj_zip_candidate` agrega la superficie operativa para
+el ZIP candidato: construye primero el candidato ASCII revisado, incorpora el
+registro de control tipo 0 desde JSON inline o archivo, escribe el ZIP local y
+lo verifica desde disco. Su salida conserva solo hashes y conteos, sin RUT,
+archivo derivado del RUT ni registros crudos, y mantiene
+`ready_for_submission=false` hasta gate oficial/autorizacion explicita.
 `AnnualTaxF22ExportLayout` materializa la capa F22 por ano tributario antes del
 export local: conserva `form_code=F22`, medio preferente, refs no sensibles de
 certificacion/formato/instrucciones/responsable, fuentes oficiales/expertas,

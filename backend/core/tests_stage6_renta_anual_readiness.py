@@ -2639,16 +2639,8 @@ class Stage6RentaAnualReadinessTests(TestCase):
                 records=base_records,
             )
 
-    def _build_ddjj_ascii_candidate_for_zip(self):
-        self._create_valid_local_matrix()
-        export = AnnualTaxExport.objects.get()
-        ddjj_item = AnnualTaxArtifactMatrixItem.objects.filter(target_kind='DDJJ', target_code='DDJJ-1887').first()
-        self.assertIsNotNone(ddjj_item)
-        return build_annual_tax_ddjj_ascii_export_candidate(
-            export,
-            form_code='1887',
-            rut_number='97030000',
-            records=[
+    def _ddjj_ascii_records(self, ddjj_item):
+        return [
                 {
                     'record': '1' + 'A' * 23,
                     'review_state': 'approved_for_candidate',
@@ -2673,7 +2665,18 @@ class Stage6RentaAnualReadinessTests(TestCase):
                     'artifact_matrix_item_id': ddjj_item.id,
                     'hash_item': ddjj_item.hash_item,
                 },
-            ],
+            ]
+
+    def _build_ddjj_ascii_candidate_for_zip(self):
+        self._create_valid_local_matrix()
+        export = AnnualTaxExport.objects.get()
+        ddjj_item = AnnualTaxArtifactMatrixItem.objects.filter(target_kind='DDJJ', target_code='DDJJ-1887').first()
+        self.assertIsNotNone(ddjj_item)
+        return build_annual_tax_ddjj_ascii_export_candidate(
+            export,
+            form_code='1887',
+            rut_number='97030000',
+            records=self._ddjj_ascii_records(ddjj_item),
         )
 
     def test_tax_export_writes_verifiable_ddjj_zip_candidate_from_ascii_candidate(self):
@@ -3461,6 +3464,227 @@ class Stage6RentaAnualReadinessTests(TestCase):
                 **self._f22_local_certification_kwargs(),
             )
         self.assertFalse(blocked_output.exists())
+
+    def test_materialize_annual_tax_ddjj_ascii_candidate_command_writes_verified_local_file(self):
+        self._create_valid_local_matrix()
+        export = AnnualTaxExport.objects.get()
+        ddjj_item = AnnualTaxArtifactMatrixItem.objects.filter(target_kind='DDJJ', target_code='DDJJ-1887').first()
+        self.assertIsNotNone(ddjj_item)
+        records = self._ddjj_ascii_records(ddjj_item)
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            output_dir = Path(temp_dir) / 'ddjj-ascii-candidate'
+            stdout = StringIO()
+
+            call_command(
+                'materialize_annual_tax_ddjj_ascii_candidate',
+                export_id=export.pk,
+                form_code='1887',
+                rut_number='97030000',
+                records_json=json.dumps(records),
+                output_dir=str(output_dir),
+                stdout=stdout,
+            )
+
+            result = json.loads(stdout.getvalue())
+            candidate = build_annual_tax_ddjj_ascii_export_candidate(
+                export,
+                form_code='1887',
+                rut_number='97030000',
+                records=records,
+            )
+            verification = verify_annual_tax_ddjj_ascii_export_candidate(candidate, output_dir)
+
+            self.assertTrue(result['materialized'])
+            self.assertEqual(result['annual_tax_export_id'], export.pk)
+            self.assertEqual(result['candidate_version'], 'annual-tax-ddjj-ascii-candidate-v1')
+            self.assertEqual(result['record_format_version'], 'ddjj-at2026-ascii-positional-candidate-v1')
+            self.assertEqual(result['form_code'], '1887')
+            self.assertEqual(result['file_extension'], '887')
+            self.assertEqual(result['file_name_hash'], hashlib.sha256(b'97030000.887').hexdigest())
+            self.assertEqual(result['records_total'], verification['records_total'])
+            self.assertEqual(result['record_length'], verification['record_length'])
+            self.assertEqual(result['record_type_counts'], {'1': 1, '2': 1, '3': 1})
+            self.assertEqual(result['ddjj_record_review_evidence_total'], 3)
+            self.assertEqual(result['content_hash'], verification['content_hash'])
+            self.assertFalse(result['official_format'])
+            self.assertFalse(result['sii_submission'])
+            self.assertFalse(result['final_tax_calculation'])
+            self.assertTrue(result['ready_for_responsible_review'])
+            self.assertTrue(result['requires_exact_form_layout_gate'])
+            self.assertTrue(result['requires_explicit_submission_authorization'])
+            self.assertTrue((output_dir / '97030000.887').is_file())
+            self.assertTrue((output_dir / result['manifest_file']).is_file())
+            rendered = stdout.getvalue()
+            self.assertNotIn('97030000', rendered)
+            self.assertNotIn('AAAAAAAAAAAAAAAAAAAAAAA', rendered)
+            self.assertNotIn('BBBBBBBBBBBBBBBBBBBBBBB', rendered)
+            self.assertNotIn('CCCCCCCCCCCCCCCCCCCCCCC', rendered)
+
+    def test_materialize_annual_tax_ddjj_zip_candidate_command_writes_verified_local_zip(self):
+        self._create_valid_local_matrix()
+        export = AnnualTaxExport.objects.get()
+        ddjj_item = AnnualTaxArtifactMatrixItem.objects.filter(target_kind='DDJJ', target_code='DDJJ-1887').first()
+        self.assertIsNotNone(ddjj_item)
+        records = self._ddjj_ascii_records(ddjj_item)
+        transfer_control_record = {
+            'record': '0' + 'T' * 23,
+            'review_state': 'approved_for_candidate',
+            'transfer_source_ref': 'sii-ddjj-at2026-transfer-control-reviewed',
+            'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+        }
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            output_dir = Path(temp_dir) / 'ddjj-zip-candidate'
+            stdout = StringIO()
+
+            call_command(
+                'materialize_annual_tax_ddjj_zip_candidate',
+                export_id=export.pk,
+                form_code='1887',
+                rut_number='97030000',
+                records_json=json.dumps(records),
+                transfer_control_json=json.dumps(transfer_control_record),
+                output_dir=str(output_dir),
+                stdout=stdout,
+            )
+
+            result = json.loads(stdout.getvalue())
+            ascii_candidate = build_annual_tax_ddjj_ascii_export_candidate(
+                export,
+                form_code='1887',
+                rut_number='97030000',
+                records=records,
+            )
+            zip_candidate = build_annual_tax_ddjj_zip_export_candidate(
+                ascii_candidate,
+                transfer_control_record=transfer_control_record,
+            )
+            verification = verify_annual_tax_ddjj_zip_export_candidate(zip_candidate, output_dir)
+
+            self.assertTrue(result['materialized'])
+            self.assertEqual(result['annual_tax_export_id'], export.pk)
+            self.assertEqual(result['candidate_version'], 'annual-tax-ddjj-zip-candidate-v1')
+            self.assertEqual(result['source_candidate_version'], 'annual-tax-ddjj-ascii-candidate-v1')
+            self.assertEqual(result['record_format_version'], 'ddjj-at2026-transfer-zip-candidate-v1')
+            self.assertEqual(result['form_code'], '1887')
+            self.assertEqual(result['zip_file_name_hash'], hashlib.sha256(b'97030000.887.zip').hexdigest())
+            self.assertEqual(result['zip_file_hash'], verification['zip_file_hash'])
+            self.assertEqual(result['records_total'], verification['records_total'])
+            self.assertEqual(result['record_length'], verification['record_length'])
+            self.assertEqual(result['record_type_counts'], {'0': 1, '1': 1, '2': 1, '3': 1})
+            self.assertEqual(result['content_hash'], verification['content_hash'])
+            self.assertFalse(result['official_format'])
+            self.assertFalse(result['sii_submission'])
+            self.assertFalse(result['final_tax_calculation'])
+            self.assertTrue(result['ready_for_responsible_review'])
+            self.assertFalse(result['ready_for_submission'])
+            self.assertTrue(result['requires_official_zip_gate'])
+            self.assertTrue(result['requires_explicit_submission_authorization'])
+            self.assertTrue((output_dir / '97030000.887.zip').is_file())
+            self.assertTrue((output_dir / result['manifest_file']).is_file())
+            rendered = stdout.getvalue()
+            self.assertNotIn('97030000', rendered)
+            self.assertNotIn('AAAAAAAAAAAAAAAAAAAAAAA', rendered)
+            self.assertNotIn('TTTTTTTTTTTTTTTTTTTTTTT', rendered)
+
+    def test_materialize_annual_tax_ddjj_candidate_commands_reject_nonempty_output_dirs(self):
+        self._create_valid_local_matrix()
+        export = AnnualTaxExport.objects.get()
+        ddjj_item = AnnualTaxArtifactMatrixItem.objects.filter(target_kind='DDJJ', target_code='DDJJ-1887').first()
+        self.assertIsNotNone(ddjj_item)
+        records = self._ddjj_ascii_records(ddjj_item)
+        transfer_control_record = {
+            'record': '0' + 'T' * 23,
+            'review_state': 'approved_for_candidate',
+            'transfer_source_ref': 'sii-ddjj-at2026-transfer-control-reviewed',
+            'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+        }
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        command_cases = (
+            (
+                'materialize_annual_tax_ddjj_ascii_candidate',
+                {'records_json': json.dumps(records)},
+                'ddjj-ascii-candidate-manifest.json',
+            ),
+            (
+                'materialize_annual_tax_ddjj_zip_candidate',
+                {
+                    'records_json': json.dumps(records),
+                    'transfer_control_json': json.dumps(transfer_control_record),
+                },
+                'ddjj-zip-candidate-manifest.json',
+            ),
+        )
+
+        for command_name, extra_options, manifest_name in command_cases:
+            with self.subTest(command=command_name), TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+                output_dir = Path(temp_dir) / 'ddjj-candidate'
+                output_dir.mkdir()
+                stale_file = output_dir / 'stale.txt'
+                stale_file.write_text('previous ddjj residue', encoding='utf-8')
+
+                with self.assertRaisesMessage(CommandError, 'debe estar vacio'):
+                    call_command(
+                        command_name,
+                        export_id=export.pk,
+                        form_code='1887',
+                        rut_number='97030000',
+                        output_dir=str(output_dir),
+                        stdout=StringIO(),
+                        **extra_options,
+                    )
+
+                self.assertEqual(stale_file.read_text(encoding='utf-8'), 'previous ddjj residue')
+                self.assertFalse((output_dir / manifest_name).exists())
+
+    def test_materialize_annual_tax_ddjj_candidate_commands_reject_versioned_repo_output(self):
+        self._create_valid_local_matrix()
+        export = AnnualTaxExport.objects.get()
+        ddjj_item = AnnualTaxArtifactMatrixItem.objects.filter(target_kind='DDJJ', target_code='DDJJ-1887').first()
+        self.assertIsNotNone(ddjj_item)
+        records = self._ddjj_ascii_records(ddjj_item)
+        transfer_control_record = {
+            'record': '0' + 'T' * 23,
+            'review_state': 'approved_for_candidate',
+            'transfer_source_ref': 'sii-ddjj-at2026-transfer-control-reviewed',
+            'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+        }
+        command_cases = (
+            (
+                'materialize_annual_tax_ddjj_ascii_candidate',
+                {'records_json': json.dumps(records)},
+                'stage6-ddjj-ascii-candidate-should-not-be-versioned',
+            ),
+            (
+                'materialize_annual_tax_ddjj_zip_candidate',
+                {
+                    'records_json': json.dumps(records),
+                    'transfer_control_json': json.dumps(transfer_control_record),
+                },
+                'stage6-ddjj-zip-candidate-should-not-be-versioned',
+            ),
+        )
+
+        for command_name, extra_options, output_name in command_cases:
+            blocked_output = Path(settings.PROJECT_ROOT) / 'docs' / output_name
+            with self.subTest(command=command_name), self.assertRaisesMessage(CommandError, 'local-evidence'):
+                call_command(
+                    command_name,
+                    export_id=export.pk,
+                    form_code='1887',
+                    rut_number='97030000',
+                    output_dir=str(blocked_output),
+                    stdout=StringIO(),
+                    **extra_options,
+                )
+            self.assertFalse(blocked_output.exists())
 
     def test_tax_export_missing_artifact_contracts_is_blocking(self):
         self._create_valid_local_matrix()
