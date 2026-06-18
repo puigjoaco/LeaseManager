@@ -23,6 +23,8 @@ class Stage6OfficialCompatibilityTests(SimpleTestCase):
         boundary = row['boundary']
 
         self.assertEqual(row['target_kind'], 'F22')
+        self.assertIn(2025, matrix['supported_tax_years'])
+        self.assertIn(2026, matrix['supported_tax_years'])
         self.assertIs(boundary['certified_file_path_exists'], True)
         self.assertIs(boundary['public_api_confirmed'], False)
         self.assertIs(boundary['content_consistency_certified'], False)
@@ -37,7 +39,7 @@ class Stage6OfficialCompatibilityTests(SimpleTestCase):
 
         media_row = self._row(matrix, 'ddjj_media_2026')
         software_row = self._row(matrix, 'ddjj_software_houses_2026')
-        importer_row = self._row(matrix, 'ddjj_importer_manual')
+        importer_row = self._row(matrix, 'ddjj_importer_manual_2026')
 
         self.assertEqual(set(media_row['supported_media']), EXPECTED_DDJJ_MEDIA)
         self.assertIs(media_row['boundary']['requires_form_specific_media'], True)
@@ -45,9 +47,28 @@ class Stage6OfficialCompatibilityTests(SimpleTestCase):
         self.assertIs(importer_row['boundary']['file_importer_path_exists'], True)
         self.assertIs(importer_row['boundary']['public_api_confirmed'], False)
 
+    def test_matrix_covers_at2025_without_inventing_f22_fixed_width_format(self):
+        matrix = build_stage6_official_compatibility_matrix(anio_tributario=2025)
+
+        self.assertEqual(validate_stage6_official_compatibility_matrix(matrix), [])
+        self.assertEqual(matrix['schema_version'], 'stage6-official-compatibility-at2025-at2026-v1')
+
+        f22_row = self._row(matrix, 'f22_certification_2025')
+        ddjj_process = self._row(matrix, 'ddjj_certification_process_2025')
+        known_gap = next(gap for gap in matrix['known_gaps'] if gap['key'] == 'f22_record_format_2025')
+
+        self.assertEqual(f22_row['source_url'], 'https://www.sii.cl/noticias/2025/120225noti01aav.htm')
+        self.assertIs(f22_row['boundary']['certified_file_path_exists'], True)
+        self.assertIs(f22_row['boundary']['public_api_confirmed'], False)
+        self.assertIs(ddjj_process['boundary']['file_upload_certification_path_exists'], True)
+        self.assertIs(ddjj_process['boundary']['production_environment_warning'], True)
+        self.assertEqual(known_gap['status'], 'not_confirmed_from_public_source')
+        self.assertIs(known_gap['required_before_official_f22_file'], True)
+
     def test_matrix_accepts_public_sii_alerce_sources(self):
         self.assertTrue(is_safe_public_sii_source_url('https://alerce.sii.cl/dior/dej/html/dj_autoverificacion.html'))
         self.assertTrue(is_safe_public_sii_source_url('https://alerce.sii.cl/dior/dej/html/manual/DJ_Manual/01.html'))
+        self.assertTrue(is_safe_public_sii_source_url('https://alerce.sii.cl/dior/dej/pdf/Procedimiento_de_Revision_AT2025.pdf'))
 
         matrix = build_stage6_official_compatibility_matrix(anio_tributario=2026)
         self.assertEqual(validate_stage6_official_compatibility_matrix(matrix), [])
@@ -72,3 +93,18 @@ class Stage6OfficialCompatibilityTests(SimpleTestCase):
         self.assertIn('official_submission_must_remain_blocked', issues)
         self.assertIn('f22_certification_2026.final_tax_calculation_must_not_be_enabled', issues)
         self.assertIn('f22_certification_2026.content_consistency_must_not_be_certified_by_sii_file_gate', issues)
+
+    def test_matrix_rejects_at2025_missing_explicit_f22_format_gap(self):
+        matrix = deepcopy(build_stage6_official_compatibility_matrix(anio_tributario=2025))
+        matrix['known_gaps'] = []
+
+        issues = validate_stage6_official_compatibility_matrix(matrix)
+
+        self.assertIn('f22_record_format_2025_missing_or_gap_not_explicit', issues)
+
+    def test_matrix_rejects_unsupported_tax_year(self):
+        matrix = build_stage6_official_compatibility_matrix(anio_tributario=2024)
+
+        issues = validate_stage6_official_compatibility_matrix(matrix)
+
+        self.assertIn('unsupported_tax_year', issues)

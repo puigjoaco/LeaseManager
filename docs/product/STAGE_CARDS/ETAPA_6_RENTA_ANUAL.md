@@ -489,13 +489,20 @@ DDJJ/F22 con `source_kind=f22_export_layout`, pero mantiene obligatoriamente
 `official_format=false`, `sii_submission=false` y
 `final_tax_calculation=false`. Sirve para preparar y revisar el paquete F22; no
 presenta, no sube y no decide la renta final.
-`build_stage6_official_compatibility_matrix()` fija esa frontera en codigo para
-AT2026: fuentes SII publicas respaldan certificacion/archivo F22, instrucciones
-F22, portal/software comercial, medios DDJJ, formularios/plazos, casas
-software, autoverificacion e importador. Su validador bloquea API asumida,
-presentacion SII, calculo final y certificacion de consistencia tributaria
-mientras no existan formato/certificacion vigente, autorizacion explicita y
-responsable.
+`build_stage6_official_compatibility_matrix()` fija esa frontera en codigo por
+ano tributario para AT2025 y AT2026: fuentes SII publicas respaldan
+certificacion/archivo F22, instrucciones F22, portal/software comercial,
+medios DDJJ, formularios/plazos, casas software, revision/certificacion DDJJ e
+importador. Su validador bloquea API asumida, presentacion SII, calculo final
+y certificacion de consistencia tributaria mientras no existan
+formato/certificacion vigente, autorizacion explicita y responsable. Si un ano
+tributario no tiene formato F22 oficial confirmado desde fuente publica segura,
+la matriz debe dejar una brecha explicita; AT2025 queda asi, sin heredar el
+contrato fixed-width AT2026 por suposicion.
+`build-stage6-official-source-gap-matrix.ps1` acepta `-TaxYear 2025` o
+`-TaxYear 2026` y escribe la matriz operativa bajo `local-evidence/` con el
+mismo boundary: solo URLs publicas SII o brechas fuente/experto pendientes, sin
+sesion SII, credenciales, navegador, EDIG ejecutable ni datos reales.
 `build_f22_record_format_contract()` baja el `Formato de Registro F22 AT2026`
 de SII a una estructura local verificable: registros fixed-width de largo 90,
 tipo 0 para cabecera/datos de internet y tipo 1 para cuatro codigos por linea.
