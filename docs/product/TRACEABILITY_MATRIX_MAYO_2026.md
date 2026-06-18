@@ -76,6 +76,17 @@ Asi el candidato F22 deja de depender de una lista manual aislada y queda
 trazado a la capa tributaria intermedia. No habilita certificacion real, envio
 SII ni calculo tributario final.
 
+Nota 2026-06-17: Etapa 6/Renta Anual agrega candidato DDJJ ASCII posicional
+con `build_annual_tax_ddjj_ascii_export_candidate()`,
+`write_annual_tax_ddjj_ascii_export_candidate()` y
+`verify_annual_tax_ddjj_ascii_export_candidate()`. La capa toma
+`AnnualTaxExport` preparado, `AnnualTaxDDJJFormLayout` revisado y matriz DDJJ
+activa, exige metadata de formato/largo, registros ASCII tipo 1/2/3 con
+evidencia no sensible y responsable, escribe archivo local con extension
+derivada del formulario y verifica manifest, hashes, largos, tipos y evidencia
+por registro. No habilita ZIP oficial, envio SII, certificacion, layout oficial
+completo ni calculo tributario final.
+
 Nota 2026-06-17: Canales/Etapa 2 exige motivo operativo trazable para mensajes
 salientes bloqueados o fallidos. `MensajeSaliente.clean()` rechaza estados
 `bloqueado`/`fallido` sin `motivo_bloqueo` no vacio y no sensible, y
