@@ -946,6 +946,12 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   exige `review_decision_ref`, `review_decision_evidence_ref`, responsable y
   payload coherente no sensible, sin marcar formato oficial, presentacion SII
   ni calculo final.
+- La API permite registrar esa decision manualmente mediante
+  `POST /api/v1/sii/anual/review-checklists/<id>/decision/`. El endpoint exige
+  `decision_ref`, `decision_evidence_ref` y `responsible_ref` no sensibles,
+  actualiza payload/resumen anual en transaccion y deja evento de auditoria; no
+  envia a SII, no intenta presentacion y no convierte el export local en formato
+  oficial.
 - `AnnualTaxSourceBundle` acepta como trazabilidad anual completa los 12
   `MonthlyTaxFact` normalizados aun si algunos meses no tienen F29/obligacion
   por no declaracion controlada; no se deben inventar obligaciones para cerrar
