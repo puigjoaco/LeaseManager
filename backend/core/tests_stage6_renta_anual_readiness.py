@@ -3199,6 +3199,58 @@ class Stage6RentaAnualReadinessTests(TestCase):
             with self.assertRaisesRegex(ValueError, 'entradas no permitidas'):
                 verify_annual_tax_export_file_package(export, temp_dir)
 
+    def test_materialize_annual_tax_export_file_package_command_writes_verified_local_package(self):
+        self._create_valid_local_matrix()
+        export = AnnualTaxExport.objects.get()
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            output_dir = Path(temp_dir) / 'annual-export-package'
+            stdout = StringIO()
+
+            call_command(
+                'materialize_annual_tax_export_file_package',
+                export_id=export.pk,
+                output_dir=str(output_dir),
+                stdout=stdout,
+            )
+
+            result = json.loads(stdout.getvalue())
+            verification = verify_annual_tax_export_file_package(export, output_dir)
+
+            self.assertTrue(result['materialized'])
+            self.assertEqual(result['annual_tax_export_id'], export.pk)
+            self.assertEqual(result['files_total'], export.target_items_total)
+            self.assertEqual(result['package_hash'], verification['package_hash'])
+            self.assertEqual(result['verification']['package_hash'], verification['package_hash'])
+            self.assertEqual(
+                sorted(result['written_files']),
+                sorted(file_result['file_name'] for file_result in verification['file_results']),
+            )
+            self.assertTrue((output_dir / 'manifest.json').is_file())
+            self.assertEqual(len(result['written_files']), verification['files_total'])
+            self.assertFalse(result['official_format'])
+            self.assertFalse(result['sii_submission'])
+            self.assertFalse(result['final_tax_calculation'])
+            self.assertTrue(result['ready_for_responsible_review'])
+            self.assertTrue(result['requires_official_format_gate'])
+            self.assertTrue(result['requires_explicit_submission_authorization'])
+
+    def test_materialize_annual_tax_export_file_package_rejects_versioned_repo_output(self):
+        self._create_valid_local_matrix()
+        export = AnnualTaxExport.objects.get()
+        blocked_output = Path(settings.PROJECT_ROOT) / 'docs' / 'stage6-export-package-should-not-be-versioned'
+
+        with self.assertRaisesMessage(CommandError, 'local-evidence'):
+            call_command(
+                'materialize_annual_tax_export_file_package',
+                export_id=export.pk,
+                output_dir=str(blocked_output),
+                stdout=StringIO(),
+            )
+        self.assertFalse(blocked_output.exists())
+
     def test_tax_export_missing_artifact_contracts_is_blocking(self):
         self._create_valid_local_matrix()
         process = ProcesoRentaAnual.objects.get()

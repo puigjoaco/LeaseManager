@@ -385,6 +385,11 @@ flags obligatorios `official_format=false`, `sii_submission=false` y
 fuera del repo y comprobar que `manifest.json`, archivos esperados, hashes,
 tamanos, JSON canonico y boundary no-oficial siguen alineados con el
 `AnnualTaxExport` preparado.
+`materialize_annual_tax_export_file_package` lleva esa capacidad a una herramienta
+operativa controlada: dado un `AnnualTaxExport` preparado, escribe el paquete en
+`local-evidence/` por defecto, o en una ruta externa indicada, y lo verifica en
+el mismo run. Si la salida queda dentro del repo fuera de `local-evidence/`,
+falla antes de escribir para no versionar archivos tributarios.
 Es una salida revisable del motor anual, no un formato oficial SII ni una
 presentacion.
 `AnnualTaxReviewChecklist` materializa la revision responsable previa a
@@ -935,6 +940,11 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
 - La API/snapshot/admin de SII exponen `AnnualTaxExport` con source,
   responsable, export ref y payload anual redactados; el admin es solo lectura
   y no existe endpoint para presentar a SII desde esta capa.
+- El comando `materialize_annual_tax_export_file_package` materializa el paquete
+  local de un `AnnualTaxExport` preparado, escribe archivos y `manifest.json`,
+  ejecuta verificacion de hash/tamano/JSON canonico/boundary y devuelve un
+  resumen auditable. Solo permite salidas versionables bajo `local-evidence/`;
+  no habilita formato oficial, upload SII ni calculo final.
 - La API/snapshot/admin/backoffice de SII exponen `AnnualTaxReviewChecklist`
   con checklist ref, responsable, evidencia, decision de revision y payload
   anual redactados; el admin es solo lectura para preservar que la checklist
