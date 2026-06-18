@@ -308,6 +308,7 @@ oficial.
 `build_annual_tax_ddjj_ascii_export_candidate()` hace el avance equivalente
 para DDJJ: desde `AnnualTaxExport`, `AnnualTaxDDJJFormLayout` preparado y la
 matriz DDJJ activa, escribe/verifica un candidato ASCII posicional por
-formulario con registros revisados tipo 1/2/3, largo fijo y evidencia por
-registro. El archivo local sigue marcado como no oficial y exige layout exacto,
+formulario con registro tipo 1 inicial, registros tipo 2 de detalle, registro
+tipo 3 final, largo fijo y evidencia por registro. El archivo local sigue
+marcado como no oficial y exige layout exacto,
 ZIP/certificacion, revision responsable y autorizacion antes de presentacion.

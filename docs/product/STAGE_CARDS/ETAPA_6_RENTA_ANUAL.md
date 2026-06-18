@@ -418,8 +418,9 @@ autonoma.
 `build_annual_tax_ddjj_ascii_export_candidate()` baja esa capa a un candidato
 de archivo DDJJ ASCII posicional por formulario: exige `AnnualTaxExport`
 preparado, layout DDJJ preparado con metadata revisada de largo/formato,
-items DDJJ activos en la matriz y registros tipo 1/2/3 revisados con evidencia
-no sensible. El escritor genera el archivo local con extension derivada del
+items DDJJ activos en la matriz, registro tipo 1 inicial, registros tipo 2 de
+detalle y registro tipo 3 final revisados con evidencia no sensible. El
+escritor genera el archivo local con extension derivada del
 formulario y manifest canonico; el verificador reabre archivo/manifest desde
 disco, valida ASCII, largo fijo, tipos de registro, hashes y evidencia por
 registro. Mantiene `official_format=false`, `sii_submission=false` y

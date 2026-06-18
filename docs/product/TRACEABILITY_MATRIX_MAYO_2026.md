@@ -81,8 +81,9 @@ con `build_annual_tax_ddjj_ascii_export_candidate()`,
 `write_annual_tax_ddjj_ascii_export_candidate()` y
 `verify_annual_tax_ddjj_ascii_export_candidate()`. La capa toma
 `AnnualTaxExport` preparado, `AnnualTaxDDJJFormLayout` revisado y matriz DDJJ
-activa, exige metadata de formato/largo, registros ASCII tipo 1/2/3 con
-evidencia no sensible y responsable, escribe archivo local con extension
+activa, exige metadata de formato/largo, registro tipo 1 inicial, registro
+tipo 2 de detalle y registro tipo 3 final, todos ASCII y con evidencia no
+sensible y responsable, escribe archivo local con extension
 derivada del formulario y verifica manifest, hashes, largos, tipos y evidencia
 por registro. No habilita ZIP oficial, envio SII, certificacion, layout oficial
 completo ni calculo tributario final.

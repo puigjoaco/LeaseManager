@@ -270,7 +270,8 @@ contratos:
     `verify_annual_tax_ddjj_ascii_export_candidate()`: toma
     `AnnualTaxExport` preparado, layout DDJJ preparado con metadata de
     `ascii_fixed_width_positional`, items DDJJ activos de la matriz y registros
-    revisados tipo 1/2/3. Escribe/verifica archivo local ASCII con extension
+    revisados: tipo 1 inicial, tipo 2 de detalle y tipo 3 final.
+    Escribe/verifica archivo local ASCII con extension
     derivada del formulario y manifest canonico. No declara layout oficial
     completo, ZIP de envio, certificacion, presentacion SII ni calculo final.
 14. `stage6-official-tax-source-registry`: registro operacional de fuentes
