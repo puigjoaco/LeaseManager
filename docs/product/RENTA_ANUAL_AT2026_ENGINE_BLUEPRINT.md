@@ -382,6 +382,9 @@ DJ1847/RLI/CPT, porque ahi ocurre la union real entre contabilidad y renta.
 | Dossier anual faltante | proceso anual trazable sin `AnnualTaxDossier` preparado |
 | Resumen dossier desalineado | hash, conteos, matriz o ids del proceso no coinciden con el dossier vigente |
 | Dossier con revision pendiente | warnings o estado `requiere_revision` bloquean cierre/presentacion aunque permitan export local de revision; estado `bloqueado` impide export |
+| Decision de revision faltante | `AnnualTaxReviewChecklist` sin `review_decision_state` coherente con su payload |
+| Checklist observado | estado `observado` requiere resolucion responsable antes de aprobacion para presentacion |
+| Aprobacion de presentacion invalida | `aprobado_para_presentacion` sin decision/ref/responsable no sensibles, con items incompletos, warnings, bloqueos o aprobacion automatica |
 | Export anual faltante | proceso anual trazable sin `AnnualTaxExport` preparado |
 | Resumen export desalineado | hash, dossier, conteos, flags o ids del proceso no coinciden con el export vigente |
 | Export sin fuente formato F22 | `AnnualTaxExport` no enlaza fuente oficial/experta de formato/certificacion F22 |

@@ -83,6 +83,7 @@ from .models import (
     EstadoAnnualTaxDossier,
     EstadoAnnualTaxExport,
     EstadoAnnualTaxOfficialSource,
+    EstadoAnnualTaxReviewDecision,
     EstadoAnnualTaxReviewChecklist,
     EstadoAnnualTaxTrialBalance,
     EstadoAnnualTaxWorkbook,
@@ -1590,6 +1591,8 @@ def summarize_annual_tax_review_checklists(process):
             'completed_items_total': checklist.completed_items_total,
             'blockers_total': checklist.blockers_total,
             'warnings_total': checklist.warnings_total,
+            'review_decision_state': checklist.review_decision_state,
+            'review_decision_ref': checklist.review_decision_ref,
         }
     return {
         'total': checklists.count(),
@@ -5605,6 +5608,13 @@ def _annual_tax_review_checklist_summary(process, rule_set, source_bundle, dossi
     completed_items_total = sum(1 for item in items if item['status'] == 'complete')
     blockers_total = sum(1 for item in items if item['status'] == 'blocking')
     warnings_total = sum(1 for item in items if item['status'] == 'warning')
+    review_decision_state = (
+        EstadoAnnualTaxReviewDecision.OBSERVED
+        if blockers_total or warnings_total or completed_items_total != items_total
+        else EstadoAnnualTaxReviewDecision.PREPARED_FOR_REVIEW
+    )
+    review_decision_ref = f'annual-tax-review-decision-{process.empresa_id}-at{process.anio_tributario}-v1'
+    review_responsible_ref = dossier.responsible_ref or process.responsable_revision_ref or 'annual-tax-review-owner'
     return {
         'empresa_id': process.empresa_id,
         'proceso_renta_anual_id': process.id,
@@ -5619,6 +5629,21 @@ def _annual_tax_review_checklist_summary(process, rule_set, source_bundle, dossi
         'completed_items_total': completed_items_total,
         'blockers_total': blockers_total,
         'warnings_total': warnings_total,
+        'review_decision_state': review_decision_state,
+        'review_decision': {
+            'version': 'annual-tax-review-decision-v1',
+            'state': review_decision_state,
+            'decision_ref': review_decision_ref,
+            'responsible_ref': review_responsible_ref,
+            'reason': (
+                'observed_items_require_responsible_review'
+                if review_decision_state == EstadoAnnualTaxReviewDecision.OBSERVED
+                else 'prepared_for_responsible_review'
+            ),
+            'ready_for_presentation': False,
+            'automatic_approval': False,
+            'approval_required_for_presentation': True,
+        },
         'items': items,
         'component_summaries': {
             'annual_tax_ddjj_layouts': ddjj_layout_summary,
@@ -5664,6 +5689,8 @@ def sync_annual_tax_review_checklist(process, rule_set, source_bundle):
             'completed_items_total': summary['completed_items_total'],
             'blockers_total': summary['blockers_total'],
             'warnings_total': summary['warnings_total'],
+            'review_decision_state': summary['review_decision_state'],
+            'review_decision_ref': summary['review_decision']['decision_ref'],
             'review_payload': summary,
             'hash_checklist': _source_bundle_hash(summary),
             'estado': EstadoAnnualTaxReviewChecklist.PREPARED,

@@ -393,6 +393,13 @@ matriz DDJJ/F22, arma items de control por categoria, conserva refs no
 sensibles, evidencia, conteos y hash. El checklist no decide la renta final ni
 declara formato oficial, presentacion SII o calculo fiscal autonomo; solo deja
 preparado un paquete auditable para responsable experto/oficial.
+La decision de revision queda separada en el propio checklist: `observado`
+mantiene bloqueos/warnings o decision pendiente; `preparado_para_revision`
+indica que la evidencia local esta completa para revision responsable; y
+`aprobado_para_presentacion` solo puede existir con `review_decision_ref`,
+responsable y payload trazable no sensible. El payload debe conservar
+`automatic_approval=false`, de modo que LeaseManager no convierte un checklist
+completo en aprobacion tributaria ni presentacion.
 `RENTA_ANUAL_OFFICIAL_SOURCE_GAPS_AT2026.md` fija la matriz de brechas
 oficiales: DTE queda como integracion tecnica separada bajo gate; F29, DDJJ,
 DJ1847/RLI/CPT, F22, bienes raices/contribuciones y automatizacion por
@@ -683,6 +690,13 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   `final_tax_calculation` como verdaderos. Si el checklist conserva items
   incompletos, warnings o bloqueos, readiness exige revision responsable antes
   de cualquier cierre.
+- `AnnualTaxReviewChecklist.review_decision_state` distingue
+  `observado`, `preparado_para_revision` y `aprobado_para_presentacion`.
+  `preparado_para_revision` requiere checklist completo y sin observaciones,
+  pero mantiene `ready_for_presentation=false`; una aprobacion para
+  presentacion exige `review_decision_ref`, responsable trazable y
+  `automatic_approval=false`. Estados observados, aprobaciones incompletas o
+  aprobaciones automaticas bloquean readiness.
 - Para workbooks RLI/CPT y registros empresariales, el checklist distingue
   `warnings_total` de `warnings_pending_review_total`: los warnings ya
   revisados con referencia no sensible quedan visibles como advertencia
@@ -924,6 +938,12 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   ref, responsable, evidencia y payload anual redactados; el admin es solo
   lectura para preservar que la checklist proviene del motor anual y no de una
   edicion manual opaca.
+- `AnnualTaxReviewChecklist` conserva una decision de revision tributaria
+  explicita: `preparado_para_revision`, `observado` o
+  `aprobado_para_presentacion`. La generacion automatica solo puede dejar
+  `preparado_para_revision` u `observado`; la aprobacion para presentacion
+  exige `review_decision_ref`, responsable y payload coherente no sensible, sin
+  marcar formato oficial, presentacion SII ni calculo final.
 - `AnnualTaxSourceBundle` acepta como trazabilidad anual completa los 12
   `MonthlyTaxFact` normalizados aun si algunos meses no tienen F29/obligacion
   por no declaracion controlada; no se deben inventar obligaciones para cerrar
