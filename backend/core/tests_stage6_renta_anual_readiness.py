@@ -3237,6 +3237,29 @@ class Stage6RentaAnualReadinessTests(TestCase):
             self.assertTrue(result['requires_official_format_gate'])
             self.assertTrue(result['requires_explicit_submission_authorization'])
 
+    def test_materialize_annual_tax_export_file_package_rejects_nonempty_output_dir(self):
+        self._create_valid_local_matrix()
+        export = AnnualTaxExport.objects.get()
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            output_dir = Path(temp_dir) / 'annual-export-package'
+            output_dir.mkdir()
+            stale_file = output_dir / 'stale.txt'
+            stale_file.write_text('previous export residue', encoding='utf-8')
+
+            with self.assertRaisesMessage(CommandError, 'debe estar vacio'):
+                call_command(
+                    'materialize_annual_tax_export_file_package',
+                    export_id=export.pk,
+                    output_dir=str(output_dir),
+                    stdout=StringIO(),
+                )
+
+            self.assertEqual(stale_file.read_text(encoding='utf-8'), 'previous export residue')
+            self.assertFalse((output_dir / 'manifest.json').exists())
+
     def test_materialize_annual_tax_export_file_package_rejects_versioned_repo_output(self):
         self._create_valid_local_matrix()
         export = AnnualTaxExport.objects.get()

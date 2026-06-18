@@ -3127,6 +3127,13 @@ auditable. Rechaza salidas dentro del repo fuera de `local-evidence/`. Esto
 avanza de preview interno a paquete exportable local verificable, sin declarar
 formato oficial, upload SII, presentacion ni calculo final.
 
+Nota 2026-06-18: Renta Anual endurece la materializacion local de
+`AnnualTaxExport`. `write_annual_tax_export_file_package` rechaza destinos que
+no sean directorio o directorios no vacios antes de escribir archivos o
+`manifest.json`, de modo que una corrida nueva no pueda mezclarse con evidencia
+local previa. El comando conserva la frontera de paquete local verificable: no
+declara formato oficial, presentacion SII ni calculo tributario final.
+
 Nota 2026-06-17: PlataformaBase/CI ajusta Release Gate para remover el matcher
 generico `python` de `actions/setup-python` justo antes de acceptance. La suite
 mantiene tracebacks esperados de rollback/auditoria en logs y sigue fallando por
