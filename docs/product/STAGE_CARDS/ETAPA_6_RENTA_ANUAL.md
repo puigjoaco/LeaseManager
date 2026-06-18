@@ -394,7 +394,7 @@ sensibles, evidencia, conteos y hash. El checklist no decide la renta final ni
 declara formato oficial, presentacion SII o calculo fiscal autonomo; solo deja
 preparado un paquete auditable para responsable experto/oficial.
 La decision de revision queda separada en el propio checklist: `observado`
-mantiene bloqueos/warnings o decision pendiente; `preparado_para_revision`
+mantiene bloqueos/warnings o decision pendiente; `preparado`
 indica que la evidencia local esta completa para revision responsable; y
 `aprobado_para_presentacion` solo puede existir con `review_decision_ref`,
 responsable y payload trazable no sensible. El payload debe conservar
@@ -691,8 +691,8 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   incompletos, warnings o bloqueos, readiness exige revision responsable antes
   de cualquier cierre.
 - `AnnualTaxReviewChecklist.review_decision_state` distingue
-  `observado`, `preparado_para_revision` y `aprobado_para_presentacion`.
-  `preparado_para_revision` requiere checklist completo y sin observaciones,
+  `preparado`, `observado` y `aprobado_para_presentacion`.
+  `preparado` requiere checklist completo y sin observaciones,
   pero mantiene `ready_for_presentation=false`; una aprobacion para
   presentacion exige `review_decision_ref`, responsable trazable y
   `automatic_approval=false`. Estados observados, aprobaciones incompletas o
@@ -939,9 +939,9 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   lectura para preservar que la checklist proviene del motor anual y no de una
   edicion manual opaca.
 - `AnnualTaxReviewChecklist` conserva una decision de revision tributaria
-  explicita: `preparado_para_revision`, `observado` o
+  explicita: `preparado`, `observado` o
   `aprobado_para_presentacion`. La generacion automatica solo puede dejar
-  `preparado_para_revision` u `observado`; la aprobacion para presentacion
+  `preparado` u `observado`; la aprobacion para presentacion
   exige `review_decision_ref`, responsable y payload coherente no sensible, sin
   marcar formato oficial, presentacion SII ni calculo final.
 - `AnnualTaxSourceBundle` acepta como trazabilidad anual completa los 12

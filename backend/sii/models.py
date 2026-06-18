@@ -573,7 +573,7 @@ class EstadoAnnualTaxReviewChecklist(models.TextChoices):
 
 
 class EstadoAnnualTaxReviewDecision(models.TextChoices):
-    PREPARED_FOR_REVIEW = 'preparado_para_revision', 'Preparado para revision'
+    PREPARED = 'preparado', 'Preparado'
     OBSERVED = 'observado', 'Observado'
     APPROVED_FOR_PRESENTATION = 'aprobado_para_presentacion', 'Aprobado para presentacion'
 
@@ -3945,7 +3945,7 @@ class AnnualTaxReviewChecklist(OperationalSIITextNormalizationMixin, Timestamped
     review_decision_state = models.CharField(
         max_length=32,
         choices=EstadoAnnualTaxReviewDecision.choices,
-        default=EstadoAnnualTaxReviewDecision.PREPARED_FOR_REVIEW,
+        default=EstadoAnnualTaxReviewDecision.PREPARED,
     )
     review_decision_ref = models.CharField(max_length=255, blank=True)
     review_payload = models.JSONField(default=dict, blank=True)
@@ -3992,8 +3992,8 @@ class AnnualTaxReviewChecklist(OperationalSIITextNormalizationMixin, Timestamped
             and self.blockers_total == 0
             and self.warnings_total == 0
         )
-        if self.review_decision_state == EstadoAnnualTaxReviewDecision.PREPARED_FOR_REVIEW and not checklist_is_complete:
-            errors['review_decision_state'] = 'Decision preparada para revision requiere checklist completo y sin observaciones.'
+        if self.review_decision_state == EstadoAnnualTaxReviewDecision.PREPARED and not checklist_is_complete:
+            errors['review_decision_state'] = 'Decision preparada requiere checklist completo y sin observaciones.'
         if self.review_decision_state == EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION:
             if not checklist_is_complete:
                 errors['review_decision_state'] = 'Aprobacion para presentacion requiere checklist completo y sin observaciones.'

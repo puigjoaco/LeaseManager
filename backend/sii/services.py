@@ -5611,7 +5611,7 @@ def _annual_tax_review_checklist_summary(process, rule_set, source_bundle, dossi
     review_decision_state = (
         EstadoAnnualTaxReviewDecision.OBSERVED
         if blockers_total or warnings_total or completed_items_total != items_total
-        else EstadoAnnualTaxReviewDecision.PREPARED_FOR_REVIEW
+        else EstadoAnnualTaxReviewDecision.PREPARED
     )
     review_decision_ref = f'annual-tax-review-decision-{process.empresa_id}-at{process.anio_tributario}-v1'
     review_responsible_ref = dossier.responsible_ref or process.responsable_revision_ref or 'annual-tax-review-owner'
