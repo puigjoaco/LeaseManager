@@ -17,6 +17,7 @@ from contabilidad.models import (
     ObligacionTributariaMensual,
 )
 from core.reference_validation import contains_sensitive_reference
+from core.stage6_official_compatibility import summarize_stage6_official_compatibility_for_presentation
 from core.state_transition_audit_readiness import count_audit_events_without_transition_metadata
 from documentos.models import DocumentoEmitido, EstadoDocumento, TipoDocumental
 from sii.models import (
@@ -1355,6 +1356,11 @@ def _collect_annual_tax_review_checklist_issues(checklists, processes, active_fi
             if checklist.review_decision_state == EstadoAnnualTaxReviewDecision.OBSERVED:
                 counts['tax_review_checklist_observed'] += 1
             if checklist.review_decision_state == EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION:
+                official_compatibility = summarize_stage6_official_compatibility_for_presentation(
+                    anio_tributario=checklist.anio_tributario,
+                )
+                if not official_compatibility['ready_for_controlled_presentation_approval']:
+                    counts['tax_review_checklist_official_compatibility_gap'] += 1
                 if (
                     not has_text(checklist.review_decision_ref)
                     or not has_text(checklist.review_decision_evidence_ref)
@@ -2577,6 +2583,11 @@ def collect_stage6_renta_anual_readiness(
             'tax_review_checklist_approval_incoherent',
             'stage6.tax_review_checklist_approval_incoherent',
             'Aprobacion para presentacion no puede convivir con items incompletos, bloqueos, warnings ni aprobacion automatica.',
+        ),
+        (
+            'tax_review_checklist_official_compatibility_gap',
+            'stage6.tax_review_checklist_official_compatibility_gap',
+            'Aprobacion para presentacion requiere compatibilidad oficial vigente sin brechas bloqueantes para el ano tributario.',
         ),
         (
             'tax_review_checklist_official_format_boundary',

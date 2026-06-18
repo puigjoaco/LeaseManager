@@ -26,6 +26,7 @@ from contabilidad.models import (
 )
 from cobranza.models import DistribucionCobroMensual
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
+from core.stage6_official_compatibility import summarize_stage6_official_compatibility_for_presentation
 from core.stage6_f22_record_format import (
     F22_RECORD_FORMAT_SOURCE_URL,
     F22_RECORD_FORMAT_VERSION,
@@ -5815,8 +5816,35 @@ def build_annual_tax_presentation_review_bundle(
     review_payload = checklist.review_payload if isinstance(checklist.review_payload, dict) else {}
     review_decision = review_payload.get('review_decision') if isinstance(review_payload.get('review_decision'), dict) else {}
     ready_for_presentation = review_decision.get('ready_for_presentation') is True
-    if all_artifacts_verified and checklist.review_decision_state == EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION:
+    official_compatibility = summarize_stage6_official_compatibility_for_presentation(
+        anio_tributario=export.anio_tributario,
+    )
+    official_compatibility_ready = official_compatibility['ready_for_controlled_presentation_approval']
+    issues = []
+    if not official_compatibility_ready:
+        issues.append(
+            {
+                'code': 'stage6.presentation_review.official_compatibility_gap',
+                'severity': 'blocking',
+                'count': max(
+                    1,
+                    len(official_compatibility.get('issue_codes') or [])
+                    + len(official_compatibility.get('blocking_gap_keys') or []),
+                ),
+                'message': (
+                    'La revision de presentacion requiere compatibilidad oficial vigente sin brechas '
+                    'bloqueantes para el ano tributario.'
+                ),
+            }
+        )
+    if (
+        all_artifacts_verified
+        and checklist.review_decision_state == EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION
+        and official_compatibility_ready
+    ):
         classification = 'aprobado_para_presentacion_controlada'
+    elif all_artifacts_verified and checklist.review_decision_state == EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION:
+        classification = 'preparado_con_brecha_oficial'
     elif all_artifacts_verified and checklist.review_decision_state == EstadoAnnualTaxReviewDecision.PREPARED:
         classification = 'preparado_para_revision'
     else:
@@ -5843,7 +5871,7 @@ def build_annual_tax_presentation_review_bundle(
         'final_tax_calculation': False,
         'requires_official_format_gate': True,
         'requires_explicit_submission_authorization': True,
-        'requires_responsible_review': not ready_for_presentation,
+        'requires_responsible_review': not ready_for_presentation or not official_compatibility_ready,
         'ready_for_sii_submission': False,
         'leasemanager_boundary': 'controlled_review_package_only',
     }
@@ -5860,7 +5888,12 @@ def build_annual_tax_presentation_review_bundle(
         'artifact_kinds': sorted({artifact['kind'] for artifact in artifacts}),
         'artifacts_hash': _source_bundle_hash(artifacts),
         'review_decision_state': checklist.review_decision_state,
-        'ready_for_controlled_presentation_review': bool(all_artifacts_verified and ready_for_presentation),
+        'ready_for_controlled_presentation_review': bool(
+            all_artifacts_verified and ready_for_presentation and official_compatibility_ready
+        ),
+        'official_compatibility_ready': official_compatibility_ready,
+        'official_compatibility_issue_codes': official_compatibility.get('issue_codes') or [],
+        'official_compatibility_blocking_gap_keys': official_compatibility.get('blocking_gap_keys') or [],
         'ready_for_sii_submission': False,
         'official_format': False,
         'sii_submission': False,
@@ -5869,7 +5902,9 @@ def build_annual_tax_presentation_review_bundle(
     bundle = {
         'summary': summary,
         'review': review,
+        'official_compatibility': official_compatibility,
         'artifacts': artifacts,
+        'issues': issues,
         'boundary': boundary,
     }
     bundle['summary']['bundle_hash'] = _presentation_review_bundle_hash(bundle)
@@ -5959,6 +5994,9 @@ def verify_annual_tax_presentation_review_bundle(
         'artifacts_verified_total': manifest_payload['summary']['artifacts_verified_total'],
         'review_decision_state': manifest_payload['summary']['review_decision_state'],
         'ready_for_controlled_presentation_review': manifest_payload['summary']['ready_for_controlled_presentation_review'],
+        'official_compatibility_ready': manifest_payload['summary']['official_compatibility_ready'],
+        'official_compatibility_issue_codes': manifest_payload['summary']['official_compatibility_issue_codes'],
+        'official_compatibility_blocking_gap_keys': manifest_payload['summary']['official_compatibility_blocking_gap_keys'],
         'ready_for_sii_submission': False,
         'official_format': False,
         'sii_submission': False,

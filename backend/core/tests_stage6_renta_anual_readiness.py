@@ -6,6 +6,7 @@ from decimal import Decimal
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -88,6 +89,7 @@ from sii.services import (
     build_annual_tax_f22_fixed_width_export_candidate,
     build_annual_tax_presentation_review_bundle,
     build_f22_fixed_width_entries_from_artifact_matrix,
+    register_annual_tax_review_decision,
     summarize_annual_enterprise_registers,
     summarize_annual_real_estate_sections,
     summarize_annual_tax_artifact_matrices,
@@ -3649,6 +3651,96 @@ class Stage6RentaAnualReadinessTests(TestCase):
             self.assertNotIn('AAAAAAAAAAAAAAAAAAAAAAA', rendered)
             self.assertNotIn('TTTTTTTTTTTTTTTTTTTTTTT', rendered)
 
+    def test_presentation_review_bundle_allows_controlled_approval_only_when_official_compatibility_is_ready(self):
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            inputs = self._materialize_presentation_review_inputs(temp_dir)
+            export = inputs['export']
+            checklist = AnnualTaxReviewChecklist.objects.get(annual_export=export)
+            register_annual_tax_review_decision(
+                checklist,
+                review_decision_state=EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION,
+                decision_ref='annual-tax-manual-approval-at2026-controlled',
+                decision_evidence_ref='annual-tax-manual-approval-evidence-at2026-controlled',
+                responsible_ref='tax-reviewer-final-approval-controlled',
+                reason='manual_review_completed_for_controlled_bundle',
+            )
+
+            bundle = build_annual_tax_presentation_review_bundle(
+                export,
+                export_package_dir=inputs['export_package_dir'],
+                f22_candidate_dir=inputs['f22_dir'],
+                ddjj_ascii_candidate_dirs=[inputs['ddjj_ascii_dir']],
+                ddjj_zip_candidate_dirs=[inputs['ddjj_zip_dir']],
+            )
+
+            self.assertEqual(bundle['summary']['classification'], 'aprobado_para_presentacion_controlada')
+            self.assertTrue(bundle['summary']['ready_for_controlled_presentation_review'])
+            self.assertTrue(bundle['summary']['official_compatibility_ready'])
+            self.assertEqual(bundle['summary']['official_compatibility_blocking_gap_keys'], [])
+            self.assertEqual(bundle['issues'], [])
+            self.assertFalse(bundle['boundary']['ready_for_sii_submission'])
+            self.assertFalse(bundle['summary']['official_format'])
+            self.assertFalse(bundle['summary']['sii_submission'])
+            self.assertFalse(bundle['summary']['final_tax_calculation'])
+
+    def test_presentation_review_bundle_blocks_controlled_approval_when_official_compatibility_has_gap(self):
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            inputs = self._materialize_presentation_review_inputs(temp_dir)
+            export = inputs['export']
+            checklist = AnnualTaxReviewChecklist.objects.get(annual_export=export)
+            register_annual_tax_review_decision(
+                checklist,
+                review_decision_state=EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION,
+                decision_ref='annual-tax-manual-approval-at2026-controlled',
+                decision_evidence_ref='annual-tax-manual-approval-evidence-at2026-controlled',
+                responsible_ref='tax-reviewer-final-approval-controlled',
+                reason='manual_review_completed_with_official_gap_for_test',
+            )
+            compatibility_gap = {
+                'schema_version': 'stage6-official-presentation-compatibility-summary-v1',
+                'matrix_schema_version': 'stage6-official-compatibility-at2025-at2026-v1',
+                'anio_tributario': export.anio_tributario,
+                'supported_tax_years': [2025, 2026],
+                'verified_on': '2026-06-18',
+                'issue_codes': [],
+                'known_gap_keys': ['f22_record_format_2025'],
+                'blocking_gap_keys': ['f22_record_format_2025'],
+                'ready_for_controlled_presentation_approval': False,
+                'official_submission_allowed': False,
+                'public_api_general_available': False,
+                'final_tax_calculation': False,
+                'requires_responsible_review': True,
+            }
+
+            with patch(
+                'sii.services.summarize_stage6_official_compatibility_for_presentation',
+                return_value=compatibility_gap,
+            ):
+                bundle = build_annual_tax_presentation_review_bundle(
+                    export,
+                    export_package_dir=inputs['export_package_dir'],
+                    f22_candidate_dir=inputs['f22_dir'],
+                    ddjj_ascii_candidate_dirs=[inputs['ddjj_ascii_dir']],
+                    ddjj_zip_candidate_dirs=[inputs['ddjj_zip_dir']],
+                )
+
+            self.assertEqual(bundle['summary']['classification'], 'preparado_con_brecha_oficial')
+            self.assertFalse(bundle['summary']['ready_for_controlled_presentation_review'])
+            self.assertFalse(bundle['summary']['official_compatibility_ready'])
+            self.assertEqual(bundle['summary']['official_compatibility_blocking_gap_keys'], ['f22_record_format_2025'])
+            self.assertIn(
+                'stage6.presentation_review.official_compatibility_gap',
+                {issue['code'] for issue in bundle['issues']},
+            )
+            self.assertTrue(bundle['boundary']['requires_responsible_review'])
+            self.assertFalse(bundle['boundary']['ready_for_sii_submission'])
+
     def test_materialize_annual_tax_ddjj_candidate_commands_reject_nonempty_output_dirs(self):
         self._create_valid_local_matrix()
         export = AnnualTaxExport.objects.get()
@@ -4350,6 +4442,33 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage6_renta_anual'])
         self.assertIn('stage6.tax_review_checklist_invalid', issue_codes)
         self.assertIn('stage6.tax_review_checklist_approval_missing', issue_codes)
+
+    def test_tax_review_checklist_approval_with_official_compatibility_gap_is_blocking(self):
+        self._create_valid_local_matrix()
+        checklist = AnnualTaxReviewChecklist.objects.get()
+        register_annual_tax_review_decision(
+            checklist,
+            review_decision_state=EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION,
+            decision_ref='annual-tax-manual-approval-at2026-controlled',
+            decision_evidence_ref='annual-tax-manual-approval-evidence-at2026-controlled',
+            responsible_ref='tax-reviewer-final-approval-controlled',
+            reason='manual_review_completed_with_official_gap_for_readiness',
+        )
+        compatibility_gap = {
+            'ready_for_controlled_presentation_approval': False,
+            'issue_codes': [],
+            'blocking_gap_keys': ['f22_record_format_2025'],
+        }
+
+        with patch(
+            'core.stage6_renta_anual_readiness.summarize_stage6_official_compatibility_for_presentation',
+            return_value=compatibility_gap,
+        ):
+            result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.tax_review_checklist_official_compatibility_gap', issue_codes)
 
     def test_valid_local_matrix_and_non_sensitive_refs_cannot_close_readiness(self):
         self._create_valid_local_matrix()

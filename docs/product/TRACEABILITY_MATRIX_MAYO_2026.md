@@ -129,6 +129,18 @@ registros, nombres derivados de RUT ni codigos crudos de certificacion, y
 mantiene `official_format=false`, `sii_submission=false`,
 `ready_for_sii_submission=false` y `final_tax_calculation=false`.
 
+Nota 2026-06-18: Etapa 6/Renta Anual amarra ese bundle a la compatibilidad
+oficial vigente del ano tributario.
+`summarize_stage6_official_compatibility_for_presentation()` resume issue codes
+y brechas bloqueantes de la matriz oficial; el bundle solo
+puede quedar `aprobado_para_presentacion_controlada` si los artefactos estan
+verificados, el checklist fue aprobado por responsable y la compatibilidad
+oficial no conserva gaps bloqueantes. Si existe brecha, queda
+`preparado_con_brecha_oficial`, `ready_for_controlled_presentation_review=false`
+y readiness reporta `stage6.tax_review_checklist_official_compatibility_gap`.
+AT2025 queda bloqueado por `f22_record_format_2025` hasta contar con fuente
+oficial/experta vigente, sin heredar el contrato AT2026 ni abrir SII real.
+
 Nota 2026-06-18: Reporting expone el paquete de revision contable/renta por
 empresa y ano mediante
 `POST /api/v1/reporting/contabilidad/paquete-revision-empresa/` y panel
