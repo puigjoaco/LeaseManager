@@ -25,16 +25,16 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `codex/stage6-certification-readiness`. |
-| Fuente exacta | `main` en `6e632544`, despues del merge confirmado de PR #932 `codex/stage6-controlled-presentation-package`. |
-| Brecha activa | El paquete controlado anual ya existe, pero faltaba un readiness packet posterior que enumere gates externos de certificacion/presentacion SII y mantenga bloqueado el envio real. |
-| Motivo de prioridad | Para pasar de entrega controlada a revision certificable, el responsable tributario necesita saber que requisitos externos faltan o fueron referenciados: formato oficial, certificacion F22, ruta DDJJ, ambiente SII, autorizacion, visto bueno, rollback y archivo de evidencia. |
-| Worktree | `D:/Proyectos/LeaseManager-stage6-certification-readiness`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
-| Rama | `codex/stage6-certification-readiness`. |
-| Estado | Paquete en ejecucion: agregar `materialize_annual_tax_sii_certification_readiness_packet`, builder/verificador del manifest `annual-tax-sii-certification-readiness-packet`, cobertura de refs faltantes/presentes, refs sensibles y salida versionada, registrar evidencia y cerrar por PR/CI/merge. |
-| Gate esperado | Este paquete usa solo fixtures, SQLite efimero y manifests locales bajo `local-evidence`. No lee `.env`, DB real, documentos reales, correos, adjuntos, EDIG ejecutable, banco ni SII autenticado; no declara formato oficial, contabilidad final, calculo tributario final ni presentacion SII. |
+| Frente activo | `codex/company-review-materializer`. |
+| Fuente exacta | `main` en `5c147e34`, despues del merge confirmado de PR #933 `codex/stage6-certification-readiness`. |
+| Brecha activa | El paquete de revision contable/renta por empresa ya existe como builder, comando de auditoria, API y panel Reporting, pero falta materializarlo como carpeta local verificable para entregar a revision responsable sin convertirlo en contabilidad automatica. |
+| Motivo de prioridad | LeaseManager debe preparar informacion ordenada y trazable para contador/revisor/IA asistida, no decidir renta ni contabilidad final. Un materializador canonico permite entregar manifest hasheado, cobertura bancaria/leasing redactada y boundary no autonomo sin leer adjuntos reales ni abrir banco/SII. |
+| Worktree | `D:/Proyectos/LeaseManager-company-review-materializer`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `codex/company-review-materializer`. |
+| Estado | Paquete en ejecucion: agregar `materialize_company_accounting_review_package`, writer/verificador del manifest `company-accounting-review-package.json`, cobertura de paquete listo, salida no vacia, salida versionada y redaccion de manifiestos sensibles, registrar evidencia y cerrar por PR/CI/merge. |
+| Gate esperado | Este paquete usa solo fixtures, SQLite efimero y manifests redactados locales bajo `local-evidence`. No lee `.env`, DB real, documentos reales, correos, adjuntos, banco, SII autenticado, EDIG ejecutable ni integraciones; no declara contabilidad autonoma, calculo tributario final ni presentacion SII. |
 | Estado al cerrar paquete | Si `main` contiene el merge de este frente y la rama/worktree ya no existe, no reabrirlo ni repetir PR/CI/merge. Buscar el siguiente frente contable seguro desde repo limpio. |
-| Bloqueos relacionados | Carga productiva real, documentos completos, manifest real redactado/autorizado, formato/certificacion F22/DDJJ aplicable, contenido tributario final y presentacion SII siguen bloqueados por responsable tributario, autorizacion explicita y evidencia no sensible. AT2025 conserva brecha `f22_record_format_2025` hasta evidencia oficial/experta vigente. |
+| Bloqueos relacionados | Carga productiva real, documentos completos, manifest real redactado/autorizado, respaldo bancario/leasing revisado, formato/certificacion F22/DDJJ aplicable, contenido tributario final y presentacion SII siguen bloqueados por responsable tributario, autorizacion explicita y evidencia no sensible. AT2025 conserva brecha `f22_record_format_2025` hasta evidencia oficial/experta vigente. |
 | Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable, correos ni integraciones externas sin autorizacion explicita. Un paquete preparado solo habilita revision responsable; nunca contabilidad autonoma ni presentacion automatica. |
 | Siguiente accion | En rama tactica abierta: completar validaciones proporcionales, ampliar evidencia, cerrar con commit, PR, CI remoto, merge y limpieza. En `main` post-merge: no reabrir este paquete; tomar el siguiente frente seguro de contabilidad/renta. |
 

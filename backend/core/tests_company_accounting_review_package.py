@@ -4,6 +4,7 @@ from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
@@ -18,7 +19,11 @@ from contabilidad.models import (
 )
 from contabilidad.services import ensure_default_regime
 from core.annual_tax_source_manifest import payload_hash
-from core.company_accounting_review_package import build_company_accounting_review_package, canonical_company_review_ref
+from core.company_accounting_review_package import (
+    build_company_accounting_review_package,
+    canonical_company_review_ref,
+    verify_company_accounting_review_package,
+)
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Socio
 from sii.models import (
@@ -501,3 +506,146 @@ class CompanyAccountingReviewPackageTests(TestCase):
             self.assertIn(REDACTED_SENSITIVE_REFERENCE, rendered)
             self.assertIn('company_accounting_review.bank_support_company_ref_mismatch', rendered)
             self.assertIn('company_bank_support.sensitive_reference', rendered)
+
+    def test_materialize_company_accounting_review_package_command_writes_verified_package(self):
+        empresa = self._create_empresa()
+        self._prepare_complete_accounting_layers(empresa)
+        manifest = _complete_bank_manifest(empresa=empresa)
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            manifest_path = Path(temp_dir) / 'bank-support-manifest.json'
+            manifest_path.write_text(json.dumps(manifest), encoding='utf-8')
+            output_dir = Path(temp_dir) / 'company-accounting-review-package'
+            stdout = StringIO()
+
+            call_command(
+                'materialize_company_accounting_review_package',
+                empresa_id=empresa.id,
+                fiscal_year=2025,
+                bank_support_manifest=str(manifest_path),
+                output_dir=str(output_dir),
+                stdout=stdout,
+            )
+
+            result = json.loads(stdout.getvalue())
+            verification = verify_company_accounting_review_package(
+                empresa_id=empresa.id,
+                fiscal_year=2025,
+                bank_support_payload=manifest,
+                package_dir=output_dir,
+            )
+
+            self.assertTrue(result['materialized'])
+            self.assertEqual(result['package_hash'], verification['package_hash'])
+            self.assertEqual(result['classification'], 'preparado')
+            self.assertTrue(result['ready_for_productive_accounting_review'])
+            self.assertEqual(result['expected_company_ref'], canonical_company_review_ref(empresa.id))
+            self.assertEqual(result['bank_support_company_ref'], canonical_company_review_ref(empresa.id))
+            self.assertEqual(result['accounting_progress_percent'], 100)
+            self.assertEqual(result['bank_support_coverage_percent'], 100)
+            self.assertFalse(result['autonomous_accounting'])
+            self.assertFalse(result['final_tax_calculation'])
+            self.assertFalse(result['sii_submission'])
+            self.assertTrue(result['requires_responsible_review'])
+            self.assertTrue((output_dir / result['manifest_file']).is_file())
+
+            rendered = stdout.getvalue()
+            manifest_rendered = (output_dir / result['manifest_file']).read_text(encoding='utf-8')
+            self.assertNotIn(empresa.rut, rendered)
+            self.assertNotIn(empresa.rut, manifest_rendered)
+            self.assertNotIn('://', rendered)
+            self.assertNotIn('://', manifest_rendered)
+            self.assertNotIn('@', rendered)
+            self.assertNotIn('@', manifest_rendered)
+
+    def test_materialize_company_accounting_review_package_rejects_nonempty_output_dir(self):
+        empresa = self._create_empresa()
+        manifest = _complete_bank_manifest(empresa=empresa)
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            manifest_path = Path(temp_dir) / 'bank-support-manifest.json'
+            manifest_path.write_text(json.dumps(manifest), encoding='utf-8')
+            output_dir = Path(temp_dir) / 'company-accounting-review-package'
+            output_dir.mkdir()
+            stale_file = output_dir / 'stale.txt'
+            stale_file.write_text('previous company review package residue', encoding='utf-8')
+
+            with self.assertRaisesMessage(CommandError, 'debe estar vacio'):
+                call_command(
+                    'materialize_company_accounting_review_package',
+                    empresa_id=empresa.id,
+                    fiscal_year=2025,
+                    bank_support_manifest=str(manifest_path),
+                    output_dir=str(output_dir),
+                    stdout=StringIO(),
+                )
+
+            self.assertTrue(stale_file.exists())
+
+    def test_materialize_company_accounting_review_package_rejects_versioned_repo_output(self):
+        empresa = self._create_empresa()
+        manifest = _complete_bank_manifest(empresa=empresa)
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            manifest_path = Path(temp_dir) / 'bank-support-manifest.json'
+            manifest_path.write_text(json.dumps(manifest), encoding='utf-8')
+            blocked_output = Path(settings.PROJECT_ROOT) / 'docs' / 'company-accounting-review-package'
+
+            with self.assertRaisesMessage(CommandError, 'local-evidence'):
+                call_command(
+                    'materialize_company_accounting_review_package',
+                    empresa_id=empresa.id,
+                    fiscal_year=2025,
+                    bank_support_manifest=str(manifest_path),
+                    output_dir=str(blocked_output),
+                    stdout=StringIO(),
+                )
+
+            self.assertFalse(blocked_output.exists())
+
+    def test_materialize_company_accounting_review_package_redacts_sensitive_manifest_values(self):
+        empresa = self._create_empresa()
+        self._prepare_complete_accounting_layers(empresa)
+        manifest = _complete_bank_manifest(empresa=empresa)
+        manifest['company_ref'] = '76.123.456-7'
+        manifest['attachments'][0]['source_ref'] = 'https://bank.example.test/file?token=secret'
+        manifest['attachments'][1]['local_path'] = 'C:\\Users\\owner\\Downloads\\factura.pdf'
+        manifest['confirmations'][0]['password'] = 'last-six-rut-digits'
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            manifest_path = Path(temp_dir) / 'bank-support-manifest.json'
+            manifest_path.write_text(json.dumps(manifest), encoding='utf-8')
+            output_dir = Path(temp_dir) / 'company-accounting-review-package'
+            stdout = StringIO()
+
+            call_command(
+                'materialize_company_accounting_review_package',
+                empresa_id=empresa.id,
+                fiscal_year=2025,
+                bank_support_manifest=str(manifest_path),
+                output_dir=str(output_dir),
+                stdout=stdout,
+            )
+
+            result = json.loads(stdout.getvalue())
+            self.assertEqual(result['classification'], 'parcial')
+            self.assertFalse(result['ready_for_productive_accounting_review'])
+            manifest_rendered = (output_dir / result['manifest_file']).read_text(encoding='utf-8')
+            for sensitive_value in (
+                'https://bank.example.test',
+                'last-six-rut-digits',
+                '76.123.456-7',
+                'C:\\Users\\owner\\Downloads',
+                empresa.rut,
+            ):
+                self.assertNotIn(sensitive_value, stdout.getvalue())
+                self.assertNotIn(sensitive_value, manifest_rendered)
+            self.assertIn(REDACTED_SENSITIVE_REFERENCE, manifest_rendered)
