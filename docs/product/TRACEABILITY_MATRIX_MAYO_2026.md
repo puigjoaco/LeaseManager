@@ -103,6 +103,19 @@ RUT, nombres derivados del RUT ni registros crudos. El ZIP agrega registro tipo
 0 revisado y conserva `ready_for_submission=false`; sigue sin formato oficial,
 upload SII, presentacion ni calculo final.
 
+Nota 2026-06-18: Etapa 6/Renta Anual agrega bundle local de revision previa a
+presentacion con `build_annual_tax_presentation_review_bundle`,
+`write_annual_tax_presentation_review_bundle`,
+`verify_annual_tax_presentation_review_bundle` y
+`materialize_annual_tax_presentation_review_bundle`. El bundle reabre desde
+disco el paquete local `AnnualTaxExport`, candidato F22 fixed-width y
+candidatos DDJJ ASCII/ZIP, valida manifiestos canonicos, hashes, conteos,
+evidencia de revision, ausencia de entradas extra y boundary externo. La salida
+queda bajo `local-evidence/` o ruta externa controlada, no imprime RUT,
+registros, nombres derivados de RUT ni codigos crudos de certificacion, y
+mantiene `official_format=false`, `sii_submission=false`,
+`ready_for_sii_submission=false` y `final_tax_calculation=false`.
+
 Nota 2026-06-18: Etapa 6/Renta Anual separa el codigo de certificacion F22 del
 candidato local. `build_annual_tax_f22_fixed_width_export_candidate()` ahora
 requiere fuente no sensible, responsable revisor y estado de revision para los

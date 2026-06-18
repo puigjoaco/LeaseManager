@@ -86,6 +86,7 @@ from sii.services import (
     build_annual_tax_ddjj_zip_export_candidate,
     build_annual_tax_export_file_package,
     build_annual_tax_f22_fixed_width_export_candidate,
+    build_annual_tax_presentation_review_bundle,
     build_f22_fixed_width_entries_from_artifact_matrix,
     summarize_annual_enterprise_registers,
     summarize_annual_real_estate_sections,
@@ -113,6 +114,7 @@ from sii.services import (
     verify_annual_tax_ddjj_ascii_export_candidate,
     verify_annual_tax_ddjj_zip_export_candidate,
     verify_annual_tax_export_file_package,
+    verify_annual_tax_presentation_review_bundle,
     write_annual_tax_ddjj_ascii_export_candidate,
     write_annual_tax_ddjj_zip_export_candidate,
     write_annual_tax_f22_fixed_width_export_candidate,
@@ -2679,6 +2681,61 @@ class Stage6RentaAnualReadinessTests(TestCase):
             records=self._ddjj_ascii_records(ddjj_item),
         )
 
+    def _materialize_presentation_review_inputs(self, root_dir):
+        export, _mapping = self._add_reviewed_f22_fixed_width_mapping_and_resync(code='1234', value='1000')
+        process = ProcesoRentaAnual.objects.get()
+        rule_set = TaxYearRuleSet.objects.get()
+        source_bundle = AnnualTaxSourceBundle.objects.get()
+        sync_annual_tax_review_checklist(process, rule_set, source_bundle)
+        export.refresh_from_db()
+
+        export_package_dir = Path(root_dir) / 'annual-export-package'
+        write_annual_tax_export_file_package(export, export_package_dir)
+
+        f22_dir = Path(root_dir) / 'f22-fixed-width-candidate'
+        f22_candidate = build_annual_tax_f22_fixed_width_export_candidate(
+            export,
+            rut_number='11111111',
+            rut_dv='1',
+            company_code='QA',
+            client_number='123456',
+            entries=build_f22_fixed_width_entries_from_artifact_matrix(export),
+            **self._f22_local_certification_kwargs(),
+        )
+        write_annual_tax_f22_fixed_width_export_candidate(f22_candidate, f22_dir)
+
+        ddjj_item = AnnualTaxArtifactMatrixItem.objects.filter(target_kind='DDJJ', target_code='DDJJ-1887').first()
+        self.assertIsNotNone(ddjj_item)
+        records = self._ddjj_ascii_records(ddjj_item)
+        ddjj_ascii_candidate = build_annual_tax_ddjj_ascii_export_candidate(
+            export,
+            form_code='1887',
+            rut_number='97030000',
+            records=records,
+        )
+        ddjj_ascii_dir = Path(root_dir) / 'ddjj-ascii-candidate'
+        write_annual_tax_ddjj_ascii_export_candidate(ddjj_ascii_candidate, ddjj_ascii_dir)
+
+        ddjj_zip_candidate = build_annual_tax_ddjj_zip_export_candidate(
+            ddjj_ascii_candidate,
+            transfer_control_record={
+                'record': '0' + 'T' * 23,
+                'review_state': 'approved_for_candidate',
+                'transfer_source_ref': 'sii-ddjj-at2026-transfer-control-reviewed',
+                'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+            },
+        )
+        ddjj_zip_dir = Path(root_dir) / 'ddjj-zip-candidate'
+        write_annual_tax_ddjj_zip_export_candidate(ddjj_zip_candidate, ddjj_zip_dir)
+
+        return {
+            'export': export,
+            'export_package_dir': export_package_dir,
+            'f22_dir': f22_dir,
+            'ddjj_ascii_dir': ddjj_ascii_dir,
+            'ddjj_zip_dir': ddjj_zip_dir,
+        }
+
     def test_tax_export_writes_verifiable_ddjj_zip_candidate_from_ascii_candidate(self):
         ascii_candidate = self._build_ddjj_ascii_candidate_for_zip()
         zip_candidate = build_annual_tax_ddjj_zip_export_candidate(
@@ -3685,6 +3742,127 @@ class Stage6RentaAnualReadinessTests(TestCase):
                     **extra_options,
                 )
             self.assertFalse(blocked_output.exists())
+
+    def test_materialize_annual_tax_presentation_review_bundle_command_writes_verified_bundle(self):
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            inputs = self._materialize_presentation_review_inputs(temp_dir)
+            export = inputs['export']
+            output_dir = Path(temp_dir) / 'presentation-review-bundle'
+            stdout = StringIO()
+
+            call_command(
+                'materialize_annual_tax_presentation_review_bundle',
+                export_id=export.pk,
+                export_package_dir=str(inputs['export_package_dir']),
+                f22_candidate_dir=str(inputs['f22_dir']),
+                ddjj_ascii_candidate_dir=[str(inputs['ddjj_ascii_dir'])],
+                ddjj_zip_candidate_dir=[str(inputs['ddjj_zip_dir'])],
+                output_dir=str(output_dir),
+                stdout=stdout,
+            )
+
+            result = json.loads(stdout.getvalue())
+            verification = verify_annual_tax_presentation_review_bundle(
+                export,
+                output_dir,
+                export_package_dir=inputs['export_package_dir'],
+                f22_candidate_dir=inputs['f22_dir'],
+                ddjj_ascii_candidate_dirs=[inputs['ddjj_ascii_dir']],
+                ddjj_zip_candidate_dirs=[inputs['ddjj_zip_dir']],
+            )
+            bundle = build_annual_tax_presentation_review_bundle(
+                export,
+                export_package_dir=inputs['export_package_dir'],
+                f22_candidate_dir=inputs['f22_dir'],
+                ddjj_ascii_candidate_dirs=[inputs['ddjj_ascii_dir']],
+                ddjj_zip_candidate_dirs=[inputs['ddjj_zip_dir']],
+            )
+
+            self.assertTrue(result['materialized'])
+            self.assertEqual(result['annual_tax_export_id'], export.pk)
+            self.assertEqual(result['bundle_version'], 'annual-tax-presentation-review-bundle-v1')
+            self.assertEqual(result['bundle_hash'], verification['bundle_hash'])
+            self.assertEqual(result['bundle_hash'], bundle['summary']['bundle_hash'])
+            self.assertEqual(result['classification'], 'preparado_para_revision')
+            self.assertEqual(result['artifacts_total'], 4)
+            self.assertEqual(result['artifacts_verified_total'], 4)
+            self.assertEqual(
+                result['artifact_kinds'],
+                [
+                    'annual_tax_export_file_package',
+                    'ddjj_ascii_candidate',
+                    'ddjj_zip_candidate',
+                    'f22_fixed_width_candidate',
+                ],
+            )
+            self.assertEqual(result['review_decision_state'], 'preparado')
+            self.assertFalse(result['ready_for_controlled_presentation_review'])
+            self.assertFalse(result['ready_for_sii_submission'])
+            self.assertFalse(result['official_format'])
+            self.assertFalse(result['sii_submission'])
+            self.assertFalse(result['final_tax_calculation'])
+            self.assertTrue(result['requires_official_format_gate'])
+            self.assertTrue(result['requires_explicit_submission_authorization'])
+            self.assertTrue((output_dir / result['manifest_file']).is_file())
+
+            rendered = stdout.getvalue()
+            bundle_rendered = (output_dir / result['manifest_file']).read_text(encoding='utf-8')
+            for sensitive_value in (
+                '97030000',
+                '97030000.887',
+                '11111111',
+                'QA',
+                '123456',
+                'AAAAAAAAAAAAAAAAAAAAAAA',
+                'BBBBBBBBBBBBBBBBBBBBBBB',
+                'CCCCCCCCCCCCCCCCCCCCCCC',
+                'TTTTTTTTTTTTTTTTTTTTTTT',
+            ):
+                self.assertNotIn(sensitive_value, rendered)
+                self.assertNotIn(sensitive_value, bundle_rendered)
+
+    def test_materialize_annual_tax_presentation_review_bundle_rejects_nonempty_output_dir(self):
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            inputs = self._materialize_presentation_review_inputs(temp_dir)
+            output_dir = Path(temp_dir) / 'presentation-review-bundle'
+            output_dir.mkdir()
+            stale_file = output_dir / 'stale.txt'
+            stale_file.write_text('previous presentation review residue', encoding='utf-8')
+
+            with self.assertRaisesMessage(CommandError, 'debe estar vacio'):
+                call_command(
+                    'materialize_annual_tax_presentation_review_bundle',
+                    export_id=inputs['export'].pk,
+                    export_package_dir=str(inputs['export_package_dir']),
+                    f22_candidate_dir=str(inputs['f22_dir']),
+                    ddjj_ascii_candidate_dir=[str(inputs['ddjj_ascii_dir'])],
+                    ddjj_zip_candidate_dir=[str(inputs['ddjj_zip_dir'])],
+                    output_dir=str(output_dir),
+                    stdout=StringIO(),
+                )
+
+            self.assertEqual(stale_file.read_text(encoding='utf-8'), 'previous presentation review residue')
+            self.assertFalse((output_dir / 'annual-tax-presentation-review-bundle.json').exists())
+
+    def test_materialize_annual_tax_presentation_review_bundle_rejects_versioned_repo_output(self):
+        self._create_valid_local_matrix()
+        export = AnnualTaxExport.objects.get()
+        blocked_output = Path(settings.PROJECT_ROOT) / 'docs' / 'stage6-presentation-review-bundle'
+
+        with self.assertRaisesMessage(CommandError, 'local-evidence'):
+            call_command(
+                'materialize_annual_tax_presentation_review_bundle',
+                export_id=export.pk,
+                output_dir=str(blocked_output),
+                stdout=StringIO(),
+            )
+        self.assertFalse(blocked_output.exists())
 
     def test_tax_export_missing_artifact_contracts_is_blocking(self):
         self._create_valid_local_matrix()

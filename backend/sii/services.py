@@ -130,6 +130,7 @@ ANNUAL_TAX_EXPORT_FILE_PACKAGE_MANIFEST_VERSION = 'annual-tax-export-file-packag
 ANNUAL_TAX_F22_FIXED_WIDTH_CANDIDATE_VERSION = 'annual-tax-f22-fixed-width-candidate-v1'
 ANNUAL_TAX_DDJJ_ASCII_CANDIDATE_VERSION = 'annual-tax-ddjj-ascii-candidate-v1'
 ANNUAL_TAX_DDJJ_ZIP_CANDIDATE_VERSION = 'annual-tax-ddjj-zip-candidate-v1'
+ANNUAL_TAX_PRESENTATION_REVIEW_BUNDLE_VERSION = 'annual-tax-presentation-review-bundle-v1'
 F22_FIXED_WIDTH_ENTRY_REVIEW_STATES = {'approved_for_candidate', 'aprobado_para_candidato'}
 F22_CERTIFICATION_CODE_REVIEW_STATES = {
     'synthetic_for_local_candidate',
@@ -5431,6 +5432,537 @@ def verify_annual_tax_export_file_package(export, package_dir):
         'sii_submission': False,
         'final_tax_calculation': False,
         'ready_for_responsible_review': True,
+    }
+
+
+def _read_canonical_annual_tax_manifest(target_dir, manifest_name, label):
+    manifest_path = Path(target_dir) / manifest_name
+    if not manifest_path.exists() or not manifest_path.is_file():
+        raise ValueError(f'{label} requiere {manifest_name}.')
+    manifest_bytes = manifest_path.read_bytes()
+    try:
+        manifest_payload = json.loads(manifest_bytes.decode('utf-8'))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError(f'{label} no contiene JSON canonico valido.') from error
+    if not isinstance(manifest_payload, dict):
+        raise ValueError(f'{label} debe contener un objeto JSON.')
+    if manifest_bytes != _canonical_json_bytes(manifest_payload):
+        raise ValueError(f'{label} no esta serializado como JSON canonico.')
+    return manifest_payload
+
+
+def _assert_candidate_summary_boundary(summary, export, *, candidate_version, label):
+    if not isinstance(summary, dict):
+        raise ValueError(f'{label} requiere summary.')
+    if summary.get('candidate_version') != candidate_version:
+        raise ValueError(f'{label} tiene version de candidato inesperada.')
+    for key, expected in (
+        ('annual_tax_export_id', export.id),
+        ('empresa_id', export.empresa_id),
+        ('proceso_renta_anual_id', export.proceso_renta_anual_id),
+        ('anio_tributario', export.anio_tributario),
+        ('anio_comercial', export.anio_comercial),
+    ):
+        try:
+            matches = int(summary.get(key)) == int(expected)
+        except (TypeError, ValueError):
+            matches = False
+        if not matches:
+            raise ValueError(f'{label} no corresponde al AnnualTaxExport solicitado.')
+    if (
+        summary.get('official_format') not in (False, None)
+        or summary.get('sii_submission') not in (False, None)
+        or summary.get('final_tax_calculation') not in (False, None)
+    ):
+        raise ValueError(f'{label} no puede declarar formato oficial, presentacion SII ni calculo final.')
+    if summary.get('requires_explicit_submission_authorization') is not True:
+        raise ValueError(f'{label} debe conservar autorizacion explicita de presentacion.')
+
+
+def _materialized_candidate_path_result(target_dir, file_name, *, manifest_name, label):
+    file_name = str(file_name or '')
+    file_path = Path(target_dir) / file_name
+    if Path(file_name).name != file_name or Path(file_name).is_absolute():
+        raise ValueError(f'{label} contiene nombre de archivo no permitido.')
+    allowed_names = {file_name, manifest_name}
+    actual_names = {path.name for path in Path(target_dir).iterdir() if path.is_file()}
+    invalid_entries = [path.name for path in Path(target_dir).iterdir() if not path.is_file()]
+    if invalid_entries or actual_names != allowed_names:
+        raise ValueError(f'{label} contiene entradas no declaradas.')
+    if not file_path.exists() or not file_path.is_file():
+        raise ValueError(f'{label} requiere archivo materializado.')
+    return file_path
+
+
+def _verify_materialized_f22_candidate_from_manifest(export, candidate_dir):
+    target_dir = Path(candidate_dir)
+    if not target_dir.exists() or not target_dir.is_dir():
+        raise ValueError('El directorio del candidato F22 no existe o no es un directorio.')
+    manifest_payload = _read_canonical_annual_tax_manifest(
+        target_dir,
+        'f22-fixed-width-candidate-manifest.json',
+        'Manifiesto F22 fixed-width',
+    )
+    summary = manifest_payload.get('summary')
+    _assert_candidate_summary_boundary(
+        summary,
+        export,
+        candidate_version=ANNUAL_TAX_F22_FIXED_WIDTH_CANDIDATE_VERSION,
+        label='Candidato F22 fixed-width',
+    )
+    if summary.get('ready_for_certification_submission') not in (False, None):
+        raise ValueError('El candidato F22 fixed-width local no puede declararse listo para certificacion o presentacion SII.')
+    file_path = _materialized_candidate_path_result(
+        target_dir,
+        summary.get('file_name'),
+        manifest_name='f22-fixed-width-candidate-manifest.json',
+        label='Candidato F22 fixed-width',
+    )
+    content_bytes = file_path.read_bytes()
+    try:
+        content = content_bytes.decode('ascii')
+    except UnicodeDecodeError as error:
+        raise ValueError('El archivo F22 fixed-width debe estar codificado en ascii.') from error
+    if hashlib.sha256(content_bytes).hexdigest() != summary.get('content_hash'):
+        raise ValueError('El archivo F22 fixed-width no coincide con el hash del manifiesto.')
+    if len(content_bytes) != int(summary.get('content_size_bytes') or 0):
+        raise ValueError('El archivo F22 fixed-width no coincide con el tamano del manifiesto.')
+    records = content.splitlines()
+    if len(records) != int(summary.get('records_total') or 0):
+        raise ValueError('El archivo F22 fixed-width no coincide con records_total.')
+    if len(records) != int(summary.get('type0_records_total') or 0) + int(summary.get('type1_records_total') or 0):
+        raise ValueError('El resumen F22 fixed-width no coincide con los tipos de registro.')
+    expected_line_hashes = summary.get('line_hashes')
+    actual_line_hashes = [hashlib.sha256(record.encode('ascii')).hexdigest() for record in records]
+    if expected_line_hashes != actual_line_hashes:
+        raise ValueError('El archivo F22 fixed-width no coincide con line_hashes.')
+    for record in records:
+        issues = validate_f22_fixed_width_record(record)
+        if issues:
+            raise ValueError(f'El archivo F22 fixed-width contiene registro invalido: {"; ".join(issues)}')
+    evidence_entries = summary.get('f22_entry_review_evidence')
+    if not isinstance(evidence_entries, list) or len(evidence_entries) != int(summary.get('f22_codes_total') or 0):
+        raise ValueError('El candidato F22 fixed-width requiere evidencia de revision por codigo.')
+    if hashlib.sha256(_canonical_json_bytes(evidence_entries)).hexdigest() != summary.get('f22_entry_review_evidence_hash'):
+        raise ValueError('La evidencia de revision F22 fixed-width no coincide con su hash.')
+    certification_evidence = summary.get('certification_code_evidence')
+    if not isinstance(certification_evidence, dict):
+        raise ValueError('El candidato F22 fixed-width requiere evidencia de codigo de certificacion.')
+    if 'company_code' in certification_evidence or 'client_number' in certification_evidence:
+        raise ValueError('La evidencia de codigo de certificacion F22 no puede persistir valores crudos.')
+    if hashlib.sha256(_canonical_json_bytes(certification_evidence)).hexdigest() != summary.get('certification_code_evidence_hash'):
+        raise ValueError('La evidencia de codigo de certificacion F22 no coincide con su hash.')
+    return {
+        'kind': 'f22_fixed_width_candidate',
+        'verified': True,
+        'candidate_version': summary.get('candidate_version'),
+        'record_format_version': summary.get('record_format_version'),
+        'records_total': len(records),
+        'f22_codes_total': int(summary.get('f22_codes_total') or 0),
+        'content_hash': summary.get('content_hash'),
+        'file_name_hash': hashlib.sha256(str(summary.get('file_name') or '').encode('utf-8')).hexdigest(),
+        'certification_code_review_state': summary.get('certification_code_review_state'),
+        'certification_code_authorized_by_sii': bool(summary.get('certification_code_authorized_by_sii')),
+        'official_format': False,
+        'sii_submission': False,
+        'final_tax_calculation': False,
+        'ready_for_responsible_review': True,
+        'ready_for_certification_submission': False,
+    }
+
+
+def _verify_materialized_ddjj_ascii_candidate_from_manifest(export, candidate_dir):
+    target_dir = Path(candidate_dir)
+    if not target_dir.exists() or not target_dir.is_dir():
+        raise ValueError('El directorio del candidato DDJJ ASCII no existe o no es un directorio.')
+    manifest_payload = _read_canonical_annual_tax_manifest(
+        target_dir,
+        'ddjj-ascii-candidate-manifest.json',
+        'Manifiesto DDJJ ASCII',
+    )
+    summary = manifest_payload.get('summary')
+    _assert_candidate_summary_boundary(
+        summary,
+        export,
+        candidate_version=ANNUAL_TAX_DDJJ_ASCII_CANDIDATE_VERSION,
+        label='Candidato DDJJ ASCII',
+    )
+    file_path = _materialized_candidate_path_result(
+        target_dir,
+        summary.get('file_name'),
+        manifest_name='ddjj-ascii-candidate-manifest.json',
+        label='Candidato DDJJ ASCII',
+    )
+    content_bytes = file_path.read_bytes()
+    try:
+        content = content_bytes.decode('ascii')
+    except UnicodeDecodeError as error:
+        raise ValueError('El archivo DDJJ ASCII debe estar codificado en ascii.') from error
+    if hashlib.sha256(content_bytes).hexdigest() != summary.get('content_hash'):
+        raise ValueError('El archivo DDJJ ASCII no coincide con el hash del manifiesto.')
+    if len(content_bytes) != int(summary.get('content_size_bytes') or 0):
+        raise ValueError('El archivo DDJJ ASCII no coincide con el tamano del manifiesto.')
+    records = content.splitlines()
+    record_length = int(summary.get('record_length') or 0)
+    if len(records) != int(summary.get('records_total') or 0):
+        raise ValueError('El archivo DDJJ ASCII no coincide con records_total.')
+    record_types = [record[0] for record in records if record]
+    expected_counts = {
+        '1': record_types.count('1'),
+        '2': record_types.count('2'),
+        '3': record_types.count('3'),
+    }
+    if summary.get('record_type_counts') != expected_counts:
+        raise ValueError('El resumen DDJJ ASCII no coincide con los tipos de registro.')
+    for record in records:
+        try:
+            encoded = record.encode('ascii')
+        except UnicodeEncodeError as error:
+            raise ValueError('El archivo DDJJ ASCII contiene registro no ASCII.') from error
+        if len(encoded) != record_length:
+            raise ValueError('El archivo DDJJ ASCII contiene registro con largo invalido.')
+        if not record or record[0] not in {'1', '2', '3'}:
+            raise ValueError('El archivo DDJJ ASCII contiene tipo de registro invalido.')
+    if summary.get('line_hashes') != [hashlib.sha256(record.encode('ascii')).hexdigest() for record in records]:
+        raise ValueError('El archivo DDJJ ASCII no coincide con line_hashes.')
+    evidence_entries = summary.get('ddjj_record_review_evidence')
+    if not isinstance(evidence_entries, list) or len(evidence_entries) != len(records):
+        raise ValueError('El candidato DDJJ ASCII requiere evidencia de revision por registro.')
+    if hashlib.sha256(_canonical_json_bytes(evidence_entries)).hexdigest() != summary.get('ddjj_record_review_evidence_hash'):
+        raise ValueError('La evidencia DDJJ ASCII no coincide con su hash.')
+    return {
+        'kind': 'ddjj_ascii_candidate',
+        'verified': True,
+        'candidate_version': summary.get('candidate_version'),
+        'record_format_version': summary.get('record_format_version'),
+        'form_code': summary.get('form_code'),
+        'records_total': len(records),
+        'record_length': record_length,
+        'record_type_counts': summary.get('record_type_counts'),
+        'content_hash': summary.get('content_hash'),
+        'file_name_hash': hashlib.sha256(str(summary.get('file_name') or '').encode('utf-8')).hexdigest(),
+        'official_format': False,
+        'sii_submission': False,
+        'final_tax_calculation': False,
+        'ready_for_responsible_review': True,
+    }
+
+
+def _verify_materialized_ddjj_zip_candidate_from_manifest(export, candidate_dir):
+    target_dir = Path(candidate_dir)
+    if not target_dir.exists() or not target_dir.is_dir():
+        raise ValueError('El directorio del candidato ZIP DDJJ no existe o no es un directorio.')
+    manifest_payload = _read_canonical_annual_tax_manifest(
+        target_dir,
+        'ddjj-zip-candidate-manifest.json',
+        'Manifiesto ZIP DDJJ',
+    )
+    summary = manifest_payload.get('summary')
+    _assert_candidate_summary_boundary(
+        summary,
+        export,
+        candidate_version=ANNUAL_TAX_DDJJ_ZIP_CANDIDATE_VERSION,
+        label='Candidato ZIP DDJJ',
+    )
+    if summary.get('ready_for_submission') not in (False, None):
+        raise ValueError('El ZIP DDJJ local no puede declararse listo para presentacion SII.')
+    zip_path = _materialized_candidate_path_result(
+        target_dir,
+        summary.get('zip_file_name'),
+        manifest_name='ddjj-zip-candidate-manifest.json',
+        label='Candidato ZIP DDJJ',
+    )
+    zip_bytes = zip_path.read_bytes()
+    if hashlib.sha256(zip_bytes).hexdigest() != summary.get('zip_file_hash'):
+        raise ValueError('El ZIP DDJJ no coincide con el hash del manifiesto.')
+    if len(zip_bytes) != int(summary.get('zip_file_size_bytes') or 0):
+        raise ValueError('El ZIP DDJJ no coincide con el tamano del manifiesto.')
+    zip_entry_name = str(summary.get('zip_entry_name') or '')
+    try:
+        with zipfile.ZipFile(BytesIO(zip_bytes), mode='r') as archive:
+            if archive.namelist() != [zip_entry_name]:
+                raise ValueError('El ZIP DDJJ debe contener exactamente el archivo ASCII declarado.')
+            content_bytes = archive.read(zip_entry_name)
+    except zipfile.BadZipFile as error:
+        raise ValueError('El archivo ZIP DDJJ no es un ZIP valido.') from error
+    try:
+        content = content_bytes.decode('ascii')
+    except UnicodeDecodeError as error:
+        raise ValueError('El contenido ZIP DDJJ debe estar codificado en ascii.') from error
+    if hashlib.sha256(content_bytes).hexdigest() != summary.get('content_hash'):
+        raise ValueError('El contenido ZIP DDJJ no coincide con el hash del manifiesto.')
+    if len(content_bytes) != int(summary.get('content_size_bytes') or 0):
+        raise ValueError('El contenido ZIP DDJJ no coincide con el tamano del manifiesto.')
+    records = content.splitlines()
+    record_length = int(summary.get('record_length') or 0)
+    if len(records) != int(summary.get('records_total') or 0):
+        raise ValueError('El contenido ZIP DDJJ no coincide con records_total.')
+    record_types = [record[0] for record in records if record]
+    expected_counts = {
+        '0': record_types.count('0'),
+        '1': record_types.count('1'),
+        '2': record_types.count('2'),
+        '3': record_types.count('3'),
+    }
+    if summary.get('record_type_counts') != expected_counts:
+        raise ValueError('El resumen ZIP DDJJ no coincide con los tipos de registro.')
+    for record in records:
+        try:
+            encoded = record.encode('ascii')
+        except UnicodeEncodeError as error:
+            raise ValueError('El ZIP DDJJ contiene registro no ASCII.') from error
+        if len(encoded) != record_length:
+            raise ValueError('El ZIP DDJJ contiene registro con largo invalido.')
+        if not record or record[0] not in {'0', '1', '2', '3'}:
+            raise ValueError('El ZIP DDJJ contiene tipo de registro invalido.')
+    if summary.get('line_hashes') != [hashlib.sha256(record.encode('ascii')).hexdigest() for record in records]:
+        raise ValueError('El ZIP DDJJ no coincide con line_hashes.')
+    evidence = summary.get('transfer_control_record_evidence')
+    if not isinstance(evidence, dict) or evidence.get('record_type') != '0':
+        raise ValueError('El ZIP DDJJ requiere evidencia del registro de control tipo 0.')
+    if hashlib.sha256(_canonical_json_bytes(evidence)).hexdigest() != summary.get('transfer_control_record_evidence_hash'):
+        raise ValueError('La evidencia ZIP DDJJ no coincide con su hash.')
+    return {
+        'kind': 'ddjj_zip_candidate',
+        'verified': True,
+        'candidate_version': summary.get('candidate_version'),
+        'source_candidate_version': summary.get('source_candidate_version'),
+        'record_format_version': summary.get('record_format_version'),
+        'form_code': summary.get('form_code'),
+        'records_total': len(records),
+        'record_length': record_length,
+        'record_type_counts': summary.get('record_type_counts'),
+        'content_hash': summary.get('content_hash'),
+        'zip_file_hash': summary.get('zip_file_hash'),
+        'zip_file_name_hash': hashlib.sha256(str(summary.get('zip_file_name') or '').encode('utf-8')).hexdigest(),
+        'official_format': False,
+        'sii_submission': False,
+        'final_tax_calculation': False,
+        'ready_for_responsible_review': True,
+        'ready_for_submission': False,
+    }
+
+
+def _presentation_review_bundle_hash(bundle_payload):
+    payload = dict(bundle_payload)
+    summary = dict(payload.get('summary') or {})
+    summary.pop('bundle_hash', None)
+    payload['summary'] = summary
+    return _source_bundle_hash(payload)
+
+
+def build_annual_tax_presentation_review_bundle(
+    export,
+    *,
+    export_package_dir=None,
+    f22_candidate_dir=None,
+    ddjj_ascii_candidate_dirs=None,
+    ddjj_zip_candidate_dirs=None,
+):
+    if export.estado != EstadoAnnualTaxExport.PREPARED:
+        raise ValueError('AnnualTaxExport debe estar preparado antes de construir bundle de revision.')
+    try:
+        export.full_clean()
+    except ValidationError as error:
+        reason = _first_validation_error(error)
+        raise ValueError(f'AnnualTaxExport no cumple validacion de dominio: {reason}') from error
+    try:
+        checklist = AnnualTaxReviewChecklist.objects.select_related(
+            'empresa',
+            'proceso_renta_anual',
+            'annual_export',
+            'dossier',
+            'source_bundle',
+            'rule_set',
+            'artifact_matrix',
+        ).get(annual_export=export, estado=EstadoAnnualTaxReviewChecklist.PREPARED)
+    except AnnualTaxReviewChecklist.DoesNotExist as error:
+        raise ValueError('AnnualTaxExport requiere AnnualTaxReviewChecklist preparado.') from error
+    try:
+        checklist.full_clean()
+    except ValidationError as error:
+        reason = _first_validation_error(error)
+        raise ValueError(f'AnnualTaxReviewChecklist no cumple validacion de dominio: {reason}') from error
+
+    artifacts = []
+    if export_package_dir:
+        verification = verify_annual_tax_export_file_package(export, export_package_dir)
+        artifacts.append(
+            {
+                'kind': 'annual_tax_export_file_package',
+                'verified': True,
+                'package_version': verification['package_version'],
+                'files_total': verification['files_total'],
+                'package_hash': verification['package_hash'],
+                'hash_export': verification['hash_export'],
+                'official_format': False,
+                'sii_submission': False,
+                'final_tax_calculation': False,
+                'ready_for_responsible_review': True,
+            }
+        )
+    if f22_candidate_dir:
+        artifacts.append(_verify_materialized_f22_candidate_from_manifest(export, f22_candidate_dir))
+    for candidate_dir in ddjj_ascii_candidate_dirs or ():
+        artifacts.append(_verify_materialized_ddjj_ascii_candidate_from_manifest(export, candidate_dir))
+    for candidate_dir in ddjj_zip_candidate_dirs or ():
+        artifacts.append(_verify_materialized_ddjj_zip_candidate_from_manifest(export, candidate_dir))
+    if not artifacts:
+        raise ValueError('Bundle de revision requiere al menos un paquete o candidato materializado.')
+
+    artifacts_verified_total = sum(1 for artifact in artifacts if artifact.get('verified') is True)
+    all_artifacts_verified = artifacts_verified_total == len(artifacts)
+    review_payload = checklist.review_payload if isinstance(checklist.review_payload, dict) else {}
+    review_decision = review_payload.get('review_decision') if isinstance(review_payload.get('review_decision'), dict) else {}
+    ready_for_presentation = review_decision.get('ready_for_presentation') is True
+    if all_artifacts_verified and checklist.review_decision_state == EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION:
+        classification = 'aprobado_para_presentacion_controlada'
+    elif all_artifacts_verified and checklist.review_decision_state == EstadoAnnualTaxReviewDecision.PREPARED:
+        classification = 'preparado_para_revision'
+    else:
+        classification = 'observado'
+    review = {
+        'annual_tax_review_checklist_id': checklist.id,
+        'hash_checklist': checklist.hash_checklist,
+        'review_decision_state': checklist.review_decision_state,
+        'review_decision_ref': checklist.review_decision_ref,
+        'review_decision_evidence_ref': checklist.review_decision_evidence_ref,
+        'responsible_ref': checklist.responsible_ref,
+        'ready_for_presentation': ready_for_presentation,
+        'automatic_approval': review_decision.get('automatic_approval') is True,
+        'approval_required_for_presentation': review_decision.get('approval_required_for_presentation') is not False,
+        'items_total': checklist.items_total,
+        'completed_items_total': checklist.completed_items_total,
+        'blockers_total': checklist.blockers_total,
+        'warnings_total': checklist.warnings_total,
+    }
+    boundary = {
+        'official_format': False,
+        'sii_submission': False,
+        'sii_submission_attempted': False,
+        'final_tax_calculation': False,
+        'requires_official_format_gate': True,
+        'requires_explicit_submission_authorization': True,
+        'requires_responsible_review': not ready_for_presentation,
+        'ready_for_sii_submission': False,
+        'leasemanager_boundary': 'controlled_review_package_only',
+    }
+    summary = {
+        'bundle_version': ANNUAL_TAX_PRESENTATION_REVIEW_BUNDLE_VERSION,
+        'annual_tax_export_id': export.id,
+        'empresa_id': export.empresa_id,
+        'proceso_renta_anual_id': export.proceso_renta_anual_id,
+        'anio_tributario': export.anio_tributario,
+        'anio_comercial': export.anio_comercial,
+        'classification': classification,
+        'artifacts_total': len(artifacts),
+        'artifacts_verified_total': artifacts_verified_total,
+        'artifact_kinds': sorted({artifact['kind'] for artifact in artifacts}),
+        'artifacts_hash': _source_bundle_hash(artifacts),
+        'review_decision_state': checklist.review_decision_state,
+        'ready_for_controlled_presentation_review': bool(all_artifacts_verified and ready_for_presentation),
+        'ready_for_sii_submission': False,
+        'official_format': False,
+        'sii_submission': False,
+        'final_tax_calculation': False,
+    }
+    bundle = {
+        'summary': summary,
+        'review': review,
+        'artifacts': artifacts,
+        'boundary': boundary,
+    }
+    bundle['summary']['bundle_hash'] = _presentation_review_bundle_hash(bundle)
+    return bundle
+
+
+def write_annual_tax_presentation_review_bundle(
+    export,
+    output_dir,
+    *,
+    export_package_dir=None,
+    f22_candidate_dir=None,
+    ddjj_ascii_candidate_dirs=None,
+    ddjj_zip_candidate_dirs=None,
+):
+    bundle = build_annual_tax_presentation_review_bundle(
+        export,
+        export_package_dir=export_package_dir,
+        f22_candidate_dir=f22_candidate_dir,
+        ddjj_ascii_candidate_dirs=ddjj_ascii_candidate_dirs,
+        ddjj_zip_candidate_dirs=ddjj_zip_candidate_dirs,
+    )
+    target_dir = _prepare_clean_annual_tax_output_dir(
+        output_dir,
+        'El destino del bundle de revision anual debe ser un directorio.',
+        'El directorio destino del bundle de revision anual debe estar vacio antes de materializar la revision.',
+    )
+    manifest_path = target_dir / 'annual-tax-presentation-review-bundle.json'
+    manifest_path.write_text(
+        json.dumps(bundle, sort_keys=True, separators=(',', ':'), ensure_ascii=True, default=str),
+        encoding='utf-8',
+    )
+    return {
+        **bundle,
+        'output_dir': str(target_dir),
+        'manifest_file': str(manifest_path),
+    }
+
+
+def verify_annual_tax_presentation_review_bundle(
+    export,
+    package_dir,
+    *,
+    export_package_dir=None,
+    f22_candidate_dir=None,
+    ddjj_ascii_candidate_dirs=None,
+    ddjj_zip_candidate_dirs=None,
+):
+    expected = build_annual_tax_presentation_review_bundle(
+        export,
+        export_package_dir=export_package_dir,
+        f22_candidate_dir=f22_candidate_dir,
+        ddjj_ascii_candidate_dirs=ddjj_ascii_candidate_dirs,
+        ddjj_zip_candidate_dirs=ddjj_zip_candidate_dirs,
+    )
+    target_dir = Path(package_dir)
+    if not target_dir.exists() or not target_dir.is_dir():
+        raise ValueError('El directorio del bundle de revision no existe o no es un directorio.')
+    entries = list(target_dir.iterdir())
+    if {entry.name for entry in entries if entry.is_file()} != {'annual-tax-presentation-review-bundle.json'}:
+        raise ValueError('El bundle de revision contiene archivos no declarados.')
+    if any(not entry.is_file() for entry in entries):
+        raise ValueError('El bundle de revision contiene entradas no permitidas.')
+    manifest_payload = _read_canonical_annual_tax_manifest(
+        target_dir,
+        'annual-tax-presentation-review-bundle.json',
+        'Bundle de revision anual',
+    )
+    if manifest_payload != expected:
+        raise ValueError('El bundle de revision anual no coincide con el estado esperado.')
+    if manifest_payload['summary'].get('bundle_hash') != _presentation_review_bundle_hash(manifest_payload):
+        raise ValueError('El bundle de revision anual no coincide con su hash.')
+    boundary = manifest_payload.get('boundary') if isinstance(manifest_payload, dict) else {}
+    if (
+        boundary.get('official_format') not in (False, None)
+        or boundary.get('sii_submission') not in (False, None)
+        or boundary.get('final_tax_calculation') not in (False, None)
+        or boundary.get('ready_for_sii_submission') not in (False, None)
+    ):
+        raise ValueError('El bundle de revision no puede declarar formato oficial, presentacion SII ni calculo final.')
+    return {
+        'verified': True,
+        'bundle_version': manifest_payload['summary']['bundle_version'],
+        'bundle_hash': manifest_payload['summary']['bundle_hash'],
+        'classification': manifest_payload['summary']['classification'],
+        'artifacts_total': manifest_payload['summary']['artifacts_total'],
+        'artifacts_verified_total': manifest_payload['summary']['artifacts_verified_total'],
+        'review_decision_state': manifest_payload['summary']['review_decision_state'],
+        'ready_for_controlled_presentation_review': manifest_payload['summary']['ready_for_controlled_presentation_review'],
+        'ready_for_sii_submission': False,
+        'official_format': False,
+        'sii_submission': False,
+        'final_tax_calculation': False,
     }
 
 
