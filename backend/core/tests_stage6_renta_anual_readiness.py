@@ -82,6 +82,7 @@ from sii.models import (
 from sii.services import (
     build_annual_tax_export_file_package,
     build_annual_tax_f22_fixed_width_export_candidate,
+    build_f22_fixed_width_entries_from_artifact_matrix,
     summarize_annual_enterprise_registers,
     summarize_annual_real_estate_sections,
     summarize_annual_tax_artifact_matrices,
@@ -720,6 +721,55 @@ class Stage6RentaAnualReadinessTests(TestCase):
             authorization_ref='stage6-authorization-v1',
             source_kind='snapshot_controlado',
         )
+
+    def _add_reviewed_f22_fixed_width_mapping_and_resync(self, *, code='1234', value='1000'):
+        empresa = self._create_valid_local_matrix()
+        process = ProcesoRentaAnual.objects.get()
+        rule_set = TaxYearRuleSet.objects.get()
+        source_bundle = AnnualTaxSourceBundle.objects.get()
+        config = ConfiguracionFiscalEmpresa.objects.get(empresa=empresa, estado='activa')
+        mapping_source = AnnualTaxOfficialSource.objects.filter(
+            anio_tributario=process.anio_tributario,
+            applies_to=DestinoMapeoTributarioAnual.F22,
+            estado=EstadoAnnualTaxOfficialSource.APPROVED,
+        ).order_by('id').first()
+        if mapping_source is None:
+            mapping_source = self._create_official_source(
+                anio_tributario=process.anio_tributario,
+                applies_to=DestinoMapeoTributarioAnual.F22,
+                regime_code=config.regimen_tributario.codigo_regimen,
+            )
+        mapping = TaxCodeMapping.objects.create(
+            rule_set=rule_set,
+            destino=DestinoMapeoTributarioAnual.F22,
+            codigo_interno=f'f22.controlled.{code}',
+            codigo_destino=code,
+            formula_ref=f'formula-ref-f22-{code}-controlled',
+            evidencia_ref=f'sii-f22-at2026-code-{code}',
+            official_source=mapping_source,
+            metadata={
+                'source': 'stage6-controlled',
+                'f22_fixed_width_value': value,
+                'f22_fixed_width_sign': '+',
+                'f22_fixed_width_review_state': 'approved_for_candidate',
+                'f22_value_source_ref': f'lm-reviewed-f22-value-{code}',
+                'f22_responsible_review_ref': 'tax-reviewer-at2026-controlled',
+            },
+        )
+        sync_annual_tax_artifact_matrix(process, rule_set, source_bundle, config)
+        summary = process.resumen_anual
+        summary['annual_tax_artifact_matrices'] = summarize_annual_tax_artifact_matrices(process)
+        process.resumen_anual = summary
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+        sync_annual_tax_dossier(process, rule_set, source_bundle)
+        summary['annual_tax_dossiers'] = summarize_annual_tax_dossiers(process)
+        process.resumen_anual = summary
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+        sync_annual_tax_export(process, rule_set, source_bundle)
+        summary['annual_tax_exports'] = summarize_annual_tax_exports(process)
+        process.resumen_anual = summary
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+        return AnnualTaxExport.objects.get(), mapping
 
     def _artifact_matrix_item_hash(self, item):
         return hashlib.sha256(
@@ -2474,6 +2524,41 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertFalse(verification['official_format'])
         self.assertFalse(verification['sii_submission'])
         self.assertFalse(verification['final_tax_calculation'])
+
+    def test_tax_export_derives_f22_fixed_width_entries_from_reviewed_mapping_items(self):
+        export, mapping = self._add_reviewed_f22_fixed_width_mapping_and_resync(code='1234', value='1000')
+
+        entries = build_f22_fixed_width_entries_from_artifact_matrix(export)
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]['code'], '1234')
+        self.assertEqual(entries[0]['value'], '1000')
+        self.assertEqual(entries[0]['tax_code_mapping_id'], mapping.id)
+        self.assertEqual(entries[0]['code_source_ref'], 'sii-f22-at2026-code-1234')
+        self.assertEqual(entries[0]['value_source_ref'], 'lm-reviewed-f22-value-1234')
+
+        candidate = build_annual_tax_f22_fixed_width_export_candidate(
+            export,
+            rut_number='11111111',
+            rut_dv='1',
+            company_code='QA',
+            client_number='123456',
+            entries=entries,
+        )
+
+        evidence = candidate['summary']['f22_entry_review_evidence'][0]
+        self.assertEqual(candidate['summary']['f22_codes'], ['1234'])
+        self.assertEqual(evidence['tax_code_mapping_id'], mapping.id)
+        self.assertEqual(evidence['official_source_id'], mapping.official_source_id)
+        self.assertEqual(evidence['code_source_ref'], 'sii-f22-at2026-code-1234')
+
+    def test_tax_export_rejects_mapping_entries_without_presentable_f22_code(self):
+        export, _mapping = self._add_reviewed_f22_fixed_width_mapping_and_resync(
+            code='F22-PREVIEW',
+            value='1000',
+        )
+
+        with self.assertRaisesRegex(ValueError, 'codigo SII numerico de 4 digitos'):
+            build_f22_fixed_width_entries_from_artifact_matrix(export)
 
     def test_tax_export_f22_fixed_width_candidate_rejects_unreviewed_non_numeric_or_duplicate_codes(self):
         self._create_valid_local_matrix()

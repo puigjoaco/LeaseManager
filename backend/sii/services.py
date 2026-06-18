@@ -126,6 +126,14 @@ ANNUAL_TAX_EXPORT_FILE_PACKAGE_VERSION = 'annual-tax-export-file-package-v1'
 ANNUAL_TAX_EXPORT_FILE_PACKAGE_MANIFEST_VERSION = 'annual-tax-export-file-package-manifest-v1'
 ANNUAL_TAX_F22_FIXED_WIDTH_CANDIDATE_VERSION = 'annual-tax-f22-fixed-width-candidate-v1'
 F22_FIXED_WIDTH_ENTRY_REVIEW_STATES = {'approved_for_candidate', 'aprobado_para_candidato'}
+F22_FIXED_WIDTH_MAPPING_PAYLOAD_KEYS = (
+    'f22_fixed_width_value',
+    'f22_fixed_width_sign',
+    'f22_fixed_width_review_state',
+    'f22_code_source_ref',
+    'f22_value_source_ref',
+    'f22_responsible_review_ref',
+)
 
 TAX_STATUS_REQUIRING_REF = {
     EstadoPreparacionTributaria.APPROVED,
@@ -2633,6 +2641,16 @@ def _artifact_matrix_add_spec(specs, matrix, *, target_kind, target_code, source
     })
 
 
+def _f22_fixed_width_mapping_payload(mapping):
+    if mapping.destino != DestinoMapeoTributarioAnual.F22 or not isinstance(mapping.metadata, dict):
+        return {}
+    return {
+        key: mapping.metadata[key]
+        for key in F22_FIXED_WIDTH_MAPPING_PAYLOAD_KEYS
+        if key in mapping.metadata
+    }
+
+
 def _ddjj_layout_source_payload(layout):
     return {
         'ddjj_form_code': layout.form_code,
@@ -2798,6 +2816,7 @@ def _artifact_matrix_specs(matrix, rule_set, source_bundle, config):
                 'codigo_destino': mapping.codigo_destino,
                 'destino': mapping.destino,
                 'rule_set_version': rule_set.version,
+                **_f22_fixed_width_mapping_payload(mapping),
             },
         )
 
@@ -3858,7 +3877,7 @@ def _normalize_f22_fixed_width_entry(entry):
     ):
         if not is_non_sensitive_reference(field_value):
             raise ValueError(f'Cada entrada F22 fixed-width requiere {field_name} no sensible.')
-    return {
+    normalized = {
         'code': raw_code,
         'sign': sign,
         'value': value,
@@ -3867,6 +3886,129 @@ def _normalize_f22_fixed_width_entry(entry):
         'value_source_ref': value_source_ref,
         'responsible_review_ref': responsible_review_ref,
     }
+    for key in (
+        'artifact_matrix_item_id',
+        'tax_code_mapping_id',
+        'official_source_id',
+        'hash_item',
+        'source_hash',
+    ):
+        if entry.get(key) not in (None, ''):
+            normalized[key] = entry.get(key)
+    return normalized
+
+
+def _f22_fixed_width_payload_value(source_payload, *keys):
+    if not isinstance(source_payload, dict):
+        return ''
+    for key in keys:
+        value = source_payload.get(key)
+        if value not in (None, ''):
+            return str(value).strip()
+    return ''
+
+
+def build_f22_fixed_width_entries_from_artifact_matrix(export):
+    if export.estado != EstadoAnnualTaxExport.PREPARED:
+        raise ValueError('AnnualTaxExport debe estar preparado para derivar entradas F22 desde matriz.')
+    try:
+        export.full_clean()
+    except ValidationError as error:
+        reason = _first_validation_error(error)
+        raise ValueError(f'AnnualTaxExport no cumple validacion de dominio: {reason}') from error
+
+    items = list(
+        AnnualTaxArtifactMatrixItem.objects.filter(
+            matrix=export.artifact_matrix,
+            target_kind=TipoAnnualTaxArtifactTarget.F22,
+            source_kind=SourceKindAnnualTaxArtifact.TAX_MAPPING,
+            source_model='TaxCodeMapping',
+            estado=EstadoRegistro.ACTIVE,
+        ).order_by('target_code', 'id')
+    )
+    if not items:
+        raise ValueError('No hay items F22 de TaxCodeMapping para derivar entradas fixed-width.')
+
+    entries = []
+    seen_codes = set()
+    for item in items:
+        try:
+            item.full_clean()
+        except ValidationError as error:
+            reason = _first_validation_error(error)
+            raise ValueError(f'Item F22 de matriz no cumple validacion de dominio: {reason}') from error
+        try:
+            mapping = TaxCodeMapping.objects.select_related('rule_set', 'official_source').get(pk=item.source_object_id)
+        except TaxCodeMapping.DoesNotExist as error:
+            raise ValueError('Item F22 de matriz apunta a TaxCodeMapping inexistente.') from error
+        try:
+            mapping.full_clean()
+        except ValidationError as error:
+            reason = _first_validation_error(error)
+            raise ValueError(f'TaxCodeMapping F22 no cumple validacion de dominio: {reason}') from error
+        if mapping.rule_set_id != export.rule_set_id:
+            raise ValueError('TaxCodeMapping F22 debe pertenecer al mismo TaxYearRuleSet del export.')
+        if mapping.rule_set.estado != EstadoReglaTributariaAnual.APPROVED:
+            raise ValueError('TaxCodeMapping F22 requiere TaxYearRuleSet aprobado.')
+        if mapping.destino != DestinoMapeoTributarioAnual.F22:
+            raise ValueError('TaxCodeMapping debe tener destino F22 para generar entrada fixed-width.')
+        if mapping.estado != EstadoRegistro.ACTIVE:
+            raise ValueError('TaxCodeMapping F22 debe estar activo.')
+        if mapping.codigo_destino != item.target_code:
+            raise ValueError('Item F22 de matriz debe coincidir con codigo_destino del TaxCodeMapping.')
+        if not mapping.official_source_id or mapping.official_source.estado not in ANNUAL_TAX_OFFICIAL_SOURCE_READY_STATES:
+            raise ValueError('TaxCodeMapping F22 requiere AnnualTaxOfficialSource revisada/aprobada.')
+
+        source_payload = item.source_payload if isinstance(item.source_payload, dict) else {}
+        metadata = mapping.metadata if isinstance(mapping.metadata, dict) else {}
+        review_state = _f22_fixed_width_payload_value(
+            source_payload,
+            'f22_fixed_width_review_state',
+            'f22_review_state',
+        )
+        value = _f22_fixed_width_payload_value(
+            source_payload,
+            'f22_fixed_width_value',
+            'f22_reviewed_value',
+            'f22_value',
+            'monto_clp',
+        )
+        sign = _f22_fixed_width_payload_value(source_payload, 'f22_fixed_width_sign', 'f22_sign')
+        if not sign:
+            sign = str(metadata.get('f22_fixed_width_sign') or '').strip()
+        entry = _normalize_f22_fixed_width_entry(
+            {
+                'code': mapping.codigo_destino,
+                'sign': sign,
+                'value': value,
+                'review_state': review_state,
+                'code_source_ref': _f22_fixed_width_payload_value(
+                    source_payload,
+                    'f22_code_source_ref',
+                    'code_source_ref',
+                ) or mapping.evidencia_ref,
+                'value_source_ref': _f22_fixed_width_payload_value(
+                    source_payload,
+                    'f22_value_source_ref',
+                    'value_source_ref',
+                ) or item.evidencia_ref,
+                'responsible_review_ref': _f22_fixed_width_payload_value(
+                    source_payload,
+                    'f22_responsible_review_ref',
+                    'responsible_review_ref',
+                ) or item.responsible_ref,
+                'artifact_matrix_item_id': item.id,
+                'tax_code_mapping_id': mapping.id,
+                'official_source_id': mapping.official_source_id,
+                'hash_item': item.hash_item,
+                'source_hash': item.source_hash,
+            }
+        )
+        if entry['code'] in seen_codes:
+            raise ValueError('La matriz F22 no puede derivar codigos fixed-width duplicados.')
+        seen_codes.add(entry['code'])
+        entries.append(entry)
+    return entries
 
 
 def build_annual_tax_f22_fixed_width_export_candidate(
@@ -3927,6 +4069,15 @@ def build_annual_tax_f22_fixed_width_export_candidate(
             'responsible_review_ref': entry['responsible_review_ref'],
             'value_hash': hashlib.sha256(entry['value'].encode('ascii')).hexdigest(),
         }
+        for key in (
+            'artifact_matrix_item_id',
+            'tax_code_mapping_id',
+            'official_source_id',
+            'hash_item',
+            'source_hash',
+        ):
+            if key in entry:
+                evidence[key] = entry[key]
         evidence['entry_hash'] = hashlib.sha256(_canonical_json_bytes(evidence)).hexdigest()
         entry_review_evidence.append(evidence)
     type1_records = [

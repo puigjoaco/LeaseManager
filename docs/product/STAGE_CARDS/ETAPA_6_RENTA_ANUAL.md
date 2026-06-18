@@ -448,6 +448,16 @@ Cada entrada del candidato exige trazabilidad minima no sensible:
 `review_state=approved_for_candidate`, fuente del codigo, fuente del valor y
 responsable revisor. Esa evidencia queda hasheada por linea en el manifest, y
 el verificador bloquea codigos duplicados, refs sensibles o evidencia alterada.
+`build_f22_fixed_width_entries_from_artifact_matrix()` elimina el ultimo puente
+manual de esa preparacion: deriva las entradas del candidato desde
+`AnnualTaxArtifactMatrixItem` activos generados por `TaxCodeMapping` F22 del
+mismo `TaxYearRuleSet`, con fuente oficial/experta lista, codigo SII numerico
+de cuatro digitos y metadata revisada para valor, signo, fuente de codigo,
+fuente de valor y responsable. Si el mapping intenta usar un codigo interno
+como `F22-PREVIEW`, carece de evidencia revisada o no pertenece al export
+anual, falla antes de escribir archivo. Sigue siendo candidato local
+revisable; no calcula renta final, no certifica formato oficial y no presenta
+SII.
 `audit_company_accounting_progress` funciona como medidor operativo por empresa
 y ano comercial: consolida en JSON si la empresa tiene configuracion fiscal,
 doce cierres, balances aprobados/cuadrados, F29, `ProcesoRentaAnual`,
