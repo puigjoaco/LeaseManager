@@ -76,6 +76,15 @@ Asi el candidato F22 deja de depender de una lista manual aislada y queda
 trazado a la capa tributaria intermedia. No habilita certificacion real, envio
 SII ni calculo tributario final.
 
+Nota 2026-06-18: Etapa 6/Renta Anual agrega materializacion operativa para el
+candidato F22 fixed-width con
+`materialize_annual_tax_f22_fixed_width_candidate`. El comando parte desde un
+`AnnualTaxExport` preparado, deriva entradas F22 desde la matriz revisada,
+escribe el `.txt` fixed-width y manifest bajo `local-evidence/` o ruta externa
+controlada, y verifica el paquete desde disco. La salida de consola conserva
+hashes y conteos, no RUT ni codigos de certificacion crudos. Sigue sin
+certificacion real, envio SII, formato oficial declarado ni calculo final.
+
 Nota 2026-06-18: Etapa 6/Renta Anual separa el codigo de certificacion F22 del
 candidato local. `build_annual_tax_f22_fixed_width_export_candidate()` ahora
 requiere fuente no sensible, responsable revisor y estado de revision para los

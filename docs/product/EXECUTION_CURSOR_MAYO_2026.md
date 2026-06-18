@@ -25,18 +25,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `codex/stage6-export-materializer`. |
-| Fuente exacta | `main` en `a8ca0a77`, despues del merge confirmado de PR #918 `codex/stage6-review-decision-ui`. |
-| Brecha activa | `AnnualTaxExport` ya conserva manifiesto y paquete local materializable/verificable, pero faltaba una herramienta operativa que escribiera esos archivos desde un export preparado y los verificara inmediatamente sin usar rutas versionables. |
-| Motivo de prioridad | Para pasar de previews internos a salidas exportables/controladas, el responsable necesita una forma repetible de materializar archivos locales DDJJ/F22 y comprobar hash, manifest y boundary antes de cualquier revision/presentacion. |
-| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-export-materializer`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
-| Rama | `codex/stage6-export-materializer`. |
-| Estado | Paquete en curso. Se agrega comando controlado para materializar/verificar el paquete local de `AnnualTaxExport` bajo `local-evidence/` o fuera del repo, rechazando salidas versionables dentro del repo. |
-| Gate esperado | Este paquete no declara formato oficial certificado, no presenta SII, no calcula impuesto final y no usa datos reales. Solo convierte un `AnnualTaxExport` preparado en archivos locales verificables para revision controlada. |
+| Frente activo | `codex/stage6-f22-candidate-materializer`. |
+| Fuente exacta | `main` en `43ce21ff`, despues del merge confirmado de PR #919 `codex/stage6-export-materializer`. |
+| Brecha activa | LeaseManager ya puede construir/verificar un candidato F22 fixed-width desde matriz revisada, pero faltaba una herramienta operativa que lo materialice desde un `AnnualTaxExport` preparado sin imprimir RUT ni codigos de certificacion crudos. |
+| Motivo de prioridad | El objetivo activo exige pasar de artefactos internos a archivos exportables/controlados; el F22 candidato debe poder escribirse y verificarse desde disco con evidencia/hash antes de cualquier revision, certificacion o presentacion. |
+| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-f22-candidate-materializer`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `codex/stage6-f22-candidate-materializer`. |
+| Estado | Paquete en curso. Se agrega comando controlado para derivar entradas F22 desde la matriz revisada, construir el `.txt` fixed-width candidato, escribirlo bajo `local-evidence/` o ruta externa y verificarlo inmediatamente desde disco. |
+| Gate esperado | Este paquete no declara formato oficial certificado, no presenta SII, no calcula impuesto final, no usa datos reales y no imprime identificadores tributarios crudos. Solo produce un candidato local verificable para revision/certificacion controlada. |
 | Estado al cerrar paquete | Si `main` contiene el merge de este frente y la rama/worktree ya no existe, no reabrirlo ni repetir PR/CI/merge. Buscar el siguiente frente seguro desde repo limpio. |
 | Bloqueos relacionados | La decision tributaria final, formato/certificacion F22/DDJJ, codigo autorizado por SII, contenido tributario final y presentacion SII siguen bloqueados por responsable tributario, autorizacion explicita, formato/certificacion vigente aplicable y evidencia no sensible. |
 | Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable ni integraciones externas sin autorizacion explicita. La aprobacion para presentacion solo puede existir como decision y evidencia trazables no sensibles; nunca como salida automatica del motor local. |
-| Siguiente accion | Ejecutar tests focales del comando, suite impactada Etapa 6/SII, gate Etapa 6, acceptance proporcional, higiene y diff; si pasa, cerrar paquete con PR/CI/merge/limpieza. |
+| Siguiente accion | Ejecutar tests focales del comando F22 candidato, suite impactada Etapa 6/F22/SII, gate Etapa 6, acceptance proporcional, higiene y diff; si pasa, cerrar paquete con PR/CI/merge/limpieza. |
 
 ## Actualizacion
 

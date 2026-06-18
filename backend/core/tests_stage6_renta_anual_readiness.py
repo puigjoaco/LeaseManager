@@ -3251,6 +3251,84 @@ class Stage6RentaAnualReadinessTests(TestCase):
             )
         self.assertFalse(blocked_output.exists())
 
+    def test_materialize_annual_tax_f22_fixed_width_candidate_command_writes_verified_local_file(self):
+        export, _mapping = self._add_reviewed_f22_fixed_width_mapping_and_resync(code='1234', value='1000')
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            output_dir = Path(temp_dir) / 'f22-fixed-width-candidate'
+            stdout = StringIO()
+
+            call_command(
+                'materialize_annual_tax_f22_fixed_width_candidate',
+                export_id=export.pk,
+                rut_number='11111111',
+                rut_dv='1',
+                company_code='QA',
+                client_number='123456',
+                output_dir=str(output_dir),
+                stdout=stdout,
+                **self._f22_local_certification_kwargs(),
+            )
+
+            result = json.loads(stdout.getvalue())
+            entries = build_f22_fixed_width_entries_from_artifact_matrix(export)
+            candidate = build_annual_tax_f22_fixed_width_export_candidate(
+                export,
+                rut_number='11111111',
+                rut_dv='1',
+                company_code='QA',
+                client_number='123456',
+                **self._f22_local_certification_kwargs(),
+                entries=entries,
+            )
+            verification = verify_annual_tax_f22_fixed_width_export_candidate(candidate, output_dir)
+
+            self.assertTrue(result['materialized'])
+            self.assertEqual(result['annual_tax_export_id'], export.pk)
+            self.assertEqual(result['candidate_version'], 'annual-tax-f22-fixed-width-candidate-v1')
+            self.assertEqual(result['record_format_version'], 'f22-at2026-fixed-width-record-v1')
+            self.assertEqual(result['records_total'], verification['records_total'])
+            self.assertEqual(result['f22_codes_total'], 1)
+            self.assertEqual(result['f22_entry_review_evidence_total'], 1)
+            self.assertEqual(result['content_hash'], verification['content_hash'])
+            self.assertEqual(result['certification_code_review_state'], 'synthetic_for_local_candidate')
+            self.assertFalse(result['certification_code_authorized_by_sii'])
+            self.assertFalse(result['official_format'])
+            self.assertFalse(result['sii_submission'])
+            self.assertFalse(result['final_tax_calculation'])
+            self.assertTrue(result['ready_for_responsible_review'])
+            self.assertTrue(result['ready_for_certification_review'])
+            self.assertFalse(result['ready_for_certification_submission'])
+            self.assertTrue(result['requires_explicit_submission_authorization'])
+            self.assertTrue((output_dir / result['written_file']).is_file())
+            self.assertTrue((output_dir / result['manifest_file']).is_file())
+            rendered = stdout.getvalue()
+            self.assertNotIn('11111111', rendered)
+            self.assertNotIn('QA', rendered)
+            self.assertNotIn('123456', rendered)
+            self.assertIn('company_code_hash', result)
+            self.assertIn('client_number_hash', result)
+
+    def test_materialize_annual_tax_f22_fixed_width_candidate_rejects_versioned_repo_output(self):
+        export, _mapping = self._add_reviewed_f22_fixed_width_mapping_and_resync(code='1234', value='1000')
+        blocked_output = Path(settings.PROJECT_ROOT) / 'docs' / 'stage6-f22-candidate-should-not-be-versioned'
+
+        with self.assertRaisesMessage(CommandError, 'local-evidence'):
+            call_command(
+                'materialize_annual_tax_f22_fixed_width_candidate',
+                export_id=export.pk,
+                rut_number='11111111',
+                rut_dv='1',
+                company_code='QA',
+                client_number='123456',
+                output_dir=str(blocked_output),
+                stdout=StringIO(),
+                **self._f22_local_certification_kwargs(),
+            )
+        self.assertFalse(blocked_output.exists())
+
     def test_tax_export_missing_artifact_contracts_is_blocking(self):
         self._create_valid_local_matrix()
         process = ProcesoRentaAnual.objects.get()
