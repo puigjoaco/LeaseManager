@@ -1,4 +1,5 @@
 param(
+    [int]$TaxYear = 2026,
     [string]$OutputDir
 )
 
@@ -29,6 +30,101 @@ function Test-OfficialSourceUrl([string]$url) {
         return $true
     }
     return $url -match '^https://(alerce\.sii\.cl|www\.sii\.cl|www4\.sii\.cl|zeus\.sii\.cl|api\.sii\.cl)/'
+}
+
+function Get-At2025SourceGapDefinitions {
+    return @(
+        [pscustomobject]@{
+            key = 'ddjj_media_2025'
+            capability = 'DDJJ Renta 2025'
+            official_source = 'Medios para declaraciones juradas de Renta 2025'
+            source_url = 'https://www.sii.cl/ayudas/ayudas_por_servicios/2120-medios_dj_renta_2025-2171.html'
+            evidence_reading = 'SII publica por formulario los medios disponibles para declaraciones juradas Renta 2025.'
+            lease_manager_boundary = 'AnnualTaxArtifactMatrix puede clasificar medio revisable; no presentar sin matriz oficial por formulario y responsable.'
+            current_status = 'media_matrix_required'
+            next_safe_action = 'Usar solo como fuente publica para layout/revision AT2025; no asumir API ni presentacion automatica.'
+        },
+        [pscustomobject]@{
+            key = 'ddjj_forms_2025'
+            capability = 'Formularios, plazos e instrucciones DDJJ AT2025'
+            official_source = 'Formularios y plazos de declaraciones juradas Renta 2025'
+            source_url = 'https://www.sii.cl/ayudas/ayudas_por_servicios/2120-formularios_y_plazos_2025-2171.html'
+            evidence_reading = 'SII publica formularios, plazos, instrucciones, certificados y resoluciones para DDJJ AT2025.'
+            lease_manager_boundary = 'AnnualTaxDDJJFormLayout puede registrar fuente y vencimiento revisable; no define calculo final.'
+            current_status = 'official_form_source_required'
+            next_safe_action = 'Usar la fuente para layouts DDJJ con hash/responsable antes de cualquier archivo oficial.'
+        },
+        [pscustomobject]@{
+            key = 'ddjj_software_houses_2025'
+            capability = 'Casas software DDJJ AT2025'
+            official_source = 'Casas de software certificadas para declaraciones juradas Renta 2025'
+            source_url = 'https://www.sii.cl/ayudas/ayudas_por_servicios/2120-casas_sw_2025-2171.html'
+            evidence_reading = 'SII publica proveedores y formularios certificados para DDJJ AT2025; esto prueba camino por software, no reglas tributarias.'
+            lease_manager_boundary = 'LeaseManager puede preparar contratos de archivo revisable; certificacion/formato final queda bajo gate.'
+            current_status = 'certified_software_path_exists'
+            next_safe_action = 'No copiar EDIG ni declarar compatibilidad oficial sin certificacion propia/controlada.'
+        },
+        [pscustomobject]@{
+            key = 'ddjj_certification_process_2025'
+            capability = 'Revision/certificacion DDJJ AT2025'
+            official_source = 'Procedimiento de Revision AT2025'
+            source_url = 'https://alerce.sii.cl/dior/dej/pdf/Procedimiento_de_Revision_AT2025.pdf'
+            evidence_reading = 'SII documenta revision/certificacion de archivos DDJJ AT2025 para casas de software; es flujo de archivo/upload controlado, no API REST general.'
+            lease_manager_boundary = 'Sirve para validar concepto de revision de archivo; no abre SII ni certifica contenido tributario.'
+            current_status = 'format_review_help_exists'
+            next_safe_action = 'Modelar la revision como gate local/controlado antes de cualquier certificacion.'
+        },
+        [pscustomobject]@{
+            key = 'ddjj_certification_news_2025'
+            capability = 'Proceso certificacion software DDJJ AT2025'
+            official_source = 'Noticia SII certificacion software DDJJ Operacion Renta 2025'
+            source_url = 'https://www.sii.cl/noticias/2024/251124noti01rp.htm'
+            evidence_reading = 'SII informa proceso de certificacion de software DDJJ para Operacion Renta 2025.'
+            lease_manager_boundary = 'Prueba existencia de proceso de certificacion; no acredita contenido tributario ni autoriza presentacion automatica.'
+            current_status = 'certification_window_documented'
+            next_safe_action = 'Mantener DDJJ como candidato local hasta certificacion/formato, autorizacion y responsable.'
+        },
+        [pscustomobject]@{
+            key = 'dj1847_balance_rli_cpt_2025'
+            capability = 'DJ1847, balance, RLI y CPT AT2025'
+            official_source = 'Fuente oficial/experta AT2025 pendiente'
+            source_url = ''
+            evidence_reading = 'La matriz AT2025 aun no fija una fuente publica especifica para DJ1847/RLI/CPT equivalente a la fuente AT2026.'
+            lease_manager_boundary = 'Mapping plan de cuentas -> RLI/CPT/DJ1847 puede prepararse solo con fuente oficial/experta; no por EDIG ni inferencia libre.'
+            current_status = 'official_mapping_source_gap'
+            next_safe_action = 'No cerrar mapping DJ1847 AT2025 sin fuente oficial/experta y responsable no sensible.'
+        },
+        [pscustomobject]@{
+            key = 'f22_certification_2025'
+            capability = 'F22 Renta anual AT2025'
+            official_source = 'Certificacion AT2025 para software que genera archivos Formulario 22'
+            source_url = 'https://www.sii.cl/noticias/2025/120225noti01aav.htm'
+            evidence_reading = 'SII invita a certificarse para generar archivos F22 AT2025; el proceso acredita recepcion/formato en su alcance, no contenido ni consistencia tributaria.'
+            lease_manager_boundary = 'AnnualTaxExport permanece como preview local con official_format=false, sii_submission=false y final_tax_calculation=false.'
+            current_status = 'local_export_only'
+            next_safe_action = 'No convertir a formato oficial ni presentar hasta certificacion/formato, autorizacion y responsable.'
+        },
+        [pscustomobject]@{
+            key = 'f22_record_format_2025'
+            capability = 'Formato de registro F22 AT2025'
+            official_source = 'Fuente publica SII pendiente'
+            source_url = ''
+            evidence_reading = 'No hay formato fixed-width F22 AT2025 confirmado en esta matriz desde fuente publica permitida.'
+            lease_manager_boundary = 'LeaseManager no puede reutilizar el contrato F22 AT2026 como formato oficial AT2025.'
+            current_status = 'not_confirmed_from_public_source'
+            next_safe_action = 'Mantener export AT2025 como dossier/preview revisable hasta fuente explicita de formato/certificacion.'
+        },
+        [pscustomobject]@{
+            key = 'f22_instructions_2025'
+            capability = 'Instrucciones operativas F22 2025'
+            official_source = 'Suplemento Tributario y Guia Renta 2025'
+            source_url = 'https://www.sii.cl/servicios_online/renta/guia_trib_suplemento_2025.html'
+            evidence_reading = 'SII publica instrucciones operativas, codigos, ejemplos y actualizaciones del F22 AT2025.'
+            lease_manager_boundary = 'TaxCodeMapping y warnings pueden apuntar a instrucciones oficiales; la decision final requiere revision tributaria.'
+            current_status = 'review_source_required'
+            next_safe_action = 'Cargar referencias por codigo solo como source_ref no sensible, nunca como calculo autonomo final.'
+        }
+    )
 }
 
 function Get-SourceGapDefinitions {
@@ -166,6 +262,7 @@ function Get-SourceGapDefinitions {
     )
 }
 
+Assert-Condition (($TaxYear -eq 2025) -or ($TaxYear -eq 2026)) 'TaxYear soportado: 2025 o 2026.'
 $repoRoot = Get-GitRoot
 if ([string]::IsNullOrWhiteSpace($OutputDir)) {
     $OutputDir = Join-Path $repoRoot 'local-evidence\stage6\official-source-gaps'
@@ -176,7 +273,17 @@ Assert-OutputUnderLocalEvidence $repoRoot $OutputDir
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 
 $requirements = @()
-foreach ($definition in Get-SourceGapDefinitions) {
+$definitions = @(Get-SourceGapDefinitions)
+if ($TaxYear -eq 2025) {
+    $definitions = @(
+        $definitions | Where-Object {
+            $_.key -notmatch '_2026$' -and $_.key -ne 'dj1847_balance_rli_cpt'
+        }
+    )
+    $definitions += Get-At2025SourceGapDefinitions
+}
+
+foreach ($definition in $definitions) {
     Assert-Condition (Test-OfficialSourceUrl $definition.source_url) "Fuente no permitida para $($definition.key): $($definition.source_url)"
     $requirements += $definition
 }
@@ -184,6 +291,8 @@ foreach ($definition in Get-SourceGapDefinitions) {
 $payload = [pscustomobject]@{
     generated_at = (Get-Date).ToString('s')
     mode = 'stage6_official_source_gap_matrix_no_network_no_credentials'
+    tax_year = $TaxYear
+    supported_tax_years = @(2025, 2026)
     source_policy = 'Only official SII URLs or explicit pending expert/source gaps; no secrets, no SII session, no browser automation.'
     requirements = $requirements
 }
@@ -196,6 +305,7 @@ $summary = @()
 $summary += '# Stage 6 official source gaps'
 $summary += ''
 $summary += "Mode: $($payload.mode)"
+$summary += "Tax year: AT$TaxYear"
 $summary += ''
 $summary += '| Capability | Status | LeaseManager boundary | Next safe action | Source |'
 $summary += '| --- | --- | --- | --- | --- |'

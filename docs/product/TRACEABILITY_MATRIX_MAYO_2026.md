@@ -42,6 +42,19 @@ calculo final autonomo o certificacion de consistencia tributaria por el solo
 hecho de existir un gate tecnico de archivo. `alerce.sii.cl` queda permitido
 como subdominio SII publico para ayudas DDJJ.
 
+Nota 2026-06-18: Etapa 6/Renta Anual extiende la matriz de compatibilidad
+oficial a AT2025/AT2026. `build_stage6_official_compatibility_matrix()` queda
+parametrizado por ano tributario, registra fuentes SII publicas separadas para
+F22/DDJJ y valida que no se declare API, upload, presentacion, calculo final ni
+formato oficial no confirmado. AT2025 conserva una brecha explicita
+`f22_record_format_2025` porque no hay fuente publica segura versionada en la
+matriz que permita reutilizar el contrato fixed-width AT2026. La salida sigue
+siendo compatibilidad/revision, no presentacion SII ni cierre tributario. El
+wrapper `build-stage6-official-source-gap-matrix.ps1` acepta `-TaxYear 2025` o
+`-TaxYear 2026`, escribe solo bajo `local-evidence/` y mantiene el mismo
+boundary sin sesion SII, credenciales, navegador, EDIG ejecutable ni datos
+reales.
+
 Nota 2026-06-17: Etapa 6/Renta Anual baja el `Formato de Registro F22 AT2026`
 de SII a contrato local verificable con `build_f22_record_format_contract()`.
 El contrato cubre registros fixed-width de largo 90: tipo 0 para cabecera/datos
@@ -620,7 +633,8 @@ tecnica posible bajo gate propio; F29, DDJJ, DJ1847/RLI/CPT, F22, bienes
 raices/contribuciones y automatizacion por navegador quedan como preparacion
 local revisable hasta contar con fuente SII/experta, certificacion/formato,
 responsable y autorizacion explicita. `build-stage6-official-source-gap-matrix.ps1`
-genera una salida local ignorada para no volver a debatir ese boundary.
+genera una salida local ignorada, parametrizable por `-TaxYear`, para no volver
+a debatir ese boundary ni mezclar fuentes AT2025 con AT2026.
 
 Nota 2026-06-14: Etapa 6 materializa `AnnualTaxOfficialSource` como registro
 operacional de fuentes SII/experta por ano tributario. Las fuentes revisadas o
