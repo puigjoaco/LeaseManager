@@ -85,6 +85,14 @@ controlada, y verifica el paquete desde disco. La salida de consola conserva
 hashes y conteos, no RUT ni codigos de certificacion crudos. Sigue sin
 certificacion real, envio SII, formato oficial declarado ni calculo final.
 
+Nota 2026-06-18: Etapa 6/Renta Anual endurece la materializacion de candidatos
+DDJJ/F22: `write_annual_tax_ddjj_ascii_export_candidate()`,
+`write_annual_tax_ddjj_zip_export_candidate()` y
+`write_annual_tax_f22_fixed_width_export_candidate()` rechazan destinos que no
+sean directorio o directorios no vacios antes de escribir `.txt`, ZIP o
+manifest. La evidencia candidata local queda aislada por corrida y no se
+declara formato oficial, upload SII, presentacion ni calculo tributario final.
+
 Nota 2026-06-18: Etapa 6/Renta Anual separa el codigo de certificacion F22 del
 candidato local. `build_annual_tax_f22_fixed_width_export_candidate()` ahora
 requiere fuente no sensible, responsable revisor y estado de revision para los
@@ -3133,6 +3141,12 @@ no sean directorio o directorios no vacios antes de escribir archivos o
 `manifest.json`, de modo que una corrida nueva no pueda mezclarse con evidencia
 local previa. El comando conserva la frontera de paquete local verificable: no
 declara formato oficial, presentacion SII ni calculo tributario final.
+
+Nota 2026-06-18: Renta Anual aplica el mismo boundary de destino limpio a los
+candidatos locales F22 fixed-width, DDJJ ASCII y DDJJ ZIP. Los writers rechazan
+destinos que no sean directorio o directorios no vacios antes de crear archivo,
+ZIP o manifest, preservando la evidencia local revisable sin declarar formato
+oficial, presentacion SII ni calculo tributario final.
 
 Nota 2026-06-17: PlataformaBase/CI ajusta Release Gate para remover el matcher
 generico `python` de `actions/setup-python` justo antes de acceptance. La suite

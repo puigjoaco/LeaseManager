@@ -4248,6 +4248,18 @@ def build_annual_tax_f22_fixed_width_export_candidate(
     }
 
 
+def _prepare_clean_annual_tax_output_dir(output_dir, not_directory_message, not_empty_message):
+    target_dir = Path(output_dir)
+    if target_dir.exists():
+        if not target_dir.is_dir():
+            raise ValueError(not_directory_message)
+        if any(target_dir.iterdir()):
+            raise ValueError(not_empty_message)
+    else:
+        target_dir.mkdir(parents=True, exist_ok=False)
+    return target_dir
+
+
 def write_annual_tax_f22_fixed_width_export_candidate(candidate, output_dir):
     summary = candidate.get('summary') if isinstance(candidate, dict) else None
     records = candidate.get('records') if isinstance(candidate, dict) else None
@@ -4257,8 +4269,11 @@ def write_annual_tax_f22_fixed_width_export_candidate(candidate, output_dir):
     file_name = str(summary.get('file_name') or '')
     if Path(file_name).name != file_name or not file_name.endswith('.txt'):
         raise ValueError('Nombre de archivo F22 fixed-width no permitido.')
-    target_dir = Path(output_dir)
-    target_dir.mkdir(parents=True, exist_ok=True)
+    target_dir = _prepare_clean_annual_tax_output_dir(
+        output_dir,
+        'El destino del candidato F22 fixed-width debe ser un directorio.',
+        'El directorio destino del candidato F22 fixed-width debe estar vacio antes de materializar archivos locales.',
+    )
     file_path = target_dir / file_name
     file_path.write_bytes(content.encode('ascii'))
     manifest_path = target_dir / 'f22-fixed-width-candidate-manifest.json'
@@ -4705,8 +4720,11 @@ def write_annual_tax_ddjj_ascii_export_candidate(candidate, output_dir):
     file_name = str(summary.get('file_name') or '')
     if Path(file_name).name != file_name or '.' not in file_name:
         raise ValueError('Nombre de archivo DDJJ ASCII no permitido.')
-    target_dir = Path(output_dir)
-    target_dir.mkdir(parents=True, exist_ok=True)
+    target_dir = _prepare_clean_annual_tax_output_dir(
+        output_dir,
+        'El destino del candidato DDJJ ASCII debe ser un directorio.',
+        'El directorio destino del candidato DDJJ ASCII debe estar vacio antes de materializar archivos locales.',
+    )
     file_path = target_dir / file_name
     file_path.write_bytes(content.encode('ascii'))
     manifest_path = target_dir / 'ddjj-ascii-candidate-manifest.json'
@@ -5034,8 +5052,11 @@ def write_annual_tax_ddjj_zip_export_candidate(candidate, output_dir):
         raise ValueError('Nombre de ZIP DDJJ no permitido.')
     if Path(zip_entry_name).name != zip_entry_name:
         raise ValueError('Nombre de entrada ZIP DDJJ no permitido.')
-    target_dir = Path(output_dir)
-    target_dir.mkdir(parents=True, exist_ok=True)
+    target_dir = _prepare_clean_annual_tax_output_dir(
+        output_dir,
+        'El destino del ZIP candidato DDJJ debe ser un directorio.',
+        'El directorio destino del ZIP candidato DDJJ debe estar vacio antes de materializar archivos locales.',
+    )
     content_bytes = content.encode('ascii')
     zip_bytes = _canonical_ddjj_zip_bytes(zip_entry_name, content_bytes)
     if hashlib.sha256(zip_bytes).hexdigest() != summary.get('zip_file_hash'):
@@ -5286,14 +5307,11 @@ def build_annual_tax_export_file_package(export):
 
 def write_annual_tax_export_file_package(export, output_dir):
     package = build_annual_tax_export_file_package(export)
-    target_dir = Path(output_dir)
-    if target_dir.exists():
-        if not target_dir.is_dir():
-            raise ValueError('El destino del paquete anual debe ser un directorio.')
-        if any(target_dir.iterdir()):
-            raise ValueError('El directorio destino del paquete anual debe estar vacio antes de materializar archivos locales.')
-    else:
-        target_dir.mkdir(parents=True, exist_ok=False)
+    target_dir = _prepare_clean_annual_tax_output_dir(
+        output_dir,
+        'El destino del paquete anual debe ser un directorio.',
+        'El directorio destino del paquete anual debe estar vacio antes de materializar archivos locales.',
+    )
     written_files = []
     for file_item in package['files']:
         file_path = target_dir / file_item['file_name']
