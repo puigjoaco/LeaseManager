@@ -3062,6 +3062,17 @@ que la arquitectura actual puede partir desde insumos contables AC2024 y llegar
 a artefactos AT2025 comparables; no equivale a presentacion real SII ni a renta
 final aprobada sin responsable tributario.
 
+Nota 2026-06-18: Contabilidad/Renta agrega una auditoria de cobertura bancaria
+leasing sobre manifiestos redactados. `audit_company_bank_support_coverage`
+permite medir si las operaciones externas tienen soporte de contrato/cuadro,
+historial de pago y paquete de facturas sin guardar adjuntos reales en Git ni
+exponer RUTs, rutas, URLs, passwords o credenciales. La auditoria entrega
+cobertura por operacion/categoria, proximo faltante, confirmacion bancaria
+esperada versus verificada archivo por archivo, y bloqueos de schema, categorias,
+operaciones desconocidas o referencias sensibles. La proxima accion contable es
+revisar un manifiesto redactado autorizado y resolver faltantes; no declarar
+soporte leasing completo por el solo hecho de haber recibido correos o adjuntos.
+
 Nota 2026-06-17: PlataformaBase/CI ajusta Release Gate para remover el matcher
 generico `python` de `actions/setup-python` justo antes de acceptance. La suite
 mantiene tracebacks esperados de rollback/auditoria en logs y sigue fallando por
