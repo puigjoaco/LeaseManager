@@ -25,18 +25,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `codex/stage6-review-decision-boundary`. |
-| Fuente exacta | `main` en `6d4ffcaf`, despues del merge confirmado de PR #913 `codex/stage6-f22-certification-boundary`. |
-| Brecha activa | `AnnualTaxReviewChecklist` consolidaba checklist y paquete revisable, pero no tenia una decision tributaria estructurada que separara observacion, preparacion y aprobacion manual para presentacion. Falta impedir que el motor local convierta evidencia completa en aprobacion automatica. |
-| Motivo de prioridad | El objetivo operativo pide mecanizar evidencia y salidas revisables sin que LeaseManager haga la renta o presente SII por cuenta propia. Antes de seguir cerrando artefactos Etapa 6, la decision humana/responsable debe quedar modelada, trazable y bloqueante. |
-| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-review-decision-boundary`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
-| Rama | `codex/stage6-review-decision-boundary`. |
-| Estado | Paquete en curso. Implementado boundary inicial de decision de revision anual, migracion y tests focales; faltan documentacion final, suite impactada, gates, acceptance, commit, PR, CI, merge y limpieza. |
-| Gate esperado | Este paquete no declara cierre Etapa 6, no presenta SII, no calcula impuesto final y no aprueba automaticamente. Solo modela `preparado_para_revision`, `observado` y `aprobado_para_presentacion` con refs no sensibles, payload coherente y bloqueo de aprobaciones automaticas o incoherentes. |
+| Frente activo | `codex/stage6-review-prepared-state`. |
+| Fuente exacta | `main` en `4d801fa7`, despues del merge confirmado de PR #914 `codex/stage6-review-decision-boundary`. |
+| Brecha activa | El boundary de decision tributaria quedo implementado, pero el estado preparado persistia como `preparado_para_revision`. El objetivo operativo del dossier usa el vocabulario exacto `preparado`, `observado` y `aprobado_para_presentacion`. |
+| Motivo de prioridad | Antes de seguir con archivos exportables/certificables o documentacion real autorizada, la capa de revision responsable debe usar estados simples, estables y trazables para evitar ambiguedad operativa. |
+| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-review-prepared-state`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `codex/stage6-review-prepared-state`. |
+| Estado | Paquete en curso. Normalizando enum/modelo, migracion, generacion de checklist, tests y docs desde `preparado_para_revision` hacia `preparado`. |
+| Gate esperado | Este paquete no declara cierre Etapa 6, no presenta SII, no calcula impuesto final y no aprueba automaticamente. Solo alinea el estado `preparado` con `observado` y `aprobado_para_presentacion`, manteniendo refs no sensibles, payload coherente y bloqueo de aprobaciones automaticas o incoherentes. |
 | Estado al cerrar paquete | Si `main` contiene el merge de este frente y la rama/worktree ya no existe, no reabrirlo ni repetir PR/CI/merge. Buscar el siguiente frente seguro desde repo limpio. |
 | Bloqueos relacionados | La decision tributaria final, formato/certificacion F22/DDJJ, codigo autorizado por SII, contenido tributario final y presentacion SII siguen bloqueados por responsable tributario, autorizacion explicita, formato/certificacion vigente aplicable y evidencia no sensible. |
 | Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable ni integraciones externas sin autorizacion explicita. La aprobacion para presentacion solo puede existir como decision trazable no sensible; nunca como salida automatica del motor local. |
-| Siguiente accion | Completar docs/evidencia y ejecutar suite impactada/gates/acceptance; si pasa, cerrar paquete con PR/CI/merge/limpieza. |
+| Siguiente accion | Ejecutar focales, suite Stage 6, gates/acceptance; si pasa, cerrar paquete con PR/CI/merge/limpieza. |
 
 ## Actualizacion
 

@@ -3503,13 +3503,13 @@ class Stage6RentaAnualReadinessTests(TestCase):
 
         self.assertEqual(
             checklist.review_decision_state,
-            EstadoAnnualTaxReviewDecision.PREPARED_FOR_REVIEW,
+            EstadoAnnualTaxReviewDecision.PREPARED,
         )
         self.assertEqual(
             payload['review_decision_state'],
-            EstadoAnnualTaxReviewDecision.PREPARED_FOR_REVIEW,
+            EstadoAnnualTaxReviewDecision.PREPARED,
         )
-        self.assertEqual(review_decision['state'], EstadoAnnualTaxReviewDecision.PREPARED_FOR_REVIEW)
+        self.assertEqual(review_decision['state'], EstadoAnnualTaxReviewDecision.PREPARED)
         self.assertEqual(checklist.review_decision_ref, review_decision['decision_ref'])
         self.assertFalse(review_decision['ready_for_presentation'])
         self.assertFalse(review_decision['automatic_approval'])
