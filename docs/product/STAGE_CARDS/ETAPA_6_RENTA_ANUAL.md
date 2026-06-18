@@ -499,6 +499,14 @@ como `F22-PREVIEW`, carece de evidencia revisada o no pertenece al export
 anual, falla antes de escribir archivo. Sigue siendo candidato local
 revisable; no calcula renta final, no certifica formato oficial y no presenta
 SII.
+`materialize_annual_tax_f22_fixed_width_candidate` lleva ese candidato a una
+herramienta operativa controlada: dado un `AnnualTaxExport` preparado, deriva
+las entradas F22 desde la matriz, construye el `.txt` fixed-width, lo escribe
+bajo `local-evidence/` por defecto o ruta externa controlada y reabre archivo y
+manifest para verificar hash, registros, evidencia y boundary. El comando no
+imprime RUT, `company_code` ni `client_number` crudos; solo expone hashes y
+conteos. El resultado queda listo para revision/certificacion controlada, no
+para envio SII ni formato oficial declarado.
 `audit_company_accounting_progress` funciona como medidor operativo por empresa
 y ano comercial: consolida en JSON si la empresa tiene configuracion fiscal,
 doce cierres, balances aprobados/cuadrados, F29, `ProcesoRentaAnual`,
