@@ -1275,6 +1275,8 @@ class ReportingAPITests(APITestCase):
         self.assertEqual(response.data['tax_year'], 2027)
         self.assertEqual(response.data['classification'], 'parcial')
         self.assertFalse(response.data['ready_for_productive_accounting_review'])
+        self.assertEqual(response.data['summary']['expected_company_ref'], f'company-{empresa.id}')
+        self.assertEqual(response.data['summary']['bank_support_company_ref'], f'company-{empresa.id}')
         self.assertTrue(response.data['bank_support_coverage']['ready_for_accounting_document_review'])
         self.assertFalse(response.data['boundary']['autonomous_accounting'])
         self.assertFalse(response.data['boundary']['final_tax_calculation'])
@@ -1290,6 +1292,32 @@ class ReportingAPITests(APITestCase):
         self.assertIn('accounting_progress_hash', response.data['evidence'])
         self.assertIn('bank_support_hash', response.data['evidence'])
         self.assertNotIn(empresa.rut, json.dumps(response.data))
+
+    def test_company_accounting_review_package_endpoint_blocks_manifest_for_other_company(self):
+        _, empresa_a, _, _, _, _ = self._create_context('REVIEWPKGA')
+        _, empresa_b, _, _, _, _ = self._create_context('REVIEWPKGB')
+        self._activate_fiscal_config(empresa_a)
+        manifest = self._complete_bank_support_manifest(empresa_b)
+
+        response = self.client.post(
+            reverse('reporting-company-accounting-review-package'),
+            {'empresa_id': empresa_a.id, 'fiscal_year': 2026, 'bank_support_manifest': manifest},
+            format='json',
+        )
+
+        rendered = json.dumps(response.data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['classification'], 'parcial')
+        self.assertFalse(response.data['ready_for_productive_accounting_review'])
+        self.assertTrue(response.data['bank_support_coverage']['ready_for_accounting_document_review'])
+        self.assertEqual(response.data['summary']['expected_company_ref'], f'company-{empresa_a.id}')
+        self.assertEqual(response.data['summary']['bank_support_company_ref'], f'company-{empresa_b.id}')
+        self.assertIn(
+            'company_accounting_review.bank_support_company_ref_mismatch',
+            {issue['code'] for issue in response.data['issues']},
+        )
+        self.assertNotIn(empresa_a.rut, rendered)
+        self.assertNotIn(empresa_b.rut, rendered)
 
     def test_company_accounting_review_package_endpoint_redacts_sensitive_manifest_values(self):
         _, empresa, _, _, _, _ = self._create_context('REVIEWSECRETS')

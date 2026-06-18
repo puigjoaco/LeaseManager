@@ -24,6 +24,10 @@ COMPANY_ACCOUNTING_REVIEW_PACKAGE_BOUNDARY = {
 }
 
 
+def canonical_company_review_ref(empresa_id: int) -> str:
+    return f'company-{int(empresa_id)}'
+
+
 def _canonical_hash(payload: Any) -> str:
     encoded = json.dumps(payload, sort_keys=True, separators=(',', ':'), ensure_ascii=True, default=str).encode('utf-8')
     return hashlib.sha256(encoded).hexdigest()
@@ -61,6 +65,8 @@ def build_company_accounting_review_package(
     )
     bank_support = audit_company_bank_support_coverage(payload=bank_support_payload)
     expected_tax_year = fiscal_year + 1
+    expected_company_ref = canonical_company_review_ref(empresa_id)
+    bank_support_company_ref = bank_support.get('company_ref') or ''
 
     issues = []
     if not accounting_progress['ready_for_company_accounting_review']:
@@ -93,6 +99,20 @@ def build_company_accounting_review_package(
                 'El manifiesto bancario/leasing no corresponde al ano tributario esperado.',
             )
         )
+    if not bank_support_company_ref:
+        issues.append(
+            _issue(
+                'company_accounting_review.bank_support_company_ref_missing',
+                'El manifiesto bancario/leasing debe declarar company_ref redactado y verificable.',
+            )
+        )
+    elif bank_support_company_ref != expected_company_ref:
+        issues.append(
+            _issue(
+                'company_accounting_review.bank_support_company_ref_mismatch',
+                'El manifiesto bancario/leasing no corresponde a la empresa auditada.',
+            )
+        )
 
     blocking_issues = [issue for issue in issues if issue['severity'] == 'blocking']
     has_accounting_data = accounting_progress['classification'] != 'sin_datos'
@@ -112,6 +132,8 @@ def build_company_accounting_review_package(
         'empresa_id': accounting_progress['empresa']['id'],
         'fiscal_year': fiscal_year,
         'tax_year': expected_tax_year,
+        'expected_company_ref': expected_company_ref,
+        'bank_support_company_ref': bank_support_company_ref,
         'accounting_progress_classification': accounting_progress['classification'],
         'accounting_progress_percent': accounting_progress['progress_percent'],
         'bank_support_classification': bank_support['classification'],

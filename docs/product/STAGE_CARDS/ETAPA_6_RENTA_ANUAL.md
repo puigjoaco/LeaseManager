@@ -1098,9 +1098,12 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   empresa/ano con la cobertura bancaria/leasing redactada. El paquete queda
   `preparado` solo si la DB local/controlada tiene cierres, balances, F29,
   source bundle, dossier/export anual y el manifiesto bancario/leasing cubre
-  operaciones/categorias del mismo ano. No lee adjuntos, correos ni documentos
-  reales, no abre banco ni SII y no declara contabilidad final: solo permite
-  pasar a revision productiva responsable con evidencia no sensible.
+  operaciones/categorias del mismo ano y declara `company_ref` coincidente con
+  la empresa auditada. Un manifiesto completo pero de otra empresa, o sin
+  `company_ref`, mantiene el paquete `parcial`. No lee adjuntos, correos ni
+  documentos reales, no abre banco ni SII y no declara contabilidad final:
+  solo permite pasar a revision productiva responsable con evidencia no
+  sensible.
 - Reporting expone `POST /api/v1/reporting/contabilidad/paquete-revision-empresa/`
   para construir ese mismo paquete desde una superficie operativa con scope de
   empresa. El body debe incluir `empresa_id`, `fiscal_year` y
