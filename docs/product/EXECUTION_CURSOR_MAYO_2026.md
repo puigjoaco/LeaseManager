@@ -25,14 +25,14 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `codex/stage6-controlled-presentation-package`. |
-| Fuente exacta | `main` en `006d9d78`, despues del merge confirmado de PR #931 `codex/stage6-presentation-artifact-coverage`. |
-| Brecha activa | Los artefactos F22/DDJJ/export ya se verifican y cubren exactamente la matriz, pero faltaba un paquete local de entrega controlada que solo exista despues de un bundle aprobado y que deje refs de handoff sin abrir SII real. |
-| Motivo de prioridad | Para pasar de revision comparativa a una entrega usable por responsable tributario, el sistema debe sellar una raiz reproducible con paquete anual, F22, DDJJ ASCII/ZIP, bundle aprobado y manifest de handoff, sin mezclar corridas ni sugerir presentacion automatica. |
-| Worktree | `D:/Proyectos/LeaseManager-stage6-controlled-presentation-package`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
-| Rama | `codex/stage6-controlled-presentation-package`. |
-| Estado | Paquete en ejecucion: agregar `materialize_annual_tax_controlled_presentation_package`, builders/verificadores del manifest `annual-tax-controlled-presentation-package`, cobertura de checklist no aprobado, salida completa, salida no vacia y salida versionada, registrar evidencia y cerrar por PR/CI/merge. |
-| Gate esperado | Este paquete usa solo fixtures, SQLite efimero y manifests locales bajo `local-evidence`. No lee `.env`, DB real, documentos reales, correos, adjuntos, EDIG ejecutable, banco ni SII autenticado; no declara contabilidad final, calculo tributario final ni presentacion SII. |
+| Frente activo | `codex/stage6-certification-readiness`. |
+| Fuente exacta | `main` en `6e632544`, despues del merge confirmado de PR #932 `codex/stage6-controlled-presentation-package`. |
+| Brecha activa | El paquete controlado anual ya existe, pero faltaba un readiness packet posterior que enumere gates externos de certificacion/presentacion SII y mantenga bloqueado el envio real. |
+| Motivo de prioridad | Para pasar de entrega controlada a revision certificable, el responsable tributario necesita saber que requisitos externos faltan o fueron referenciados: formato oficial, certificacion F22, ruta DDJJ, ambiente SII, autorizacion, visto bueno, rollback y archivo de evidencia. |
+| Worktree | `D:/Proyectos/LeaseManager-stage6-certification-readiness`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `codex/stage6-certification-readiness`. |
+| Estado | Paquete en ejecucion: agregar `materialize_annual_tax_sii_certification_readiness_packet`, builder/verificador del manifest `annual-tax-sii-certification-readiness-packet`, cobertura de refs faltantes/presentes, refs sensibles y salida versionada, registrar evidencia y cerrar por PR/CI/merge. |
+| Gate esperado | Este paquete usa solo fixtures, SQLite efimero y manifests locales bajo `local-evidence`. No lee `.env`, DB real, documentos reales, correos, adjuntos, EDIG ejecutable, banco ni SII autenticado; no declara formato oficial, contabilidad final, calculo tributario final ni presentacion SII. |
 | Estado al cerrar paquete | Si `main` contiene el merge de este frente y la rama/worktree ya no existe, no reabrirlo ni repetir PR/CI/merge. Buscar el siguiente frente contable seguro desde repo limpio. |
 | Bloqueos relacionados | Carga productiva real, documentos completos, manifest real redactado/autorizado, formato/certificacion F22/DDJJ aplicable, contenido tributario final y presentacion SII siguen bloqueados por responsable tributario, autorizacion explicita y evidencia no sensible. AT2025 conserva brecha `f22_record_format_2025` hasta evidencia oficial/experta vigente. |
 | Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable, correos ni integraciones externas sin autorizacion explicita. Un paquete preparado solo habilita revision responsable; nunca contabilidad autonoma ni presentacion automatica. |

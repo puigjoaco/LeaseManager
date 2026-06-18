@@ -492,6 +492,17 @@ subdirectorios. Esta herramienta acerca la operacion a un paquete unico
 exportable/controlable, pero conserva `official_format=false`,
 `sii_submission=false`, `ready_for_sii_submission=false` y
 `final_tax_calculation=false`.
+`materialize_annual_tax_sii_certification_readiness_packet` toma el manifest
+`annual-tax-controlled-presentation-package.json` ya materializado y genera una
+segunda carpeta verificable de readiness para certificacion/presentacion SII.
+El packet enumera gates externos obligatorios: formato oficial, certificacion
+F22, ruta/certificacion DDJJ, ambiente SII autenticado, autorizacion explicita
+de presentacion, visto bueno tributario, rollback y archivo de evidencia. Si
+faltan refs no sensibles queda `preparado_para_certificacion_externa_con_bloqueos`;
+si estan todas, queda `preparado_para_revision_externa_no_envio`. En ambos
+casos mantiene `official_format=false`, `official_submission_allowed=false`,
+`sii_submission=false`, `ready_for_sii_submission=false` y
+`final_tax_calculation=false`.
 `AnnualTaxF22ExportLayout` materializa la capa F22 por ano tributario antes del
 export local: conserva `form_code=F22`, medio preferente, refs no sensibles de
 certificacion/formato/instrucciones/responsable, fuentes oficiales/expertas,
