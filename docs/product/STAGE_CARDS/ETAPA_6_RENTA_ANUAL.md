@@ -1144,6 +1144,15 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   operaciones no listadas y referencias sensibles. Esto impide declarar respaldo
   leasing completo sin evidencia revisada, pero no invalida la arquitectura
   anual ni impide seguir con trabajo seguro de revision/carga.
+- `audit_company_document_intake` define el ingreso seguro de respaldos reales
+  para renta anual: un JSON redactado lista lotes de origen, documentos,
+  categorias, meses, formularios, operaciones bancarias y refs opacas. La salida
+  deriva el manifiesto bancario/leasing y un puente anual hacia
+  `annual-tax-source-manifest.v1`, indicando que aun se requiere escaneo
+  read-only de fuente externa para hashes de archivo. No usa outputs esperados
+  como inputs, no lee adjuntos, no abre correos, banco ni SII, y conserva
+  `autonomous_accounting=false`, `final_tax_calculation=false` y
+  `sii_submission=false`.
 - `build_company_accounting_review_package` y el comando
   `audit_company_accounting_review_package` unen el avance contable/renta por
   empresa/ano con la cobertura bancaria/leasing redactada. El paquete queda

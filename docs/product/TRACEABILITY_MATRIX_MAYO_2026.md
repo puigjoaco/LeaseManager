@@ -3215,6 +3215,18 @@ operaciones desconocidas o referencias sensibles. La proxima accion contable es
 revisar un manifiesto redactado autorizado y resolver faltantes; no declarar
 soporte leasing completo por el solo hecho de haber recibido correos o adjuntos.
 
+Nota 2026-06-18: Contabilidad/Renta agrega `audit_company_document_intake`
+como puerta de ingreso para respaldos reales redactados. El manifest
+`company-document-intake-manifest.v1` lista batches de origen, documentos,
+categorias, meses, formularios, operaciones bancarias y refs opacas; bloquea
+RUTs completos, rutas absolutas, URLs, correos, tokens, passwords, categorias
+desconocidas, batches faltantes, duplicados y anos desalineados. Desde ese
+intake deriva un manifiesto `company-bank-support-coverage-manifest.v1` y un
+puente hacia `annual-tax-source-manifest.v1` sin leer adjuntos, correos, banco,
+SII ni documentos reales desde el comando. Es la capa que permite pasar de
+"tenemos documentos" a cobertura medible para contabilidad/renta, sin declarar
+contabilidad final, calculo tributario final ni presentacion.
+
 Nota 2026-06-18: Renta Anual agrega endpoint transaccional para registrar la
 decision responsable del `AnnualTaxReviewChecklist`. La API
 `POST /api/v1/sii/anual/review-checklists/<id>/decision/` permite pasar a

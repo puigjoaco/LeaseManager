@@ -25,17 +25,17 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `codex/company-review-materializer`. |
-| Fuente exacta | `main` en `5c147e34`, despues del merge confirmado de PR #933 `codex/stage6-certification-readiness`. |
-| Brecha activa | El paquete de revision contable/renta por empresa ya existe como builder, comando de auditoria, API y panel Reporting, pero falta materializarlo como carpeta local verificable para entregar a revision responsable sin convertirlo en contabilidad automatica. |
-| Motivo de prioridad | LeaseManager debe preparar informacion ordenada y trazable para contador/revisor/IA asistida, no decidir renta ni contabilidad final. Un materializador canonico permite entregar manifest hasheado, cobertura bancaria/leasing redactada y boundary no autonomo sin leer adjuntos reales ni abrir banco/SII. |
-| Worktree | `D:/Proyectos/LeaseManager-company-review-materializer`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
-| Rama | `codex/company-review-materializer`. |
-| Estado | Paquete en ejecucion: agregar `materialize_company_accounting_review_package`, writer/verificador del manifest `company-accounting-review-package.json`, cobertura de paquete listo, salida no vacia, salida versionada y redaccion de manifiestos sensibles, registrar evidencia y cerrar por PR/CI/merge. |
+| Frente activo | `codex/company-document-intake`. |
+| Fuente exacta | `main` en `5bbb1a80`, despues del merge confirmado de PR #934 `codex/company-review-materializer`. |
+| Brecha activa | Los paquetes de revision contable/renta ya aceptan manifiestos bancarios/leasing redactados, pero falta una puerta de ingreso documental que convierta respaldos reales revisados en referencias opacas, derive cobertura bancaria/leasing y prepare el puente hacia fuente anual sin guardar adjuntos reales. |
+| Motivo de prioridad | Inmobiliaria Puig necesita pasar de "recibimos correos/adjuntos" a "tenemos respaldo documental trazado, seguro y medible" antes de cargar, cuadrar o entregar revision contable/renta. El intake documental evita tratar un correo recibido como evidencia completa y mantiene la frontera de revision responsable. |
+| Worktree | `D:/Proyectos/LeaseManager-company-document-intake`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `codex/company-document-intake`. |
+| Estado | Paquete en ejecucion: agregar `audit_company_document_intake`, validar manifiesto `company-document-intake-manifest.v1`, derivar `company-bank-support-coverage-manifest.v1`, crear puente anual hacia `annual-tax-source-manifest.v1`, bloquear RUTs/rutas/URLs/correos/secretos y registrar evidencia. |
 | Gate esperado | Este paquete usa solo fixtures, SQLite efimero y manifests redactados locales bajo `local-evidence`. No lee `.env`, DB real, documentos reales, correos, adjuntos, banco, SII autenticado, EDIG ejecutable ni integraciones; no declara contabilidad autonoma, calculo tributario final ni presentacion SII. |
-| Estado al cerrar paquete | Si `main` contiene el merge de este frente y la rama/worktree ya no existe, no reabrirlo ni repetir PR/CI/merge. Buscar el siguiente frente contable seguro desde repo limpio. |
-| Bloqueos relacionados | Carga productiva real, documentos completos, manifest real redactado/autorizado, respaldo bancario/leasing revisado, formato/certificacion F22/DDJJ aplicable, contenido tributario final y presentacion SII siguen bloqueados por responsable tributario, autorizacion explicita y evidencia no sensible. AT2025 conserva brecha `f22_record_format_2025` hasta evidencia oficial/experta vigente. |
-| Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable, correos ni integraciones externas sin autorizacion explicita. Un paquete preparado solo habilita revision responsable; nunca contabilidad autonoma ni presentacion automatica. |
+| Estado al cerrar paquete | Si `main` contiene el merge de este frente y la rama/worktree ya no existe, no reabrirlo ni repetir PR/CI/merge. El siguiente frente debe tomar el manifest redactado autorizado o continuar la carga contable/renta segura. |
+| Bloqueos relacionados | Carga productiva real, documentos completos reales, manifest real redactado/autorizado, lectura de correos/adjuntos, respaldo bancario/leasing revisado archivo por archivo, formato/certificacion F22/DDJJ aplicable, contenido tributario final y presentacion SII siguen bloqueados por responsable tributario, autorizacion explicita y evidencia no sensible. |
+| Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable, correos ni integraciones externas sin autorizacion explicita. Un intake preparado solo habilita revision y carga controlada; nunca contabilidad autonoma ni presentacion automatica. |
 | Siguiente accion | En rama tactica abierta: completar validaciones proporcionales, ampliar evidencia, cerrar con commit, PR, CI remoto, merge y limpieza. En `main` post-merge: no reabrir este paquete; tomar el siguiente frente seguro de contabilidad/renta. |
 
 ## Actualizacion
