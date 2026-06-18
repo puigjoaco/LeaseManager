@@ -397,7 +397,7 @@ La decision de revision queda separada en el propio checklist: `observado`
 mantiene bloqueos/warnings o decision pendiente; `preparado`
 indica que la evidencia local esta completa para revision responsable; y
 `aprobado_para_presentacion` solo puede existir con `review_decision_ref`,
-responsable y payload trazable no sensible. El payload debe conservar
+`review_decision_evidence_ref`, responsable y payload trazable no sensible. El payload debe conservar
 `automatic_approval=false`, de modo que LeaseManager no convierte un checklist
 completo en aprobacion tributaria ni presentacion.
 `RENTA_ANUAL_OFFICIAL_SOURCE_GAPS_AT2026.md` fija la matriz de brechas
@@ -694,7 +694,8 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   `preparado`, `observado` y `aprobado_para_presentacion`.
   `preparado` requiere checklist completo y sin observaciones,
   pero mantiene `ready_for_presentation=false`; una aprobacion para
-  presentacion exige `review_decision_ref`, responsable trazable y
+  presentacion exige `review_decision_ref`, `review_decision_evidence_ref`,
+  responsable trazable y
   `automatic_approval=false`. Estados observados, aprobaciones incompletas o
   aprobaciones automaticas bloquean readiness.
 - Para workbooks RLI/CPT y registros empresariales, el checklist distingue
@@ -942,8 +943,9 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   explicita: `preparado`, `observado` o
   `aprobado_para_presentacion`. La generacion automatica solo puede dejar
   `preparado` u `observado`; la aprobacion para presentacion
-  exige `review_decision_ref`, responsable y payload coherente no sensible, sin
-  marcar formato oficial, presentacion SII ni calculo final.
+  exige `review_decision_ref`, `review_decision_evidence_ref`, responsable y
+  payload coherente no sensible, sin marcar formato oficial, presentacion SII
+  ni calculo final.
 - `AnnualTaxSourceBundle` acepta como trazabilidad anual completa los 12
   `MonthlyTaxFact` normalizados aun si algunos meses no tienen F29/obligacion
   por no declaracion controlada; no se deben inventar obligaciones para cerrar

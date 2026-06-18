@@ -801,7 +801,13 @@ class AnnualTaxExportSerializer(RedactSensitiveSiiFieldsMixin, serializers.Model
 
 
 class AnnualTaxReviewChecklistSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):
-    redacted_reference_fields = ('checklist_ref', 'responsible_ref', 'evidence_ref', 'review_decision_ref')
+    redacted_reference_fields = (
+        'checklist_ref',
+        'responsible_ref',
+        'evidence_ref',
+        'review_decision_ref',
+        'review_decision_evidence_ref',
+    )
     redacted_payload_fields = ('review_payload',)
 
     class Meta:
@@ -826,6 +832,7 @@ class AnnualTaxReviewChecklistSerializer(RedactSensitiveSiiFieldsMixin, serializ
             'warnings_total',
             'review_decision_state',
             'review_decision_ref',
+            'review_decision_evidence_ref',
             'review_payload',
             'hash_checklist',
             'estado',
