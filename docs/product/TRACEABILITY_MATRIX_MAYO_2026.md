@@ -3092,6 +3092,15 @@ operaciones desconocidas o referencias sensibles. La proxima accion contable es
 revisar un manifiesto redactado autorizado y resolver faltantes; no declarar
 soporte leasing completo por el solo hecho de haber recibido correos o adjuntos.
 
+Nota 2026-06-18: Renta Anual agrega endpoint transaccional para registrar la
+decision responsable del `AnnualTaxReviewChecklist`. La API
+`POST /api/v1/sii/anual/review-checklists/<id>/decision/` permite pasar a
+`observado` o `aprobado_para_presentacion` solo con `decision_ref`,
+`decision_evidence_ref` y `responsible_ref` no sensibles, actualizando payload,
+resumen anual y auditoria. Esto mueve la capa anual hacia revision/presentacion
+controlada por responsable; no abre SII, no declara formato oficial, no intenta
+presentacion y no calcula renta final.
+
 Nota 2026-06-17: PlataformaBase/CI ajusta Release Gate para remover el matcher
 generico `python` de `actions/setup-python` justo antes de acceptance. La suite
 mantiene tracebacks esperados de rollback/auditoria en logs y sigue fallando por

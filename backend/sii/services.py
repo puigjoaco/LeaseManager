@@ -5716,6 +5716,86 @@ def sync_annual_tax_review_checklist(process, rule_set, source_bundle):
     return checklist
 
 
+def register_annual_tax_review_decision(
+    checklist,
+    *,
+    review_decision_state,
+    decision_ref,
+    decision_evidence_ref,
+    responsible_ref,
+    reason='',
+):
+    decision_ref = _ensure_non_sensitive_reference(decision_ref, 'decision_ref')
+    decision_evidence_ref = _ensure_non_sensitive_reference(decision_evidence_ref, 'decision_evidence_ref')
+    responsible_ref = _ensure_non_sensitive_reference(responsible_ref, 'responsible_ref')
+    reason = _ensure_non_sensitive_text(reason, 'reason')
+    if not decision_ref:
+        raise ValueError('Registrar decision de revision anual requiere decision_ref trazable no sensible.')
+    if not decision_evidence_ref:
+        raise ValueError('Registrar decision de revision anual requiere decision_evidence_ref trazable no sensible.')
+    if not responsible_ref:
+        raise ValueError('Registrar decision de revision anual requiere responsible_ref trazable no sensible.')
+    if review_decision_state not in EstadoAnnualTaxReviewDecision.values:
+        raise ValueError('review_decision_state no es valido.')
+
+    ready_for_presentation = review_decision_state == EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION
+    review_payload = dict(checklist.review_payload or {})
+    review_payload['review_decision_state'] = review_decision_state
+    review_payload['review_decision_ref'] = decision_ref
+    review_payload['review_decision_evidence_ref'] = decision_evidence_ref
+    review_payload['review_decision'] = {
+        'version': 'annual-tax-review-decision-v1',
+        'state': review_decision_state,
+        'decision_ref': decision_ref,
+        'evidence_ref': decision_evidence_ref,
+        'responsible_ref': responsible_ref,
+        'reason': reason or (
+            'manual_approval_for_presentation'
+            if ready_for_presentation
+            else 'manual_review_decision_recorded'
+        ),
+        'ready_for_presentation': ready_for_presentation,
+        'automatic_approval': False,
+        'approval_required_for_presentation': not ready_for_presentation,
+        'sii_submission_authorization_required': True,
+    }
+    review_payload['official_format'] = False
+    review_payload['sii_submission'] = False
+    review_payload['sii_submission_attempted'] = False
+    review_payload['final_tax_calculation'] = False
+    review_payload['requires_responsible_review'] = not ready_for_presentation
+    review_payload['leasemanager_boundary'] = 'preparation_and_evidence_only'
+
+    checklist.review_decision_state = review_decision_state
+    checklist.review_decision_ref = decision_ref
+    checklist.review_decision_evidence_ref = decision_evidence_ref
+    checklist.responsible_ref = responsible_ref
+    checklist.review_payload = review_payload
+    checklist.hash_checklist = _source_bundle_hash(review_payload)
+    try:
+        checklist.full_clean()
+    except ValidationError as error:
+        reason = _first_validation_error(error)
+        raise ValueError(f'AnnualTaxReviewChecklist no cumple validacion de decision: {reason}') from error
+    checklist.save(update_fields=[
+        'review_decision_state',
+        'review_decision_ref',
+        'review_decision_evidence_ref',
+        'responsible_ref',
+        'review_payload',
+        'hash_checklist',
+        'updated_at',
+    ])
+
+    process = checklist.proceso_renta_anual
+    process.resumen_anual = {
+        **(process.resumen_anual if isinstance(process.resumen_anual, dict) else {}),
+        'annual_tax_review_checklists': summarize_annual_tax_review_checklists(process),
+    }
+    process.save(update_fields=['resumen_anual', 'updated_at'])
+    return checklist
+
+
 def _ensure_annual_tax_support_policy_and_template():
     policy, _ = PoliticaFirmaYNotaria.objects.get_or_create(
         tipo_documental=TipoDocumental.TAX_SUPPORT,

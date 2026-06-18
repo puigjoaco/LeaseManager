@@ -82,6 +82,7 @@ from .models import (
     DDJJPreparacionAnual,
     DestinoMapeoTributarioAnual,
     DTEEmitido,
+    EstadoAnnualTaxReviewDecision,
     EstadoGateSII,
     EstadoAnnualTaxDDJJLayout,
     EstadoAnnualTaxF22ExportLayout,
@@ -1370,6 +1371,131 @@ class SiiAPITests(APITestCase):
                 monto_calculado='10011.10',
                 estado_preparacion='preparado',
             )
+
+    def _create_prepared_annual_tax_review_checklist(self):
+        empresa = self._create_active_empresa(nombre='ReviewDecisionApiCo', rut='63636363-6')
+        self._activate_fiscal_config(empresa, ddjj_habilitadas=['1887', '1879'])
+        rule_set = TaxYearRuleSet.objects.get(anio_tributario=2027, estado=EstadoReglaTributariaAnual.APPROVED)
+        source_summary = self._valid_source_bundle_summary()
+        source_bundle = AnnualTaxSourceBundle.objects.create(
+            empresa=empresa,
+            anio_tributario=2027,
+            anio_comercial=2026,
+            source_kind=SourceKindRentaAnual.LOCAL,
+            source_label='review-decision-api-source-controlled',
+            responsible_ref='review-decision-api-source-owner',
+            hash_fuentes=self._annual_source_hash(source_summary),
+            resumen_fuentes=source_summary,
+            estado=EstadoAnnualTaxSourceBundle.FROZEN,
+        )
+        process = ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=2027,
+            source_bundle=source_bundle,
+            estado='preparado',
+            paquete_ddjj_ref='review-decision-api-ddjj-package',
+            borrador_f22_ref='review-decision-api-f22-draft',
+            responsable_revision_ref='review-decision-api-reviewer',
+            resumen_anual={'anio_tributario': 2027, 'source': 'review-decision-api-controlled'},
+        )
+        matrix = AnnualTaxArtifactMatrix.objects.create(
+            empresa=empresa,
+            proceso_renta_anual=process,
+            source_bundle=source_bundle,
+            rule_set=rule_set,
+            anio_tributario=2027,
+            anio_comercial=2026,
+            source_ref='review-decision-api-matrix-source',
+            responsible_ref='review-decision-api-matrix-owner',
+            items_total=2,
+            ddjj_items_total=1,
+            f22_items_total=1,
+            resumen_matriz={'source': 'review-decision-api-controlled'},
+            hash_matriz='a' * 64,
+            estado='preparado',
+        )
+        dossier = AnnualTaxDossier.objects.create(
+            empresa=empresa,
+            proceso_renta_anual=process,
+            source_bundle=source_bundle,
+            rule_set=rule_set,
+            artifact_matrix=matrix,
+            anio_tributario=2027,
+            anio_comercial=2026,
+            source_ref='review-decision-api-dossier-source',
+            responsible_ref='review-decision-api-dossier-owner',
+            dossier_ref='review-decision-api-dossier',
+            monthly_facts_total=12,
+            workbooks_total=2,
+            enterprise_registers_total=1,
+            real_estate_sections_total=1,
+            artifact_matrix_items_total=2,
+            warnings_total=0,
+            resumen_dossier={'source': 'review-decision-api-controlled'},
+            hash_dossier='b' * 64,
+            estado='preparado',
+        )
+        annual_export = AnnualTaxExport.objects.create(
+            empresa=empresa,
+            proceso_renta_anual=process,
+            dossier=dossier,
+            source_bundle=source_bundle,
+            rule_set=rule_set,
+            artifact_matrix=matrix,
+            anio_tributario=2027,
+            anio_comercial=2026,
+            source_ref='review-decision-api-export-source',
+            responsible_ref='review-decision-api-export-owner',
+            export_ref='review-decision-api-export',
+            target_items_total=2,
+            ddjj_items_total=1,
+            f22_items_total=1,
+            warnings_total=0,
+            export_payload={'source': 'review-decision-api-controlled'},
+            hash_export='c' * 64,
+            estado='preparado',
+        )
+        review_payload = {
+            'empresa_id': empresa.id,
+            'proceso_renta_anual_id': process.id,
+            'dossier_id': dossier.id,
+            'annual_export_id': annual_export.id,
+            'source_bundle_id': source_bundle.id,
+            'rule_set_id': rule_set.id,
+            'artifact_matrix_id': matrix.id,
+            'anio_tributario': 2027,
+            'anio_comercial': 2026,
+            'items_total': 4,
+            'completed_items_total': 4,
+            'blockers_total': 0,
+            'warnings_total': 0,
+            'review_decision_state': EstadoAnnualTaxReviewDecision.PREPARED,
+            'official_format': False,
+            'sii_submission': False,
+            'final_tax_calculation': False,
+        }
+        return AnnualTaxReviewChecklist.objects.create(
+            empresa=empresa,
+            proceso_renta_anual=process,
+            dossier=dossier,
+            annual_export=annual_export,
+            source_bundle=source_bundle,
+            rule_set=rule_set,
+            artifact_matrix=matrix,
+            anio_tributario=2027,
+            anio_comercial=2026,
+            checklist_ref='review-decision-api-checklist',
+            responsible_ref='review-decision-api-reviewer',
+            evidence_ref='review-decision-api-evidence',
+            items_total=4,
+            completed_items_total=4,
+            blockers_total=0,
+            warnings_total=0,
+            review_decision_state=EstadoAnnualTaxReviewDecision.PREPARED,
+            review_payload=review_payload,
+            hash_checklist=self._annual_source_hash(review_payload),
+            estado='preparado',
+        )
 
     def test_annual_tax_source_bundle_accepts_full_monthly_facts_when_no_declaration_month_exists(self):
         empresa = self._create_active_empresa(nombre='SourceBundleNoDeclarationCo', rut='63636363-6')
@@ -3845,6 +3971,74 @@ class SiiAPITests(APITestCase):
         self.assertEqual(len(snapshot.data['annual_tax_dossiers']), 1)
         self.assertEqual(len(snapshot.data['annual_tax_exports']), 1)
         self.assertEqual(len(snapshot.data['annual_tax_review_checklists']), 1)
+
+    def test_annual_tax_review_decision_endpoint_records_manual_approval_without_submission(self):
+        checklist = self._create_prepared_annual_tax_review_checklist()
+
+        response = self.client.post(
+            reverse('sii-annual-tax-review-checklist-decision', args=[checklist.id]),
+            {
+                'review_decision_state': EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION,
+                'decision_ref': 'annual-tax-manual-approval-at2027-controlled',
+                'decision_evidence_ref': 'annual-tax-manual-approval-evidence-at2027-controlled',
+                'responsible_ref': 'tax-reviewer-final-approval-controlled',
+                'reason': 'manual_review_completed',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        checklist.refresh_from_db()
+        self.assertEqual(checklist.review_decision_state, EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION)
+        self.assertEqual(checklist.review_decision_ref, 'annual-tax-manual-approval-at2027-controlled')
+        self.assertEqual(
+            checklist.review_decision_evidence_ref,
+            'annual-tax-manual-approval-evidence-at2027-controlled',
+        )
+        self.assertEqual(checklist.responsible_ref, 'tax-reviewer-final-approval-controlled')
+        decision = checklist.review_payload['review_decision']
+        self.assertEqual(decision['evidence_ref'], 'annual-tax-manual-approval-evidence-at2027-controlled')
+        self.assertTrue(decision['ready_for_presentation'])
+        self.assertFalse(decision['automatic_approval'])
+        self.assertFalse(checklist.review_payload['sii_submission'])
+        self.assertFalse(checklist.review_payload['sii_submission_attempted'])
+        self.assertFalse(checklist.review_payload['final_tax_calculation'])
+        process_summary = checklist.proceso_renta_anual.resumen_anual['annual_tax_review_checklists']
+        summary_item = process_summary['by_id'][str(checklist.id)]
+        self.assertEqual(summary_item['review_decision_state'], EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION)
+        self.assertEqual(summary_item['review_decision_ref'], 'annual-tax-manual-approval-at2027-controlled')
+        self.assertEqual(
+            summary_item['review_decision_evidence_ref'],
+            'annual-tax-manual-approval-evidence-at2027-controlled',
+        )
+        event = AuditEvent.objects.get(event_type='sii.annual_tax_review_checklist.decision_updated')
+        self.assertEqual(event.metadata['estado_anterior'], EstadoAnnualTaxReviewDecision.PREPARED)
+        self.assertEqual(event.metadata['estado_nuevo'], EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION)
+        self.assertEqual(
+            event.metadata['review_decision_evidence_ref'],
+            'annual-tax-manual-approval-evidence-at2027-controlled',
+        )
+        self.assertFalse(event.metadata['sii_submission'])
+        self.assertFalse(event.metadata['final_tax_calculation'])
+
+    def test_annual_tax_review_decision_endpoint_rejects_sensitive_references(self):
+        checklist = self._create_prepared_annual_tax_review_checklist()
+
+        response = self.client.post(
+            reverse('sii-annual-tax-review-checklist-decision', args=[checklist.id]),
+            {
+                'review_decision_state': EstadoAnnualTaxReviewDecision.OBSERVED,
+                'decision_ref': 'https://sii.example.test/decision?token=secret',
+                'decision_evidence_ref': 'annual-tax-manual-observation-evidence-at2027-controlled',
+                'responsible_ref': 'tax-reviewer-final-approval-controlled',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        checklist.refresh_from_db()
+        self.assertEqual(checklist.review_decision_state, EstadoAnnualTaxReviewDecision.PREPARED)
+        self.assertNotIn('secret', json.dumps(response.data))
 
     def test_real_estate_item_preserves_frozen_snapshot_after_property_master_changes(self):
         empresa, _ = self._setup_paid_payment()

@@ -28,6 +28,7 @@ from .models import (
     CapacidadTributariaSII,
     DDJJPreparacionAnual,
     DTEEmitido,
+    EstadoAnnualTaxReviewDecision,
     EstadoAnnualTaxSourceBundle,
     F22PreparacionAnual,
     F29PreparacionMensual,
@@ -840,6 +841,14 @@ class AnnualTaxReviewChecklistSerializer(RedactSensitiveSiiFieldsMixin, serializ
             'updated_at',
         )
         read_only_fields = fields
+
+
+class AnnualTaxReviewDecisionSerializer(serializers.Serializer):
+    review_decision_state = serializers.ChoiceField(choices=EstadoAnnualTaxReviewDecision.choices)
+    decision_ref = serializers.CharField(max_length=255)
+    decision_evidence_ref = serializers.CharField(max_length=255)
+    responsible_ref = serializers.CharField(max_length=255)
+    reason = serializers.CharField(max_length=500, required=False, allow_blank=True)
 
 
 class DTEEmitidoSerializer(RedactSensitiveSiiFieldsMixin, serializers.ModelSerializer):

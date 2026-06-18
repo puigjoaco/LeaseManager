@@ -49,6 +49,7 @@ from .serializers import (
     AnnualTaxExportSerializer,
     AnnualGenerateSerializer,
     AnnualTaxOfficialSourceSerializer,
+    AnnualTaxReviewDecisionSerializer,
     AnnualTaxReviewChecklistSerializer,
     AnnualStatusSerializer,
     AnnualTaxSourceBundleSerializer,
@@ -74,6 +75,7 @@ from .services import (
     generate_annual_preparation,
     generate_dte_draft,
     generate_f29_draft,
+    register_annual_tax_review_decision,
     register_annual_status,
     register_dte_status,
     register_f29_status,
@@ -1375,6 +1377,67 @@ class AnnualTaxReviewChecklistDetailView(ScopedQuerysetMixin, generics.RetrieveA
         'artifact_matrix',
     ).all()
     company_scope_paths = ('empresa_id',)
+
+
+class AnnualTaxReviewDecisionUpdateView(APIView):
+    permission_classes = [ControlModulePermission]
+
+    def post(self, request, pk):
+        checklist = generics.get_object_or_404(
+            scope_queryset_for_user(
+                AnnualTaxReviewChecklist.objects.select_related(
+                    'empresa',
+                    'proceso_renta_anual',
+                    'dossier',
+                    'annual_export',
+                    'source_bundle',
+                    'rule_set',
+                    'artifact_matrix',
+                ),
+                request.user,
+                company_paths=('empresa_id',),
+            ),
+            pk=pk,
+        )
+        serializer = AnnualTaxReviewDecisionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        previous_state = checklist.review_decision_state
+        previous_ref = checklist.review_decision_ref
+        previous_evidence_ref = checklist.review_decision_evidence_ref
+        try:
+            with transaction.atomic():
+                checklist = register_annual_tax_review_decision(
+                    checklist,
+                    **serializer.validated_data,
+                )
+                create_audit_event(
+                    event_type='sii.annual_tax_review_checklist.decision_updated',
+                    entity_type='annual_tax_review_checklist',
+                    entity_id=str(checklist.pk),
+                    summary='Decision de revision anual registrada manualmente',
+                    actor_user=request.user,
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                    metadata=build_state_change_metadata(
+                        previous_field='review_decision_state',
+                        previous_state=previous_state,
+                        current_field='review_decision_state',
+                        current_state=checklist.review_decision_state,
+                        extra={
+                            'previous_review_decision_ref': redact_sensitive_reference(previous_ref),
+                            'previous_review_decision_evidence_ref': redact_sensitive_reference(previous_evidence_ref),
+                            'review_decision_ref': redact_sensitive_reference(checklist.review_decision_ref),
+                            'review_decision_evidence_ref': redact_sensitive_reference(
+                                checklist.review_decision_evidence_ref
+                            ),
+                            'responsible_ref': redact_sensitive_reference(checklist.responsible_ref),
+                            'sii_submission': False,
+                            'final_tax_calculation': False,
+                        },
+                    ),
+                )
+        except ValueError as error:
+            return Response({'detail': str(error)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(AnnualTaxReviewChecklistSerializer(checklist).data, status=status.HTTP_200_OK)
 
 
 class DTEEmitidoListView(ScopedQuerysetMixin, generics.ListAPIView):
