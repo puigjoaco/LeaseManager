@@ -152,6 +152,18 @@ revision controlada cuando artefactos, checklist, compatibilidad oficial y
 cobertura F22/DDJJ estan listos; sigue sin formato oficial final, upload SII,
 presentacion ni calculo tributario final.
 
+Nota 2026-06-18: Etapa 6/Renta Anual agrega paquete local de entrega controlada
+posterior al bundle aprobado. `materialize_annual_tax_controlled_presentation_package`
+materializa en una raiz limpia el paquete anual, candidato F22 fixed-width,
+candidatos DDJJ ASCII/ZIP, bundle de revision y manifest
+`annual-tax-controlled-presentation-package.json` dentro de
+`controlled-presentation-handoff`. El comando exige checklist aprobado para
+presentacion controlada y refs no sensibles de autorizacion de handoff,
+responsable y ventana; si falta aprobacion o las refs son sensibles, falla antes
+de escribir. La salida sigue con `official_format=false`,
+`sii_submission=false`, `sii_submission_attempted=false`,
+`final_tax_calculation=false` y `ready_for_sii_submission=false`.
+
 Nota 2026-06-18: Reporting expone el paquete de revision contable/renta por
 empresa y ano mediante
 `POST /api/v1/reporting/contabilidad/paquete-revision-empresa/` y panel
@@ -3250,6 +3262,13 @@ mantiene tracebacks esperados de rollback/auditoria en logs y sigue fallando por
 exit code cuando corresponde, pero evita anotaciones falsas de PR generadas por
 tests negativos que pasan correctamente. No cambia cobertura, comandos del gate,
 Python 3.12, Node 22 ni gates externos.
+
+Nota 2026-06-18: Renta Anual agrega `materialize_annual_tax_controlled_presentation_package`
+como orquestador local de paquete completo de presentacion controlada: produce
+paquete `AnnualTaxExport`, F22 fixed-width, DDJJ ASCII/ZIP por layout DDJJ y
+bundle final en una raiz vacia bajo `local-evidence/` o ruta externa controlada,
+con hashes y conteos sin imprimir RUTs, registros ni codigos sensibles. No abre
+SII, no declara formato oficial, no calcula renta final y no presenta.
 
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |

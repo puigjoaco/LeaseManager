@@ -117,6 +117,7 @@ from sii.services import (
     verify_annual_tax_ddjj_zip_export_candidate,
     verify_annual_tax_export_file_package,
     verify_annual_tax_presentation_review_bundle,
+    verify_annual_tax_controlled_presentation_package,
     write_annual_tax_ddjj_ascii_export_candidate,
     write_annual_tax_ddjj_zip_export_candidate,
     write_annual_tax_f22_fixed_width_export_candidate,
@@ -4092,6 +4093,312 @@ class Stage6RentaAnualReadinessTests(TestCase):
             ):
                 self.assertNotIn(sensitive_value, rendered)
                 self.assertNotIn(sensitive_value, bundle_rendered)
+
+    def test_materialize_annual_tax_controlled_presentation_package_command_writes_verified_package(self):
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            export, _mapping = self._add_reviewed_f22_fixed_width_mapping_and_resync(code='1234', value='1000')
+            process = ProcesoRentaAnual.objects.get()
+            rule_set = TaxYearRuleSet.objects.get()
+            source_bundle = AnnualTaxSourceBundle.objects.get()
+            sync_annual_tax_review_checklist(process, rule_set, source_bundle)
+            export.refresh_from_db()
+            checklist = AnnualTaxReviewChecklist.objects.get(annual_export=export)
+            register_annual_tax_review_decision(
+                checklist,
+                review_decision_state=EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION,
+                decision_ref='annual-tax-manual-approval-at2026-controlled',
+                decision_evidence_ref='annual-tax-manual-approval-evidence-at2026-controlled',
+                responsible_ref='tax-reviewer-final-approval-controlled',
+                reason='manual_review_completed_for_controlled_package',
+            )
+            ddjj_item = AnnualTaxArtifactMatrixItem.objects.filter(target_kind='DDJJ', target_code='DDJJ-1887').first()
+            self.assertIsNotNone(ddjj_item)
+            ddjj_inputs = {
+                '1887': {
+                    'records': self._ddjj_ascii_records(ddjj_item),
+                    'transfer_control_record': {
+                        'record': '0' + 'T' * 23,
+                        'review_state': 'approved_for_candidate',
+                        'transfer_source_ref': 'sii-ddjj-at2026-transfer-control-reviewed',
+                        'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+                    },
+                }
+            }
+            output_dir = Path(temp_dir) / 'controlled-presentation-package'
+            stdout = StringIO()
+
+            call_command(
+                'materialize_annual_tax_controlled_presentation_package',
+                export_id=export.pk,
+                rut_number='97030000',
+                rut_dv='0',
+                company_code='QA',
+                client_number='123456',
+                ddjj_inputs_json=json.dumps(ddjj_inputs),
+                output_dir=str(output_dir),
+                handoff_authorization_ref='annual-tax-controlled-handoff-authorization-at2026',
+                responsible_ref='tax-reviewer-controlled-handoff-at2026',
+                presentation_window_ref='presentation-window-at2026-controlled-local',
+                package_note='controlled_handoff_without_sii_submission',
+                stdout=stdout,
+                **self._f22_local_certification_kwargs(),
+            )
+
+            result = json.loads(stdout.getvalue())
+            export_package_dir = output_dir / 'annual-tax-export-package'
+            f22_dir = output_dir / 'f22-fixed-width-candidate'
+            ddjj_ascii_dir = output_dir / 'ddjj-1887-ascii-candidate'
+            ddjj_zip_dir = output_dir / 'ddjj-1887-zip-candidate'
+            bundle_dir = output_dir / 'presentation-review-bundle'
+            controlled_package_dir = output_dir / 'controlled-presentation-handoff'
+            export_verification = verify_annual_tax_export_file_package(export, export_package_dir)
+            f22_entries = build_f22_fixed_width_entries_from_artifact_matrix(export)
+            f22_candidate = build_annual_tax_f22_fixed_width_export_candidate(
+                export,
+                rut_number='97030000',
+                rut_dv='0',
+                company_code='QA',
+                client_number='123456',
+                entries=f22_entries,
+                **self._f22_local_certification_kwargs(),
+            )
+            f22_verification = verify_annual_tax_f22_fixed_width_export_candidate(f22_candidate, f22_dir)
+            ascii_candidate = build_annual_tax_ddjj_ascii_export_candidate(
+                export,
+                form_code='1887',
+                rut_number='97030000',
+                records=ddjj_inputs['1887']['records'],
+            )
+            ascii_verification = verify_annual_tax_ddjj_ascii_export_candidate(ascii_candidate, ddjj_ascii_dir)
+            zip_candidate = build_annual_tax_ddjj_zip_export_candidate(
+                ascii_candidate,
+                transfer_control_record=ddjj_inputs['1887']['transfer_control_record'],
+            )
+            zip_verification = verify_annual_tax_ddjj_zip_export_candidate(zip_candidate, ddjj_zip_dir)
+            bundle_verification = verify_annual_tax_presentation_review_bundle(
+                export,
+                bundle_dir,
+                export_package_dir=export_package_dir,
+                f22_candidate_dir=f22_dir,
+                ddjj_ascii_candidate_dirs=[ddjj_ascii_dir],
+                ddjj_zip_candidate_dirs=[ddjj_zip_dir],
+            )
+            controlled_verification = verify_annual_tax_controlled_presentation_package(
+                export,
+                controlled_package_dir,
+                presentation_review_bundle_dir=bundle_dir,
+                export_package_dir=export_package_dir,
+                f22_candidate_dir=f22_dir,
+                ddjj_ascii_candidate_dirs=[ddjj_ascii_dir],
+                ddjj_zip_candidate_dirs=[ddjj_zip_dir],
+                handoff_authorization_ref='annual-tax-controlled-handoff-authorization-at2026',
+                responsible_ref='tax-reviewer-controlled-handoff-at2026',
+                presentation_window_ref='presentation-window-at2026-controlled-local',
+                package_note='controlled_handoff_without_sii_submission',
+            )
+
+            self.assertTrue(result['materialized'])
+            self.assertEqual(result['annual_tax_export_id'], export.pk)
+            self.assertEqual(result['export_package_hash'], export_verification['package_hash'])
+            self.assertEqual(result['f22_content_hash'], f22_verification['content_hash'])
+            self.assertEqual(result['f22_codes_total'], 1)
+            self.assertEqual(result['company_code_hash'], hashlib.sha256(b'QA').hexdigest())
+            self.assertEqual(result['client_number_hash'], hashlib.sha256(b'123456').hexdigest())
+            self.assertEqual(result['ddjj_forms'], ['1887'])
+            self.assertEqual(result['ddjj_results'][0]['ascii_content_hash'], ascii_verification['content_hash'])
+            self.assertEqual(result['ddjj_results'][0]['zip_file_hash'], zip_verification['zip_file_hash'])
+            self.assertEqual(result['presentation_bundle_hash'], bundle_verification['bundle_hash'])
+            self.assertEqual(result['controlled_package_hash'], controlled_verification['package_hash'])
+            self.assertEqual(result['classification'], 'preparado_para_presentacion_controlada')
+            self.assertTrue(result['artifact_coverage_ready'])
+            self.assertEqual(result['artifact_coverage_issue_codes'], [])
+            self.assertTrue(result['ready_for_controlled_presentation_review'])
+            self.assertTrue(result['ready_for_controlled_presentation_package'])
+            self.assertFalse(result['ready_for_sii_submission'])
+            self.assertFalse(result['official_format'])
+            self.assertFalse(result['sii_submission'])
+            self.assertFalse(result['sii_submission_attempted'])
+            self.assertFalse(result['final_tax_calculation'])
+            self.assertTrue(result['requires_official_format_gate'])
+            self.assertTrue(result['requires_explicit_submission_authorization'])
+            self.assertTrue(result['requires_manual_sii_step'])
+            self.assertFalse(result['requires_responsible_review'])
+            self.assertTrue((bundle_dir / result['presentation_bundle_manifest_file']).is_file())
+            self.assertTrue((controlled_package_dir / result['controlled_package_manifest_file']).is_file())
+
+            rendered = stdout.getvalue()
+            bundle_rendered = (bundle_dir / result['presentation_bundle_manifest_file']).read_text(encoding='utf-8')
+            controlled_rendered = (
+                controlled_package_dir / result['controlled_package_manifest_file']
+            ).read_text(encoding='utf-8')
+            for sensitive_value in (
+                '97030000',
+                '97030000.887',
+                'QA',
+                '123456',
+                'AAAAAAAAAAAAAAAAAAAAAAA',
+                'BBBBBBBBBBBBBBBBBBBBBBB',
+                'CCCCCCCCCCCCCCCCCCCCCCC',
+                'TTTTTTTTTTTTTTTTTTTTTTT',
+            ):
+                self.assertNotIn(sensitive_value, rendered)
+                self.assertNotIn(sensitive_value, bundle_rendered)
+                self.assertNotIn(sensitive_value, controlled_rendered)
+
+    def test_materialize_annual_tax_controlled_presentation_package_rejects_unapproved_checklist(self):
+        export, _mapping = self._add_reviewed_f22_fixed_width_mapping_and_resync(code='1234', value='1000')
+        process = ProcesoRentaAnual.objects.get()
+        rule_set = TaxYearRuleSet.objects.get()
+        source_bundle = AnnualTaxSourceBundle.objects.get()
+        sync_annual_tax_review_checklist(process, rule_set, source_bundle)
+        ddjj_item = AnnualTaxArtifactMatrixItem.objects.filter(target_kind='DDJJ', target_code='DDJJ-1887').first()
+        self.assertIsNotNone(ddjj_item)
+        ddjj_inputs = {
+            '1887': {
+                'records': self._ddjj_ascii_records(ddjj_item),
+                'transfer_control_record': {
+                    'record': '0' + 'T' * 23,
+                    'review_state': 'approved_for_candidate',
+                    'transfer_source_ref': 'sii-ddjj-at2026-transfer-control-reviewed',
+                    'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+                },
+            }
+        }
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            output_dir = Path(temp_dir) / 'controlled-presentation-package'
+
+            with self.assertRaisesMessage(CommandError, 'checklist anual aprobado'):
+                call_command(
+                    'materialize_annual_tax_controlled_presentation_package',
+                    export_id=export.pk,
+                    rut_number='97030000',
+                    rut_dv='0',
+                    company_code='QA',
+                    client_number='123456',
+                    ddjj_inputs_json=json.dumps(ddjj_inputs),
+                    output_dir=str(output_dir),
+                    handoff_authorization_ref='annual-tax-controlled-handoff-authorization-at2026',
+                    responsible_ref='tax-reviewer-controlled-handoff-at2026',
+                    presentation_window_ref='presentation-window-at2026-controlled-local',
+                    package_note='controlled_handoff_without_sii_submission',
+                    stdout=StringIO(),
+                    **self._f22_local_certification_kwargs(),
+                )
+
+            self.assertFalse(output_dir.exists())
+
+    def test_materialize_annual_tax_controlled_presentation_package_rejects_nonempty_output_dir(self):
+        export, _mapping = self._add_reviewed_f22_fixed_width_mapping_and_resync(code='1234', value='1000')
+        process = ProcesoRentaAnual.objects.get()
+        rule_set = TaxYearRuleSet.objects.get()
+        source_bundle = AnnualTaxSourceBundle.objects.get()
+        sync_annual_tax_review_checklist(process, rule_set, source_bundle)
+        checklist = AnnualTaxReviewChecklist.objects.get(annual_export=export)
+        register_annual_tax_review_decision(
+            checklist,
+            review_decision_state=EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION,
+            decision_ref='annual-tax-manual-approval-at2026-controlled',
+            decision_evidence_ref='annual-tax-manual-approval-evidence-at2026-controlled',
+            responsible_ref='tax-reviewer-final-approval-controlled',
+            reason='manual_review_completed_for_controlled_package',
+        )
+        ddjj_item = AnnualTaxArtifactMatrixItem.objects.filter(target_kind='DDJJ', target_code='DDJJ-1887').first()
+        self.assertIsNotNone(ddjj_item)
+        ddjj_inputs = {
+            '1887': {
+                'records': self._ddjj_ascii_records(ddjj_item),
+                'transfer_control_record': {
+                    'record': '0' + 'T' * 23,
+                    'review_state': 'approved_for_candidate',
+                    'transfer_source_ref': 'sii-ddjj-at2026-transfer-control-reviewed',
+                    'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+                },
+            }
+        }
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            output_dir = Path(temp_dir) / 'controlled-presentation-package'
+            output_dir.mkdir()
+            stale_file = output_dir / 'stale.txt'
+            stale_file.write_text('previous presentation residue', encoding='utf-8')
+
+            with self.assertRaisesMessage(CommandError, 'debe estar vacio'):
+                call_command(
+                    'materialize_annual_tax_controlled_presentation_package',
+                    export_id=export.pk,
+                    rut_number='97030000',
+                    rut_dv='0',
+                    company_code='QA',
+                    client_number='123456',
+                    ddjj_inputs_json=json.dumps(ddjj_inputs),
+                    output_dir=str(output_dir),
+                    handoff_authorization_ref='annual-tax-controlled-handoff-authorization-at2026',
+                    responsible_ref='tax-reviewer-controlled-handoff-at2026',
+                    presentation_window_ref='presentation-window-at2026-controlled-local',
+                    package_note='controlled_handoff_without_sii_submission',
+                    stdout=StringIO(),
+                    **self._f22_local_certification_kwargs(),
+                )
+
+            self.assertEqual(stale_file.read_text(encoding='utf-8'), 'previous presentation residue')
+            self.assertFalse((output_dir / 'presentation-review-bundle').exists())
+
+    def test_materialize_annual_tax_controlled_presentation_package_rejects_versioned_repo_output(self):
+        export, _mapping = self._add_reviewed_f22_fixed_width_mapping_and_resync(code='1234', value='1000')
+        process = ProcesoRentaAnual.objects.get()
+        rule_set = TaxYearRuleSet.objects.get()
+        source_bundle = AnnualTaxSourceBundle.objects.get()
+        sync_annual_tax_review_checklist(process, rule_set, source_bundle)
+        checklist = AnnualTaxReviewChecklist.objects.get(annual_export=export)
+        register_annual_tax_review_decision(
+            checklist,
+            review_decision_state=EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION,
+            decision_ref='annual-tax-manual-approval-at2026-controlled',
+            decision_evidence_ref='annual-tax-manual-approval-evidence-at2026-controlled',
+            responsible_ref='tax-reviewer-final-approval-controlled',
+            reason='manual_review_completed_for_controlled_package',
+        )
+        ddjj_item = AnnualTaxArtifactMatrixItem.objects.filter(target_kind='DDJJ', target_code='DDJJ-1887').first()
+        self.assertIsNotNone(ddjj_item)
+        ddjj_inputs = {
+            '1887': {
+                'records': self._ddjj_ascii_records(ddjj_item),
+                'transfer_control_record': {
+                    'record': '0' + 'T' * 23,
+                    'review_state': 'approved_for_candidate',
+                    'transfer_source_ref': 'sii-ddjj-at2026-transfer-control-reviewed',
+                    'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+                },
+            }
+        }
+        blocked_output = Path(settings.PROJECT_ROOT) / 'docs' / 'stage6-controlled-presentation-package'
+
+        with self.assertRaisesMessage(CommandError, 'local-evidence'):
+            call_command(
+                'materialize_annual_tax_controlled_presentation_package',
+                export_id=export.pk,
+                rut_number='97030000',
+                rut_dv='0',
+                company_code='QA',
+                client_number='123456',
+                ddjj_inputs_json=json.dumps(ddjj_inputs),
+                output_dir=str(blocked_output),
+                handoff_authorization_ref='annual-tax-controlled-handoff-authorization-at2026',
+                responsible_ref='tax-reviewer-controlled-handoff-at2026',
+                presentation_window_ref='presentation-window-at2026-controlled-local',
+                package_note='controlled_handoff_without_sii_submission',
+                stdout=StringIO(),
+                **self._f22_local_certification_kwargs(),
+            )
+        self.assertFalse(blocked_output.exists())
 
     def test_materialize_annual_tax_presentation_review_bundle_rejects_nonempty_output_dir(self):
         local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'

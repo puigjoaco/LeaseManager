@@ -25,18 +25,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `codex/stage6-presentation-artifact-coverage`. |
-| Fuente exacta | `main` en `c2a9282a`, despues del merge confirmado de PR #930 `codex/stage6-presentation-compatibility-gate`. |
-| Brecha activa | El bundle local de revision de presentacion verifica paquetes/candidatos materializados, pero aun debe demostrar cobertura exacta entre el `AnnualTaxExport`, el candidato F22 fixed-width y los candidatos DDJJ ASCII/ZIP. |
-| Motivo de prioridad | Para avanzar desde previews comparables hacia archivos exportables/controlables, no basta con tener artefactos validos por separado: la revision responsable debe saber si todos los items DDJJ/F22 esperados del export anual estan cubiertos y si no hay candidatos ajenos, faltantes o duplicados. |
-| Worktree | `D:/Proyectos/LeaseManager-stage6-presentation-artifact-coverage`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
-| Rama | `codex/stage6-presentation-artifact-coverage`. |
-| Estado | Paquete en ejecucion: agregar cobertura de artefactos de presentacion, exponer resumen/issue en `build_annual_tax_presentation_review_bundle`/verificador y cubrir con tests que bloqueen F22/DDJJ faltantes o ajenos. |
+| Frente activo | `codex/stage6-controlled-presentation-package`. |
+| Fuente exacta | `main` en `006d9d78`, despues del merge confirmado de PR #931 `codex/stage6-presentation-artifact-coverage`. |
+| Brecha activa | Los artefactos F22/DDJJ/export ya se verifican y cubren exactamente la matriz, pero faltaba un paquete local de entrega controlada que solo exista despues de un bundle aprobado y que deje refs de handoff sin abrir SII real. |
+| Motivo de prioridad | Para pasar de revision comparativa a una entrega usable por responsable tributario, el sistema debe sellar una raiz reproducible con paquete anual, F22, DDJJ ASCII/ZIP, bundle aprobado y manifest de handoff, sin mezclar corridas ni sugerir presentacion automatica. |
+| Worktree | `D:/Proyectos/LeaseManager-stage6-controlled-presentation-package`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `codex/stage6-controlled-presentation-package`. |
+| Estado | Paquete en ejecucion: agregar `materialize_annual_tax_controlled_presentation_package`, builders/verificadores del manifest `annual-tax-controlled-presentation-package`, cobertura de checklist no aprobado, salida completa, salida no vacia y salida versionada, registrar evidencia y cerrar por PR/CI/merge. |
 | Gate esperado | Este paquete usa solo fixtures, SQLite efimero y manifests locales bajo `local-evidence`. No lee `.env`, DB real, documentos reales, correos, adjuntos, EDIG ejecutable, banco ni SII autenticado; no declara contabilidad final, calculo tributario final ni presentacion SII. |
 | Estado al cerrar paquete | Si `main` contiene el merge de este frente y la rama/worktree ya no existe, no reabrirlo ni repetir PR/CI/merge. Buscar el siguiente frente contable seguro desde repo limpio. |
 | Bloqueos relacionados | Carga productiva real, documentos completos, manifest real redactado/autorizado, formato/certificacion F22/DDJJ aplicable, contenido tributario final y presentacion SII siguen bloqueados por responsable tributario, autorizacion explicita y evidencia no sensible. AT2025 conserva brecha `f22_record_format_2025` hasta evidencia oficial/experta vigente. |
 | Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable, correos ni integraciones externas sin autorizacion explicita. Un paquete preparado solo habilita revision responsable; nunca contabilidad autonoma ni presentacion automatica. |
-| Siguiente accion | En rama tactica abierta: implementar cobertura exacta de F22/DDJJ, ejecutar validaciones proporcionales, registrar evidencia, cerrar con commit, PR, CI remoto, merge y limpieza. En `main` post-merge: no reabrir este paquete; tomar el siguiente frente seguro de contabilidad/renta. |
+| Siguiente accion | En rama tactica abierta: completar validaciones proporcionales, ampliar evidencia, cerrar con commit, PR, CI remoto, merge y limpieza. En `main` post-merge: no reabrir este paquete; tomar el siguiente frente seguro de contabilidad/renta. |
 
 ## Actualizacion
 
