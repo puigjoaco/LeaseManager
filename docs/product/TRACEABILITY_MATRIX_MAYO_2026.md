@@ -76,6 +76,16 @@ Asi el candidato F22 deja de depender de una lista manual aislada y queda
 trazado a la capa tributaria intermedia. No habilita certificacion real, envio
 SII ni calculo tributario final.
 
+Nota 2026-06-18: Etapa 6/Renta Anual separa el codigo de certificacion F22 del
+candidato local. `build_annual_tax_f22_fixed_width_export_candidate()` ahora
+requiere fuente no sensible, responsable revisor y estado de revision para los
+campos `company_code`/`client_number` del registro tipo 0; guarda solo hashes de
+esos valores y bloquea refs sensibles o valores crudos. Un candidato local puede
+usar estado sintetico controlado, pero no puede declarar autorizacion SII ni quedar
+`ready_for_certification_submission=true`. Si se marca autorizado por SII, debe
+venir con estado oficial revisado y authorization ref no sensible. La capa queda
+lista para revision responsable sin abrir certificacion, upload ni presentacion.
+
 Nota 2026-06-17: Etapa 6/Renta Anual agrega candidato DDJJ ASCII posicional
 con `build_annual_tax_ddjj_ascii_export_candidate()`,
 `write_annual_tax_ddjj_ascii_export_candidate()` y

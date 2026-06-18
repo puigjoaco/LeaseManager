@@ -123,6 +123,12 @@ VALID_DOCUMENT_SHA256 = 'd' * 64
 
 
 class Stage6RentaAnualReadinessTests(TestCase):
+    def _f22_local_certification_kwargs(self):
+        return {
+            'certification_code_source_ref': 'sii-f22-at2026-cert-code-synthetic-local',
+            'certification_responsible_review_ref': 'tax-reviewer-at2026-cert-code-controlled',
+        }
+
     def _create_socio(self, nombre, rut, activo=True):
         return Socio.objects.create(nombre=nombre, rut=rut, activo=activo)
 
@@ -2795,6 +2801,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
             rut_dv='1',
             company_code='QA',
             client_number='123456',
+            **self._f22_local_certification_kwargs(),
             entries=[
                 {
                     'code': '1234',
@@ -2861,6 +2868,20 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertFalse(summary['official_format'])
         self.assertFalse(summary['sii_submission'])
         self.assertFalse(summary['final_tax_calculation'])
+        self.assertEqual(summary['certification_code_review_state'], 'synthetic_for_local_candidate')
+        self.assertFalse(summary['certification_code_authorized_by_sii'])
+        self.assertFalse(summary['ready_for_certification_submission'])
+        certification_evidence = summary['certification_code_evidence']
+        self.assertEqual(certification_evidence['review_state'], 'synthetic_for_local_candidate')
+        self.assertEqual(
+            certification_evidence['certification_code_source_ref'],
+            'sii-f22-at2026-cert-code-synthetic-local',
+        )
+        self.assertFalse(certification_evidence['authorized_by_sii'])
+        self.assertIn('company_code_hash', certification_evidence)
+        self.assertIn('client_number_hash', certification_evidence)
+        self.assertNotIn('company_code', certification_evidence)
+        self.assertNotIn('client_number', certification_evidence)
         self.assertEqual(len(records), 3)
         self.assertTrue(all(len(record) == 90 for record in records))
         self.assertEqual(records[0][18:23], '00003')
@@ -2881,6 +2902,10 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertFalse(verification['official_format'])
         self.assertFalse(verification['sii_submission'])
         self.assertFalse(verification['final_tax_calculation'])
+        self.assertEqual(verification['certification_code_review_state'], 'synthetic_for_local_candidate')
+        self.assertFalse(verification['certification_code_authorized_by_sii'])
+        self.assertTrue(verification['ready_for_certification_review'])
+        self.assertFalse(verification['ready_for_certification_submission'])
 
     def test_tax_export_derives_f22_fixed_width_entries_from_reviewed_mapping_items(self):
         export, mapping = self._add_reviewed_f22_fixed_width_mapping_and_resync(code='1234', value='1000')
@@ -2899,6 +2924,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
             rut_dv='1',
             company_code='QA',
             client_number='123456',
+            **self._f22_local_certification_kwargs(),
             entries=entries,
         )
 
@@ -2907,6 +2933,67 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertEqual(evidence['tax_code_mapping_id'], mapping.id)
         self.assertEqual(evidence['official_source_id'], mapping.official_source_id)
         self.assertEqual(evidence['code_source_ref'], 'sii-f22-at2026-code-1234')
+
+    def test_tax_export_f22_fixed_width_candidate_requires_certification_code_evidence(self):
+        self._create_valid_local_matrix()
+        export = AnnualTaxExport.objects.get()
+        reviewed_entry = {
+            'code': '1234',
+            'value': '1000',
+            'review_state': 'approved_for_candidate',
+            'code_source_ref': 'sii-f22-at2026-code-1234',
+            'value_source_ref': 'lm-reviewed-line-1234',
+            'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+        }
+
+        with self.assertRaisesRegex(ValueError, 'certification_code_source_ref'):
+            build_annual_tax_f22_fixed_width_export_candidate(
+                export,
+                rut_number='11111111',
+                rut_dv='1',
+                company_code='QA',
+                client_number='123456',
+                certification_code_source_ref='',
+                certification_responsible_review_ref='tax-reviewer-at2026-cert-code-controlled',
+                entries=[reviewed_entry],
+            )
+
+        with self.assertRaisesRegex(ValueError, 'certification_code_source_ref'):
+            build_annual_tax_f22_fixed_width_export_candidate(
+                export,
+                rut_number='11111111',
+                rut_dv='1',
+                company_code='QA',
+                client_number='123456',
+                certification_code_source_ref='secret://sii-f22-code',
+                certification_responsible_review_ref='tax-reviewer-at2026-cert-code-controlled',
+                entries=[reviewed_entry],
+            )
+
+        with self.assertRaisesRegex(ValueError, 'review_state oficial'):
+            build_annual_tax_f22_fixed_width_export_candidate(
+                export,
+                rut_number='11111111',
+                rut_dv='1',
+                company_code='QA',
+                client_number='123456',
+                **self._f22_local_certification_kwargs(),
+                certification_authorized_by_sii=True,
+                certification_authorization_ref='sii-f22-at2026-certification-authorization-reviewed',
+                entries=[reviewed_entry],
+            )
+
+        with self.assertRaisesRegex(ValueError, 'authorization_ref SII'):
+            build_annual_tax_f22_fixed_width_export_candidate(
+                export,
+                rut_number='11111111',
+                rut_dv='1',
+                company_code='QA',
+                client_number='123456',
+                **self._f22_local_certification_kwargs(),
+                certification_authorization_ref='sii-f22-at2026-certification-authorization-reviewed',
+                entries=[reviewed_entry],
+            )
 
     def test_tax_export_rejects_mapping_entries_without_presentable_f22_code(self):
         export, _mapping = self._add_reviewed_f22_fixed_width_mapping_and_resync(
@@ -2928,6 +3015,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
                 rut_dv='1',
                 company_code='QA',
                 client_number='123456',
+                **self._f22_local_certification_kwargs(),
                 entries=[],
             )
 
@@ -2938,6 +3026,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
                 rut_dv='1',
                 company_code='QA',
                 client_number='123456',
+                **self._f22_local_certification_kwargs(),
                 entries=[{'code': '1234', 'value': '1000'}],
             )
 
@@ -2948,6 +3037,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
                 rut_dv='1',
                 company_code='QA',
                 client_number='123456',
+                **self._f22_local_certification_kwargs(),
                 entries=[{'code': 'F22-PREVIEW', 'value': '1000'}],
             )
 
@@ -2966,6 +3056,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
                 rut_dv='1',
                 company_code='QA',
                 client_number='123456',
+                **self._f22_local_certification_kwargs(),
                 entries=[reviewed_entry, reviewed_entry],
             )
 
@@ -2976,6 +3067,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
                 rut_dv='1',
                 company_code='QA',
                 client_number='123456',
+                **self._f22_local_certification_kwargs(),
                 entries=[
                     {
                         **reviewed_entry,
@@ -2984,6 +3076,86 @@ class Stage6RentaAnualReadinessTests(TestCase):
                     }
                 ],
             )
+
+    def test_tax_export_f22_fixed_width_candidate_manifest_tamper_is_rejected(self):
+        self._create_valid_local_matrix()
+        export = AnnualTaxExport.objects.get()
+        candidate = build_annual_tax_f22_fixed_width_export_candidate(
+            export,
+            rut_number='11111111',
+            rut_dv='1',
+            company_code='QA',
+            client_number='123456',
+            **self._f22_local_certification_kwargs(),
+            entries=[
+                {
+                    'code': '1234',
+                    'value': '1000',
+                    'review_state': 'approved_for_candidate',
+                    'code_source_ref': 'sii-f22-at2026-code-1234',
+                    'value_source_ref': 'lm-reviewed-line-1234',
+                    'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+                }
+            ],
+        )
+
+        with TemporaryDirectory() as temp_dir:
+            written = write_annual_tax_f22_fixed_width_export_candidate(candidate, temp_dir)
+            manifest_path = Path(written['manifest_file'])
+            manifest_payload = json.loads(manifest_path.read_text(encoding='utf-8'))
+            manifest_payload['summary']['ready_for_certification_submission'] = True
+            manifest_path.write_text(
+                json.dumps(manifest_payload, sort_keys=True, separators=(',', ':'), ensure_ascii=True),
+                encoding='utf-8',
+            )
+
+            with self.assertRaisesRegex(ValueError, 'no coincide con el candidato esperado'):
+                verify_annual_tax_f22_fixed_width_export_candidate(candidate, temp_dir)
+
+        tampered_candidate = {
+            **candidate,
+            'summary': {
+                **candidate['summary'],
+                'ready_for_certification_submission': True,
+            },
+        }
+        with TemporaryDirectory() as temp_dir:
+            write_annual_tax_f22_fixed_width_export_candidate(tampered_candidate, temp_dir)
+            with self.assertRaisesRegex(ValueError, 'no puede declararse listo'):
+                verify_annual_tax_f22_fixed_width_export_candidate(tampered_candidate, temp_dir)
+
+        raw_value_evidence = {
+            **candidate['summary']['certification_code_evidence'],
+            'company_code': 'QA',
+            'client_number': '123456',
+        }
+        raw_value_evidence['evidence_hash'] = hashlib.sha256(
+            json.dumps(
+                {key: value for key, value in raw_value_evidence.items() if key != 'evidence_hash'},
+                sort_keys=True,
+                separators=(',', ':'),
+                ensure_ascii=True,
+            ).encode('utf-8')
+        ).hexdigest()
+        raw_value_candidate = {
+            **candidate,
+            'summary': {
+                **candidate['summary'],
+                'certification_code_evidence': raw_value_evidence,
+                'certification_code_evidence_hash': hashlib.sha256(
+                    json.dumps(
+                        raw_value_evidence,
+                        sort_keys=True,
+                        separators=(',', ':'),
+                        ensure_ascii=True,
+                    ).encode('utf-8')
+                ).hexdigest(),
+            },
+        }
+        with TemporaryDirectory() as temp_dir:
+            write_annual_tax_f22_fixed_width_export_candidate(raw_value_candidate, temp_dir)
+            with self.assertRaisesRegex(ValueError, 'valores crudos'):
+                verify_annual_tax_f22_fixed_width_export_candidate(raw_value_candidate, temp_dir)
 
     def test_tax_export_written_package_tamper_is_rejected(self):
         self._create_valid_local_matrix()

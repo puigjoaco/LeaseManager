@@ -297,6 +297,13 @@ linea: estado `approved_for_candidate`, fuente del codigo, fuente del valor y
 responsable revisor. El manifest hashea esa evidencia y el verificador bloquea
 duplicados, refs sensibles o evidencia alterada; esto acerca el archivo local a
 un dossier revisable/certificable sin convertirlo en presentacion oficial.
+El codigo empresa/cliente del registro tipo 0 queda bajo boundary propio:
+requiere fuente no sensible, responsable revisor, estado sintetico local u
+oficial autorizado revisado y hashes de los valores, sin persistir valores
+crudos; un candidato local no puede
+declarar authorization ref SII ni `ready_for_certification_submission=true`.
+Esto deja una ruta de revision/certificacion controlada sin asumir codigo real,
+upload ni presentacion oficial.
 `build_f22_fixed_width_entries_from_artifact_matrix()` conecta esa exigencia
 con la matriz anual: solo deriva entradas desde items activos `F22` originados
 en `TaxCodeMapping` del mismo rule set del export, con fuente oficial/experta

@@ -264,6 +264,15 @@ contratos:
     valor, signo, fuente del codigo, fuente del valor y responsable. Rechaza
     codigos internos, mappings de otro rule set, evidencia faltante o duplicados
     antes de escribir el candidato fixed-width.
+13.4.1. `stage6-f22-certification-boundary`: evidencia del codigo de
+    certificacion F22. Implementado dentro de
+    `build_annual_tax_f22_fixed_width_export_candidate()` y
+    `verify_annual_tax_f22_fixed_width_export_candidate()`: exige fuente no
+    sensible, responsable revisor, estado sintetico local u oficial autorizado
+    revisado, hashes de `company_code` y `client_number`, y bloquea
+    valores crudos o `ready_for_certification_submission=true` en candidatos
+    locales. No abre SII, no usa codigo real sin autorizacion y no convierte el
+    archivo en presentacion oficial.
 13.5. `stage6-ddjj-ascii-export-candidate`: candidato DDJJ ASCII posicional.
     Implementado como `build_annual_tax_ddjj_ascii_export_candidate()`,
     `write_annual_tax_ddjj_ascii_export_candidate()` y
