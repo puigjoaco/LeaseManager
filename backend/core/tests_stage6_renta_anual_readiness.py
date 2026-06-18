@@ -2749,6 +2749,89 @@ class Stage6RentaAnualReadinessTests(TestCase):
             with self.assertRaisesRegex(ValueError, 'ZIP canonico esperado'):
                 verify_annual_tax_ddjj_zip_export_candidate(zip_candidate, temp_dir)
 
+    def test_tax_export_candidate_writers_reject_nonempty_output_dirs(self):
+        export, _mapping = self._add_reviewed_f22_fixed_width_mapping_and_resync(code='1234', value='1000')
+        ddjj_item = AnnualTaxArtifactMatrixItem.objects.filter(target_kind='DDJJ', target_code='DDJJ-1887').first()
+        self.assertIsNotNone(ddjj_item)
+        ascii_candidate = build_annual_tax_ddjj_ascii_export_candidate(
+            export,
+            form_code='1887',
+            rut_number='97030000',
+            records=[
+                {
+                    'record': '1' + 'A' * 23,
+                    'review_state': 'approved_for_candidate',
+                    'record_source_ref': 'lm-ddjj-1887-header-reviewed',
+                    'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+                    'artifact_matrix_item_id': ddjj_item.id,
+                    'hash_item': ddjj_item.hash_item,
+                },
+                {
+                    'record': '2' + 'B' * 23,
+                    'review_state': 'approved_for_candidate',
+                    'record_source_ref': 'lm-ddjj-1887-detail-reviewed',
+                    'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+                    'artifact_matrix_item_id': ddjj_item.id,
+                    'hash_item': ddjj_item.hash_item,
+                },
+                {
+                    'record': '3' + 'C' * 23,
+                    'review_state': 'approved_for_candidate',
+                    'record_source_ref': 'lm-ddjj-1887-summary-reviewed',
+                    'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+                    'artifact_matrix_item_id': ddjj_item.id,
+                    'hash_item': ddjj_item.hash_item,
+                },
+            ],
+        )
+        zip_candidate = build_annual_tax_ddjj_zip_export_candidate(
+            ascii_candidate,
+            transfer_control_record={
+                'record': '0' + 'T' * 23,
+                'review_state': 'approved_for_candidate',
+                'transfer_source_ref': 'sii-ddjj-at2026-transfer-control-reviewed',
+                'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+            },
+        )
+        f22_candidate = build_annual_tax_f22_fixed_width_export_candidate(
+            export,
+            rut_number='11111111',
+            rut_dv='1',
+            company_code='QA',
+            client_number='123456',
+            **self._f22_local_certification_kwargs(),
+            entries=build_f22_fixed_width_entries_from_artifact_matrix(export),
+        )
+
+        for writer, candidate, manifest_name in (
+            (
+                write_annual_tax_ddjj_ascii_export_candidate,
+                ascii_candidate,
+                'ddjj-ascii-candidate-manifest.json',
+            ),
+            (
+                write_annual_tax_ddjj_zip_export_candidate,
+                zip_candidate,
+                'ddjj-zip-candidate-manifest.json',
+            ),
+            (
+                write_annual_tax_f22_fixed_width_export_candidate,
+                f22_candidate,
+                'f22-fixed-width-candidate-manifest.json',
+            ),
+        ):
+            with self.subTest(writer=writer.__name__), TemporaryDirectory() as temp_dir:
+                output_dir = Path(temp_dir) / 'candidate-output'
+                output_dir.mkdir()
+                stale_file = output_dir / 'stale.txt'
+                stale_file.write_text('stale-evidence', encoding='utf-8')
+
+                with self.assertRaisesRegex(ValueError, 'debe estar vacio'):
+                    writer(candidate, output_dir)
+
+                self.assertEqual(stale_file.read_text(encoding='utf-8'), 'stale-evidence')
+                self.assertFalse((output_dir / manifest_name).exists())
+
     def test_tax_export_ddjj_zip_candidate_rejects_invalid_transfer_control(self):
         ascii_candidate = self._build_ddjj_ascii_candidate_for_zip()
 
@@ -3333,6 +3416,33 @@ class Stage6RentaAnualReadinessTests(TestCase):
             self.assertNotIn('123456', rendered)
             self.assertIn('company_code_hash', result)
             self.assertIn('client_number_hash', result)
+
+    def test_materialize_annual_tax_f22_fixed_width_candidate_rejects_nonempty_output_dir(self):
+        export, _mapping = self._add_reviewed_f22_fixed_width_mapping_and_resync(code='1234', value='1000')
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            output_dir = Path(temp_dir) / 'f22-fixed-width-candidate'
+            output_dir.mkdir()
+            stale_file = output_dir / 'stale.txt'
+            stale_file.write_text('previous f22 residue', encoding='utf-8')
+
+            with self.assertRaisesMessage(CommandError, 'debe estar vacio'):
+                call_command(
+                    'materialize_annual_tax_f22_fixed_width_candidate',
+                    export_id=export.pk,
+                    rut_number='11111111',
+                    rut_dv='1',
+                    company_code='QA',
+                    client_number='123456',
+                    output_dir=str(output_dir),
+                    stdout=StringIO(),
+                    **self._f22_local_certification_kwargs(),
+                )
+
+            self.assertEqual(stale_file.read_text(encoding='utf-8'), 'previous f22 residue')
+            self.assertFalse((output_dir / 'f22-fixed-width-candidate-manifest.json').exists())
 
     def test_materialize_annual_tax_f22_fixed_width_candidate_rejects_versioned_repo_output(self):
         export, _mapping = self._add_reviewed_f22_fixed_width_mapping_and_resync(code='1234', value='1000')

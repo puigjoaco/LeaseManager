@@ -438,6 +438,9 @@ disco, valida ASCII, largo fijo, tipos de registro, hashes y evidencia por
 registro. Mantiene `official_format=false`, `sii_submission=false` y
 `final_tax_calculation=false`; el ZIP, layout exacto por formulario,
 certificacion y envio SII quedan bajo gate externo/autorizacion.
+El escritor solo materializa el candidato si el destino es inexistente o un
+directorio vacio, para impedir que un manifest DDJJ ASCII nuevo conviva con
+archivos residuales de una corrida anterior.
 `build_annual_tax_ddjj_zip_export_candidate()` envuelve el candidato DDJJ
 ASCII en un paquete ZIP local de transferencia candidata: exige el candidato
 ASCII verificado y un registro tipo 0 revisado, no sensible y de largo fijo,
@@ -448,6 +451,9 @@ contenido ASCII, secuencia 0/1/2/3, largo fijo, evidencia del registro tipo 0
 y flags `official_format=false`, `sii_submission=false` y
 `final_tax_calculation=false`. Sigue siendo candidato local: no declara ZIP
 oficial, certificacion, upload SII, codigo de software ni calculo final.
+El escritor del ZIP candidato aplica el mismo guard de destino limpio: rechaza
+rutas que no sean directorio y directorios no vacios antes de crear el ZIP o su
+manifest.
 `AnnualTaxF22ExportLayout` materializa la capa F22 por ano tributario antes del
 export local: conserva `form_code=F22`, medio preferente, refs no sensibles de
 certificacion/formato/instrucciones/responsable, fuentes oficiales/expertas,
@@ -507,6 +513,13 @@ manifest para verificar hash, registros, evidencia y boundary. El comando no
 imprime RUT, `company_code` ni `client_number` crudos; solo expone hashes y
 conteos. El resultado queda listo para revision/certificacion controlada, no
 para envio SII ni formato oficial declarado.
+El materializador F22 fixed-width tambien falla si el destino local ya contiene
+archivos, evitando mezclar una nueva evidencia candidata con residuos de otra
+corrida.
+Los writers locales de candidatos F22 fixed-width, DDJJ ASCII y DDJJ ZIP
+exigen que el destino sea inexistente o un directorio vacio antes de escribir
+archivo/ZIP o manifest. Esto evita mezclar restos de corridas previas con una
+nueva evidencia local revisable y falla antes de crear artefactos nuevos.
 `audit_company_accounting_progress` funciona como medidor operativo por empresa
 y ano comercial: consolida en JSON si la empresa tiene configuracion fiscal,
 doce cierres, balances aprobados/cuadrados, F29, `ProcesoRentaAnual`,
@@ -957,6 +970,12 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   inexistente antes de escribir. Esto evita mezclar restos de corridas previas
   con una nueva evidencia exportable y falla antes de crear `manifest.json` o
   archivos DDJJ/F22.
+- Los escritores candidatos DDJJ ASCII, ZIP DDJJ y F22 fixed-width aplican el
+  mismo criterio de destino limpio antes de crear `.txt`, ZIP o manifests. Asi
+  la evidencia revisable por responsable no queda contaminada por corridas
+  previas ni se confunde con formato oficial, upload SII o calculo final.
+- Los writers de candidatos F22 fixed-width, DDJJ ASCII y DDJJ ZIP aplican el
+  mismo boundary de destino limpio antes de crear archivo, ZIP o manifest local.
 - La API/snapshot/admin/backoffice de SII exponen `AnnualTaxReviewChecklist`
   con checklist ref, responsable, evidencia, decision de revision y payload
   anual redactados; el admin es solo lectura para preservar que la checklist
