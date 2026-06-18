@@ -25,18 +25,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `codex/stage6-at2025-compatibility`. |
-| Fuente exacta | `main` en `f473dada`, despues del merge confirmado de PR #926 `codex/stage6-company-review-api`. |
-| Brecha activa | La matriz de compatibilidad oficial de Etapa 6 estaba centrada en AT2026, pero el objetivo operativo exige confirmar compatibilidad/formato/upload/API para AT2025 y AT2026 sin asumir API ni formato oficial inexistente. |
-| Motivo de prioridad | AC2024/AT2025 y AC2025/AT2026 deben poder avanzar con una lectura oficial separada por ano tributario: si SII solo prueba certificacion o rutas de archivo/upload, LeaseManager debe registrar eso y dejar brechas explicitas antes de producir salidas oficiales. |
-| Worktree | `D:/Proyectos/LeaseManager-stage6-at2025-compatibility`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
-| Rama | `codex/stage6-at2025-compatibility`. |
-| Estado | Paquete en ejecucion: parametrizar `build_stage6_official_compatibility_matrix()` para AT2025/AT2026, registrar fuentes SII publicas no sensibles por ano y mantener como brecha explicita cualquier formato F22 no confirmado por fuente oficial segura. |
-| Gate esperado | Este paquete solo usa URLs publicas SII y metadata no sensible. No lee `.env`, DB real, documentos reales, EDIG ejecutable, banco ni SII autenticado; no declara formato oficial final, calculo tributario final ni presentacion SII. |
-| Estado al cerrar paquete | Si `main` contiene el merge de este frente y la rama/worktree ya no existe, no reabrirlo ni repetir PR/CI/merge. Buscar el siguiente frente seguro desde repo limpio. |
-| Bloqueos relacionados | Carga productiva real, documentos completos, formato/certificacion F22/DDJJ aplicable, codigo autorizado por SII, contenido tributario final y presentacion SII siguen bloqueados por responsable tributario, autorizacion explicita, formato/certificacion vigente aplicable y evidencia no sensible. |
-| Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable ni integraciones externas sin autorizacion explicita. La aprobacion para presentacion solo puede existir como decision y evidencia trazables no sensibles; nunca como salida automatica del motor local. |
-| Siguiente accion | En rama tactica abierta: completar validaciones proporcionales, registrar evidencia, cerrar con commit, PR, CI remoto, merge y limpieza. En `main` post-merge: no reabrir este paquete; tomar el siguiente frente seguro desde repo limpio. |
+| Frente activo | `codex/company-review-manifest-company-ref`. |
+| Fuente exacta | `main` en `fb5e19f7`, despues del merge confirmado de PR #927 `codex/stage6-at2025-compatibility`. |
+| Brecha activa | El paquete de revision contable/renta por empresa cruza avance anual y manifiesto bancario/leasing redactado, pero debe impedir que un manifiesto completo de otra empresa habilite la revision productiva de la empresa auditada. |
+| Motivo de prioridad | Para Inmobiliaria Puig, los respaldos Banco de Chile/leasing solo sirven si quedan amarrados a la misma empresa y ano auditados. Una cobertura documental completa pero de otra empresa no puede tratarse como evidencia contable valida. |
+| Worktree | `D:/Proyectos/LeaseManager-company-review-manifest-company-ref`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `codex/company-review-manifest-company-ref`. |
+| Estado | Paquete en ejecucion: exigir `company_ref` canonico en `bank_support_manifest`, exponer `expected_company_ref`/`bank_support_company_ref` y bloquear revision productiva si falta o no corresponde a la empresa auditada. |
+| Gate esperado | Este paquete usa solo fixtures y manifiestos redactados. No lee `.env`, DB real, documentos reales, correos, adjuntos, EDIG ejecutable, banco ni SII autenticado; no declara contabilidad final, calculo tributario final ni presentacion SII. |
+| Estado al cerrar paquete | Si `main` contiene el merge de este frente y la rama/worktree ya no existe, no reabrirlo ni repetir PR/CI/merge. Buscar el siguiente frente contable seguro desde repo limpio. |
+| Bloqueos relacionados | Carga productiva real, documentos completos, manifest real redactado/autorizado, formato/certificacion F22/DDJJ aplicable, contenido tributario final y presentacion SII siguen bloqueados por responsable tributario, autorizacion explicita y evidencia no sensible. |
+| Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable, correos ni integraciones externas sin autorizacion explicita. Un paquete preparado solo habilita revision responsable; nunca contabilidad autonoma ni presentacion automatica. |
+| Siguiente accion | En rama tactica abierta: completar validaciones proporcionales, registrar evidencia, cerrar con commit, PR, CI remoto, merge y limpieza. En `main` post-merge: no reabrir este paquete; tomar el siguiente frente seguro de contabilidad/renta. |
 
 ## Actualizacion
 

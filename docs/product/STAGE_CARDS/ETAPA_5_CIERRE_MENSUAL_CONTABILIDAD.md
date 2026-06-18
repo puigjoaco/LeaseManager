@@ -202,6 +202,12 @@ contable o tributaria requiere criterio.
   confirmacion bancaria esperada de verificacion archivo por archivo. Es una
   capa de evidencia contable para revision responsable; no lee adjuntos, no
   abre gate bancario, no calcula impuestos finales y no presenta SII.
+- El manifiesto bancario/leasing debe declarar `company_ref` redactado y
+  coincidente con la empresa auditada. Una cobertura completa de otra empresa
+  queda bloqueada como `bank_support_company_ref_mismatch`; una cobertura sin
+  empresa queda bloqueada como `bank_support_company_ref_missing`. Esto evita
+  usar respaldos de otro contribuyente para habilitar la revision contable de
+  Inmobiliaria Puig u otra empresa piloto.
 - Para cierre con fuente autorizada, el wrapper exige `-SourceKind
   snapshot_controlado` o `real_autorizado`, `-SourceLabel`,
   `-AuthorizationRef`, `-Stage3EvidenceRef`, `-LedgerProofRef`,

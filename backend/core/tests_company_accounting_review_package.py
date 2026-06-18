@@ -18,7 +18,8 @@ from contabilidad.models import (
 )
 from contabilidad.services import ensure_default_regime
 from core.annual_tax_source_manifest import payload_hash
-from core.company_accounting_review_package import build_company_accounting_review_package
+from core.company_accounting_review_package import build_company_accounting_review_package, canonical_company_review_ref
+from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Socio
 from sii.models import (
     AnnualTaxArtifactMatrix,
@@ -49,7 +50,7 @@ from sii.models import (
 )
 
 
-def _complete_bank_manifest(*, fiscal_year=2025, tax_year=2026):
+def _complete_bank_manifest(*, empresa=None, fiscal_year=2025, tax_year=2026):
     operations = [
         {'operation_ref': f'leasing-op-{index:02d}', 'label_ref': f'bank-leasing-{index:02d}'}
         for index in range(1, 4)
@@ -83,7 +84,7 @@ def _complete_bank_manifest(*, fiscal_year=2025, tax_year=2026):
     )
     return {
         'schema_version': 'company-bank-support-coverage-manifest.v1',
-        'company_ref': 'empresa-review-redacted',
+        'company_ref': canonical_company_review_ref(empresa.id) if empresa is not None else 'company-1',
         'fiscal_year': fiscal_year,
         'tax_year': tax_year,
         'required_operations': operations,
@@ -340,13 +341,15 @@ class CompanyAccountingReviewPackageTests(TestCase):
         result = build_company_accounting_review_package(
             empresa_id=empresa.id,
             fiscal_year=2025,
-            bank_support_payload=_complete_bank_manifest(),
+            bank_support_payload=_complete_bank_manifest(empresa=empresa),
         )
 
         self.assertEqual(result['schema_version'], 'company-accounting-review-package.v1')
         self.assertEqual(result['classification'], 'preparado')
         self.assertTrue(result['ready_for_productive_accounting_review'])
         self.assertEqual(result['summary']['accounting_progress_percent'], 100)
+        self.assertEqual(result['summary']['expected_company_ref'], canonical_company_review_ref(empresa.id))
+        self.assertEqual(result['summary']['bank_support_company_ref'], canonical_company_review_ref(empresa.id))
         self.assertEqual(result['summary']['bank_support_coverage_percent'], 100)
         self.assertEqual(result['summary']['blocking_issues_total'], 0)
         self.assertEqual(result['issues'], [])
@@ -373,7 +376,7 @@ class CompanyAccountingReviewPackageTests(TestCase):
         result = build_company_accounting_review_package(
             empresa_id=empresa.id,
             fiscal_year=2025,
-            bank_support_payload=_complete_bank_manifest(fiscal_year=2024, tax_year=2026),
+            bank_support_payload=_complete_bank_manifest(empresa=empresa, fiscal_year=2024, tax_year=2026),
         )
 
         self.assertEqual(result['classification'], 'parcial')
@@ -383,9 +386,49 @@ class CompanyAccountingReviewPackageTests(TestCase):
             {issue['code'] for issue in result['issues']},
         )
 
+    def test_bank_support_company_ref_mismatch_blocks_productive_review_even_when_inputs_are_ready(self):
+        empresa = self._create_empresa()
+        self._prepare_complete_accounting_layers(empresa)
+        manifest = _complete_bank_manifest(empresa=empresa)
+        manifest['company_ref'] = 'company-999999'
+
+        result = build_company_accounting_review_package(
+            empresa_id=empresa.id,
+            fiscal_year=2025,
+            bank_support_payload=manifest,
+        )
+
+        self.assertEqual(result['classification'], 'parcial')
+        self.assertFalse(result['ready_for_productive_accounting_review'])
+        self.assertEqual(result['summary']['expected_company_ref'], canonical_company_review_ref(empresa.id))
+        self.assertEqual(result['summary']['bank_support_company_ref'], 'company-999999')
+        self.assertIn(
+            'company_accounting_review.bank_support_company_ref_mismatch',
+            {issue['code'] for issue in result['issues']},
+        )
+
+    def test_bank_support_company_ref_missing_blocks_productive_review_even_when_inputs_are_ready(self):
+        empresa = self._create_empresa()
+        self._prepare_complete_accounting_layers(empresa)
+        manifest = _complete_bank_manifest(empresa=empresa)
+        manifest['company_ref'] = ''
+
+        result = build_company_accounting_review_package(
+            empresa_id=empresa.id,
+            fiscal_year=2025,
+            bank_support_payload=manifest,
+        )
+
+        self.assertEqual(result['classification'], 'parcial')
+        self.assertFalse(result['ready_for_productive_accounting_review'])
+        self.assertIn(
+            'company_accounting_review.bank_support_company_ref_missing',
+            {issue['code'] for issue in result['issues']},
+        )
+
     def test_command_outputs_redacted_package_and_can_fail_on_incomplete(self):
         empresa = self._create_empresa()
-        manifest = _complete_bank_manifest()
+        manifest = _complete_bank_manifest(empresa=empresa)
 
         with TemporaryDirectory() as temp_dir:
             manifest_path = Path(temp_dir) / 'manifest.json'
@@ -431,7 +474,7 @@ class CompanyAccountingReviewPackageTests(TestCase):
 
     def test_command_redacts_sensitive_bank_manifest_values(self):
         empresa = self._create_empresa()
-        manifest = _complete_bank_manifest()
+        manifest = _complete_bank_manifest(empresa=empresa)
         manifest['company_ref'] = '76.123.456-7'
         manifest['attachments'][0]['source_ref'] = 'https://bank.example.test/file?token=secret'
         manifest['attachments'][1]['local_path'] = 'C:\\Users\\owner\\Downloads\\factura.pdf'
@@ -455,4 +498,6 @@ class CompanyAccountingReviewPackageTests(TestCase):
             self.assertNotIn('last-six-rut-digits', rendered)
             self.assertNotIn('76.123.456-7', rendered)
             self.assertNotIn('C:\\Users\\owner\\Downloads', rendered)
+            self.assertIn(REDACTED_SENSITIVE_REFERENCE, rendered)
+            self.assertIn('company_accounting_review.bank_support_company_ref_mismatch', rendered)
             self.assertIn('company_bank_support.sensitive_reference', rendered)

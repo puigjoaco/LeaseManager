@@ -140,6 +140,15 @@ salida conserva hashes, issues, trazabilidad y boundary no autonomo:
 `autonomous_accounting=false`, `final_tax_calculation=false`,
 `sii_submission=false` y revision responsable obligatoria.
 
+Nota 2026-06-18: El paquete de revision contable/renta por empresa exige que
+el manifiesto bancario/leasing redactado declare el `company_ref` canonico de
+la empresa auditada. `build_company_accounting_review_package` expone
+`expected_company_ref` y `bank_support_company_ref`, y bloquea
+`ready_for_productive_accounting_review` cuando el manifiesto falta o pertenece
+a otra empresa, aunque la cobertura documental bancaria/leasing este completa.
+Esto mantiene la preparacion de Inmobiliaria Puig amarrada a evidencia de la
+misma empresa sin leer adjuntos reales, correos, banco, `.env` ni SII.
+
 Nota 2026-06-18: Etapa 6/Renta Anual separa el codigo de certificacion F22 del
 candidato local. `build_annual_tax_f22_fixed_width_export_candidate()` ahora
 requiere fuente no sensible, responsable revisor y estado de revision para los
