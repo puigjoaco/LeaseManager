@@ -130,6 +130,12 @@ ANNUAL_TAX_F22_FIXED_WIDTH_CANDIDATE_VERSION = 'annual-tax-f22-fixed-width-candi
 ANNUAL_TAX_DDJJ_ASCII_CANDIDATE_VERSION = 'annual-tax-ddjj-ascii-candidate-v1'
 ANNUAL_TAX_DDJJ_ZIP_CANDIDATE_VERSION = 'annual-tax-ddjj-zip-candidate-v1'
 F22_FIXED_WIDTH_ENTRY_REVIEW_STATES = {'approved_for_candidate', 'aprobado_para_candidato'}
+F22_CERTIFICATION_CODE_REVIEW_STATES = {
+    'synthetic_for_local_candidate',
+    'official_authorized_code_reviewed',
+    'sintetico_para_candidato_local',
+    'codigo_autorizado_revisado',
+}
 DDJJ_ASCII_RECORD_REVIEW_STATES = {'approved_for_candidate', 'aprobado_para_candidato'}
 F22_FIXED_WIDTH_MAPPING_PAYLOAD_KEYS = (
     'f22_fixed_width_value',
@@ -3903,6 +3909,60 @@ def _normalize_f22_fixed_width_entry(entry):
     return normalized
 
 
+def _normalize_f22_certification_code_evidence(
+    *,
+    company_code,
+    client_number,
+    certification_code_source_ref,
+    certification_responsible_review_ref,
+    certification_code_review_state,
+    certification_authorized_by_sii,
+    certification_authorization_ref,
+):
+    normalized_company_code = str(company_code or '').strip().upper()
+    normalized_client_number = str(client_number or '').strip()
+    if not normalized_company_code or len(normalized_company_code) > 2:
+        raise ValueError('Codigo de certificacion F22 requiere company_code SII de hasta 2 caracteres.')
+    if not normalized_client_number.isdigit() or len(normalized_client_number) > 6:
+        raise ValueError('Codigo de certificacion F22 requiere client_number SII numerico de hasta 6 digitos.')
+
+    review_state = str(certification_code_review_state or '').strip().lower()
+    if review_state not in F22_CERTIFICATION_CODE_REVIEW_STATES:
+        raise ValueError('Codigo de certificacion F22 requiere review_state autorizado o sintetico local.')
+
+    source_ref = str(certification_code_source_ref or '').strip()
+    responsible_ref = str(certification_responsible_review_ref or '').strip()
+    for field_name, field_value in (
+        ('certification_code_source_ref', source_ref),
+        ('certification_responsible_review_ref', responsible_ref),
+    ):
+        if not is_non_sensitive_reference(field_value):
+            raise ValueError(f'Codigo de certificacion F22 requiere {field_name} no sensible.')
+
+    authorized_by_sii = bool(certification_authorized_by_sii)
+    authorization_ref = str(certification_authorization_ref or '').strip()
+    if authorized_by_sii:
+        if review_state not in {'official_authorized_code_reviewed', 'codigo_autorizado_revisado'}:
+            raise ValueError('Codigo de certificacion F22 autorizado por SII requiere review_state oficial revisado.')
+        if not is_non_sensitive_reference(authorization_ref):
+            raise ValueError('Codigo de certificacion F22 autorizado por SII requiere authorization_ref no sensible.')
+    elif authorization_ref:
+        raise ValueError('Codigo de certificacion F22 local no puede declarar authorization_ref SII.')
+
+    evidence = {
+        'review_state': review_state,
+        'certification_code_source_ref': source_ref,
+        'certification_responsible_review_ref': responsible_ref,
+        'authorized_by_sii': authorized_by_sii,
+        'company_code_hash': hashlib.sha256(normalized_company_code.encode('ascii')).hexdigest(),
+        'client_number_hash': hashlib.sha256(normalized_client_number.zfill(6).encode('ascii')).hexdigest(),
+    }
+    if authorization_ref:
+        evidence['certification_authorization_ref'] = authorization_ref
+    evidence['evidence_hash'] = hashlib.sha256(_canonical_json_bytes(evidence)).hexdigest()
+    return evidence
+
+
 def _f22_fixed_width_payload_value(source_payload, *keys):
     if not isinstance(source_payload, dict):
         return ''
@@ -4023,7 +4083,12 @@ def build_annual_tax_f22_fixed_width_export_candidate(
     rut_dv,
     company_code,
     client_number,
+    certification_code_source_ref,
+    certification_responsible_review_ref,
     entries,
+    certification_code_review_state='synthetic_for_local_candidate',
+    certification_authorized_by_sii=False,
+    certification_authorization_ref='',
     presentation_code='I',
     declaration_type='O',
     declarant_checksum=0,
@@ -4059,6 +4124,15 @@ def build_annual_tax_f22_fixed_width_export_candidate(
     if not isinstance(entries, list) or not entries:
         raise ValueError('El candidato F22 fixed-width requiere entradas F22 revisadas explicitamente.')
 
+    certification_code_evidence = _normalize_f22_certification_code_evidence(
+        company_code=company_code,
+        client_number=client_number,
+        certification_code_source_ref=certification_code_source_ref,
+        certification_responsible_review_ref=certification_responsible_review_ref,
+        certification_code_review_state=certification_code_review_state,
+        certification_authorized_by_sii=certification_authorized_by_sii,
+        certification_authorization_ref=certification_authorization_ref,
+    )
     normalized_entries = [_normalize_f22_fixed_width_entry(entry) for entry in entries]
     f22_codes = [entry['code'] for entry in normalized_entries]
     if len(set(f22_codes)) != len(f22_codes):
@@ -4153,6 +4227,13 @@ def build_annual_tax_f22_fixed_width_export_candidate(
         'sii_submission': False,
         'final_tax_calculation': False,
         'requires_certification_code': True,
+        'certification_code_review_state': certification_code_evidence['review_state'],
+        'certification_code_authorized_by_sii': certification_code_evidence['authorized_by_sii'],
+        'certification_code_evidence': certification_code_evidence,
+        'certification_code_evidence_hash': hashlib.sha256(
+            _canonical_json_bytes(certification_code_evidence)
+        ).hexdigest(),
+        'ready_for_certification_submission': False,
         'requires_responsible_review': True,
         'requires_explicit_submission_authorization': True,
     }
@@ -4240,6 +4321,42 @@ def verify_annual_tax_f22_fixed_width_export_candidate(candidate, package_dir):
         or summary.get('final_tax_calculation') not in (False, None)
     ):
         raise ValueError('El candidato F22 fixed-width no puede declarar formato oficial, presentacion SII ni calculo final.')
+    if summary.get('ready_for_certification_submission') not in (False, None):
+        raise ValueError('El candidato F22 fixed-width local no puede declararse listo para certificacion o presentacion SII.')
+    certification_code_evidence = summary.get('certification_code_evidence')
+    if not isinstance(certification_code_evidence, dict):
+        raise ValueError('El candidato F22 fixed-width requiere evidencia de codigo de certificacion.')
+    if 'company_code' in certification_code_evidence or 'client_number' in certification_code_evidence:
+        raise ValueError('La evidencia de codigo de certificacion F22 no puede persistir valores crudos.')
+    expected_certification_inner_hash = hashlib.sha256(
+        _canonical_json_bytes({
+            key: value
+            for key, value in certification_code_evidence.items()
+            if key != 'evidence_hash'
+        })
+    ).hexdigest()
+    if certification_code_evidence.get('evidence_hash') != expected_certification_inner_hash:
+        raise ValueError('La evidencia de codigo de certificacion F22 contiene evidence_hash invalido.')
+    expected_certification_hash = hashlib.sha256(_canonical_json_bytes(certification_code_evidence)).hexdigest()
+    if expected_certification_hash != summary.get('certification_code_evidence_hash'):
+        raise ValueError('La evidencia de codigo de certificacion F22 no coincide con su hash esperado.')
+    if certification_code_evidence.get('review_state') not in F22_CERTIFICATION_CODE_REVIEW_STATES:
+        raise ValueError('La evidencia de codigo de certificacion F22 requiere review_state valido.')
+    if summary.get('certification_code_review_state') != certification_code_evidence.get('review_state'):
+        raise ValueError('La evidencia de codigo de certificacion F22 no coincide con review_state del resumen.')
+    authorized_by_sii = bool(certification_code_evidence.get('authorized_by_sii'))
+    if bool(summary.get('certification_code_authorized_by_sii')) != authorized_by_sii:
+        raise ValueError('La evidencia de codigo de certificacion F22 no coincide con authorized_by_sii del resumen.')
+    for field_name in ('certification_code_source_ref', 'certification_responsible_review_ref'):
+        if not is_non_sensitive_reference(certification_code_evidence.get(field_name)):
+            raise ValueError(f'La evidencia de codigo de certificacion F22 requiere {field_name} no sensible.')
+    if authorized_by_sii:
+        if certification_code_evidence.get('review_state') not in {'official_authorized_code_reviewed', 'codigo_autorizado_revisado'}:
+            raise ValueError('La evidencia de codigo de certificacion F22 autorizada por SII requiere review_state oficial.')
+        if not is_non_sensitive_reference(certification_code_evidence.get('certification_authorization_ref')):
+            raise ValueError('La evidencia de codigo de certificacion F22 autorizada por SII requiere authorization_ref no sensible.')
+    elif certification_code_evidence.get('certification_authorization_ref'):
+        raise ValueError('La evidencia de codigo de certificacion F22 local no puede declarar authorization_ref SII.')
     evidence_entries = summary.get('f22_entry_review_evidence')
     if (
         not isinstance(evidence_entries, list)
@@ -4280,6 +4397,10 @@ def verify_annual_tax_f22_fixed_width_export_candidate(candidate, package_dir):
         'sii_submission': False,
         'final_tax_calculation': False,
         'ready_for_responsible_review': True,
+        'certification_code_review_state': certification_code_evidence.get('review_state'),
+        'certification_code_authorized_by_sii': authorized_by_sii,
+        'ready_for_certification_review': True,
+        'ready_for_certification_submission': False,
     }
 
 

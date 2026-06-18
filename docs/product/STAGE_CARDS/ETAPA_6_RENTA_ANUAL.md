@@ -469,6 +469,14 @@ Cada entrada del candidato exige trazabilidad minima no sensible:
 `review_state=approved_for_candidate`, fuente del codigo, fuente del valor y
 responsable revisor. Esa evidencia queda hasheada por linea en el manifest, y
 el verificador bloquea codigos duplicados, refs sensibles o evidencia alterada.
+El mismo candidato exige evidencia separada para los campos de codigo de
+certificacion F22 usados en el registro tipo 0: fuente no sensible, responsable
+revisor, estado sintetico local u oficial autorizado revisado, hash de
+`company_code` y hash de `client_number`, sin persistir valores crudos. Si el codigo no esta autorizado por
+SII, no puede declarar `certification_authorization_ref`; si lo esta, requiere
+estado oficial revisado y ref no sensible. En ambos casos el paquete local
+mantiene `ready_for_certification_submission=false`: es revisable, no
+presentable.
 `build_f22_fixed_width_entries_from_artifact_matrix()` elimina el ultimo puente
 manual de esa preparacion: deriva las entradas del candidato desde
 `AnnualTaxArtifactMatrixItem` activos generados por `TaxCodeMapping` F22 del
