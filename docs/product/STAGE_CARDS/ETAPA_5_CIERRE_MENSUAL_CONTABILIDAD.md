@@ -192,6 +192,16 @@ contable o tributaria requiere criterio.
   El selector expone `selection_boundary` para dejar trazado que solo elige
   empresa/ano con senales locales, no usa fuentes externas, no abre gates y no
   habilita contabilidad autonoma, calculo tributario final ni presentacion SII.
+- `audit_company_bank_support_coverage` audita un manifiesto redactado de
+  respaldos bancarios/leasing por empresa/ano. La entrada debe listar
+  operaciones requeridas, categorias de respaldo por adjunto y confirmaciones
+  bancarias sin incluir facturas, cuerpos de correo, RUT completos, rutas,
+  URLs, passwords ni credenciales. La salida mide cobertura por operacion
+  (`contract_or_schedule`, `payment_history`,
+  `invoice_or_tax_document_bundle`), expone el proximo faltante y distingue
+  confirmacion bancaria esperada de verificacion archivo por archivo. Es una
+  capa de evidencia contable para revision responsable; no lee adjuntos, no
+  abre gate bancario, no calcula impuestos finales y no presenta SII.
 - Para cierre con fuente autorizada, el wrapper exige `-SourceKind
   snapshot_controlado` o `real_autorizado`, `-SourceLabel`,
   `-AuthorizationRef`, `-Stage3EvidenceRef`, `-LedgerProofRef`,

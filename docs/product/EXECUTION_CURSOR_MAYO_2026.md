@@ -25,18 +25,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `codex/stage6-ddjj-zip-candidate`. |
-| Fuente exacta | `main` en `e137deb3`, despues del merge confirmado de PR #910 `codex/stage6-ddjj-ascii-candidate`. |
-| Brecha activa | `AnnualTaxExport` ya puede generar un candidato DDJJ ASCII posicional local por formulario, pero aun no materializa un paquete ZIP candidato/verificable alineado con la ruta de transferencia/software SII. Falta una capa que tome ese candidato ASCII, agregue control de transmision revisado, empaquete un ZIP local y verifique manifest, contenido, hashes y boundary no oficial. |
-| Motivo de prioridad | El objetivo pide archivos exportables/certificables para SII o revision/presentacion controlada. La fuente SII de DDJJ AT2026 exige archivo ASCII posicional y contenedor ZIP para transferencia; el siguiente avance directo es producir un ZIP candidato controlado sin asumir presentacion SII ni certificacion. |
-| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-ddjj-zip-candidate`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
-| Rama | `codex/stage6-ddjj-zip-candidate`. |
-| Estado | Paquete en curso solo mientras esta rama/worktree exista. Faltan implementacion, docs/evidencia, validaciones, commit, PR, CI, merge y limpieza. |
-| Gate esperado | Este paquete no declara cierre de Etapa 6, no presenta SII ni produce calculo tributario final. Solo construye un paquete ZIP DDJJ candidato local si el candidato ASCII, el registro de control de transmision y la evidencia revisada cumplen estructura, hash y refs no sensibles. |
+| Frente activo | `codex/company-bank-support-coverage`. |
+| Fuente exacta | `main` en `1676efed`, despues del merge confirmado de PR #911 `codex/stage6-ddjj-zip-candidate`. |
+| Brecha activa | La contabilidad/renta ya puede medir avance interno y generar artefactos anuales locales, pero aun necesita una capa segura para convertir respaldos bancarios/leasing externos en cobertura documental verificable. Falta auditar operaciones, categorias de respaldo, confirmacion bancaria y faltantes sin versionar adjuntos ni PII. |
+| Motivo de prioridad | El objetivo pide pasar desde artefactos comparables a salidas revisables/exportables con respaldo suficiente. Antes de declarar que contabilidad/renta puede revisar leasing, la evidencia bancaria debe quedar medida con manifiesto redactado y sus faltantes explicitados. |
+| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-company-bank-support-coverage`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `codex/company-bank-support-coverage`. |
+| Estado | Paquete en curso. Implementado auditor/command y documentacion de boundary; faltan validaciones completas, docs finales, commit, PR, CI, merge y limpieza. |
+| Gate esperado | Este paquete no declara cierre contable/renta, no lee adjuntos reales desde Git, no presenta SII ni abre banco. Solo audita un manifiesto redactado de respaldo bancario/leasing y registra cobertura/faltantes para revision responsable. |
 | Estado al cerrar paquete | Si `main` contiene el merge de este frente y la rama/worktree ya no existe, no reabrirlo ni repetir PR/CI/merge. Buscar el siguiente frente seguro desde repo limpio. |
-| Bloqueos relacionados | Formato/certificacion F22/DDJJ, contenido tributario final y presentacion SII siguen bloqueados por formato/certificacion vigente aplicable, responsable tributario, autorizacion explicita y evidencia no sensible. |
-| Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable ni integraciones externas sin autorizacion explicita. Las salidas F22/DDJJ/Balance/RLI/CPT/RAI/SAC esperadas son comparacion externa read-only, nunca input de calculo. |
-| Siguiente accion | Implementar builder/writer/verifier de ZIP candidato DDJJ desde candidato ASCII revisado, tests, docs/evidencia y cierre por PR/CI/merge/limpieza si pasa. |
+| Bloqueos relacionados | `BLK-011` cobertura bancaria/leasing externa requiere manifiesto redactado autorizado y auditado; formato/certificacion F22/DDJJ, contenido tributario final y presentacion SII siguen bloqueados por formato/certificacion vigente aplicable, responsable tributario, autorizacion explicita y evidencia no sensible. |
+| Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable ni integraciones externas sin autorizacion explicita. Facturas, adjuntos y correos reales quedan fuera de Git; usar manifiestos redactados bajo `local-evidence/` o fuente externa controlada solo con autorizacion vigente. |
+| Siguiente accion | Ejecutar suite impactada y acceptance proporcional; si pasa, cerrar paquete con PR/CI/merge/limpieza. |
 
 ## Actualizacion
 

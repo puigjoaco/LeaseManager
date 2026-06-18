@@ -964,6 +964,14 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   `ready_for_objective_completion=true`. Esto confirma la arquitectura para el
   objetivo espejo de Inmobiliaria Puig AC2024/AT2025, sin abrir SII real ni
   declarar renta final presentada.
+- La evidencia bancaria/leasing que alimenta contabilidad y renta no se trata
+  como "correo recibido = respaldo cuadrado". Debe pasar por un manifiesto
+  redactado y `audit_company_bank_support_coverage`, que confirma cobertura por
+  operacion y categoria sin versionar adjuntos ni RUTs. La auditoria bloquea
+  schema ausente/no soportado, categorias o confirmaciones desconocidas,
+  operaciones no listadas y referencias sensibles. Esto impide declarar respaldo
+  leasing completo sin evidencia revisada, pero no invalida la arquitectura
+  anual ni impide seguir con trabajo seguro de revision/carga.
 
 ```powershell
 scripts\run-stage6-readiness-gate.ps1 -PythonExe backend\.venv\Scripts\python.exe
