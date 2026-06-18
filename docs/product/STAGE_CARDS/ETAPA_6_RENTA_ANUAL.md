@@ -415,6 +415,17 @@ oficial/experta y `hash_layout`. API, snapshot y admin redactan refs/payloads
 sensibles. Esta capa alimenta la matriz DDJJ/F22 como preparacion revisable;
 no declara formato oficial SII, calculo tributario final ni presentacion
 autonoma.
+`build_annual_tax_ddjj_ascii_export_candidate()` baja esa capa a un candidato
+de archivo DDJJ ASCII posicional por formulario: exige `AnnualTaxExport`
+preparado, layout DDJJ preparado con metadata revisada de largo/formato,
+items DDJJ activos en la matriz, registro tipo 1 inicial, registros tipo 2 de
+detalle y registro tipo 3 final revisados con evidencia no sensible. El
+escritor genera el archivo local con extension derivada del
+formulario y manifest canonico; el verificador reabre archivo/manifest desde
+disco, valida ASCII, largo fijo, tipos de registro, hashes y evidencia por
+registro. Mantiene `official_format=false`, `sii_submission=false` y
+`final_tax_calculation=false`; el ZIP, layout exacto por formulario,
+certificacion y envio SII quedan bajo gate externo/autorizacion.
 `AnnualTaxF22ExportLayout` materializa la capa F22 por ano tributario antes del
 export local: conserva `form_code=F22`, medio preferente, refs no sensibles de
 certificacion/formato/instrucciones/responsable, fuentes oficiales/expertas,

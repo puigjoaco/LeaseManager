@@ -44,6 +44,12 @@ mapeo EDIG va en la direccion correcta, pero no cambia el boundary:
   y asistentes. El hecho de que un formulario admita software comercial obliga
   a modelar `AnnualTaxDDJJFormLayout`; no autoriza copiar plantillas EDIG ni
   presentar sin certificacion/responsable.
+- El manual/importador y las instrucciones generales de archivos DDJJ AT2026
+  distinguen CSV por importador y archivos ASCII posicionales por transferencia
+  o software, con nombre basado en RUT declarante y extension del formulario,
+  normalmente comprimidos para envio. LeaseManager puede generar candidatos
+  locales verificables solo si el layout del formulario declara largo/formato
+  revisado; no puede inferir el layout exacto ni subirlo sin gate.
 - La lista SII de casas software DDJJ 2026 incluye a EDIG para formularios
   relevantes del mapeo local, entre ellos 1847, 1879, 1887, 1926, 1947, 1948 y
   1949. Esto confirma a EDIG como benchmark funcional de DDJJ, no como fuente
@@ -299,3 +305,10 @@ no entra como lista manual aislada, sino como salida trazada desde la capa
 tributaria intermedia. La brecha externa sigue abierta: esto no sustituye
 certificacion SII, codigo de software, validacion tributaria experta ni envio
 oficial.
+`build_annual_tax_ddjj_ascii_export_candidate()` hace el avance equivalente
+para DDJJ: desde `AnnualTaxExport`, `AnnualTaxDDJJFormLayout` preparado y la
+matriz DDJJ activa, escribe/verifica un candidato ASCII posicional por
+formulario con registro tipo 1 inicial, registros tipo 2 de detalle, registro
+tipo 3 final, largo fijo y evidencia por registro. El archivo local sigue
+marcado como no oficial y exige layout exacto,
+ZIP/certificacion, revision responsable y autorizacion antes de presentacion.

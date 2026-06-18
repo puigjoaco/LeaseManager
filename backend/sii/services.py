@@ -125,7 +125,9 @@ ANNUAL_TAX_SUPPORT_TEMPLATE_VERSION = 'stage6-v1'
 ANNUAL_TAX_EXPORT_FILE_PACKAGE_VERSION = 'annual-tax-export-file-package-v1'
 ANNUAL_TAX_EXPORT_FILE_PACKAGE_MANIFEST_VERSION = 'annual-tax-export-file-package-manifest-v1'
 ANNUAL_TAX_F22_FIXED_WIDTH_CANDIDATE_VERSION = 'annual-tax-f22-fixed-width-candidate-v1'
+ANNUAL_TAX_DDJJ_ASCII_CANDIDATE_VERSION = 'annual-tax-ddjj-ascii-candidate-v1'
 F22_FIXED_WIDTH_ENTRY_REVIEW_STATES = {'approved_for_candidate', 'aprobado_para_candidato'}
+DDJJ_ASCII_RECORD_REVIEW_STATES = {'approved_for_candidate', 'aprobado_para_candidato'}
 F22_FIXED_WIDTH_MAPPING_PAYLOAD_KEYS = (
     'f22_fixed_width_value',
     'f22_fixed_width_sign',
@@ -4271,6 +4273,428 @@ def verify_annual_tax_f22_fixed_width_export_candidate(candidate, package_dir):
         'records_total': len(actual_records),
         'f22_codes_total': int(summary.get('f22_codes_total') or 0),
         'f22_entry_review_evidence_total': len(evidence_entries),
+        'official_format': False,
+        'sii_submission': False,
+        'final_tax_calculation': False,
+        'ready_for_responsible_review': True,
+    }
+
+
+def _ddjj_ascii_layout_payload_value(source_payload, *keys):
+    if not isinstance(source_payload, dict):
+        return ''
+    for key in keys:
+        value = source_payload.get(key)
+        if value not in (None, ''):
+            return str(value).strip()
+    return ''
+
+
+def _ddjj_ascii_layout_record_length(layout):
+    source_payload = layout.source_payload if isinstance(layout.source_payload, dict) else {}
+    raw_length = _ddjj_ascii_layout_payload_value(
+        source_payload,
+        'ddjj_ascii_record_length',
+        'fixed_width_record_length',
+        'record_length',
+    )
+    try:
+        record_length = int(raw_length)
+    except (TypeError, ValueError):
+        record_length = 0
+    if record_length <= 1:
+        raise ValueError('AnnualTaxDDJJFormLayout requiere largo de registro ASCII posicional revisado.')
+    return record_length
+
+
+def _ddjj_ascii_file_extension(form_code):
+    raw_code = str(form_code or '').strip()
+    if not raw_code.isdigit() or len(raw_code) < 3:
+        raise ValueError('Formulario DDJJ requiere codigo numerico para derivar extension de archivo.')
+    return raw_code[-3:]
+
+
+def _normalize_ddjj_ascii_record_entry(entry, *, record_length):
+    if not isinstance(entry, dict):
+        raise ValueError('Cada registro DDJJ ASCII debe ser un objeto revisado.')
+    record = str(entry.get('record') or '')
+    if not record:
+        raise ValueError('Registro DDJJ ASCII requiere contenido.')
+    try:
+        encoded_record = record.encode('ascii')
+    except UnicodeEncodeError as error:
+        raise ValueError('Registro DDJJ ASCII debe contener solo caracteres ASCII.') from error
+    if len(encoded_record) != record_length:
+        raise ValueError('Registro DDJJ ASCII no coincide con el largo del layout.')
+    record_type = record[0]
+    if record_type not in {'1', '2', '3'}:
+        raise ValueError('Registro DDJJ ASCII debe comenzar con tipo 1, 2 o 3.')
+    review_state = str(entry.get('review_state') or '').strip()
+    if review_state not in DDJJ_ASCII_RECORD_REVIEW_STATES:
+        raise ValueError('Registro DDJJ ASCII requiere review_state approved_for_candidate.')
+    record_source_ref = str(entry.get('record_source_ref') or '').strip()
+    responsible_review_ref = str(entry.get('responsible_review_ref') or '').strip()
+    if not is_non_sensitive_reference(record_source_ref):
+        raise ValueError('Registro DDJJ ASCII requiere record_source_ref no sensible.')
+    if not is_non_sensitive_reference(responsible_review_ref):
+        raise ValueError('Registro DDJJ ASCII requiere responsible_review_ref no sensible.')
+    normalized = {
+        'record': record,
+        'record_type': record_type,
+        'review_state': review_state,
+        'record_source_ref': record_source_ref,
+        'responsible_review_ref': responsible_review_ref,
+    }
+    for key in (
+        'artifact_matrix_item_id',
+        'layout_id',
+        'source_hash',
+        'hash_item',
+    ):
+        if entry.get(key) not in (None, ''):
+            normalized[key] = entry.get(key)
+    return normalized
+
+
+def build_annual_tax_ddjj_ascii_export_candidate(export, *, form_code, rut_number, records):
+    if export.estado != EstadoAnnualTaxExport.PREPARED:
+        raise ValueError('AnnualTaxExport debe estar preparado antes de construir candidato DDJJ ASCII.')
+    try:
+        export.full_clean()
+    except ValidationError as error:
+        reason = _first_validation_error(error)
+        raise ValueError(f'AnnualTaxExport no cumple validacion de dominio: {reason}') from error
+    payload = export.export_payload if isinstance(export.export_payload, dict) else {}
+    if (
+        export.official_format
+        or export.sii_submission
+        or export.final_tax_calculation
+        or payload.get('official_format') not in (False, None)
+        or payload.get('sii_submission') not in (False, None)
+        or payload.get('final_tax_calculation') not in (False, None)
+    ):
+        raise ValueError('El candidato DDJJ local no puede partir desde un export con formato oficial, envio SII o calculo final.')
+    if int(payload.get('ddjj_export_contracts_total') or export.ddjj_items_total or 0) <= 0:
+        raise ValueError('AnnualTaxExport requiere items DDJJ antes de construir candidato ASCII.')
+
+    normalized_form_code = str(form_code or '').strip()
+    if not normalized_form_code.isdigit():
+        raise ValueError('Formulario DDJJ requiere codigo numerico.')
+    try:
+        layout = AnnualTaxDDJJFormLayout.objects.select_related(
+            'official_media_source',
+            'official_form_source',
+            'official_software_source',
+        ).get(
+            anio_tributario=export.anio_tributario,
+            form_code=normalized_form_code,
+            estado=EstadoAnnualTaxDDJJLayout.PREPARED,
+        )
+    except AnnualTaxDDJJFormLayout.DoesNotExist as error:
+        raise ValueError('No existe AnnualTaxDDJJFormLayout preparado para el formulario DDJJ.') from error
+    try:
+        layout.full_clean()
+    except ValidationError as error:
+        reason = _first_validation_error(error)
+        raise ValueError(f'AnnualTaxDDJJFormLayout no cumple validacion de dominio: {reason}') from error
+    if layout.warnings:
+        raise ValueError('AnnualTaxDDJJFormLayout con warnings no puede generar candidato DDJJ ASCII.')
+
+    source_payload = layout.source_payload if isinstance(layout.source_payload, dict) else {}
+    format_kind = _ddjj_ascii_layout_payload_value(
+        source_payload,
+        'ddjj_ascii_format_kind',
+        'record_format_kind',
+    )
+    if format_kind not in {'ascii_fixed_width_positional', 'ascii_positional'}:
+        raise ValueError('AnnualTaxDDJJFormLayout requiere formato ASCII posicional revisado.')
+    record_length = _ddjj_ascii_layout_record_length(layout)
+    if not (
+        layout.allows_file_upload
+        or layout.allows_file_importer
+        or layout.allows_commercial_software
+    ):
+        raise ValueError('AnnualTaxDDJJFormLayout requiere un medio de archivo habilitado para candidato ASCII.')
+
+    matrix_items = list(
+        AnnualTaxArtifactMatrixItem.objects.filter(
+            matrix=export.artifact_matrix,
+            target_kind=TipoAnnualTaxArtifactTarget.DDJJ,
+            target_code__in=(normalized_form_code, f'DDJJ-{normalized_form_code}'),
+            estado=EstadoRegistro.ACTIVE,
+        ).order_by('id')
+    )
+    if not matrix_items:
+        raise ValueError('AnnualTaxExport no contiene items DDJJ activos para el formulario solicitado.')
+    matrix_items_by_id = {item.id: item for item in matrix_items}
+    for item in matrix_items:
+        try:
+            item.full_clean()
+        except ValidationError as error:
+            reason = _first_validation_error(error)
+            raise ValueError(f'Item DDJJ de matriz no cumple validacion de dominio: {reason}') from error
+        if item.source_model == 'AnnualTaxDDJJFormLayout' and str(item.source_object_id) != str(layout.id):
+            raise ValueError('Item DDJJ de matriz debe apuntar al AnnualTaxDDJJFormLayout preparado.')
+        if item.warnings:
+            raise ValueError('Item DDJJ de matriz con warnings no puede alimentar candidato ASCII.')
+
+    if not isinstance(records, list) or not records:
+        raise ValueError('El candidato DDJJ ASCII requiere registros revisados.')
+    normalized_records = [
+        _normalize_ddjj_ascii_record_entry(record_entry, record_length=record_length)
+        for record_entry in records
+    ]
+    for entry in normalized_records:
+        raw_item_id = entry.get('artifact_matrix_item_id')
+        if raw_item_id in (None, ''):
+            raise ValueError('Registro DDJJ ASCII requiere artifact_matrix_item_id de la matriz del export.')
+        try:
+            matrix_item_id = int(raw_item_id)
+        except (TypeError, ValueError) as error:
+            raise ValueError('Registro DDJJ ASCII requiere artifact_matrix_item_id de la matriz del export.') from error
+        matrix_item = matrix_items_by_id.get(matrix_item_id)
+        if matrix_item is None:
+            raise ValueError('Registro DDJJ ASCII referencia item de matriz ajeno al export.')
+        entry['artifact_matrix_item_id'] = matrix_item_id
+        raw_layout_id = entry.get('layout_id')
+        if raw_layout_id not in (None, ''):
+            try:
+                layout_id = int(raw_layout_id)
+            except (TypeError, ValueError) as error:
+                raise ValueError('Registro DDJJ ASCII contiene layout_id invalido.') from error
+            if layout_id != layout.id:
+                raise ValueError('Registro DDJJ ASCII referencia layout DDJJ ajeno al candidato.')
+            entry['layout_id'] = layout_id
+        if entry.get('hash_item') not in (None, '', matrix_item.hash_item):
+            raise ValueError('Registro DDJJ ASCII contiene hash_item que no coincide con la matriz.')
+        if entry.get('source_hash') not in (None, '', matrix_item.source_hash):
+            raise ValueError('Registro DDJJ ASCII contiene source_hash que no coincide con la matriz.')
+    record_types = [entry['record_type'] for entry in normalized_records]
+    if (
+        record_types[0] != '1'
+        or record_types[-1] != '3'
+        or record_types.count('1') != 1
+        or record_types.count('3') != 1
+        or record_types.count('2') < 1
+    ):
+        raise ValueError('El candidato DDJJ ASCII requiere tipo 1 inicial, tipo 2 de detalle y tipo 3 final.')
+    record_review_evidence = []
+    for index, entry in enumerate(normalized_records, start=1):
+        evidence = {
+            'record_index': index,
+            'record_type': entry['record_type'],
+            'review_state': entry['review_state'],
+            'record_source_ref': entry['record_source_ref'],
+            'responsible_review_ref': entry['responsible_review_ref'],
+            'record_hash': hashlib.sha256(entry['record'].encode('ascii')).hexdigest(),
+        }
+        for key in (
+            'artifact_matrix_item_id',
+            'layout_id',
+            'source_hash',
+            'hash_item',
+        ):
+            if key in entry:
+                evidence[key] = entry[key]
+        evidence['entry_hash'] = hashlib.sha256(_canonical_json_bytes(evidence)).hexdigest()
+        record_review_evidence.append(evidence)
+
+    rut_body = ''.join(character for character in str(rut_number or '') if character.isdigit())
+    if not rut_body:
+        raise ValueError('Candidato DDJJ ASCII requiere RUT declarante numerico sin digito verificador.')
+    file_extension = _ddjj_ascii_file_extension(normalized_form_code)
+    file_name = f'{rut_body}.{file_extension}'
+    content = '\n'.join(entry['record'] for entry in normalized_records) + '\n'
+    content_bytes = content.encode('ascii')
+    line_hashes = [
+        hashlib.sha256(entry['record'].encode('ascii')).hexdigest()
+        for entry in normalized_records
+    ]
+    summary = {
+        'candidate_version': ANNUAL_TAX_DDJJ_ASCII_CANDIDATE_VERSION,
+        'record_format_version': 'ddjj-at2026-ascii-positional-candidate-v1',
+        'record_format_kind': 'ascii_fixed_width_positional',
+        'annual_tax_export_id': export.id,
+        'empresa_id': export.empresa_id,
+        'proceso_renta_anual_id': export.proceso_renta_anual_id,
+        'anio_tributario': export.anio_tributario,
+        'anio_comercial': export.anio_comercial,
+        'form_code': normalized_form_code,
+        'file_extension': file_extension,
+        'file_name': file_name,
+        'zip_required_for_submission': True,
+        'content_type': 'text/plain',
+        'encoding': 'ascii',
+        'line_separator': 'LF_LOCAL_CANDIDATE',
+        'record_length': record_length,
+        'records_total': len(normalized_records),
+        'record_type_counts': {
+            '1': record_types.count('1'),
+            '2': record_types.count('2'),
+            '3': record_types.count('3'),
+        },
+        'layout_id': layout.id,
+        'hash_layout': layout.hash_layout,
+        'layout_ref': layout.layout_ref,
+        'instructions_ref': layout.instructions_ref,
+        'medio_preferente': layout.medio_preferente,
+        'official_media_source_id': layout.official_media_source_id,
+        'official_form_source_id': layout.official_form_source_id,
+        'official_software_source_id': layout.official_software_source_id,
+        'artifact_matrix_id': export.artifact_matrix_id,
+        'artifact_matrix_item_ids': [item.id for item in matrix_items],
+        'artifact_matrix_item_hashes': [item.hash_item for item in matrix_items],
+        'ddjj_record_review_evidence_total': len(record_review_evidence),
+        'ddjj_record_review_evidence': record_review_evidence,
+        'ddjj_record_review_evidence_hash': hashlib.sha256(
+            _canonical_json_bytes(record_review_evidence)
+        ).hexdigest(),
+        'content_hash': hashlib.sha256(content_bytes).hexdigest(),
+        'content_size_bytes': len(content_bytes),
+        'line_hashes': line_hashes,
+        'ascii_structure_validated': True,
+        'official_format': False,
+        'sii_submission': False,
+        'final_tax_calculation': False,
+        'requires_exact_form_layout_gate': True,
+        'requires_zip_for_submission': True,
+        'requires_responsible_review': True,
+        'requires_explicit_submission_authorization': True,
+    }
+    return {
+        'summary': summary,
+        'records': [entry['record'] for entry in normalized_records],
+        'content': content,
+    }
+
+
+def write_annual_tax_ddjj_ascii_export_candidate(candidate, output_dir):
+    summary = candidate.get('summary') if isinstance(candidate, dict) else None
+    records = candidate.get('records') if isinstance(candidate, dict) else None
+    content = candidate.get('content') if isinstance(candidate, dict) else None
+    if not isinstance(summary, dict) or not isinstance(records, list) or not isinstance(content, str):
+        raise ValueError('Candidato DDJJ ASCII invalido.')
+    file_name = str(summary.get('file_name') or '')
+    if Path(file_name).name != file_name or '.' not in file_name:
+        raise ValueError('Nombre de archivo DDJJ ASCII no permitido.')
+    target_dir = Path(output_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    file_path = target_dir / file_name
+    file_path.write_bytes(content.encode('ascii'))
+    manifest_path = target_dir / 'ddjj-ascii-candidate-manifest.json'
+    manifest_path.write_text(
+        json.dumps({'summary': summary}, sort_keys=True, separators=(',', ':'), ensure_ascii=True, default=str),
+        encoding='utf-8',
+    )
+    return {
+        **candidate,
+        'output_dir': str(target_dir),
+        'written_file': str(file_path),
+        'manifest_file': str(manifest_path),
+    }
+
+
+def verify_annual_tax_ddjj_ascii_export_candidate(candidate, package_dir):
+    summary = candidate.get('summary') if isinstance(candidate, dict) else None
+    records = candidate.get('records') if isinstance(candidate, dict) else None
+    if not isinstance(summary, dict) or not isinstance(records, list):
+        raise ValueError('Candidato DDJJ ASCII invalido.')
+    target_dir = Path(package_dir)
+    if not target_dir.exists() or not target_dir.is_dir():
+        raise ValueError('El directorio del candidato DDJJ no existe o no es un directorio.')
+
+    file_name = str(summary.get('file_name') or '')
+    manifest_path = target_dir / 'ddjj-ascii-candidate-manifest.json'
+    file_path = target_dir / file_name
+    allowed_names = {file_name, 'ddjj-ascii-candidate-manifest.json'}
+    actual_names = {path.name for path in target_dir.iterdir() if path.is_file()}
+    invalid_entries = [path.name for path in target_dir.iterdir() if not path.is_file()]
+    if invalid_entries or actual_names != allowed_names:
+        raise ValueError('El directorio del candidato DDJJ contiene entradas no declaradas.')
+    manifest_bytes = manifest_path.read_bytes()
+    try:
+        manifest_payload = json.loads(manifest_bytes.decode('utf-8'))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError('El manifiesto DDJJ ASCII no contiene JSON canonico valido.') from error
+    if manifest_bytes != _canonical_json_bytes(manifest_payload):
+        raise ValueError('El manifiesto DDJJ ASCII no esta serializado como JSON canonico.')
+    if manifest_payload.get('summary') != summary:
+        raise ValueError('El manifiesto DDJJ ASCII no coincide con el candidato esperado.')
+
+    content_bytes = file_path.read_bytes()
+    try:
+        content = content_bytes.decode('ascii')
+    except UnicodeDecodeError as error:
+        raise ValueError('El archivo DDJJ ASCII debe estar codificado en ascii.') from error
+    if hashlib.sha256(content_bytes).hexdigest() != summary.get('content_hash'):
+        raise ValueError('El archivo DDJJ ASCII no coincide con el hash esperado.')
+    if len(content_bytes) != int(summary.get('content_size_bytes') or 0):
+        raise ValueError('El archivo DDJJ ASCII no coincide con el tamano esperado.')
+    if content != candidate.get('content'):
+        raise ValueError('El archivo DDJJ ASCII no coincide con el contenido esperado.')
+    actual_records = content.splitlines()
+    if actual_records != records:
+        raise ValueError('Los registros DDJJ ASCII no coinciden con el candidato esperado.')
+    record_length = int(summary.get('record_length') or 0)
+    actual_record_types = [record[0] for record in actual_records if record]
+    if (
+        not actual_record_types
+        or actual_record_types[0] != '1'
+        or actual_record_types[-1] != '3'
+        or actual_record_types.count('1') != 1
+        or actual_record_types.count('3') != 1
+        or actual_record_types.count('2') < 1
+    ):
+        raise ValueError('El archivo DDJJ ASCII requiere tipo 1 inicial, tipo 2 de detalle y tipo 3 final.')
+    for record in actual_records:
+        try:
+            record_bytes = record.encode('ascii')
+        except UnicodeEncodeError as error:
+            raise ValueError('El archivo DDJJ ASCII contiene registro no ASCII.') from error
+        if len(record_bytes) != record_length:
+            raise ValueError('El archivo DDJJ ASCII contiene registro con largo invalido.')
+        if not record or record[0] not in {'1', '2', '3'}:
+            raise ValueError('El archivo DDJJ ASCII contiene tipo de registro invalido.')
+    if (
+        summary.get('official_format') not in (False, None)
+        or summary.get('sii_submission') not in (False, None)
+        or summary.get('final_tax_calculation') not in (False, None)
+    ):
+        raise ValueError('El candidato DDJJ ASCII no puede declarar formato oficial, presentacion SII ni calculo final.')
+    evidence_entries = summary.get('ddjj_record_review_evidence')
+    if not isinstance(evidence_entries, list) or len(evidence_entries) != len(actual_records):
+        raise ValueError('El candidato DDJJ ASCII requiere evidencia de revision por cada registro.')
+    evidence_hash = hashlib.sha256(_canonical_json_bytes(evidence_entries)).hexdigest()
+    if evidence_hash != summary.get('ddjj_record_review_evidence_hash'):
+        raise ValueError('La evidencia de revision DDJJ ASCII no coincide con su hash esperado.')
+    for index, (evidence, record) in enumerate(zip(evidence_entries, actual_records), start=1):
+        if not isinstance(evidence, dict) or evidence.get('record_index') != index:
+            raise ValueError('La evidencia DDJJ ASCII no coincide con el orden de registros.')
+        if evidence.get('record_type') != record[0]:
+            raise ValueError('La evidencia DDJJ ASCII no coincide con el tipo de registro.')
+        if evidence.get('review_state') not in DDJJ_ASCII_RECORD_REVIEW_STATES:
+            raise ValueError('La evidencia DDJJ ASCII requiere review_state approved_for_candidate.')
+        for field_name in ('record_source_ref', 'responsible_review_ref'):
+            if not is_non_sensitive_reference(evidence.get(field_name)):
+                raise ValueError(f'La evidencia DDJJ ASCII requiere {field_name} no sensible.')
+        expected_record_hash = hashlib.sha256(record.encode('ascii')).hexdigest()
+        if evidence.get('record_hash') != expected_record_hash:
+            raise ValueError('La evidencia DDJJ ASCII no coincide con el hash del registro.')
+        expected_entry_hash = hashlib.sha256(
+            _canonical_json_bytes({key: value for key, value in evidence.items() if key != 'entry_hash'})
+        ).hexdigest()
+        if evidence.get('entry_hash') != expected_entry_hash:
+            raise ValueError('La evidencia DDJJ ASCII contiene entry_hash invalido.')
+    return {
+        'verified': True,
+        'candidate_version': summary.get('candidate_version'),
+        'record_format_version': summary.get('record_format_version'),
+        'file_name': file_name,
+        'content_hash': summary.get('content_hash'),
+        'records_total': len(actual_records),
+        'record_length': record_length,
+        'record_type_counts': summary.get('record_type_counts'),
+        'ddjj_record_review_evidence_total': len(evidence_entries),
         'official_format': False,
         'sii_submission': False,
         'final_tax_calculation': False,

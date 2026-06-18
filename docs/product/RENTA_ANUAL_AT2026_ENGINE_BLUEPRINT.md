@@ -264,6 +264,16 @@ contratos:
     valor, signo, fuente del codigo, fuente del valor y responsable. Rechaza
     codigos internos, mappings de otro rule set, evidencia faltante o duplicados
     antes de escribir el candidato fixed-width.
+13.5. `stage6-ddjj-ascii-export-candidate`: candidato DDJJ ASCII posicional.
+    Implementado como `build_annual_tax_ddjj_ascii_export_candidate()`,
+    `write_annual_tax_ddjj_ascii_export_candidate()` y
+    `verify_annual_tax_ddjj_ascii_export_candidate()`: toma
+    `AnnualTaxExport` preparado, layout DDJJ preparado con metadata de
+    `ascii_fixed_width_positional`, items DDJJ activos de la matriz y registros
+    revisados: tipo 1 inicial, tipo 2 de detalle y tipo 3 final.
+    Escribe/verifica archivo local ASCII con extension
+    derivada del formulario y manifest canonico. No declara layout oficial
+    completo, ZIP de envio, certificacion, presentacion SII ni calculo final.
 14. `stage6-official-tax-source-registry`: registro operacional de fuentes
     oficiales/experta. Implementado como `AnnualTaxOfficialSource`: modelo,
     migracion, API/snapshot/admin redactados y readiness bloqueante si una

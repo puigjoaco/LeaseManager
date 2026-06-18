@@ -80,6 +80,7 @@ from sii.models import (
     TipoAnnualTaxOfficialSource,
 )
 from sii.services import (
+    build_annual_tax_ddjj_ascii_export_candidate,
     build_annual_tax_export_file_package,
     build_annual_tax_f22_fixed_width_export_candidate,
     build_f22_fixed_width_entries_from_artifact_matrix,
@@ -106,7 +107,9 @@ from sii.services import (
     sync_annual_tax_workbooks,
     sync_monthly_tax_facts,
     verify_annual_tax_f22_fixed_width_export_candidate,
+    verify_annual_tax_ddjj_ascii_export_candidate,
     verify_annual_tax_export_file_package,
+    write_annual_tax_ddjj_ascii_export_candidate,
     write_annual_tax_f22_fixed_width_export_candidate,
     write_annual_tax_export_file_package,
 )
@@ -362,6 +365,10 @@ class Stage6RentaAnualReadinessTests(TestCase):
                     'source': 'stage6-controlled',
                     'anio_tributario': anio_tributario,
                     'form_code': str(form_code),
+                    'record_format_kind': 'ascii_fixed_width_positional',
+                    'ddjj_ascii_record_length': 24,
+                    'ddjj_ascii_general_instructions_ref': 'sii-ddjj-at2026-general-ascii',
+                    'ddjj_ascii_layout_review_ref': f'ddjj-{form_code}-ascii-layout-reviewed',
                     'official_format': False,
                     'sii_submission': False,
                 },
@@ -2427,6 +2434,199 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertNotIn('stage6.tax_export_file_package_mismatch', issue_codes)
         self.assertNotIn('stage6.tax_export_file_package_invalid', issue_codes)
         self.assertNotIn('stage6.tax_export_file_package_boundary', issue_codes)
+
+    def test_tax_export_writes_verifiable_ddjj_ascii_candidate_from_reviewed_records(self):
+        self._create_valid_local_matrix()
+        export = AnnualTaxExport.objects.get()
+        ddjj_item = AnnualTaxArtifactMatrixItem.objects.filter(target_kind='DDJJ', target_code='DDJJ-1887').first()
+        self.assertIsNotNone(ddjj_item)
+
+        candidate = build_annual_tax_ddjj_ascii_export_candidate(
+            export,
+            form_code='1887',
+            rut_number='97030000',
+            records=[
+                {
+                    'record': '1' + 'A' * 23,
+                    'review_state': 'approved_for_candidate',
+                    'record_source_ref': 'lm-ddjj-1887-header-reviewed',
+                    'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+                    'artifact_matrix_item_id': ddjj_item.id,
+                    'hash_item': ddjj_item.hash_item,
+                },
+                {
+                    'record': '2' + 'B' * 23,
+                    'review_state': 'approved_for_candidate',
+                    'record_source_ref': 'lm-ddjj-1887-detail-reviewed',
+                    'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+                    'artifact_matrix_item_id': ddjj_item.id,
+                    'hash_item': ddjj_item.hash_item,
+                },
+                {
+                    'record': '3' + 'C' * 23,
+                    'review_state': 'approved_for_candidate',
+                    'record_source_ref': 'lm-ddjj-1887-summary-reviewed',
+                    'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+                    'artifact_matrix_item_id': ddjj_item.id,
+                    'hash_item': ddjj_item.hash_item,
+                },
+            ],
+        )
+
+        summary = candidate['summary']
+        self.assertEqual(summary['candidate_version'], 'annual-tax-ddjj-ascii-candidate-v1')
+        self.assertEqual(summary['record_format_kind'], 'ascii_fixed_width_positional')
+        self.assertEqual(summary['form_code'], '1887')
+        self.assertEqual(summary['file_name'], '97030000.887')
+        self.assertEqual(summary['record_length'], 24)
+        self.assertEqual(summary['records_total'], 3)
+        self.assertEqual(summary['record_type_counts'], {'1': 1, '2': 1, '3': 1})
+        self.assertEqual(summary['ddjj_record_review_evidence_total'], 3)
+        self.assertEqual(len(summary['artifact_matrix_item_ids']), 1)
+        self.assertIn(ddjj_item.id, summary['artifact_matrix_item_ids'])
+        self.assertTrue(summary['zip_required_for_submission'])
+        self.assertFalse(summary['official_format'])
+        self.assertFalse(summary['sii_submission'])
+        self.assertFalse(summary['final_tax_calculation'])
+        self.assertEqual(candidate['records'], ['1' + 'A' * 23, '2' + 'B' * 23, '3' + 'C' * 23])
+
+        with TemporaryDirectory() as temp_dir:
+            written = write_annual_tax_ddjj_ascii_export_candidate(candidate, temp_dir)
+            self.assertTrue(Path(written['written_file']).exists())
+            self.assertTrue(Path(written['manifest_file']).exists())
+            verification = verify_annual_tax_ddjj_ascii_export_candidate(candidate, temp_dir)
+
+        self.assertTrue(verification['verified'])
+        self.assertTrue(verification['ready_for_responsible_review'])
+        self.assertEqual(verification['records_total'], 3)
+        self.assertEqual(verification['record_length'], 24)
+        self.assertEqual(verification['file_name'], '97030000.887')
+        self.assertFalse(verification['official_format'])
+        self.assertFalse(verification['sii_submission'])
+        self.assertFalse(verification['final_tax_calculation'])
+
+        with TemporaryDirectory() as temp_dir:
+            written = write_annual_tax_ddjj_ascii_export_candidate(candidate, temp_dir)
+            Path(written['written_file']).write_text('1' + 'Z' * 23 + '\n', encoding='ascii')
+            with self.assertRaisesRegex(ValueError, 'hash esperado'):
+                verify_annual_tax_ddjj_ascii_export_candidate(candidate, temp_dir)
+
+    def test_tax_export_ddjj_ascii_candidate_rejects_invalid_layout_or_records(self):
+        self._create_valid_local_matrix()
+        export = AnnualTaxExport.objects.get()
+        ddjj_item = AnnualTaxArtifactMatrixItem.objects.filter(target_kind='DDJJ', target_code='DDJJ-1887').first()
+        self.assertIsNotNone(ddjj_item)
+        base_records = [
+            {
+                'record': '1' + 'A' * 23,
+                'review_state': 'approved_for_candidate',
+                'record_source_ref': 'lm-ddjj-1887-header-reviewed',
+                'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+                'artifact_matrix_item_id': ddjj_item.id,
+                'hash_item': ddjj_item.hash_item,
+            },
+            {
+                'record': '2' + 'B' * 23,
+                'review_state': 'approved_for_candidate',
+                'record_source_ref': 'lm-ddjj-1887-detail-reviewed',
+                'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+                'artifact_matrix_item_id': ddjj_item.id,
+                'hash_item': ddjj_item.hash_item,
+            },
+            {
+                'record': '3' + 'C' * 23,
+                'review_state': 'approved_for_candidate',
+                'record_source_ref': 'lm-ddjj-1887-summary-reviewed',
+                'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+                'artifact_matrix_item_id': ddjj_item.id,
+                'hash_item': ddjj_item.hash_item,
+            },
+        ]
+
+        with self.assertRaisesRegex(ValueError, 'largo del layout'):
+            build_annual_tax_ddjj_ascii_export_candidate(
+                export,
+                form_code='1887',
+                rut_number='97030000',
+                records=[
+                    {
+                        **base_records[0],
+                        'record': '1' + 'A' * 22,
+                    },
+                    base_records[1],
+                    base_records[2],
+                ],
+            )
+
+        with self.assertRaisesRegex(ValueError, 'tipo 2 de detalle'):
+            build_annual_tax_ddjj_ascii_export_candidate(
+                export,
+                form_code='1887',
+                rut_number='97030000',
+                records=[
+                    base_records[0],
+                    base_records[2],
+                ],
+            )
+
+        with self.assertRaisesRegex(ValueError, 'tipo 1 inicial'):
+            build_annual_tax_ddjj_ascii_export_candidate(
+                export,
+                form_code='1887',
+                rut_number='97030000',
+                records=[
+                    base_records[1],
+                    base_records[1],
+                    base_records[2],
+                ],
+            )
+
+        with self.assertRaisesRegex(ValueError, 'record_source_ref no sensible'):
+            build_annual_tax_ddjj_ascii_export_candidate(
+                export,
+                form_code='1887',
+                rut_number='97030000',
+                records=[
+                    {
+                        **base_records[0],
+                        'record_source_ref': 'https://sii.example.test/ddjj?token=secret',
+                    },
+                    base_records[1],
+                    base_records[2],
+                ],
+            )
+
+        with self.assertRaisesRegex(ValueError, 'item de matriz ajeno al export'):
+            build_annual_tax_ddjj_ascii_export_candidate(
+                export,
+                form_code='1887',
+                rut_number='97030000',
+                records=[
+                    {
+                        **base_records[0],
+                        'artifact_matrix_item_id': ddjj_item.id + 999,
+                    },
+                    base_records[1],
+                    base_records[2],
+                ],
+            )
+
+        layout = AnnualTaxDDJJFormLayout.objects.get(form_code='1887')
+        payload = dict(layout.source_payload)
+        payload.pop('ddjj_ascii_record_length')
+        payload.pop('record_format_kind')
+        layout.source_payload = payload
+        layout.hash_layout = layout.compute_hash_layout()
+        layout.full_clean()
+        layout.save()
+
+        with self.assertRaisesRegex(ValueError, 'formato ASCII posicional revisado'):
+            build_annual_tax_ddjj_ascii_export_candidate(
+                export,
+                form_code='1887',
+                rut_number='97030000',
+                records=base_records,
+            )
 
     def test_tax_export_writes_verifiable_f22_fixed_width_candidate_from_reviewed_codes(self):
         self._create_valid_local_matrix()
