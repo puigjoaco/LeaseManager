@@ -4,6 +4,12 @@ import { Badge, TableBlock } from '../shared'
 
 type Tone = 'neutral' | 'positive' | 'warning' | 'danger'
 
+const REDACTED_SENSITIVE_REFERENCE = '<redacted-sensitive-reference>'
+
+function editableReference(value: string) {
+  return value === REDACTED_SENSITIVE_REFERENCE ? '' : value || ''
+}
+
 type EmpresaItem = { id: number; razon_social: string }
 type PagoItem = { id: number; contrato: number; mes: number; anio: number; estado_pago?: string; tiene_distribucion_facturable?: boolean; distribuciones_detail?: Array<{ requiere_dte: boolean }> }
 type ContratoItem = { id: number; codigo_contrato: string }
@@ -23,6 +29,25 @@ type F29PreparacionItem = { id: number; empresa: number; capacidad_tributaria: n
 type ProcesoRentaAnualItem = { id: number; empresa: number; anio_tributario: number; estado: string; fecha_preparacion: string | null; responsable_revision_ref: string }
 type DdjjPreparacionItem = { id: number; empresa: number; anio_tributario: number; estado_preparacion: string; paquete_ref: string; responsable_revision_ref: string; observaciones: string }
 type F22PreparacionItem = { id: number; empresa: number; anio_tributario: number; estado_preparacion: string; borrador_ref: string; responsable_revision_ref: string; observaciones: string }
+type AnnualTaxReviewChecklistItem = {
+  id: number
+  empresa: number
+  proceso_renta_anual: number
+  anio_tributario: number
+  anio_comercial: number
+  checklist_ref: string
+  responsible_ref: string
+  evidence_ref: string
+  items_total: number
+  completed_items_total: number
+  blockers_total: number
+  warnings_total: number
+  review_decision_state: string
+  review_decision_ref: string
+  review_decision_evidence_ref: string
+  hash_checklist: string
+  estado: string
+}
 
 type CapacidadSiiDraft = {
   empresa: string
@@ -71,6 +96,15 @@ type AnnualReviewDraft = {
   observaciones: string
 }
 
+type AnnualChecklistDecisionDraft = {
+  item_id: string
+  review_decision_state: string
+  decision_ref: string
+  decision_evidence_ref: string
+  responsible_ref: string
+  reason: string
+}
+
 type AnnualReviewOption = {
   id: string
   label: string
@@ -86,6 +120,15 @@ const initialAnnualReviewDraft: AnnualReviewDraft = {
   ref_value: '',
   responsable_revision_ref: '',
   observaciones: '',
+}
+
+const initialAnnualChecklistDecisionDraft: AnnualChecklistDecisionDraft = {
+  item_id: '',
+  review_decision_state: 'observado',
+  decision_ref: '',
+  decision_evidence_ref: '',
+  responsible_ref: '',
+  reason: '',
 }
 
 const initialF29ReviewDraft: F29ReviewDraft = {
@@ -119,6 +162,7 @@ export function SiiWorkspace({
   filteredProcesosAnuales,
   filteredDdjjs,
   filteredF22s,
+  filteredAnnualTaxReviewChecklists,
   empresaById,
   capacidadSiiById,
   toneFor,
@@ -149,6 +193,7 @@ export function SiiWorkspace({
   filteredProcesosAnuales: ProcesoRentaAnualItem[]
   filteredDdjjs: DdjjPreparacionItem[]
   filteredF22s: F22PreparacionItem[]
+  filteredAnnualTaxReviewChecklists: AnnualTaxReviewChecklistItem[]
   empresaById: ReadonlyMap<number, EmpresaItem>
   capacidadSiiById: ReadonlyMap<number, CapacidadSiiItem>
   toneFor: (value: string) => Tone
@@ -164,6 +209,7 @@ export function SiiWorkspace({
   })
   const [f29ReviewDraft, setF29ReviewDraft] = useState<F29ReviewDraft>(initialF29ReviewDraft)
   const [annualReviewDraft, setAnnualReviewDraft] = useState<AnnualReviewDraft>(initialAnnualReviewDraft)
+  const [annualChecklistDecisionDraft, setAnnualChecklistDecisionDraft] = useState<AnnualChecklistDecisionDraft>(initialAnnualChecklistDecisionDraft)
   const selectedF29Review = filteredF29s.find((item) => String(item.id) === f29ReviewDraft.item_id)
   const f29ReviewNeedsResponsable = f29ReviewDraft.estado_preparacion !== 'preparado'
   const canSubmitF29Review = Boolean(selectedF29Review)
@@ -192,6 +238,11 @@ export function SiiWorkspace({
       annualReviewDraft.ref_value.trim().length > 0
       && annualReviewDraft.responsable_revision_ref.trim().length > 0
     ))
+  const selectedAnnualChecklistDecision = filteredAnnualTaxReviewChecklists.find((item) => String(item.id) === annualChecklistDecisionDraft.item_id)
+  const canSubmitAnnualChecklistDecision = Boolean(selectedAnnualChecklistDecision)
+    && annualChecklistDecisionDraft.decision_ref.trim().length > 0
+    && annualChecklistDecisionDraft.decision_evidence_ref.trim().length > 0
+    && annualChecklistDecisionDraft.responsible_ref.trim().length > 0
 
   function setAnnualReviewKind(value: AnnualReviewKind) {
     setAnnualReviewDraft({ ...initialAnnualReviewDraft, artifact_kind: value })
@@ -243,6 +294,26 @@ export function SiiWorkspace({
     })
   }
 
+  function loadAnnualChecklistDecision(item: AnnualTaxReviewChecklistItem) {
+    setAnnualChecklistDecisionDraft({
+      item_id: String(item.id),
+      review_decision_state: item.review_decision_state || 'observado',
+      decision_ref: editableReference(item.review_decision_ref),
+      decision_evidence_ref: editableReference(item.review_decision_evidence_ref) || editableReference(item.evidence_ref),
+      responsible_ref: editableReference(item.responsible_ref),
+      reason: '',
+    })
+  }
+
+  function setAnnualChecklistDecisionItem(value: string) {
+    const selected = filteredAnnualTaxReviewChecklists.find((item) => String(item.id) === value)
+    if (selected) {
+      loadAnnualChecklistDecision(selected)
+    } else {
+      setAnnualChecklistDecisionDraft(initialAnnualChecklistDecisionDraft)
+    }
+  }
+
   async function handleAnnualReviewSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!canEditSii || !canSubmitAnnualReview) return
@@ -257,6 +328,21 @@ export function SiiWorkspace({
     }, 'Revisión anual actualizada correctamente.')
     if (ok) {
       setAnnualReviewDraft(initialAnnualReviewDraft)
+    }
+  }
+
+  async function handleAnnualChecklistDecisionSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canEditSii || !canSubmitAnnualChecklistDecision) return
+    const ok = await handleSiiStatusUpdate(`/api/v1/sii/anual/review-checklists/${annualChecklistDecisionDraft.item_id}/decision/`, {
+      review_decision_state: annualChecklistDecisionDraft.review_decision_state,
+      decision_ref: annualChecklistDecisionDraft.decision_ref.trim(),
+      decision_evidence_ref: annualChecklistDecisionDraft.decision_evidence_ref.trim(),
+      responsible_ref: annualChecklistDecisionDraft.responsible_ref.trim(),
+      reason: annualChecklistDecisionDraft.reason.trim(),
+    }, 'Decisión anual registrada correctamente.')
+    if (ok) {
+      setAnnualChecklistDecisionDraft(initialAnnualChecklistDecisionDraft)
     }
   }
 
@@ -390,6 +476,30 @@ export function SiiWorkspace({
             <button type="submit" className="button-primary" disabled={isSubmitting || !canSubmitAnnualReview}>Guardar revisión</button>
           </form>
         </section>
+
+        <section className="panel">
+          <div className="section-heading"><div><h2>Decisión anual</h2><p>Registra la decisión responsable del checklist de renta.</p></div></div>
+          <form className="entity-form" onSubmit={handleAnnualChecklistDecisionSubmit}>
+            <select value={annualChecklistDecisionDraft.item_id} onChange={(event) => setAnnualChecklistDecisionItem(event.target.value)}>
+              <option value="">Selecciona checklist</option>
+              {filteredAnnualTaxReviewChecklists.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {empresaById.get(item.empresa)?.razon_social || item.empresa} · AT {item.anio_tributario} · {item.review_decision_state}
+                </option>
+              ))}
+            </select>
+            <select value={annualChecklistDecisionDraft.review_decision_state} onChange={(event) => setAnnualChecklistDecisionDraft((current) => ({ ...current, review_decision_state: event.target.value }))}>
+              <option value="preparado">Preparado</option>
+              <option value="observado">Observado</option>
+              <option value="aprobado_para_presentacion">Aprobado para presentación</option>
+            </select>
+            <input placeholder="Decisión ref" value={annualChecklistDecisionDraft.decision_ref} onChange={(event) => setAnnualChecklistDecisionDraft((current) => ({ ...current, decision_ref: event.target.value }))} />
+            <input placeholder="Evidencia decisión ref" value={annualChecklistDecisionDraft.decision_evidence_ref} onChange={(event) => setAnnualChecklistDecisionDraft((current) => ({ ...current, decision_evidence_ref: event.target.value }))} />
+            <input placeholder="Responsable ref" value={annualChecklistDecisionDraft.responsible_ref} onChange={(event) => setAnnualChecklistDecisionDraft((current) => ({ ...current, responsible_ref: event.target.value }))} />
+            <input placeholder="Motivo no sensible" value={annualChecklistDecisionDraft.reason} onChange={(event) => setAnnualChecklistDecisionDraft((current) => ({ ...current, reason: event.target.value }))} />
+            <button type="submit" className="button-primary" disabled={isSubmitting || !canSubmitAnnualChecklistDecision}>Registrar decisión</button>
+          </form>
+        </section>
       </section> : null}
 
       <TableBlock title="Capacidades SII" subtitle="Gate y ambiente por empresa/capacidad." rows={filteredCapacidadesSii} empty="No hay capacidades SII para este filtro." isLoading={isLoading} loadingLabel="Cargando SII..." columns={[
@@ -423,6 +533,18 @@ export function SiiWorkspace({
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
         { label: 'Responsable', render: (row) => row.responsable_revision_ref || 'Sin responsable' },
         { label: 'Preparación', render: (row) => row.fecha_preparacion || 'Sin fecha' },
+      ]} />
+      <TableBlock title="Checklist renta anual" subtitle="Decisión responsable del dossier preparado." rows={filteredAnnualTaxReviewChecklists} empty="No hay checklists anuales para este filtro." isLoading={isLoading} loadingLabel="Cargando SII..." columns={[
+        { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },
+        { label: 'AT', render: (row) => row.anio_tributario },
+        { label: 'Comercial', render: (row) => row.anio_comercial },
+        { label: 'Avance', render: (row) => `${row.completed_items_total}/${row.items_total}` },
+        { label: 'Bloqueos', render: (row) => row.blockers_total },
+        { label: 'Warnings', render: (row) => row.warnings_total },
+        { label: 'Decisión', render: (row) => <Badge label={row.review_decision_state || row.estado} tone={toneFor(row.review_decision_state || row.estado)} /> },
+        { label: 'Responsable', render: (row) => row.responsible_ref || 'Sin responsable' },
+        { label: 'Evidencia', render: (row) => row.review_decision_evidence_ref || row.evidence_ref || 'Sin evidencia' },
+        { label: 'Acción', render: (row) => !canEditSii ? 'Solo lectura' : <button type="button" className="button-ghost inline-action" onClick={() => loadAnnualChecklistDecision(row)} disabled={isSubmitting}>Cargar decisión</button> },
       ]} />
       <TableBlock title="DDJJ preparadas" subtitle="Paquetes anuales listos o en preparación." rows={filteredDdjjs} empty="No hay DDJJ para este filtro." isLoading={isLoading} loadingLabel="Cargando SII..." columns={[
         { label: 'Empresa', render: (row) => empresaById.get(row.empresa)?.razon_social || row.empresa },

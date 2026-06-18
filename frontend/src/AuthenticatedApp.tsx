@@ -1425,6 +1425,7 @@ type SiiSnapshot = {
   procesos_anuales: ProcesoRentaAnual[]
   ddjjs: DdjjPreparacion[]
   f22s: F22Preparacion[]
+  annual_tax_review_checklists: AnnualTaxReviewChecklist[]
 }
 
 type ControlSnapshot = {
@@ -1518,6 +1519,31 @@ type F22Preparacion = {
   borrador_ref: string
   responsable_revision_ref: string
   observaciones: string
+}
+
+type AnnualTaxReviewChecklist = {
+  id: number
+  empresa: number
+  proceso_renta_anual: number
+  dossier: number
+  annual_export: number
+  source_bundle: number
+  rule_set: number
+  artifact_matrix: number
+  anio_tributario: number
+  anio_comercial: number
+  checklist_ref: string
+  responsible_ref: string
+  evidence_ref: string
+  items_total: number
+  completed_items_total: number
+  blockers_total: number
+  warnings_total: number
+  review_decision_state: string
+  review_decision_ref: string
+  review_decision_evidence_ref: string
+  hash_checklist: string
+  estado: string
 }
 
 type PoliticaRetencionDatos = {
@@ -1773,6 +1799,7 @@ function App() {
   const [procesosAnuales, setProcesosAnuales] = useState<ProcesoRentaAnual[]>([])
   const [ddjjs, setDdjjs] = useState<DdjjPreparacion[]>([])
   const [f22s, setF22s] = useState<F22Preparacion[]>([])
+  const [annualTaxReviewChecklists, setAnnualTaxReviewChecklists] = useState<AnnualTaxReviewChecklist[]>([])
   const [compliancePolicies, setCompliancePolicies] = useState<PoliticaRetencionDatos[]>([])
   const [complianceExports, setComplianceExports] = useState<ExportacionSensible[]>([])
   const [complianceExportPreview, setComplianceExportPreview] = useState<ExportacionSensiblePreview>(null)
@@ -2526,6 +2553,7 @@ function App() {
     setProcesosAnuales([])
     setDdjjs([])
     setF22s([])
+    setAnnualTaxReviewChecklists([])
     setCompliancePolicies([])
     setComplianceExports([])
     setComplianceExportPreview(null)
@@ -3296,6 +3324,7 @@ function App() {
         setProcesosAnuales(siiSnapshotPayload.procesos_anuales)
         setDdjjs(siiSnapshotPayload.ddjjs)
         setF22s(siiSnapshotPayload.f22s)
+        setAnnualTaxReviewChecklists(siiSnapshotPayload.annual_tax_review_checklists)
         setIsSiiSnapshotLoaded(true)
       }
       if (auditSnapshotPayload) {
@@ -6749,6 +6778,24 @@ function App() {
       ),
     [f22s, normalizedSearch],
   )
+  const filteredAnnualTaxReviewChecklists = useMemo(
+    () =>
+      annualTaxReviewChecklists.filter((item) =>
+        matches(normalizedSearch, [
+          item.empresa,
+          item.anio_tributario,
+          item.anio_comercial,
+          item.estado,
+          item.checklist_ref,
+          item.responsible_ref,
+          item.evidence_ref,
+          item.review_decision_state,
+          item.review_decision_ref,
+          item.review_decision_evidence_ref,
+        ]),
+      ),
+    [annualTaxReviewChecklists, normalizedSearch],
+  )
   const filteredCompliancePolicies = useMemo(
     () =>
       compliancePolicies.filter((item) =>
@@ -7324,6 +7371,7 @@ function App() {
           filteredProcesosAnuales={filteredProcesosAnuales}
           filteredDdjjs={filteredDdjjs}
           filteredF22s={filteredF22s}
+          filteredAnnualTaxReviewChecklists={filteredAnnualTaxReviewChecklists}
           empresaById={empresaById}
           capacidadSiiById={capacidadSiiById}
           toneFor={toneFor}

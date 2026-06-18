@@ -935,10 +935,10 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
 - La API/snapshot/admin de SII exponen `AnnualTaxExport` con source,
   responsable, export ref y payload anual redactados; el admin es solo lectura
   y no existe endpoint para presentar a SII desde esta capa.
-- La API/snapshot/admin de SII exponen `AnnualTaxReviewChecklist` con checklist
-  ref, responsable, evidencia y payload anual redactados; el admin es solo
-  lectura para preservar que la checklist proviene del motor anual y no de una
-  edicion manual opaca.
+- La API/snapshot/admin/backoffice de SII exponen `AnnualTaxReviewChecklist`
+  con checklist ref, responsable, evidencia, decision de revision y payload
+  anual redactados; el admin es solo lectura para preservar que la checklist
+  proviene del motor anual y no de una edicion manual opaca.
 - `AnnualTaxReviewChecklist` conserva una decision de revision tributaria
   explicita: `preparado`, `observado` o
   `aprobado_para_presentacion`. La generacion automatica solo puede dejar
@@ -952,6 +952,10 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   actualiza payload/resumen anual en transaccion y deja evento de auditoria; no
   envia a SII, no intenta presentacion y no convierte el export local en formato
   oficial.
+- El backoffice SII permite cargar un checklist anual, registrar esa decision
+  con refs no sensibles y ver avance, warnings, bloqueos, evidencia y
+  responsable. La accion usa el endpoint transaccional y no reemplaza revision
+  tributaria experta ni abre presentacion SII.
 - `AnnualTaxSourceBundle` acepta como trazabilidad anual completa los 12
   `MonthlyTaxFact` normalizados aun si algunos meses no tienen F29/obligacion
   por no declaracion controlada; no se deben inventar obligaciones para cerrar
