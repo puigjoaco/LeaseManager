@@ -1086,6 +1086,14 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   operaciones no listadas y referencias sensibles. Esto impide declarar respaldo
   leasing completo sin evidencia revisada, pero no invalida la arquitectura
   anual ni impide seguir con trabajo seguro de revision/carga.
+- `build_company_accounting_review_package` y el comando
+  `audit_company_accounting_review_package` unen el avance contable/renta por
+  empresa/ano con la cobertura bancaria/leasing redactada. El paquete queda
+  `preparado` solo si la DB local/controlada tiene cierres, balances, F29,
+  source bundle, dossier/export anual y el manifiesto bancario/leasing cubre
+  operaciones/categorias del mismo ano. No lee adjuntos, correos ni documentos
+  reales, no abre banco ni SII y no declara contabilidad final: solo permite
+  pasar a revision productiva responsable con evidencia no sensible.
 
 ```powershell
 scripts\run-stage6-readiness-gate.ps1 -PythonExe backend\.venv\Scripts\python.exe

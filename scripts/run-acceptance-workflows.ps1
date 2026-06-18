@@ -120,6 +120,7 @@ $testTargets = @(
     'core.tests_stage6_renta_anual_readiness.Stage6RentaAnualReadinessTests',
     'core.tests_stage7_reporting_readiness.Stage7ReportingReadinessTests',
     'core.tests_compliance_data_readiness.ComplianceDataReadinessTests',
+    'core.tests_company_accounting_review_package.CompanyAccountingReviewPackageTests',
     'health.tests.HealthEndpointTests',
     'patrimonio.tests.PatrimonioAPITests',
     'patrimonio.tests.PatrimonioMigrationSafetyTests',

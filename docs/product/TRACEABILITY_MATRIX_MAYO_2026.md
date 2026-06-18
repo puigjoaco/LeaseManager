@@ -3171,6 +3171,16 @@ destinos que no sean directorio o directorios no vacios antes de crear archivo,
 ZIP o manifest, preservando la evidencia local revisable sin declarar formato
 oficial, presentacion SII ni calculo tributario final.
 
+Nota 2026-06-18: Contabilidad/Renta agrega paquete de revision por empresa y
+ano. `build_company_accounting_review_package` y
+`audit_company_accounting_review_package` combinan
+`collect_company_accounting_progress` con
+`audit_company_bank_support_coverage`, exigiendo que progreso anual local y
+respaldo bancario/leasing redactado correspondan al mismo ano comercial/tributario
+antes de marcar `ready_for_productive_accounting_review=true`. La salida conserva
+hashes, issues y boundary no sensible; no lee documentos, correos, adjuntos,
+DB real, banco real ni SII, y no declara contabilidad final ni presentacion.
+
 Nota 2026-06-17: PlataformaBase/CI ajusta Release Gate para remover el matcher
 generico `python` de `actions/setup-python` justo antes de acceptance. La suite
 mantiene tracebacks esperados de rollback/auditoria en logs y sigue fallando por
