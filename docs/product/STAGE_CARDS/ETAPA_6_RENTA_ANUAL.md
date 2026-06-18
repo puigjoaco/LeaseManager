@@ -953,6 +953,10 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   ejecuta verificacion de hash/tamano/JSON canonico/boundary y devuelve un
   resumen auditable. Solo permite salidas versionables bajo `local-evidence/`;
   no habilita formato oficial, upload SII ni calculo final.
+- El writer del paquete local exige que el destino sea un directorio vacio o
+  inexistente antes de escribir. Esto evita mezclar restos de corridas previas
+  con una nueva evidencia exportable y falla antes de crear `manifest.json` o
+  archivos DDJJ/F22.
 - La API/snapshot/admin/backoffice de SII exponen `AnnualTaxReviewChecklist`
   con checklist ref, responsable, evidencia, decision de revision y payload
   anual redactados; el admin es solo lectura para preservar que la checklist

@@ -5287,7 +5287,13 @@ def build_annual_tax_export_file_package(export):
 def write_annual_tax_export_file_package(export, output_dir):
     package = build_annual_tax_export_file_package(export)
     target_dir = Path(output_dir)
-    target_dir.mkdir(parents=True, exist_ok=True)
+    if target_dir.exists():
+        if not target_dir.is_dir():
+            raise ValueError('El destino del paquete anual debe ser un directorio.')
+        if any(target_dir.iterdir()):
+            raise ValueError('El directorio destino del paquete anual debe estar vacio antes de materializar archivos locales.')
+    else:
+        target_dir.mkdir(parents=True, exist_ok=False)
     written_files = []
     for file_item in package['files']:
         file_path = target_dir / file_item['file_name']

@@ -25,18 +25,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `codex/stage6-f22-candidate-materializer`. |
-| Fuente exacta | `main` en `43ce21ff`, despues del merge confirmado de PR #919 `codex/stage6-export-materializer`. |
-| Brecha activa | LeaseManager ya puede construir/verificar un candidato F22 fixed-width desde matriz revisada, pero faltaba una herramienta operativa que lo materialice desde un `AnnualTaxExport` preparado sin imprimir RUT ni codigos de certificacion crudos. |
-| Motivo de prioridad | El objetivo activo exige pasar de artefactos internos a archivos exportables/controlados; el F22 candidato debe poder escribirse y verificarse desde disco con evidencia/hash antes de cualquier revision, certificacion o presentacion. |
-| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-f22-candidate-materializer`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
-| Rama | `codex/stage6-f22-candidate-materializer`. |
-| Estado | Paquete en curso. Se agrega comando controlado para derivar entradas F22 desde la matriz revisada, construir el `.txt` fixed-width candidato, escribirlo bajo `local-evidence/` o ruta externa y verificarlo inmediatamente desde disco. |
-| Gate esperado | Este paquete no declara formato oficial certificado, no presenta SII, no calcula impuesto final, no usa datos reales y no imprime identificadores tributarios crudos. Solo produce un candidato local verificable para revision/certificacion controlada. |
+| Frente activo | `codex/stage6-export-destination-guard`. |
+| Fuente exacta | `main` en `d8987377`, despues del merge confirmado de PR #920 `codex/stage6-f22-candidate-materializer`. |
+| Brecha activa | El materializador local de `AnnualTaxExport` escribe y verifica paquetes DDJJ/F22, pero el writer aceptaba directorios destino existentes y podia mezclar restos locales previos antes de que el verifier fallara. |
+| Motivo de prioridad | Los paquetes exportables deben ser evidencia local reproducible: una corrida nueva no puede sobrescribir ni combinar archivos anteriores, incluso bajo `local-evidence/` o rutas externas controladas. |
+| Worktree | `D:/Proyectos/LeaseManager-stage6-export-destination-guard`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `codex/stage6-export-destination-guard`. |
+| Estado | Paquete revalidado localmente sobre `main` actual. Se endurece `write_annual_tax_export_file_package` para rechazar destinos no directorio o directorios no vacios antes de escribir cualquier archivo, y se cubre desde el comando de materializacion. Pendiente solo CI remoto, merge y limpieza. |
+| Gate esperado | Este paquete no declara formato oficial certificado, no presenta SII, no calcula impuesto final y no usa datos reales. Solo garantiza que la evidencia local materializada parte desde un destino limpio y controlado. |
 | Estado al cerrar paquete | Si `main` contiene el merge de este frente y la rama/worktree ya no existe, no reabrirlo ni repetir PR/CI/merge. Buscar el siguiente frente seguro desde repo limpio. |
 | Bloqueos relacionados | La decision tributaria final, formato/certificacion F22/DDJJ, codigo autorizado por SII, contenido tributario final y presentacion SII siguen bloqueados por responsable tributario, autorizacion explicita, formato/certificacion vigente aplicable y evidencia no sensible. |
 | Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable ni integraciones externas sin autorizacion explicita. La aprobacion para presentacion solo puede existir como decision y evidencia trazables no sensibles; nunca como salida automatica del motor local. |
-| Siguiente accion | Ejecutar tests focales del comando F22 candidato, suite impactada Etapa 6/F22/SII, gate Etapa 6, acceptance proporcional, higiene y diff; si pasa, cerrar paquete con PR/CI/merge/limpieza. |
+| Siguiente accion | Actualizar PR #921 con el commit rebaseado, esperar CI remoto, mergear y limpiar rama/worktree. Si `main` ya contiene el merge de este frente, no reabrirlo: tomar el siguiente frente seguro desde repo limpio. |
 
 ## Actualizacion
 
