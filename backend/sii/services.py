@@ -1,7 +1,9 @@
 import hashlib
 import json
+import zipfile
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
+from io import BytesIO
 from pathlib import Path
 
 from django.contrib.auth import get_user_model
@@ -126,6 +128,7 @@ ANNUAL_TAX_EXPORT_FILE_PACKAGE_VERSION = 'annual-tax-export-file-package-v1'
 ANNUAL_TAX_EXPORT_FILE_PACKAGE_MANIFEST_VERSION = 'annual-tax-export-file-package-manifest-v1'
 ANNUAL_TAX_F22_FIXED_WIDTH_CANDIDATE_VERSION = 'annual-tax-f22-fixed-width-candidate-v1'
 ANNUAL_TAX_DDJJ_ASCII_CANDIDATE_VERSION = 'annual-tax-ddjj-ascii-candidate-v1'
+ANNUAL_TAX_DDJJ_ZIP_CANDIDATE_VERSION = 'annual-tax-ddjj-zip-candidate-v1'
 F22_FIXED_WIDTH_ENTRY_REVIEW_STATES = {'approved_for_candidate', 'aprobado_para_candidato'}
 DDJJ_ASCII_RECORD_REVIEW_STATES = {'approved_for_candidate', 'aprobado_para_candidato'}
 F22_FIXED_WIDTH_MAPPING_PAYLOAD_KEYS = (
@@ -4699,6 +4702,368 @@ def verify_annual_tax_ddjj_ascii_export_candidate(candidate, package_dir):
         'sii_submission': False,
         'final_tax_calculation': False,
         'ready_for_responsible_review': True,
+    }
+
+
+def _canonical_ddjj_zip_bytes(entry_name, content_bytes):
+    if Path(entry_name).name != entry_name:
+        raise ValueError('Nombre de entrada ZIP DDJJ no permitido.')
+    zip_buffer = BytesIO()
+    zip_info = zipfile.ZipInfo(entry_name, date_time=(1980, 1, 1, 0, 0, 0))
+    zip_info.compress_type = zipfile.ZIP_DEFLATED
+    zip_info.create_system = 0
+    zip_info.external_attr = 0
+    with zipfile.ZipFile(zip_buffer, mode='w') as archive:
+        archive.writestr(zip_info, content_bytes)
+    return zip_buffer.getvalue()
+
+
+def _validate_ddjj_ascii_candidate_for_zip(candidate):
+    summary = candidate.get('summary') if isinstance(candidate, dict) else None
+    records = candidate.get('records') if isinstance(candidate, dict) else None
+    content = candidate.get('content') if isinstance(candidate, dict) else None
+    if not isinstance(summary, dict) or not isinstance(records, list) or not isinstance(content, str):
+        raise ValueError('Candidato DDJJ ASCII invalido para empaquetado ZIP.')
+    if summary.get('candidate_version') != ANNUAL_TAX_DDJJ_ASCII_CANDIDATE_VERSION:
+        raise ValueError('Paquete ZIP DDJJ requiere candidato ASCII DDJJ vigente.')
+    if (
+        summary.get('official_format') not in (False, None)
+        or summary.get('sii_submission') not in (False, None)
+        or summary.get('final_tax_calculation') not in (False, None)
+    ):
+        raise ValueError('Paquete ZIP DDJJ no puede partir desde candidato oficial, enviado o de calculo final.')
+    if summary.get('zip_required_for_submission') is not True and summary.get('requires_zip_for_submission') is not True:
+        raise ValueError('Paquete ZIP DDJJ requiere candidato ASCII marcado como comprimible.')
+    file_name = str(summary.get('file_name') or '')
+    if Path(file_name).name != file_name or '.' not in file_name:
+        raise ValueError('Nombre de archivo DDJJ ASCII no permitido para ZIP.')
+    try:
+        content_bytes = content.encode('ascii')
+    except UnicodeEncodeError as error:
+        raise ValueError('Contenido DDJJ ASCII no es codificable en ascii.') from error
+    if hashlib.sha256(content_bytes).hexdigest() != summary.get('content_hash'):
+        raise ValueError('Contenido DDJJ ASCII no coincide con hash esperado para ZIP.')
+    if len(content_bytes) != int(summary.get('content_size_bytes') or 0):
+        raise ValueError('Contenido DDJJ ASCII no coincide con tamano esperado para ZIP.')
+    if content.splitlines() != records:
+        raise ValueError('Contenido DDJJ ASCII no coincide con registros esperados para ZIP.')
+    record_length = int(summary.get('record_length') or 0)
+    if record_length <= 1:
+        raise ValueError('Paquete ZIP DDJJ requiere largo de registro ASCII valido.')
+    line_hashes = summary.get('line_hashes')
+    expected_line_hashes = [
+        hashlib.sha256(record.encode('ascii')).hexdigest()
+        for record in records
+    ]
+    if line_hashes != expected_line_hashes:
+        raise ValueError('Paquete ZIP DDJJ requiere line_hashes ASCII vigentes.')
+    if any(len(record.encode('ascii')) != record_length for record in records):
+        raise ValueError('Paquete ZIP DDJJ requiere registros ASCII con largo fijo valido.')
+    record_types = [str(record)[0] for record in records if record]
+    if (
+        not record_types
+        or record_types[0] != '1'
+        or record_types[-1] != '3'
+        or record_types.count('1') != 1
+        or record_types.count('3') != 1
+        or record_types.count('2') < 1
+    ):
+        raise ValueError('Paquete ZIP DDJJ requiere registros ASCII tipo 1, tipo 2 y tipo 3 revisados.')
+    evidence_entries = summary.get('ddjj_record_review_evidence')
+    if not isinstance(evidence_entries, list) or len(evidence_entries) != len(records):
+        raise ValueError('Paquete ZIP DDJJ requiere evidencia de revision del candidato ASCII.')
+    evidence_hash = hashlib.sha256(_canonical_json_bytes(evidence_entries)).hexdigest()
+    if evidence_hash != summary.get('ddjj_record_review_evidence_hash'):
+        raise ValueError('Evidencia DDJJ ASCII no coincide con hash esperado para ZIP.')
+    return summary, records, content, record_length
+
+
+def _normalize_ddjj_transfer_control_record(entry, *, record_length):
+    if not isinstance(entry, dict):
+        raise ValueError('Registro de control DDJJ ZIP debe ser un objeto revisado.')
+    record = str(entry.get('record') or '')
+    if not record:
+        raise ValueError('Registro de control DDJJ ZIP requiere contenido.')
+    try:
+        encoded_record = record.encode('ascii')
+    except UnicodeEncodeError as error:
+        raise ValueError('Registro de control DDJJ ZIP debe contener solo caracteres ASCII.') from error
+    if len(encoded_record) != record_length:
+        raise ValueError('Registro de control DDJJ ZIP no coincide con el largo del layout.')
+    if record[0] != '0':
+        raise ValueError('Registro de control DDJJ ZIP debe comenzar con tipo 0.')
+    review_state = str(entry.get('review_state') or '').strip()
+    if review_state not in DDJJ_ASCII_RECORD_REVIEW_STATES:
+        raise ValueError('Registro de control DDJJ ZIP requiere review_state approved_for_candidate.')
+    transfer_source_ref = str(entry.get('transfer_source_ref') or entry.get('record_source_ref') or '').strip()
+    responsible_review_ref = str(entry.get('responsible_review_ref') or '').strip()
+    if not is_non_sensitive_reference(transfer_source_ref):
+        raise ValueError('Registro de control DDJJ ZIP requiere transfer_source_ref no sensible.')
+    if not is_non_sensitive_reference(responsible_review_ref):
+        raise ValueError('Registro de control DDJJ ZIP requiere responsible_review_ref no sensible.')
+    evidence = {
+        'record_index': 1,
+        'record_type': '0',
+        'review_state': review_state,
+        'transfer_source_ref': transfer_source_ref,
+        'responsible_review_ref': responsible_review_ref,
+        'record_hash': hashlib.sha256(record.encode('ascii')).hexdigest(),
+    }
+    evidence['entry_hash'] = hashlib.sha256(_canonical_json_bytes(evidence)).hexdigest()
+    return {
+        'record': record,
+        'record_type': '0',
+        'review_state': review_state,
+        'transfer_source_ref': transfer_source_ref,
+        'responsible_review_ref': responsible_review_ref,
+        'evidence': evidence,
+    }
+
+
+def build_annual_tax_ddjj_zip_export_candidate(ddjj_ascii_candidate, *, transfer_control_record):
+    ascii_summary, ascii_records, ascii_content, record_length = _validate_ddjj_ascii_candidate_for_zip(
+        ddjj_ascii_candidate
+    )
+    control_record = _normalize_ddjj_transfer_control_record(
+        transfer_control_record,
+        record_length=record_length,
+    )
+    transfer_records = [control_record['record'], *ascii_records]
+    transfer_content = '\n'.join(transfer_records) + '\n'
+    transfer_content_bytes = transfer_content.encode('ascii')
+    zip_entry_name = ascii_summary['file_name']
+    zip_file_name = f'{zip_entry_name}.zip'
+    zip_bytes = _canonical_ddjj_zip_bytes(zip_entry_name, transfer_content_bytes)
+    record_types = [record[0] for record in transfer_records]
+    ascii_summary_hash = hashlib.sha256(_canonical_json_bytes(ascii_summary)).hexdigest()
+    summary = {
+        'candidate_version': ANNUAL_TAX_DDJJ_ZIP_CANDIDATE_VERSION,
+        'source_candidate_version': ascii_summary.get('candidate_version'),
+        'source_candidate_summary_hash': ascii_summary_hash,
+        'source_content_hash': ascii_summary.get('content_hash'),
+        'source_record_review_evidence_hash': ascii_summary.get('ddjj_record_review_evidence_hash'),
+        'record_format_version': 'ddjj-at2026-transfer-zip-candidate-v1',
+        'record_format_kind': 'ascii_fixed_width_positional_zip_candidate',
+        'annual_tax_export_id': ascii_summary.get('annual_tax_export_id'),
+        'empresa_id': ascii_summary.get('empresa_id'),
+        'proceso_renta_anual_id': ascii_summary.get('proceso_renta_anual_id'),
+        'anio_tributario': ascii_summary.get('anio_tributario'),
+        'anio_comercial': ascii_summary.get('anio_comercial'),
+        'form_code': ascii_summary.get('form_code'),
+        'file_extension': ascii_summary.get('file_extension'),
+        'zip_entry_name': zip_entry_name,
+        'zip_file_name': zip_file_name,
+        'zip_content_type': 'application/zip',
+        'zip_compression': 'ZIP_DEFLATED_CANONICAL_LOCAL_CANDIDATE',
+        'zip_entries_total': 1,
+        'encoding': 'ascii',
+        'line_separator': 'LF_LOCAL_CANDIDATE',
+        'record_length': record_length,
+        'records_total': len(transfer_records),
+        'record_type_counts': {
+            '0': record_types.count('0'),
+            '1': record_types.count('1'),
+            '2': record_types.count('2'),
+            '3': record_types.count('3'),
+        },
+        'transfer_control_record_evidence': control_record['evidence'],
+        'transfer_control_record_evidence_hash': hashlib.sha256(
+            _canonical_json_bytes(control_record['evidence'])
+        ).hexdigest(),
+        'ddjj_record_review_evidence_hash': ascii_summary.get('ddjj_record_review_evidence_hash'),
+        'content_hash': hashlib.sha256(transfer_content_bytes).hexdigest(),
+        'content_size_bytes': len(transfer_content_bytes),
+        'line_hashes': [
+            hashlib.sha256(record.encode('ascii')).hexdigest()
+            for record in transfer_records
+        ],
+        'zip_file_hash': hashlib.sha256(zip_bytes).hexdigest(),
+        'zip_file_size_bytes': len(zip_bytes),
+        'zip_required_for_submission': True,
+        'zip_candidate_validated': True,
+        'ascii_structure_validated': True,
+        'official_format': False,
+        'sii_submission': False,
+        'final_tax_calculation': False,
+        'requires_exact_form_layout_gate': True,
+        'requires_official_zip_gate': True,
+        'requires_responsible_review': True,
+        'requires_explicit_submission_authorization': True,
+    }
+    return {
+        'summary': summary,
+        'records': transfer_records,
+        'content': transfer_content,
+    }
+
+
+def write_annual_tax_ddjj_zip_export_candidate(candidate, output_dir):
+    summary = candidate.get('summary') if isinstance(candidate, dict) else None
+    records = candidate.get('records') if isinstance(candidate, dict) else None
+    content = candidate.get('content') if isinstance(candidate, dict) else None
+    if not isinstance(summary, dict) or not isinstance(records, list) or not isinstance(content, str):
+        raise ValueError('Candidato ZIP DDJJ invalido.')
+    zip_file_name = str(summary.get('zip_file_name') or '')
+    zip_entry_name = str(summary.get('zip_entry_name') or '')
+    if Path(zip_file_name).name != zip_file_name or not zip_file_name.lower().endswith('.zip'):
+        raise ValueError('Nombre de ZIP DDJJ no permitido.')
+    if Path(zip_entry_name).name != zip_entry_name:
+        raise ValueError('Nombre de entrada ZIP DDJJ no permitido.')
+    target_dir = Path(output_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    content_bytes = content.encode('ascii')
+    zip_bytes = _canonical_ddjj_zip_bytes(zip_entry_name, content_bytes)
+    if hashlib.sha256(zip_bytes).hexdigest() != summary.get('zip_file_hash'):
+        raise ValueError('El ZIP DDJJ generado no coincide con el hash esperado.')
+    if len(zip_bytes) != int(summary.get('zip_file_size_bytes') or 0):
+        raise ValueError('El ZIP DDJJ generado no coincide con el tamano esperado.')
+    zip_path = target_dir / zip_file_name
+    zip_path.write_bytes(zip_bytes)
+    manifest_path = target_dir / 'ddjj-zip-candidate-manifest.json'
+    manifest_path.write_text(
+        json.dumps({'summary': summary}, sort_keys=True, separators=(',', ':'), ensure_ascii=True, default=str),
+        encoding='utf-8',
+    )
+    return {
+        **candidate,
+        'output_dir': str(target_dir),
+        'written_zip_file': str(zip_path),
+        'manifest_file': str(manifest_path),
+    }
+
+
+def verify_annual_tax_ddjj_zip_export_candidate(candidate, package_dir):
+    summary = candidate.get('summary') if isinstance(candidate, dict) else None
+    records = candidate.get('records') if isinstance(candidate, dict) else None
+    content = candidate.get('content') if isinstance(candidate, dict) else None
+    if not isinstance(summary, dict) or not isinstance(records, list) or not isinstance(content, str):
+        raise ValueError('Candidato ZIP DDJJ invalido.')
+    target_dir = Path(package_dir)
+    if not target_dir.exists() or not target_dir.is_dir():
+        raise ValueError('El directorio del ZIP DDJJ no existe o no es un directorio.')
+    zip_file_name = str(summary.get('zip_file_name') or '')
+    zip_entry_name = str(summary.get('zip_entry_name') or '')
+    manifest_path = target_dir / 'ddjj-zip-candidate-manifest.json'
+    zip_path = target_dir / zip_file_name
+    allowed_names = {zip_file_name, 'ddjj-zip-candidate-manifest.json'}
+    actual_names = {path.name for path in target_dir.iterdir() if path.is_file()}
+    invalid_entries = [path.name for path in target_dir.iterdir() if not path.is_file()]
+    if invalid_entries or actual_names != allowed_names:
+        raise ValueError('El directorio del ZIP DDJJ contiene entradas no declaradas.')
+    manifest_bytes = manifest_path.read_bytes()
+    try:
+        manifest_payload = json.loads(manifest_bytes.decode('utf-8'))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError('El manifiesto ZIP DDJJ no contiene JSON canonico valido.') from error
+    if manifest_bytes != _canonical_json_bytes(manifest_payload):
+        raise ValueError('El manifiesto ZIP DDJJ no esta serializado como JSON canonico.')
+    if manifest_payload.get('summary') != summary:
+        raise ValueError('El manifiesto ZIP DDJJ no coincide con el candidato esperado.')
+
+    zip_bytes = zip_path.read_bytes()
+    try:
+        expected_content_bytes = content.encode('ascii')
+    except UnicodeEncodeError as error:
+        raise ValueError('El contenido ZIP DDJJ esperado debe estar codificado en ascii.') from error
+    expected_zip_bytes = _canonical_ddjj_zip_bytes(zip_entry_name, expected_content_bytes)
+    if zip_bytes != expected_zip_bytes:
+        raise ValueError('El ZIP DDJJ no coincide con el ZIP canonico esperado.')
+    if hashlib.sha256(zip_bytes).hexdigest() != summary.get('zip_file_hash'):
+        raise ValueError('El ZIP DDJJ no coincide con el hash esperado.')
+    if len(zip_bytes) != int(summary.get('zip_file_size_bytes') or 0):
+        raise ValueError('El ZIP DDJJ no coincide con el tamano esperado.')
+    try:
+        with zipfile.ZipFile(BytesIO(zip_bytes), mode='r') as archive:
+            names = archive.namelist()
+            if names != [zip_entry_name]:
+                raise ValueError('El ZIP DDJJ debe contener exactamente el archivo ASCII declarado.')
+            entry_info = archive.getinfo(zip_entry_name)
+            if entry_info.is_dir():
+                raise ValueError('El ZIP DDJJ no puede contener directorios.')
+            content_bytes = archive.read(zip_entry_name)
+    except zipfile.BadZipFile as error:
+        raise ValueError('El archivo ZIP DDJJ no es un ZIP valido.') from error
+    try:
+        zipped_content = content_bytes.decode('ascii')
+    except UnicodeDecodeError as error:
+        raise ValueError('El contenido ZIP DDJJ debe estar codificado en ascii.') from error
+    if zipped_content != content:
+        raise ValueError('El contenido ZIP DDJJ no coincide con el candidato esperado.')
+    if hashlib.sha256(content_bytes).hexdigest() != summary.get('content_hash'):
+        raise ValueError('El contenido ZIP DDJJ no coincide con el hash esperado.')
+    if len(content_bytes) != int(summary.get('content_size_bytes') or 0):
+        raise ValueError('El contenido ZIP DDJJ no coincide con el tamano esperado.')
+    actual_records = zipped_content.splitlines()
+    if actual_records != records:
+        raise ValueError('Los registros ZIP DDJJ no coinciden con el candidato esperado.')
+    record_length = int(summary.get('record_length') or 0)
+    record_types = [record[0] for record in actual_records if record]
+    if (
+        len(record_types) < 4
+        or record_types[0] != '0'
+        or record_types[1] != '1'
+        or record_types[-1] != '3'
+        or record_types.count('0') != 1
+        or record_types.count('1') != 1
+        or record_types.count('3') != 1
+        or record_types.count('2') < 1
+    ):
+        raise ValueError('El ZIP DDJJ requiere tipo 0, tipo 1, tipo 2 y tipo 3 en secuencia valida.')
+    for record in actual_records:
+        try:
+            record_bytes = record.encode('ascii')
+        except UnicodeEncodeError as error:
+            raise ValueError('El ZIP DDJJ contiene registro no ASCII.') from error
+        if len(record_bytes) != record_length:
+            raise ValueError('El ZIP DDJJ contiene registro con largo invalido.')
+        if record[0] not in {'0', '1', '2', '3'}:
+            raise ValueError('El ZIP DDJJ contiene tipo de registro invalido.')
+    if summary.get('record_type_counts') != {
+        '0': record_types.count('0'),
+        '1': record_types.count('1'),
+        '2': record_types.count('2'),
+        '3': record_types.count('3'),
+    }:
+        raise ValueError('El resumen ZIP DDJJ no coincide con los tipos de registro.')
+    if (
+        summary.get('official_format') not in (False, None)
+        or summary.get('sii_submission') not in (False, None)
+        or summary.get('final_tax_calculation') not in (False, None)
+    ):
+        raise ValueError('El ZIP DDJJ no puede declarar formato oficial, presentacion SII ni calculo final.')
+    evidence = summary.get('transfer_control_record_evidence')
+    if not isinstance(evidence, dict) or evidence.get('record_type') != '0':
+        raise ValueError('El ZIP DDJJ requiere evidencia del registro de control tipo 0.')
+    for field_name in ('transfer_source_ref', 'responsible_review_ref'):
+        if not is_non_sensitive_reference(evidence.get(field_name)):
+            raise ValueError(f'El ZIP DDJJ requiere {field_name} no sensible.')
+    expected_record_hash = hashlib.sha256(actual_records[0].encode('ascii')).hexdigest()
+    if evidence.get('record_hash') != expected_record_hash:
+        raise ValueError('La evidencia ZIP DDJJ no coincide con el registro de control.')
+    expected_entry_hash = hashlib.sha256(
+        _canonical_json_bytes({key: value for key, value in evidence.items() if key != 'entry_hash'})
+    ).hexdigest()
+    if evidence.get('entry_hash') != expected_entry_hash:
+        raise ValueError('La evidencia ZIP DDJJ contiene entry_hash invalido.')
+    expected_evidence_hash = hashlib.sha256(_canonical_json_bytes(evidence)).hexdigest()
+    if expected_evidence_hash != summary.get('transfer_control_record_evidence_hash'):
+        raise ValueError('La evidencia ZIP DDJJ no coincide con su hash esperado.')
+    return {
+        'verified': True,
+        'candidate_version': summary.get('candidate_version'),
+        'record_format_version': summary.get('record_format_version'),
+        'zip_file_name': zip_file_name,
+        'zip_entry_name': zip_entry_name,
+        'zip_file_hash': summary.get('zip_file_hash'),
+        'content_hash': summary.get('content_hash'),
+        'records_total': len(actual_records),
+        'record_length': record_length,
+        'record_type_counts': summary.get('record_type_counts'),
+        'official_format': False,
+        'sii_submission': False,
+        'final_tax_calculation': False,
+        'ready_for_responsible_review': True,
+        'ready_for_submission': False,
     }
 
 

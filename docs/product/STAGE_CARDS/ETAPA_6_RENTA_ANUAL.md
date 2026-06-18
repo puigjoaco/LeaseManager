@@ -426,6 +426,16 @@ disco, valida ASCII, largo fijo, tipos de registro, hashes y evidencia por
 registro. Mantiene `official_format=false`, `sii_submission=false` y
 `final_tax_calculation=false`; el ZIP, layout exacto por formulario,
 certificacion y envio SII quedan bajo gate externo/autorizacion.
+`build_annual_tax_ddjj_zip_export_candidate()` envuelve el candidato DDJJ
+ASCII en un paquete ZIP local de transferencia candidata: exige el candidato
+ASCII verificado y un registro tipo 0 revisado, no sensible y de largo fijo,
+antepone ese registro de control a la secuencia tipo 1/2/3, genera un ZIP
+canonico de una sola entrada y un manifest con hashes/tamanos. El escritor y
+verificador reabren el paquete desde disco, validan nombre seguro, ZIP unico,
+contenido ASCII, secuencia 0/1/2/3, largo fijo, evidencia del registro tipo 0
+y flags `official_format=false`, `sii_submission=false` y
+`final_tax_calculation=false`. Sigue siendo candidato local: no declara ZIP
+oficial, certificacion, upload SII, codigo de software ni calculo final.
 `AnnualTaxF22ExportLayout` materializa la capa F22 por ano tributario antes del
 export local: conserva `form_code=F22`, medio preferente, refs no sensibles de
 certificacion/formato/instrucciones/responsable, fuentes oficiales/expertas,

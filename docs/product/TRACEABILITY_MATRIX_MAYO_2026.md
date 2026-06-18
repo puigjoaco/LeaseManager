@@ -88,6 +88,17 @@ derivada del formulario y verifica manifest, hashes, largos, tipos y evidencia
 por registro. No habilita ZIP oficial, envio SII, certificacion, layout oficial
 completo ni calculo tributario final.
 
+Nota 2026-06-17: Etapa 6/Renta Anual agrega ZIP candidato DDJJ con
+`build_annual_tax_ddjj_zip_export_candidate()`,
+`write_annual_tax_ddjj_zip_export_candidate()` y
+`verify_annual_tax_ddjj_zip_export_candidate()`. La capa parte del candidato
+ASCII DDJJ preparado, exige registro tipo 0 revisado y no sensible, genera ZIP
+canonico de una sola entrada con manifest, y verifica hash/tamano, nombre
+seguro, contenido ASCII, secuencia 0/1/2/3, largo fijo, evidencia y flags
+`official_format=false`, `sii_submission=false`,
+`final_tax_calculation=false`. No habilita ZIP oficial, certificacion, upload
+SII, codigo de software ni calculo tributario final.
+
 Nota 2026-06-17: Canales/Etapa 2 exige motivo operativo trazable para mensajes
 salientes bloqueados o fallidos. `MensajeSaliente.clean()` rechaza estados
 `bloqueado`/`fallido` sin `motivo_bloqueo` no vacio y no sensible, y

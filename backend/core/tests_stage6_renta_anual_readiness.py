@@ -1,5 +1,6 @@
 import json
 import hashlib
+import zipfile
 from datetime import date
 from decimal import Decimal
 from io import StringIO
@@ -81,6 +82,7 @@ from sii.models import (
 )
 from sii.services import (
     build_annual_tax_ddjj_ascii_export_candidate,
+    build_annual_tax_ddjj_zip_export_candidate,
     build_annual_tax_export_file_package,
     build_annual_tax_f22_fixed_width_export_candidate,
     build_f22_fixed_width_entries_from_artifact_matrix,
@@ -108,8 +110,10 @@ from sii.services import (
     sync_monthly_tax_facts,
     verify_annual_tax_f22_fixed_width_export_candidate,
     verify_annual_tax_ddjj_ascii_export_candidate,
+    verify_annual_tax_ddjj_zip_export_candidate,
     verify_annual_tax_export_file_package,
     write_annual_tax_ddjj_ascii_export_candidate,
+    write_annual_tax_ddjj_zip_export_candidate,
     write_annual_tax_f22_fixed_width_export_candidate,
     write_annual_tax_export_file_package,
 )
@@ -2626,6 +2630,159 @@ class Stage6RentaAnualReadinessTests(TestCase):
                 form_code='1887',
                 rut_number='97030000',
                 records=base_records,
+            )
+
+    def _build_ddjj_ascii_candidate_for_zip(self):
+        self._create_valid_local_matrix()
+        export = AnnualTaxExport.objects.get()
+        ddjj_item = AnnualTaxArtifactMatrixItem.objects.filter(target_kind='DDJJ', target_code='DDJJ-1887').first()
+        self.assertIsNotNone(ddjj_item)
+        return build_annual_tax_ddjj_ascii_export_candidate(
+            export,
+            form_code='1887',
+            rut_number='97030000',
+            records=[
+                {
+                    'record': '1' + 'A' * 23,
+                    'review_state': 'approved_for_candidate',
+                    'record_source_ref': 'lm-ddjj-1887-header-reviewed',
+                    'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+                    'artifact_matrix_item_id': ddjj_item.id,
+                    'hash_item': ddjj_item.hash_item,
+                },
+                {
+                    'record': '2' + 'B' * 23,
+                    'review_state': 'approved_for_candidate',
+                    'record_source_ref': 'lm-ddjj-1887-detail-reviewed',
+                    'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+                    'artifact_matrix_item_id': ddjj_item.id,
+                    'hash_item': ddjj_item.hash_item,
+                },
+                {
+                    'record': '3' + 'C' * 23,
+                    'review_state': 'approved_for_candidate',
+                    'record_source_ref': 'lm-ddjj-1887-summary-reviewed',
+                    'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+                    'artifact_matrix_item_id': ddjj_item.id,
+                    'hash_item': ddjj_item.hash_item,
+                },
+            ],
+        )
+
+    def test_tax_export_writes_verifiable_ddjj_zip_candidate_from_ascii_candidate(self):
+        ascii_candidate = self._build_ddjj_ascii_candidate_for_zip()
+        zip_candidate = build_annual_tax_ddjj_zip_export_candidate(
+            ascii_candidate,
+            transfer_control_record={
+                'record': '0' + 'T' * 23,
+                'review_state': 'approved_for_candidate',
+                'transfer_source_ref': 'sii-ddjj-at2026-transfer-control-reviewed',
+                'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+            },
+        )
+
+        summary = zip_candidate['summary']
+        self.assertEqual(summary['candidate_version'], 'annual-tax-ddjj-zip-candidate-v1')
+        self.assertEqual(summary['source_candidate_version'], 'annual-tax-ddjj-ascii-candidate-v1')
+        self.assertEqual(summary['record_format_kind'], 'ascii_fixed_width_positional_zip_candidate')
+        self.assertEqual(summary['zip_entry_name'], '97030000.887')
+        self.assertEqual(summary['zip_file_name'], '97030000.887.zip')
+        self.assertEqual(summary['record_type_counts'], {'0': 1, '1': 1, '2': 1, '3': 1})
+        self.assertEqual(zip_candidate['records'], ['0' + 'T' * 23, '1' + 'A' * 23, '2' + 'B' * 23, '3' + 'C' * 23])
+        self.assertTrue(summary['zip_candidate_validated'])
+        self.assertTrue(summary['requires_official_zip_gate'])
+        self.assertFalse(summary['official_format'])
+        self.assertFalse(summary['sii_submission'])
+        self.assertFalse(summary['final_tax_calculation'])
+
+        with TemporaryDirectory() as temp_dir:
+            written = write_annual_tax_ddjj_zip_export_candidate(zip_candidate, temp_dir)
+            self.assertTrue(Path(written['written_zip_file']).exists())
+            self.assertTrue(Path(written['manifest_file']).exists())
+            verification = verify_annual_tax_ddjj_zip_export_candidate(zip_candidate, temp_dir)
+            with zipfile.ZipFile(written['written_zip_file'], mode='r') as archive:
+                self.assertEqual(archive.namelist(), ['97030000.887'])
+
+        self.assertTrue(verification['verified'])
+        self.assertTrue(verification['ready_for_responsible_review'])
+        self.assertFalse(verification['ready_for_submission'])
+        self.assertEqual(verification['records_total'], 4)
+        self.assertEqual(verification['record_length'], 24)
+        self.assertEqual(verification['zip_file_name'], '97030000.887.zip')
+        self.assertFalse(verification['official_format'])
+        self.assertFalse(verification['sii_submission'])
+        self.assertFalse(verification['final_tax_calculation'])
+
+        with TemporaryDirectory() as temp_dir:
+            written = write_annual_tax_ddjj_zip_export_candidate(zip_candidate, temp_dir)
+            tampered_candidate = {
+                **zip_candidate,
+                'summary': {
+                    **zip_candidate['summary'],
+                    'zip_file_hash': '0' * 64,
+                },
+            }
+            Path(written['manifest_file']).write_text(
+                json.dumps(
+                    {'summary': tampered_candidate['summary']},
+                    sort_keys=True,
+                    separators=(',', ':'),
+                    ensure_ascii=True,
+                    default=str,
+                ),
+                encoding='utf-8',
+            )
+            with self.assertRaisesRegex(ValueError, 'hash esperado'):
+                verify_annual_tax_ddjj_zip_export_candidate(tampered_candidate, temp_dir)
+
+        with TemporaryDirectory() as temp_dir:
+            written = write_annual_tax_ddjj_zip_export_candidate(zip_candidate, temp_dir)
+            with zipfile.ZipFile(written['written_zip_file'], mode='w', compression=zipfile.ZIP_STORED) as archive:
+                archive.writestr('97030000.887', zip_candidate['content'].encode('ascii'))
+            with self.assertRaisesRegex(ValueError, 'ZIP canonico esperado'):
+                verify_annual_tax_ddjj_zip_export_candidate(zip_candidate, temp_dir)
+
+    def test_tax_export_ddjj_zip_candidate_rejects_invalid_transfer_control(self):
+        ascii_candidate = self._build_ddjj_ascii_candidate_for_zip()
+
+        with self.assertRaisesRegex(ValueError, 'tipo 0'):
+            build_annual_tax_ddjj_zip_export_candidate(
+                ascii_candidate,
+                transfer_control_record={
+                    'record': '1' + 'T' * 23,
+                    'review_state': 'approved_for_candidate',
+                    'transfer_source_ref': 'sii-ddjj-at2026-transfer-control-reviewed',
+                    'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+                },
+            )
+
+        with self.assertRaisesRegex(ValueError, 'transfer_source_ref no sensible'):
+            build_annual_tax_ddjj_zip_export_candidate(
+                ascii_candidate,
+                transfer_control_record={
+                    'record': '0' + 'T' * 23,
+                    'review_state': 'approved_for_candidate',
+                    'transfer_source_ref': 'https://sii.example.test/ddjj?token=secret',
+                    'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+                },
+            )
+
+        tampered_candidate = {
+            **ascii_candidate,
+            'summary': {
+                **ascii_candidate['summary'],
+                'official_format': True,
+            },
+        }
+        with self.assertRaisesRegex(ValueError, 'candidato oficial'):
+            build_annual_tax_ddjj_zip_export_candidate(
+                tampered_candidate,
+                transfer_control_record={
+                    'record': '0' + 'T' * 23,
+                    'review_state': 'approved_for_candidate',
+                    'transfer_source_ref': 'sii-ddjj-at2026-transfer-control-reviewed',
+                    'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+                },
             )
 
     def test_tax_export_writes_verifiable_f22_fixed_width_candidate_from_reviewed_codes(self):
