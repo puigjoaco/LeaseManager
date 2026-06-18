@@ -103,7 +103,30 @@ function createManualResolutionDraft() {
   }
 }
 
-const REPORTING_REQUEST_KEYS = ['financial', 'partner', 'books', 'annual', 'companyCandidates', 'companyProgress', 'migration'] as const
+const DEFAULT_COMPANY_REVIEW_MANIFEST_JSON = JSON.stringify(
+  {
+    schema_version: 'company-bank-support-coverage-manifest.v1',
+    company_ref: 'empresa-redactada',
+    fiscal_year: 2026,
+    tax_year: 2027,
+    required_operations: [],
+    attachments: [],
+    confirmations: [],
+  },
+  null,
+  2,
+)
+
+const REPORTING_REQUEST_KEYS = [
+  'financial',
+  'partner',
+  'books',
+  'annual',
+  'companyCandidates',
+  'companyProgress',
+  'companyReviewPackage',
+  'migration',
+] as const
 type ReportingRequestKey = (typeof REPORTING_REQUEST_KEYS)[number]
 const INITIAL_REPORTING_QUERY_KEYS: Record<ReportingRequestKey, string | null> = {
   financial: null,
@@ -112,6 +135,7 @@ const INITIAL_REPORTING_QUERY_KEYS: Record<ReportingRequestKey, string | null> =
   annual: null,
   companyCandidates: null,
   companyProgress: null,
+  companyReviewPackage: null,
   migration: null,
 }
 
@@ -145,6 +169,18 @@ function buildAnnualSummaryQueryKey(draft: { anio_tributario: string; empresa_id
 
 function buildCompanyProgressQueryKey(draft: { empresa_id: string; fiscal_year: string }) {
   return `empresa=${draft.empresa_id || '*'}|fiscal_year=${draft.fiscal_year.trim()}`
+}
+
+function textFingerprint(value: string) {
+  let hash = 0
+  for (let index = 0; index < value.length; index += 1) {
+    hash = ((hash * 31) + value.charCodeAt(index)) >>> 0
+  }
+  return hash.toString(16)
+}
+
+function buildCompanyReviewPackageQueryKey(draft: { empresa_id: string; fiscal_year: string; bank_support_manifest: string }) {
+  return `empresa=${draft.empresa_id || '*'}|fiscal_year=${draft.fiscal_year.trim()}|manifest=${textFingerprint(draft.bank_support_manifest.trim())}`
 }
 
 function buildMigrationSummaryQueryKey(status: string) {
@@ -1717,6 +1753,53 @@ type ReportingCompanyAccountingCandidates = {
   trazabilidad: ReportTraceability
 }
 
+type ReportingCompanyAccountingReviewPackage = {
+  schema_version: string
+  classification: string
+  ready_for_productive_accounting_review: boolean
+  summary: {
+    accounting_progress_percent: number
+    bank_support_coverage_percent: number
+    blocking_issues_total: number
+    warnings_total: number
+  }
+  empresa: { id: number; razon_social: string; estado: string }
+  fiscal_year: number
+  tax_year: number
+  boundary: {
+    autonomous_accounting: boolean
+    final_tax_calculation: boolean
+    sii_submission: boolean
+    uses_external_integrations: boolean
+    requires_responsible_review: boolean
+    requires_expert_or_official_validation: boolean
+  }
+  bank_support_coverage: {
+    classification: string
+    coverage_percent: number
+    ready_for_accounting_document_review: boolean
+    summary: {
+      required_operations: number
+      operations_with_full_support: number
+      attachments_total: number
+      confirmations_total: number
+    }
+    operations: Array<{
+      operation_ref: string
+      label_ref: string
+      status: string
+      required_categories: string[]
+      covered_categories: string[]
+      missing_categories: string[]
+      attachments_count: number
+    }>
+  }
+  issues: Array<{ code: string; severity: string; count: number; message: string }>
+  warnings: Array<{ code: string; severity: string; count: number; message: string }>
+  evidence: Record<string, string>
+  trazabilidad: ReportTraceability
+}
+
 type ReportingMigrationSummary = {
   status: string
   total: number
@@ -2292,6 +2375,11 @@ function App() {
     empresa_id: '',
     fiscal_year: '2026',
   })
+  const [reportingCompanyReviewPackageDraft, setReportingCompanyReviewPackageDraft] = useState({
+    empresa_id: '',
+    fiscal_year: '2026',
+    bank_support_manifest: DEFAULT_COMPANY_REVIEW_MANIFEST_JSON,
+  })
   const [reportingMigrationDraft, setReportingMigrationDraft] = useState({
     status: 'open',
   })
@@ -2301,6 +2389,7 @@ function App() {
   const [reportingAnnualSummary, setReportingAnnualSummary] = useState<ReportingAnnualSummary | null>(null)
   const [reportingCompanyCandidatesSummary, setReportingCompanyCandidatesSummary] = useState<ReportingCompanyAccountingCandidates | null>(null)
   const [reportingCompanyProgressSummary, setReportingCompanyProgressSummary] = useState<ReportingCompanyAccountingProgress | null>(null)
+  const [reportingCompanyReviewPackageSummary, setReportingCompanyReviewPackageSummary] = useState<ReportingCompanyAccountingReviewPackage | null>(null)
   const [reportingMigrationSummary, setReportingMigrationSummary] = useState<ReportingMigrationSummary | null>(null)
   const [reportingLoadedQueryKeys, setReportingLoadedQueryKeys] = useState<Record<ReportingRequestKey, string | null>>(INITIAL_REPORTING_QUERY_KEYS)
   const [editingManualResolutionId, setEditingManualResolutionId] = useState<string | null>(null)
@@ -2350,6 +2439,7 @@ function App() {
     annual: 0,
     companyCandidates: 0,
     companyProgress: 0,
+    companyReviewPackage: 0,
     migration: 0,
   })
   const [manualResolutionDraft, setManualResolutionDraft] = useState(createManualResolutionDraft)
@@ -2399,6 +2489,10 @@ function App() {
   const reportingAnnualQueryKey = useMemo(() => buildAnnualSummaryQueryKey(reportingAnnualDraft), [reportingAnnualDraft])
   const reportingCompanyCandidatesQueryKey = 'all'
   const reportingCompanyProgressQueryKey = useMemo(() => buildCompanyProgressQueryKey(reportingCompanyProgressDraft), [reportingCompanyProgressDraft])
+  const reportingCompanyReviewPackageQueryKey = useMemo(
+    () => buildCompanyReviewPackageQueryKey(reportingCompanyReviewPackageDraft),
+    [reportingCompanyReviewPackageDraft],
+  )
   const reportingMigrationQueryKey = useMemo(() => buildMigrationSummaryQueryKey(reportingMigrationDraft.status), [reportingMigrationDraft.status])
   const visibleReportingFinancialSummary =
     reportingLoadedQueryKeys.financial === reportingFinancialQueryKey
@@ -2423,6 +2517,10 @@ function App() {
   const visibleReportingCompanyProgressSummary =
     reportingLoadedQueryKeys.companyProgress === reportingCompanyProgressQueryKey
       ? reportingCompanyProgressSummary
+      : null
+  const visibleReportingCompanyReviewPackageSummary =
+    reportingLoadedQueryKeys.companyReviewPackage === reportingCompanyReviewPackageQueryKey
+      ? reportingCompanyReviewPackageSummary
       : null
   const visibleReportingMigrationSummary =
     reportingLoadedQueryKeys.migration === reportingMigrationQueryKey
@@ -2948,6 +3046,11 @@ function App() {
       empresa_id: '',
       fiscal_year: '2026',
     })
+    setReportingCompanyReviewPackageDraft({
+      empresa_id: '',
+      fiscal_year: '2026',
+      bank_support_manifest: DEFAULT_COMPANY_REVIEW_MANIFEST_JSON,
+    })
     setReportingMigrationDraft({
       status: 'open',
     })
@@ -2957,6 +3060,7 @@ function App() {
     setReportingAnnualSummary(null)
     setReportingCompanyCandidatesSummary(null)
     setReportingCompanyProgressSummary(null)
+    setReportingCompanyReviewPackageSummary(null)
     setReportingMigrationSummary(null)
     setReportingLoadedQueryKeys(INITIAL_REPORTING_QUERY_KEYS)
     setIsPatrimonioSnapshotLoading(false)
@@ -5537,6 +5641,63 @@ function App() {
     )
   }
 
+  async function handleFetchCompanyReviewPackageSummary(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!token) return
+
+    let bankSupportManifest: unknown
+    try {
+      bankSupportManifest = JSON.parse(reportingCompanyReviewPackageDraft.bank_support_manifest)
+    } catch {
+      setReportingCompanyReviewPackageSummary(null)
+      setReportingLoadedQueryKeys((current) => ({ ...current, companyReviewPackage: null }))
+      setFormMessage(null)
+      setFormError('El manifiesto bancario/leasing debe ser JSON valido.')
+      return
+    }
+    if (!bankSupportManifest || typeof bankSupportManifest !== 'object' || Array.isArray(bankSupportManifest)) {
+      setReportingCompanyReviewPackageSummary(null)
+      setReportingLoadedQueryKeys((current) => ({ ...current, companyReviewPackage: null }))
+      setFormMessage(null)
+      setFormError('El manifiesto bancario/leasing debe ser un objeto JSON redactado.')
+      return
+    }
+
+    const requestId = nextReportingRequestId('companyReviewPackage')
+    setIsSubmitting(true)
+    setFormMessage(null)
+    setFormError(null)
+    setReportingCompanyReviewPackageSummary(null)
+    setReportingLoadedQueryKeys((current) => ({ ...current, companyReviewPackage: null }))
+    try {
+      const payload = await apiRequest<ReportingCompanyAccountingReviewPackage>(
+        '/api/v1/reporting/contabilidad/paquete-revision-empresa/',
+        {
+          method: 'POST',
+          token,
+          body: {
+            empresa_id: reportingCompanyReviewPackageDraft.empresa_id,
+            fiscal_year: reportingCompanyReviewPackageDraft.fiscal_year,
+            bank_support_manifest: bankSupportManifest,
+          },
+        },
+      )
+      if (!isReportingRequestCurrent('companyReviewPackage', requestId)) return
+      setReportingCompanyReviewPackageSummary(payload)
+      setReportingLoadedQueryKeys((current) => ({ ...current, companyReviewPackage: reportingCompanyReviewPackageQueryKey }))
+      setFormMessage('Paquete de revision contable/renta cargado correctamente.')
+    } catch (error) {
+      if (!isReportingRequestCurrent('companyReviewPackage', requestId)) return
+      setReportingCompanyReviewPackageSummary(null)
+      setReportingLoadedQueryKeys((current) => ({ ...current, companyReviewPackage: null }))
+      setFormError(error instanceof Error ? error.message : 'No se pudo cargar el paquete de revision.')
+    } finally {
+      if (isReportingRequestCurrent('companyReviewPackage', requestId)) {
+        setIsSubmitting(false)
+      }
+    }
+  }
+
   async function handleFetchCompanyCandidatesSummary(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     await fetchReportingData<ReportingCompanyAccountingCandidates>(
@@ -7429,6 +7590,9 @@ function App() {
           reportingCompanyProgressDraft={reportingCompanyProgressDraft}
           setReportingCompanyProgressDraft={setReportingCompanyProgressDraft}
           handleFetchCompanyProgressSummary={handleFetchCompanyProgressSummary}
+          reportingCompanyReviewPackageDraft={reportingCompanyReviewPackageDraft}
+          setReportingCompanyReviewPackageDraft={setReportingCompanyReviewPackageDraft}
+          handleFetchCompanyReviewPackageSummary={handleFetchCompanyReviewPackageSummary}
           reportingMigrationDraft={reportingMigrationDraft}
           setReportingMigrationDraft={setReportingMigrationDraft}
           handleFetchMigrationSummary={handleFetchMigrationSummary}
@@ -7438,6 +7602,7 @@ function App() {
           reportingAnnualSummary={visibleReportingAnnualSummary}
           reportingCompanyCandidatesSummary={visibleReportingCompanyCandidatesSummary}
           reportingCompanyProgressSummary={visibleReportingCompanyProgressSummary}
+          reportingCompanyReviewPackageSummary={visibleReportingCompanyReviewPackageSummary}
           reportingMigrationSummary={visibleReportingMigrationSummary}
           empresas={empresas}
           socios={socios}

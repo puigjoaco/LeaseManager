@@ -116,6 +116,17 @@ registros, nombres derivados de RUT ni codigos crudos de certificacion, y
 mantiene `official_format=false`, `sii_submission=false`,
 `ready_for_sii_submission=false` y `final_tax_calculation=false`.
 
+Nota 2026-06-18: Reporting expone el paquete de revision contable/renta por
+empresa y ano mediante
+`POST /api/v1/reporting/contabilidad/paquete-revision-empresa/` y panel
+backoffice "Paquete de revisión". La API aplica scope de empresa, exige
+`bank_support_manifest` como JSON redactado y reutiliza
+`build_company_accounting_review_package` para cruzar avance contable/renta con
+cobertura bancaria/leasing sin leer archivos reales, `.env`, banco ni SII. La
+salida conserva hashes, issues, trazabilidad y boundary no autonomo:
+`autonomous_accounting=false`, `final_tax_calculation=false`,
+`sii_submission=false` y revision responsable obligatoria.
+
 Nota 2026-06-18: Etapa 6/Renta Anual separa el codigo de certificacion F22 del
 candidato local. `build_annual_tax_f22_fixed_width_export_candidate()` ahora
 requiere fuente no sensible, responsable revisor y estado de revision para los

@@ -278,6 +278,35 @@ class ReportingAPITests(APITestCase):
             resumen_f22=resumen_f22,
         )
 
+    def _complete_bank_support_manifest(self, empresa, *, fiscal_year=2026, tax_year=2027):
+        return {
+            'schema_version': 'company-bank-support-coverage-manifest.v1',
+            'company_ref': f'company-{empresa.id}',
+            'fiscal_year': fiscal_year,
+            'tax_year': tax_year,
+            'required_operations': [
+                {
+                    'operation_ref': 'leasing-op-001',
+                    'label_ref': 'leasing-main-contract',
+                    'required_categories': [
+                        'contract_or_schedule',
+                        'payment_history',
+                        'invoice_or_tax_document_bundle',
+                    ],
+                }
+            ],
+            'attachments': [
+                {'operation_ref': 'leasing-op-001', 'category': 'contract_or_schedule', 'evidence_ref': 'contract-schedule-hash'},
+                {'operation_ref': 'leasing-op-001', 'category': 'payment_history', 'evidence_ref': 'payment-history-hash'},
+                {
+                    'operation_ref': 'leasing-op-001',
+                    'category': 'invoice_or_tax_document_bundle',
+                    'evidence_ref': 'invoice-bundle-hash',
+                },
+            ],
+            'confirmations': [{'statement_ref': 'bank-confirmation-redacted', 'statement_strength': 'verified_complete'}],
+        }
+
     def _create_posted_asiento(self, event, *, amount='100111.00', with_movements=True, hash_mode='valid'):
         asiento = AsientoContable.objects.create(
             evento_contable=event,
@@ -402,6 +431,12 @@ class ReportingAPITests(APITestCase):
         for url in urls:
             response = client.get(url)
             self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        review_response = client.post(
+            reverse('reporting-company-accounting-review-package'),
+            {'empresa_id': 1, 'fiscal_year': 2026, 'bank_support_manifest': {}},
+            format='json',
+        )
+        self.assertEqual(review_response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_operational_dashboard_summarizes_cross_module_counts(self):
         _, empresa, _, cuenta, contrato, periodo = self._create_context('DASH')
@@ -1064,6 +1099,11 @@ class ReportingAPITests(APITestCase):
         progress_invalid = self.client.get(
             f"{reverse('reporting-company-accounting-progress')}?empresa_id=x&fiscal_year=y"
         )
+        review_invalid = self.client.post(
+            reverse('reporting-company-accounting-review-package'),
+            {'empresa_id': 'x', 'fiscal_year': 'y', 'bank_support_manifest': []},
+            format='json',
+        )
 
         self.assertEqual(books_missing.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(books_missing.data['empresa_id'], 'Este parametro es obligatorio.')
@@ -1073,6 +1113,8 @@ class ReportingAPITests(APITestCase):
         self.assertEqual(progress_missing.data['empresa_id'], 'Este parametro es obligatorio.')
         self.assertEqual(progress_invalid.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(progress_invalid.data['empresa_id'], 'Debe ser un entero valido.')
+        self.assertEqual(review_invalid.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(review_invalid.data['empresa_id'], 'Debe ser un entero valido.')
 
     def test_partner_summary_returns_404_when_partner_does_not_exist(self):
         socio, _, _, _, _, _ = self._create_context('PARTNER404')
@@ -1215,6 +1257,68 @@ class ReportingAPITests(APITestCase):
         self.assertNotIn(empresa.rut, json.dumps(response.data))
         self.assertNotIn(empresa_empty.rut, json.dumps(response.data))
 
+    def test_company_accounting_review_package_endpoint_returns_safe_review_boundary(self):
+        _, empresa, _, _, _, _ = self._create_context('REVIEWPKG')
+        self._activate_fiscal_config(empresa)
+        manifest = self._complete_bank_support_manifest(empresa)
+
+        response = self.client.post(
+            reverse('reporting-company-accounting-review-package'),
+            {'empresa_id': empresa.id, 'fiscal_year': 2026, 'bank_support_manifest': manifest},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['schema_version'], 'company-accounting-review-package.v1')
+        self.assertEqual(response.data['empresa']['id'], empresa.id)
+        self.assertEqual(response.data['fiscal_year'], 2026)
+        self.assertEqual(response.data['tax_year'], 2027)
+        self.assertEqual(response.data['classification'], 'parcial')
+        self.assertFalse(response.data['ready_for_productive_accounting_review'])
+        self.assertTrue(response.data['bank_support_coverage']['ready_for_accounting_document_review'])
+        self.assertFalse(response.data['boundary']['autonomous_accounting'])
+        self.assertFalse(response.data['boundary']['final_tax_calculation'])
+        self.assertFalse(response.data['boundary']['sii_submission'])
+        self.assertFalse(response.data['boundary']['uses_external_integrations'])
+        self.assertTrue(response.data['boundary']['requires_responsible_review'])
+        self.assertEqual(response.data['trazabilidad']['estado'], 'verificado')
+        self.assertFalse(response.data['trazabilidad']['controles']['autonomous_accounting'])
+        self.assertFalse(response.data['trazabilidad']['controles']['final_tax_calculation'])
+        self.assertFalse(response.data['trazabilidad']['controles']['sii_submission'])
+        self.assertFalse(response.data['trazabilidad']['controles']['uses_external_integrations'])
+        self.assertTrue(response.data['trazabilidad']['controles']['requires_responsible_review'])
+        self.assertIn('accounting_progress_hash', response.data['evidence'])
+        self.assertIn('bank_support_hash', response.data['evidence'])
+        self.assertNotIn(empresa.rut, json.dumps(response.data))
+
+    def test_company_accounting_review_package_endpoint_redacts_sensitive_manifest_values(self):
+        _, empresa, _, _, _, _ = self._create_context('REVIEWSECRETS')
+        manifest = self._complete_bank_support_manifest(empresa)
+        manifest['company_ref'] = empresa.rut
+        manifest['attachments'][0]['evidence_ref'] = 'https://storage.example.com/leasing.pdf?token=secret'
+        manifest['attachments'][1]['evidence_ref'] = r'D:\Documentos\leasing\payment-history.pdf'
+        manifest['confirmations'][0]['password'] = 'secret-value'
+
+        response = self.client.post(
+            reverse('reporting-company-accounting-review-package'),
+            {'empresa_id': empresa.id, 'fiscal_year': 2026, 'bank_support_manifest': manifest},
+            format='json',
+        )
+
+        rendered = json.dumps(response.data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data['ready_for_productive_accounting_review'])
+        self.assertIn('company_accounting_review.bank_support_incomplete', {issue['code'] for issue in response.data['issues']})
+        self.assertIn(
+            'company_bank_support.sensitive_reference',
+            {issue['code'] for issue in response.data['bank_support_coverage']['issues']},
+        )
+        self.assertIn(REDACTED_SENSITIVE_REFERENCE, rendered)
+        self.assertNotIn(empresa.rut, rendered)
+        self.assertNotIn('storage.example.com', rendered)
+        self.assertNotIn('secret-value', rendered)
+        self.assertNotIn('payment-history.pdf', rendered)
+
     def test_company_accounting_progress_endpoint_respects_company_scope(self):
         _, empresa_a, _, _, _, _ = self._create_context('PROGSCOPEA')
         _, empresa_b, _, _, _, _ = self._create_context('PROGSCOPEB')
@@ -1227,6 +1331,26 @@ class ReportingAPITests(APITestCase):
         out_of_scope = reviewer_client.get(
             reverse('reporting-company-accounting-progress'),
             {'empresa_id': empresa_b.id, 'fiscal_year': 2026},
+        )
+
+        self.assertEqual(in_scope.status_code, status.HTTP_200_OK)
+        self.assertEqual(out_of_scope.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_company_accounting_review_package_endpoint_respects_company_scope(self):
+        _, empresa_a, _, _, _, _ = self._create_context('REVPKGSCOPEA')
+        _, empresa_b, _, _, _, _ = self._create_context('REVPKGSCOPEB')
+        reviewer_client = self._create_scoped_reviewer_client(empresa_a)
+        payload = {'fiscal_year': 2026, 'bank_support_manifest': self._complete_bank_support_manifest(empresa_a)}
+
+        in_scope = reviewer_client.post(
+            reverse('reporting-company-accounting-review-package'),
+            {'empresa_id': empresa_a.id, **payload},
+            format='json',
+        )
+        out_of_scope = reviewer_client.post(
+            reverse('reporting-company-accounting-review-package'),
+            {'empresa_id': empresa_b.id, **payload},
+            format='json',
         )
 
         self.assertEqual(in_scope.status_code, status.HTTP_200_OK)
