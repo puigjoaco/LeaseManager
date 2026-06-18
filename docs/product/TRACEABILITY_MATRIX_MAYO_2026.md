@@ -93,6 +93,16 @@ sean directorio o directorios no vacios antes de escribir `.txt`, ZIP o
 manifest. La evidencia candidata local queda aislada por corrida y no se
 declara formato oficial, upload SII, presentacion ni calculo tributario final.
 
+Nota 2026-06-18: Etapa 6/Renta Anual agrega materializadores operativos para
+candidatos DDJJ: `materialize_annual_tax_ddjj_ascii_candidate` y
+`materialize_annual_tax_ddjj_zip_candidate`. Ambos parten de un
+`AnnualTaxExport` preparado, aceptan registros revisados por JSON inline o
+archivo, escriben solo bajo `local-evidence/` si la salida queda dentro del repo
+o en ruta externa controlada, verifican los artefactos desde disco y no imprimen
+RUT, nombres derivados del RUT ni registros crudos. El ZIP agrega registro tipo
+0 revisado y conserva `ready_for_submission=false`; sigue sin formato oficial,
+upload SII, presentacion ni calculo final.
+
 Nota 2026-06-18: Etapa 6/Renta Anual separa el codigo de certificacion F22 del
 candidato local. `build_annual_tax_f22_fixed_width_export_candidate()` ahora
 requiere fuente no sensible, responsable revisor y estado de revision para los
