@@ -1593,6 +1593,7 @@ def summarize_annual_tax_review_checklists(process):
             'warnings_total': checklist.warnings_total,
             'review_decision_state': checklist.review_decision_state,
             'review_decision_ref': checklist.review_decision_ref,
+            'review_decision_evidence_ref': checklist.review_decision_evidence_ref,
         }
     return {
         'total': checklists.count(),
@@ -5614,6 +5615,7 @@ def _annual_tax_review_checklist_summary(process, rule_set, source_bundle, dossi
         else EstadoAnnualTaxReviewDecision.PREPARED
     )
     review_decision_ref = f'annual-tax-review-decision-{process.empresa_id}-at{process.anio_tributario}-v1'
+    review_decision_evidence_ref = f'annual-tax-review-decision-evidence-{process.empresa_id}-at{process.anio_tributario}-v1'
     review_responsible_ref = dossier.responsible_ref or process.responsable_revision_ref or 'annual-tax-review-owner'
     return {
         'empresa_id': process.empresa_id,
@@ -5630,10 +5632,13 @@ def _annual_tax_review_checklist_summary(process, rule_set, source_bundle, dossi
         'blockers_total': blockers_total,
         'warnings_total': warnings_total,
         'review_decision_state': review_decision_state,
+        'review_decision_ref': review_decision_ref,
+        'review_decision_evidence_ref': review_decision_evidence_ref,
         'review_decision': {
             'version': 'annual-tax-review-decision-v1',
             'state': review_decision_state,
             'decision_ref': review_decision_ref,
+            'evidence_ref': review_decision_evidence_ref,
             'responsible_ref': review_responsible_ref,
             'reason': (
                 'observed_items_require_responsible_review'
@@ -5691,6 +5696,7 @@ def sync_annual_tax_review_checklist(process, rule_set, source_bundle):
             'warnings_total': summary['warnings_total'],
             'review_decision_state': summary['review_decision_state'],
             'review_decision_ref': summary['review_decision']['decision_ref'],
+            'review_decision_evidence_ref': summary['review_decision']['evidence_ref'],
             'review_payload': summary,
             'hash_checklist': _source_bundle_hash(summary),
             'estado': EstadoAnnualTaxReviewChecklist.PREPARED,

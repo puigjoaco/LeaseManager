@@ -3511,6 +3511,9 @@ class Stage6RentaAnualReadinessTests(TestCase):
         )
         self.assertEqual(review_decision['state'], EstadoAnnualTaxReviewDecision.PREPARED)
         self.assertEqual(checklist.review_decision_ref, review_decision['decision_ref'])
+        self.assertEqual(checklist.review_decision_evidence_ref, review_decision['evidence_ref'])
+        self.assertEqual(payload['review_decision_ref'], checklist.review_decision_ref)
+        self.assertEqual(payload['review_decision_evidence_ref'], checklist.review_decision_evidence_ref)
         self.assertFalse(review_decision['ready_for_presentation'])
         self.assertFalse(review_decision['automatic_approval'])
         self.assertTrue(review_decision['approval_required_for_presentation'])
@@ -3551,6 +3554,7 @@ class Stage6RentaAnualReadinessTests(TestCase):
         item_summary = dict(by_id[str(checklist.id)])
         item_summary['hash_checklist'] = hash_checklist
         item_summary['review_decision_state'] = EstadoAnnualTaxReviewDecision.OBSERVED
+        item_summary['review_decision_evidence_ref'] = checklist.review_decision_evidence_ref
         by_id[str(checklist.id)] = item_summary
         checklist_process_summary['by_id'] = by_id
         process_summary['annual_tax_review_checklists'] = checklist_process_summary
@@ -3569,11 +3573,16 @@ class Stage6RentaAnualReadinessTests(TestCase):
         process = checklist.proceso_renta_anual
         review_payload = dict(checklist.review_payload)
         review_decision = dict(review_payload['review_decision'])
+        approval_ref = 'annual-tax-manual-approval-at2026-controlled'
+        approval_evidence_ref = 'annual-tax-manual-approval-evidence-at2026-controlled'
         review_payload['review_decision_state'] = EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION
+        review_payload['review_decision_ref'] = approval_ref
+        review_payload['review_decision_evidence_ref'] = approval_evidence_ref
         review_decision.update(
             {
                 'state': EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION,
-                'decision_ref': 'annual-tax-manual-approval-at2026-controlled',
+                'decision_ref': approval_ref,
+                'evidence_ref': approval_evidence_ref,
                 'responsible_ref': 'tax-reviewer-final-approval-controlled',
                 'reason': 'manual_approval_recorded_for_test',
                 'ready_for_presentation': True,
@@ -3592,7 +3601,8 @@ class Stage6RentaAnualReadinessTests(TestCase):
         ).hexdigest()
         AnnualTaxReviewChecklist.objects.filter(pk=checklist.pk).update(
             review_decision_state=EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION,
-            review_decision_ref='annual-tax-manual-approval-at2026-controlled',
+            review_decision_ref=approval_ref,
+            review_decision_evidence_ref=approval_evidence_ref,
             review_payload=review_payload,
             hash_checklist=hash_checklist,
         )
@@ -3602,7 +3612,8 @@ class Stage6RentaAnualReadinessTests(TestCase):
         item_summary = dict(by_id[str(checklist.id)])
         item_summary['hash_checklist'] = hash_checklist
         item_summary['review_decision_state'] = EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION
-        item_summary['review_decision_ref'] = 'annual-tax-manual-approval-at2026-controlled'
+        item_summary['review_decision_ref'] = approval_ref
+        item_summary['review_decision_evidence_ref'] = approval_evidence_ref
         by_id[str(checklist.id)] = item_summary
         checklist_process_summary['by_id'] = by_id
         process_summary['annual_tax_review_checklists'] = checklist_process_summary
@@ -3615,6 +3626,65 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertFalse(result['ready_for_stage6_renta_anual'])
         self.assertIn('stage6.tax_review_checklist_invalid', issue_codes)
         self.assertIn('stage6.tax_review_checklist_approval_incoherent', issue_codes)
+
+    def test_tax_review_checklist_approval_without_evidence_is_blocking(self):
+        self._create_valid_local_matrix()
+        checklist = AnnualTaxReviewChecklist.objects.get()
+        process = checklist.proceso_renta_anual
+        review_payload = dict(checklist.review_payload)
+        review_decision = dict(review_payload['review_decision'])
+        approval_ref = 'annual-tax-manual-approval-at2026-controlled'
+        review_payload['review_decision_state'] = EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION
+        review_payload['review_decision_ref'] = approval_ref
+        review_payload.pop('review_decision_evidence_ref', None)
+        review_decision.update(
+            {
+                'state': EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION,
+                'decision_ref': approval_ref,
+                'responsible_ref': 'tax-reviewer-final-approval-controlled',
+                'reason': 'manual_approval_recorded_without_evidence_for_test',
+                'ready_for_presentation': True,
+                'automatic_approval': False,
+            }
+        )
+        review_decision.pop('evidence_ref', None)
+        review_payload['review_decision'] = review_decision
+        hash_checklist = hashlib.sha256(
+            json.dumps(
+                review_payload,
+                sort_keys=True,
+                separators=(',', ':'),
+                ensure_ascii=True,
+                default=str,
+            ).encode('utf-8')
+        ).hexdigest()
+        AnnualTaxReviewChecklist.objects.filter(pk=checklist.pk).update(
+            review_decision_state=EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION,
+            review_decision_ref=approval_ref,
+            review_decision_evidence_ref='',
+            review_payload=review_payload,
+            hash_checklist=hash_checklist,
+        )
+        process_summary = dict(process.resumen_anual)
+        checklist_process_summary = dict(process_summary['annual_tax_review_checklists'])
+        by_id = dict(checklist_process_summary['by_id'])
+        item_summary = dict(by_id[str(checklist.id)])
+        item_summary['hash_checklist'] = hash_checklist
+        item_summary['review_decision_state'] = EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION
+        item_summary['review_decision_ref'] = approval_ref
+        item_summary['review_decision_evidence_ref'] = ''
+        by_id[str(checklist.id)] = item_summary
+        checklist_process_summary['by_id'] = by_id
+        process_summary['annual_tax_review_checklists'] = checklist_process_summary
+        process.resumen_anual = process_summary
+        process.save(update_fields=['resumen_anual', 'updated_at'])
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.tax_review_checklist_invalid', issue_codes)
+        self.assertIn('stage6.tax_review_checklist_approval_missing', issue_codes)
 
     def test_valid_local_matrix_and_non_sensitive_refs_cannot_close_readiness(self):
         self._create_valid_local_matrix()

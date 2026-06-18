@@ -1322,6 +1322,7 @@ def _collect_annual_tax_review_checklist_issues(checklists, processes, active_fi
                         or int(item_summary.get('warnings_total') or 0) != checklist.warnings_total
                         or item_summary.get('review_decision_state') != checklist.review_decision_state
                         or item_summary.get('review_decision_ref') != checklist.review_decision_ref
+                        or item_summary.get('review_decision_evidence_ref') != checklist.review_decision_evidence_ref
                     ):
                         counts['process_tax_review_checklist_summary_mismatch'] += 1
                         break
@@ -1338,7 +1339,11 @@ def _collect_annual_tax_review_checklist_issues(checklists, processes, active_fi
             if (
                 not has_text(checklist.review_decision_state)
                 or payload.get('review_decision_state') != checklist.review_decision_state
+                or payload.get('review_decision_ref') != checklist.review_decision_ref
+                or payload.get('review_decision_evidence_ref') != checklist.review_decision_evidence_ref
                 or review_decision.get('state') != checklist.review_decision_state
+                or review_decision.get('decision_ref') != checklist.review_decision_ref
+                or review_decision.get('evidence_ref') != checklist.review_decision_evidence_ref
             ):
                 counts['tax_review_checklist_decision_missing'] += 1
             if checklist.completed_items_total != checklist.items_total:
@@ -1352,8 +1357,10 @@ def _collect_annual_tax_review_checklist_issues(checklists, processes, active_fi
             if checklist.review_decision_state == EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION:
                 if (
                     not has_text(checklist.review_decision_ref)
+                    or not has_text(checklist.review_decision_evidence_ref)
                     or not has_text(review_decision.get('decision_ref'))
                     or not has_text(review_decision.get('responsible_ref'))
+                    or not has_text(review_decision.get('evidence_ref'))
                 ):
                     counts['tax_review_checklist_approval_missing'] += 1
                 if (

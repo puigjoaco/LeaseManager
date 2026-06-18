@@ -90,8 +90,8 @@ Nota 2026-06-18: Etapa 6/Renta Anual agrega boundary de decision tributaria en
 `AnnualTaxReviewChecklist`. El checklist conserva `review_decision_state` y
 `review_decision_ref`: `observado` bloquea cierre, `preparado`
 solo indica paquete local completo para revision responsable, y
-`aprobado_para_presentacion` exige decision/ref/responsable no sensibles y
-`automatic_approval=false`. La readiness reporta decisiones faltantes,
+`aprobado_para_presentacion` exige decision, evidencia y responsable no
+sensibles, con `automatic_approval=false`. La readiness reporta decisiones faltantes,
 observadas, aprobaciones incompletas o aprobaciones automaticas sin declarar
 calculo final, certificacion ni presentacion SII.
 

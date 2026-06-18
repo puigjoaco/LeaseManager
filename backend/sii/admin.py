@@ -1284,6 +1284,7 @@ class AnnualTaxReviewChecklistAdmin(admin.ModelAdmin):
         'warnings_total',
         'review_decision_state',
         'review_decision_ref_redacted',
+        'review_decision_evidence_ref_redacted',
         'review_payload_redacted',
         'hash_checklist',
         'estado',
@@ -1320,6 +1321,10 @@ class AnnualTaxReviewChecklistAdmin(admin.ModelAdmin):
     @admin.display(description='review_decision_ref')
     def review_decision_ref_redacted(self, obj):
         return _redacted_attr(obj, 'review_decision_ref')
+
+    @admin.display(description='review_decision_evidence_ref')
+    def review_decision_evidence_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'review_decision_evidence_ref')
 
     @admin.display(description='review_payload')
     def review_payload_redacted(self, obj):
