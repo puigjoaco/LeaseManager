@@ -141,6 +141,17 @@ y readiness reporta `stage6.tax_review_checklist_official_compatibility_gap`.
 AT2025 queda bloqueado por `f22_record_format_2025` hasta contar con fuente
 oficial/experta vigente, sin heredar el contrato AT2026 ni abrir SII real.
 
+Nota 2026-06-18: Etapa 6/Renta Anual agrega cobertura exacta de artefactos al
+bundle local de revision de presentacion.
+`build_annual_tax_presentation_review_bundle` ahora resume `artifact_coverage`,
+contrasta los items esperados de `AnnualTaxExport` con el paquete exportado, el
+candidato F22 fixed-width y los candidatos DDJJ ASCII/ZIP, y bloquea candidatos
+faltantes, duplicados, ajenos o desalineados mediante
+`stage6.presentation_review.artifact_coverage_gap`. La salida solo habilita
+revision controlada cuando artefactos, checklist, compatibilidad oficial y
+cobertura F22/DDJJ estan listos; sigue sin formato oficial final, upload SII,
+presentacion ni calculo tributario final.
+
 Nota 2026-06-18: Reporting expone el paquete de revision contable/renta por
 empresa y ano mediante
 `POST /api/v1/reporting/contabilidad/paquete-revision-empresa/` y panel

@@ -4614,6 +4614,10 @@ def build_annual_tax_ddjj_ascii_export_candidate(export, *, form_code, rut_numbe
             raise ValueError('Registro DDJJ ASCII contiene hash_item que no coincide con la matriz.')
         if entry.get('source_hash') not in (None, '', matrix_item.source_hash):
             raise ValueError('Registro DDJJ ASCII contiene source_hash que no coincide con la matriz.')
+    covered_matrix_item_ids = _matrix_item_ids_from_evidence(normalized_records)
+    expected_matrix_item_ids = sorted(matrix_items_by_id)
+    if covered_matrix_item_ids != expected_matrix_item_ids:
+        raise ValueError('Registros DDJJ ASCII deben cubrir todos los items de matriz del formulario.')
     record_types = [entry['record_type'] for entry in normalized_records]
     if (
         record_types[0] != '1'
@@ -4687,8 +4691,10 @@ def build_annual_tax_ddjj_ascii_export_candidate(export, *, form_code, rut_numbe
         'official_form_source_id': layout.official_form_source_id,
         'official_software_source_id': layout.official_software_source_id,
         'artifact_matrix_id': export.artifact_matrix_id,
-        'artifact_matrix_item_ids': [item.id for item in matrix_items],
+        'artifact_matrix_item_ids': expected_matrix_item_ids,
         'artifact_matrix_item_hashes': [item.hash_item for item in matrix_items],
+        'covered_artifact_matrix_item_ids': covered_matrix_item_ids,
+        'covered_artifact_matrix_items_total': len(covered_matrix_item_ids),
         'ddjj_record_review_evidence_total': len(record_review_evidence),
         'ddjj_record_review_evidence': record_review_evidence,
         'ddjj_record_review_evidence_hash': hashlib.sha256(
@@ -4996,6 +5002,11 @@ def build_annual_tax_ddjj_zip_export_candidate(ddjj_ascii_candidate, *, transfer
         'anio_comercial': ascii_summary.get('anio_comercial'),
         'form_code': ascii_summary.get('form_code'),
         'file_extension': ascii_summary.get('file_extension'),
+        'artifact_matrix_id': ascii_summary.get('artifact_matrix_id'),
+        'artifact_matrix_item_ids': ascii_summary.get('artifact_matrix_item_ids') or [],
+        'artifact_matrix_item_hashes': ascii_summary.get('artifact_matrix_item_hashes') or [],
+        'covered_artifact_matrix_item_ids': ascii_summary.get('covered_artifact_matrix_item_ids') or [],
+        'covered_artifact_matrix_items_total': ascii_summary.get('covered_artifact_matrix_items_total') or 0,
         'zip_entry_name': zip_entry_name,
         'zip_file_name': zip_file_name,
         'zip_content_type': 'application/zip',
@@ -5287,6 +5298,17 @@ def build_annual_tax_export_file_package(export):
         'files_total': len(files),
         'ddjj_files_total': sum(1 for entry in package_manifest if entry.get('target_kind') == TipoAnnualTaxArtifactTarget.DDJJ),
         'f22_files_total': sum(1 for entry in package_manifest if entry.get('target_kind') == TipoAnnualTaxArtifactTarget.F22),
+        'artifact_matrix_item_ids': _int_id_list(entry.get('artifact_matrix_item_id') for entry in package_manifest),
+        'ddjj_artifact_matrix_item_ids': _int_id_list(
+            entry.get('artifact_matrix_item_id')
+            for entry in package_manifest
+            if entry.get('target_kind') == TipoAnnualTaxArtifactTarget.DDJJ
+        ),
+        'f22_artifact_matrix_item_ids': _int_id_list(
+            entry.get('artifact_matrix_item_id')
+            for entry in package_manifest
+            if entry.get('target_kind') == TipoAnnualTaxArtifactTarget.F22
+        ),
         'export_file_manifest_hash': payload.get('export_file_manifest_hash'),
         'export_file_package_hash': payload.get('export_file_package_hash'),
         'file_names': [file_item['file_name'] for file_item in files],
@@ -5427,6 +5449,11 @@ def verify_annual_tax_export_file_package(export, package_dir):
         'package_hash': expected['summary']['export_file_package_hash'],
         'hash_export': expected['summary']['hash_export'],
         'files_total': len(file_results),
+        'artifact_matrix_item_ids': expected['summary']['artifact_matrix_item_ids'],
+        'covered_artifact_matrix_item_ids': expected['summary']['artifact_matrix_item_ids'],
+        'covered_artifact_matrix_items_total': len(expected['summary']['artifact_matrix_item_ids']),
+        'ddjj_artifact_matrix_item_ids': expected['summary']['ddjj_artifact_matrix_item_ids'],
+        'f22_artifact_matrix_item_ids': expected['summary']['f22_artifact_matrix_item_ids'],
         'manifest_file': str(manifest_path),
         'file_results': file_results,
         'official_format': False,
@@ -5495,6 +5522,253 @@ def _materialized_candidate_path_result(target_dir, file_name, *, manifest_name,
     return file_path
 
 
+def _int_id_list(values):
+    normalized = []
+    for value in values or []:
+        try:
+            item_id = int(value)
+        except (TypeError, ValueError):
+            continue
+        if item_id > 0:
+            normalized.append(item_id)
+    return sorted(set(normalized))
+
+
+def _matrix_item_ids_from_evidence(entries):
+    if not isinstance(entries, list):
+        return []
+    return _int_id_list(entry.get('artifact_matrix_item_id') for entry in entries if isinstance(entry, dict))
+
+
+def _normalize_ddjj_form_code(target_code):
+    normalized = str(target_code or '').strip().upper()
+    if normalized.startswith('DDJJ-'):
+        normalized = normalized[5:]
+    return normalized
+
+
+def _expected_presentation_artifact_coverage(export):
+    payload = export.export_payload if isinstance(export.export_payload, dict) else {}
+    expected_export_package_item_ids = _int_id_list(
+        contract.get('artifact_matrix_item_id')
+        for contract in payload.get('export_artifact_contracts') or []
+        if isinstance(contract, dict)
+    )
+    expected_items = AnnualTaxArtifactMatrixItem.objects.filter(
+        matrix=export.artifact_matrix,
+        estado=EstadoRegistro.ACTIVE,
+        target_kind__in=(TipoAnnualTaxArtifactTarget.DDJJ, TipoAnnualTaxArtifactTarget.F22),
+    ).order_by('target_kind', 'target_code', 'id')
+    ddjj_by_form = {}
+    f22_fixed_width_item_ids = []
+    f22_fixed_width_codes = []
+    for item in expected_items:
+        if (
+            item.target_kind == TipoAnnualTaxArtifactTarget.DDJJ
+            and item.source_kind == SourceKindAnnualTaxArtifact.DDJJ_LAYOUT
+            and item.source_model == 'AnnualTaxDDJJFormLayout'
+        ):
+            form_code = _normalize_ddjj_form_code(item.target_code)
+            entry = ddjj_by_form.setdefault(
+                form_code,
+                {
+                    'form_code': form_code,
+                    'artifact_matrix_item_ids': [],
+                    'artifact_matrix_item_hashes': [],
+                    'target_codes': [],
+                },
+            )
+            entry['artifact_matrix_item_ids'].append(item.id)
+            entry['artifact_matrix_item_hashes'].append(item.hash_item)
+            entry['target_codes'].append(item.target_code)
+        elif (
+            item.target_kind == TipoAnnualTaxArtifactTarget.F22
+            and item.source_kind == SourceKindAnnualTaxArtifact.TAX_MAPPING
+            and item.source_model == 'TaxCodeMapping'
+        ):
+            f22_fixed_width_item_ids.append(item.id)
+            f22_fixed_width_codes.append(item.target_code)
+    for entry in ddjj_by_form.values():
+        entry['artifact_matrix_item_ids'] = sorted(entry['artifact_matrix_item_ids'])
+        entry['artifact_matrix_item_hashes'] = sorted(entry['artifact_matrix_item_hashes'])
+        entry['target_codes'] = sorted(set(entry['target_codes']))
+        entry['items_total'] = len(entry['artifact_matrix_item_ids'])
+    return {
+        'expected_export_package_item_ids': expected_export_package_item_ids,
+        'expected_export_package_items_total': len(expected_export_package_item_ids),
+        'expected_ddjj_forms': dict(sorted(ddjj_by_form.items())),
+        'expected_ddjj_forms_total': len(ddjj_by_form),
+        'expected_ddjj_item_ids': sorted(
+            item_id
+            for entry in ddjj_by_form.values()
+            for item_id in entry['artifact_matrix_item_ids']
+        ),
+        'expected_f22_fixed_width_item_ids': sorted(f22_fixed_width_item_ids),
+        'expected_f22_fixed_width_codes': sorted(set(f22_fixed_width_codes)),
+    }
+
+
+def _single_artifact_issue(issues, code, count=1):
+    if count:
+        issues.append({'code': code, 'count': int(count)})
+
+
+def _candidate_ids_match(candidate_ids, expected_ids):
+    return _int_id_list(candidate_ids) == _int_id_list(expected_ids)
+
+
+def _summarize_presentation_artifact_coverage(export, artifacts):
+    expected = _expected_presentation_artifact_coverage(export)
+    issues = []
+
+    export_package_artifacts = [
+        artifact for artifact in artifacts
+        if artifact.get('kind') == 'annual_tax_export_file_package'
+    ]
+    _single_artifact_issue(
+        issues,
+        'stage6.presentation_artifact_coverage.export_package_missing',
+        1 if not export_package_artifacts else 0,
+    )
+    _single_artifact_issue(
+        issues,
+        'stage6.presentation_artifact_coverage.export_package_duplicate',
+        max(0, len(export_package_artifacts) - 1),
+    )
+    expected_export_package_ids = expected['expected_export_package_item_ids']
+    if len(export_package_artifacts) == 1 and not _candidate_ids_match(
+        export_package_artifacts[0].get('covered_artifact_matrix_item_ids'),
+        expected_export_package_ids,
+    ):
+        _single_artifact_issue(
+            issues,
+            'stage6.presentation_artifact_coverage.export_package_items_mismatch',
+        )
+
+    f22_artifacts = [
+        artifact for artifact in artifacts
+        if artifact.get('kind') == 'f22_fixed_width_candidate'
+    ]
+    expected_f22_ids = expected['expected_f22_fixed_width_item_ids']
+    if expected_f22_ids:
+        _single_artifact_issue(
+            issues,
+            'stage6.presentation_artifact_coverage.f22_candidate_missing',
+            1 if not f22_artifacts else 0,
+        )
+        _single_artifact_issue(
+            issues,
+            'stage6.presentation_artifact_coverage.f22_candidate_duplicate',
+            max(0, len(f22_artifacts) - 1),
+        )
+        if len(f22_artifacts) == 1 and not _candidate_ids_match(
+            f22_artifacts[0].get('covered_artifact_matrix_item_ids'),
+            expected_f22_ids,
+        ):
+            _single_artifact_issue(
+                issues,
+                'stage6.presentation_artifact_coverage.f22_candidate_items_mismatch',
+            )
+    elif f22_artifacts:
+        _single_artifact_issue(
+            issues,
+            'stage6.presentation_artifact_coverage.f22_candidate_unexpected',
+            len(f22_artifacts),
+        )
+
+    ascii_by_form = {}
+    zip_by_form = {}
+    for artifact in artifacts:
+        if artifact.get('kind') == 'ddjj_ascii_candidate':
+            ascii_by_form.setdefault(_normalize_ddjj_form_code(artifact.get('form_code')), []).append(artifact)
+        elif artifact.get('kind') == 'ddjj_zip_candidate':
+            zip_by_form.setdefault(_normalize_ddjj_form_code(artifact.get('form_code')), []).append(artifact)
+
+    expected_forms = expected['expected_ddjj_forms']
+    for form_code, expected_form in expected_forms.items():
+        ascii_candidates = ascii_by_form.get(form_code, [])
+        zip_candidates = zip_by_form.get(form_code, [])
+        _single_artifact_issue(
+            issues,
+            'stage6.presentation_artifact_coverage.ddjj_ascii_missing',
+            1 if not ascii_candidates else 0,
+        )
+        _single_artifact_issue(
+            issues,
+            'stage6.presentation_artifact_coverage.ddjj_ascii_duplicate',
+            max(0, len(ascii_candidates) - 1),
+        )
+        _single_artifact_issue(
+            issues,
+            'stage6.presentation_artifact_coverage.ddjj_zip_missing',
+            1 if not zip_candidates else 0,
+        )
+        _single_artifact_issue(
+            issues,
+            'stage6.presentation_artifact_coverage.ddjj_zip_duplicate',
+            max(0, len(zip_candidates) - 1),
+        )
+        expected_ids = expected_form['artifact_matrix_item_ids']
+        if len(ascii_candidates) == 1 and not _candidate_ids_match(
+            ascii_candidates[0].get('covered_artifact_matrix_item_ids'),
+            expected_ids,
+        ):
+            _single_artifact_issue(
+                issues,
+                'stage6.presentation_artifact_coverage.ddjj_ascii_items_mismatch',
+            )
+        if len(zip_candidates) == 1 and not _candidate_ids_match(
+            zip_candidates[0].get('covered_artifact_matrix_item_ids'),
+            expected_ids,
+        ):
+            _single_artifact_issue(
+                issues,
+                'stage6.presentation_artifact_coverage.ddjj_zip_items_mismatch',
+            )
+
+    unexpected_ascii_forms = sorted(set(ascii_by_form) - set(expected_forms))
+    unexpected_zip_forms = sorted(set(zip_by_form) - set(expected_forms))
+    _single_artifact_issue(
+        issues,
+        'stage6.presentation_artifact_coverage.ddjj_ascii_unexpected_form',
+        len(unexpected_ascii_forms),
+    )
+    _single_artifact_issue(
+        issues,
+        'stage6.presentation_artifact_coverage.ddjj_zip_unexpected_form',
+        len(unexpected_zip_forms),
+    )
+
+    issues_total = sum(issue['count'] for issue in issues)
+    return {
+        'schema_version': 'stage6-presentation-artifact-coverage-v1',
+        'annual_tax_export_id': export.id,
+        'artifact_matrix_id': export.artifact_matrix_id,
+        'expected_export_package_items_total': expected['expected_export_package_items_total'],
+        'expected_export_package_item_ids': expected['expected_export_package_item_ids'],
+        'expected_ddjj_forms_total': expected['expected_ddjj_forms_total'],
+        'expected_ddjj_forms': expected['expected_ddjj_forms'],
+        'expected_f22_fixed_width_codes': expected['expected_f22_fixed_width_codes'],
+        'expected_f22_fixed_width_items_total': len(expected_f22_ids),
+        'expected_f22_fixed_width_item_ids': expected_f22_ids,
+        'provided_export_package_total': len(export_package_artifacts),
+        'provided_export_package_item_ids': (
+            export_package_artifacts[0].get('covered_artifact_matrix_item_ids')
+            if len(export_package_artifacts) == 1
+            else []
+        ),
+        'provided_f22_candidate_total': len(f22_artifacts),
+        'provided_ddjj_ascii_forms': sorted(ascii_by_form),
+        'provided_ddjj_zip_forms': sorted(zip_by_form),
+        'unexpected_ddjj_ascii_forms': unexpected_ascii_forms,
+        'unexpected_ddjj_zip_forms': unexpected_zip_forms,
+        'issue_codes': sorted({issue['code'] for issue in issues}),
+        'issues': issues,
+        'issues_total': issues_total,
+        'ready_for_presentation_artifact_coverage': issues_total == 0,
+    }
+
+
 def _verify_materialized_f22_candidate_from_manifest(export, candidate_dir):
     target_dir = Path(candidate_dir)
     if not target_dir.exists() or not target_dir.is_dir():
@@ -5546,6 +5820,7 @@ def _verify_materialized_f22_candidate_from_manifest(export, candidate_dir):
         raise ValueError('El candidato F22 fixed-width requiere evidencia de revision por codigo.')
     if hashlib.sha256(_canonical_json_bytes(evidence_entries)).hexdigest() != summary.get('f22_entry_review_evidence_hash'):
         raise ValueError('La evidencia de revision F22 fixed-width no coincide con su hash.')
+    covered_item_ids = _matrix_item_ids_from_evidence(evidence_entries)
     certification_evidence = summary.get('certification_code_evidence')
     if not isinstance(certification_evidence, dict):
         raise ValueError('El candidato F22 fixed-width requiere evidencia de codigo de certificacion.')
@@ -5560,6 +5835,8 @@ def _verify_materialized_f22_candidate_from_manifest(export, candidate_dir):
         'record_format_version': summary.get('record_format_version'),
         'records_total': len(records),
         'f22_codes_total': int(summary.get('f22_codes_total') or 0),
+        'covered_artifact_matrix_item_ids': covered_item_ids,
+        'covered_artifact_matrix_items_total': len(covered_item_ids),
         'content_hash': summary.get('content_hash'),
         'file_name_hash': hashlib.sha256(str(summary.get('file_name') or '').encode('utf-8')).hexdigest(),
         'certification_code_review_state': summary.get('certification_code_review_state'),
@@ -5631,12 +5908,16 @@ def _verify_materialized_ddjj_ascii_candidate_from_manifest(export, candidate_di
         raise ValueError('El candidato DDJJ ASCII requiere evidencia de revision por registro.')
     if hashlib.sha256(_canonical_json_bytes(evidence_entries)).hexdigest() != summary.get('ddjj_record_review_evidence_hash'):
         raise ValueError('La evidencia DDJJ ASCII no coincide con su hash.')
+    covered_item_ids = _matrix_item_ids_from_evidence(evidence_entries)
     return {
         'kind': 'ddjj_ascii_candidate',
         'verified': True,
         'candidate_version': summary.get('candidate_version'),
         'record_format_version': summary.get('record_format_version'),
         'form_code': summary.get('form_code'),
+        'artifact_matrix_item_ids': _int_id_list(summary.get('artifact_matrix_item_ids')),
+        'covered_artifact_matrix_item_ids': covered_item_ids,
+        'covered_artifact_matrix_items_total': len(covered_item_ids),
         'records_total': len(records),
         'record_length': record_length,
         'record_type_counts': summary.get('record_type_counts'),
@@ -5723,6 +6004,7 @@ def _verify_materialized_ddjj_zip_candidate_from_manifest(export, candidate_dir)
         raise ValueError('El ZIP DDJJ requiere evidencia del registro de control tipo 0.')
     if hashlib.sha256(_canonical_json_bytes(evidence)).hexdigest() != summary.get('transfer_control_record_evidence_hash'):
         raise ValueError('La evidencia ZIP DDJJ no coincide con su hash.')
+    covered_item_ids = _int_id_list(summary.get('artifact_matrix_item_ids'))
     return {
         'kind': 'ddjj_zip_candidate',
         'verified': True,
@@ -5730,6 +6012,9 @@ def _verify_materialized_ddjj_zip_candidate_from_manifest(export, candidate_dir)
         'source_candidate_version': summary.get('source_candidate_version'),
         'record_format_version': summary.get('record_format_version'),
         'form_code': summary.get('form_code'),
+        'artifact_matrix_item_ids': covered_item_ids,
+        'covered_artifact_matrix_item_ids': covered_item_ids,
+        'covered_artifact_matrix_items_total': len(covered_item_ids),
         'records_total': len(records),
         'record_length': record_length,
         'record_type_counts': summary.get('record_type_counts'),
@@ -5796,6 +6081,11 @@ def build_annual_tax_presentation_review_bundle(
                 'files_total': verification['files_total'],
                 'package_hash': verification['package_hash'],
                 'hash_export': verification['hash_export'],
+                'artifact_matrix_item_ids': verification['artifact_matrix_item_ids'],
+                'covered_artifact_matrix_item_ids': verification['covered_artifact_matrix_item_ids'],
+                'covered_artifact_matrix_items_total': verification['covered_artifact_matrix_items_total'],
+                'ddjj_artifact_matrix_item_ids': verification['ddjj_artifact_matrix_item_ids'],
+                'f22_artifact_matrix_item_ids': verification['f22_artifact_matrix_item_ids'],
                 'official_format': False,
                 'sii_submission': False,
                 'final_tax_calculation': False,
@@ -5811,6 +6101,8 @@ def build_annual_tax_presentation_review_bundle(
     if not artifacts:
         raise ValueError('Bundle de revision requiere al menos un paquete o candidato materializado.')
 
+    artifact_coverage = _summarize_presentation_artifact_coverage(export, artifacts)
+    artifact_coverage_ready = artifact_coverage['ready_for_presentation_artifact_coverage']
     artifacts_verified_total = sum(1 for artifact in artifacts if artifact.get('verified') is True)
     all_artifacts_verified = artifacts_verified_total == len(artifacts)
     review_payload = checklist.review_payload if isinstance(checklist.review_payload, dict) else {}
@@ -5837,15 +6129,30 @@ def build_annual_tax_presentation_review_bundle(
                 ),
             }
         )
+    if not artifact_coverage_ready:
+        issues.append(
+            {
+                'code': 'stage6.presentation_review.artifact_coverage_gap',
+                'severity': 'blocking',
+                'count': max(1, int(artifact_coverage.get('issues_total') or 0)),
+                'message': (
+                    'La revision de presentacion requiere cobertura exacta entre AnnualTaxExport, '
+                    'candidato F22 fixed-width y candidatos DDJJ ASCII/ZIP.'
+                ),
+            }
+        )
     if (
         all_artifacts_verified
+        and artifact_coverage_ready
         and checklist.review_decision_state == EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION
         and official_compatibility_ready
     ):
         classification = 'aprobado_para_presentacion_controlada'
+    elif all_artifacts_verified and checklist.review_decision_state == EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION and not artifact_coverage_ready:
+        classification = 'preparado_con_cobertura_incompleta'
     elif all_artifacts_verified and checklist.review_decision_state == EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION:
         classification = 'preparado_con_brecha_oficial'
-    elif all_artifacts_verified and checklist.review_decision_state == EstadoAnnualTaxReviewDecision.PREPARED:
+    elif all_artifacts_verified and artifact_coverage_ready and checklist.review_decision_state == EstadoAnnualTaxReviewDecision.PREPARED:
         classification = 'preparado_para_revision'
     else:
         classification = 'observado'
@@ -5871,7 +6178,11 @@ def build_annual_tax_presentation_review_bundle(
         'final_tax_calculation': False,
         'requires_official_format_gate': True,
         'requires_explicit_submission_authorization': True,
-        'requires_responsible_review': not ready_for_presentation or not official_compatibility_ready,
+        'requires_responsible_review': (
+            not ready_for_presentation
+            or not official_compatibility_ready
+            or not artifact_coverage_ready
+        ),
         'ready_for_sii_submission': False,
         'leasemanager_boundary': 'controlled_review_package_only',
     }
@@ -5887,9 +6198,15 @@ def build_annual_tax_presentation_review_bundle(
         'artifacts_verified_total': artifacts_verified_total,
         'artifact_kinds': sorted({artifact['kind'] for artifact in artifacts}),
         'artifacts_hash': _source_bundle_hash(artifacts),
+        'artifact_coverage_ready': artifact_coverage_ready,
+        'artifact_coverage_issue_codes': artifact_coverage.get('issue_codes') or [],
+        'artifact_coverage_hash': _source_bundle_hash(artifact_coverage),
         'review_decision_state': checklist.review_decision_state,
         'ready_for_controlled_presentation_review': bool(
-            all_artifacts_verified and ready_for_presentation and official_compatibility_ready
+            all_artifacts_verified
+            and artifact_coverage_ready
+            and ready_for_presentation
+            and official_compatibility_ready
         ),
         'official_compatibility_ready': official_compatibility_ready,
         'official_compatibility_issue_codes': official_compatibility.get('issue_codes') or [],
@@ -5903,6 +6220,7 @@ def build_annual_tax_presentation_review_bundle(
         'summary': summary,
         'review': review,
         'official_compatibility': official_compatibility,
+        'artifact_coverage': artifact_coverage,
         'artifacts': artifacts,
         'issues': issues,
         'boundary': boundary,
@@ -5992,6 +6310,9 @@ def verify_annual_tax_presentation_review_bundle(
         'classification': manifest_payload['summary']['classification'],
         'artifacts_total': manifest_payload['summary']['artifacts_total'],
         'artifacts_verified_total': manifest_payload['summary']['artifacts_verified_total'],
+        'artifact_coverage_ready': manifest_payload['summary']['artifact_coverage_ready'],
+        'artifact_coverage_issue_codes': manifest_payload['summary']['artifact_coverage_issue_codes'],
+        'artifact_coverage_hash': manifest_payload['summary']['artifact_coverage_hash'],
         'review_decision_state': manifest_payload['summary']['review_decision_state'],
         'ready_for_controlled_presentation_review': manifest_payload['summary']['ready_for_controlled_presentation_review'],
         'official_compatibility_ready': manifest_payload['summary']['official_compatibility_ready'],

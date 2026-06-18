@@ -1027,6 +1027,13 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   previas ni se confunde con formato oficial, upload SII o calculo final.
 - Los writers de candidatos F22 fixed-width, DDJJ ASCII y DDJJ ZIP aplican el
   mismo boundary de destino limpio antes de crear archivo, ZIP o manifest local.
+- El bundle local de revision de presentacion exige cobertura exacta entre
+  `AnnualTaxExport`, el paquete exportado, el candidato F22 fixed-width y los
+  candidatos DDJJ ASCII/ZIP. Si falta un candidato esperado, existe un duplicado,
+  aparece un formulario DDJJ ajeno o los items de matriz cubiertos no coinciden,
+  el bundle queda `preparado_con_cobertura_incompleta` y emite
+  `stage6.presentation_review.artifact_coverage_gap`; no puede pasar a
+  `aprobado_para_presentacion_controlada`.
 - La API/snapshot/admin/backoffice de SII exponen `AnnualTaxReviewChecklist`
   con checklist ref, responsable, evidencia, decision de revision y payload
   anual redactados; el admin es solo lectura para preservar que la checklist
@@ -1137,6 +1144,7 @@ scripts\run-stage6-readiness-gate.ps1 -PythonExe backend\.venv\Scripts\python.ex
 
 El dossier y su export local no quedan aprobables si existen meses sin cierre
 validado, reglas fiscales sin respaldo, responsable de revision ausente,
-warnings pendientes o formato/certificacion SII no evidenciado. La renta anual
-final no se declara presentada por el core v1; `SII.PresentacionAnualFinal`
-sigue podada salvo reemision formal del set activo.
+warnings pendientes, cobertura incompleta entre export/F22/DDJJ o
+formato/certificacion SII no evidenciado. La renta anual final no se declara
+presentada por el core v1; `SII.PresentacionAnualFinal` sigue podada salvo
+reemision formal del set activo.
