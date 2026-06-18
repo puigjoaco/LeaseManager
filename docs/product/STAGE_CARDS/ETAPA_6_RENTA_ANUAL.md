@@ -1155,6 +1155,14 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   documentos reales, no abre banco ni SII y no declara contabilidad final:
   solo permite pasar a revision productiva responsable con evidencia no
   sensible.
+- `materialize_company_accounting_review_package` escribe ese mismo paquete en
+  una carpeta local verificable con manifest canonico
+  `company-accounting-review-package.json`. El writer y verificador rechazan
+  salidas no vacias o contaminadas, mantienen hashes y boundary
+  `autonomous_accounting=false`, `final_tax_calculation=false`,
+  `sii_submission=false` y `requires_responsible_review=true`. La salida sirve
+  para entregar evidencia ordenada a revision responsable/experta, no para
+  ejecutar contabilidad o renta final de forma autonoma.
 - Reporting expone `POST /api/v1/reporting/contabilidad/paquete-revision-empresa/`
   para construir ese mismo paquete desde una superficie operativa con scope de
   empresa. El body debe incluir `empresa_id`, `fiscal_year` y

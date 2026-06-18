@@ -208,6 +208,11 @@ contable o tributaria requiere criterio.
   empresa queda bloqueada como `bank_support_company_ref_missing`. Esto evita
   usar respaldos de otro contribuyente para habilitar la revision contable de
   Inmobiliaria Puig u otra empresa piloto.
+- `materialize_company_accounting_review_package` convierte ese diagnostico en
+  una carpeta local verificable bajo `local-evidence/`, con manifest canonico
+  `company-accounting-review-package.json`. El paquete queda hasheado,
+  verificable y limitado a revision responsable: no lee adjuntos reales, no abre
+  banco/SII, no calcula renta final y no habilita contabilidad autonoma.
 - Para cierre con fuente autorizada, el wrapper exige `-SourceKind
   snapshot_controlado` o `real_autorizado`, `-SourceLabel`,
   `-AuthorizationRef`, `-Stage3EvidenceRef`, `-LedgerProofRef`,

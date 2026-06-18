@@ -190,6 +190,14 @@ a otra empresa, aunque la cobertura documental bancaria/leasing este completa.
 Esto mantiene la preparacion de Inmobiliaria Puig amarrada a evidencia de la
 misma empresa sin leer adjuntos reales, correos, banco, `.env` ni SII.
 
+Nota 2026-06-18: Etapa 6/Reporting agrega
+`materialize_company_accounting_review_package` para escribir el paquete de
+revision contable/renta por empresa como carpeta local verificable con manifest
+`company-accounting-review-package.json`. El paquete reabre desde un manifiesto
+bancario/leasing redactado y conserva `autonomous_accounting=false`,
+`final_tax_calculation=false`, `sii_submission=false` y
+`requires_responsible_review=true`; no lee adjuntos reales, banco, SII ni `.env`.
+
 Nota 2026-06-18: Etapa 6/Renta Anual separa el codigo de certificacion F22 del
 candidato local. `build_annual_tax_f22_fixed_width_export_candidate()` ahora
 requiere fuente no sensible, responsable revisor y estado de revision para los
