@@ -25,18 +25,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `codex/stage6-ddjj-ascii-candidate`. |
-| Fuente exacta | `main` en `f58b8a2c`, despues del merge confirmado de PR #909 `codex/stage6-f22-mapping-entries`. |
-| Brecha activa | `AnnualTaxExport` materializa DDJJ como JSON local revisable, pero DDJJ aun no tiene candidato ASCII posicional por formulario alineado con la ruta oficial de transferencia/software. Falta una capa que tome `AnnualTaxDDJJFormLayout` preparado, matriz DDJJ/F22 y registros revisados para producir/verificar un archivo candidato DDJJ estructural. |
-| Motivo de prioridad | El objetivo pide archivos exportables/certificables para SII o revision/presentacion controlada. Despues de F22 fixed-width, el siguiente avance directo es acercar DDJJ a archivo candidato verificable sin asumir API ni presentar SII. |
-| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-ddjj-ascii-candidate`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
-| Rama | `codex/stage6-ddjj-ascii-candidate`. |
+| Frente activo | `codex/stage6-ddjj-zip-candidate`. |
+| Fuente exacta | `main` en `e137deb3`, despues del merge confirmado de PR #910 `codex/stage6-ddjj-ascii-candidate`. |
+| Brecha activa | `AnnualTaxExport` ya puede generar un candidato DDJJ ASCII posicional local por formulario, pero aun no materializa un paquete ZIP candidato/verificable alineado con la ruta de transferencia/software SII. Falta una capa que tome ese candidato ASCII, agregue control de transmision revisado, empaquete un ZIP local y verifique manifest, contenido, hashes y boundary no oficial. |
+| Motivo de prioridad | El objetivo pide archivos exportables/certificables para SII o revision/presentacion controlada. La fuente SII de DDJJ AT2026 exige archivo ASCII posicional y contenedor ZIP para transferencia; el siguiente avance directo es producir un ZIP candidato controlado sin asumir presentacion SII ni certificacion. |
+| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-ddjj-zip-candidate`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `codex/stage6-ddjj-zip-candidate`. |
 | Estado | Paquete en curso solo mientras esta rama/worktree exista. Faltan implementacion, docs/evidencia, validaciones, commit, PR, CI, merge y limpieza. |
-| Gate esperado | Este paquete no declara cierre de Etapa 6, no presenta SII ni produce calculo tributario final. Solo construye un candidato DDJJ ASCII posicional local si el layout preparado trae largo/refs/fuente, el export contiene items DDJJ del formulario y los registros revisados cumplen estructura ASCII. |
+| Gate esperado | Este paquete no declara cierre de Etapa 6, no presenta SII ni produce calculo tributario final. Solo construye un paquete ZIP DDJJ candidato local si el candidato ASCII, el registro de control de transmision y la evidencia revisada cumplen estructura, hash y refs no sensibles. |
 | Estado al cerrar paquete | Si `main` contiene el merge de este frente y la rama/worktree ya no existe, no reabrirlo ni repetir PR/CI/merge. Buscar el siguiente frente seguro desde repo limpio. |
 | Bloqueos relacionados | Formato/certificacion F22/DDJJ, contenido tributario final y presentacion SII siguen bloqueados por formato/certificacion vigente aplicable, responsable tributario, autorizacion explicita y evidencia no sensible. |
 | Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable ni integraciones externas sin autorizacion explicita. Las salidas F22/DDJJ/Balance/RLI/CPT/RAI/SAC esperadas son comparacion externa read-only, nunca input de calculo. |
-| Siguiente accion | Implementar contrato/candidato DDJJ ASCII posicional desde layout preparado y registros revisados, tests, docs/evidencia y cierre por PR/CI/merge/limpieza si pasa. |
+| Siguiente accion | Implementar builder/writer/verifier de ZIP candidato DDJJ desde candidato ASCII revisado, tests, docs/evidencia y cierre por PR/CI/merge/limpieza si pasa. |
 
 ## Actualizacion
 

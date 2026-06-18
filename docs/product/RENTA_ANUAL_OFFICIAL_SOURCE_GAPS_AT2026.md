@@ -312,3 +312,10 @@ formulario con registro tipo 1 inicial, registros tipo 2 de detalle, registro
 tipo 3 final, largo fijo y evidencia por registro. El archivo local sigue
 marcado como no oficial y exige layout exacto,
 ZIP/certificacion, revision responsable y autorizacion antes de presentacion.
+`build_annual_tax_ddjj_zip_export_candidate()` cubre el siguiente tramo local:
+desde ese candidato ASCII agrega un registro tipo 0 de control de transferencia
+revisado, genera un ZIP canonico de una sola entrada, conserva manifest y
+verifica hash/tamano, contenido ASCII, secuencia 0/1/2/3, evidencia no sensible
+y flags no oficiales. La brecha externa no se cierra: siguen pendientes layout
+exacto por formulario, ZIP oficial/certificado, codigo de software, validacion
+SII/upload real, responsable tributario y autorizacion explicita.

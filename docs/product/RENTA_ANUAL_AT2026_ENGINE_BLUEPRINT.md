@@ -274,6 +274,15 @@ contratos:
     Escribe/verifica archivo local ASCII con extension
     derivada del formulario y manifest canonico. No declara layout oficial
     completo, ZIP de envio, certificacion, presentacion SII ni calculo final.
+13.6. `stage6-ddjj-zip-export-candidate`: ZIP candidato de transferencia DDJJ.
+    Implementado como `build_annual_tax_ddjj_zip_export_candidate()`,
+    `write_annual_tax_ddjj_zip_export_candidate()` y
+    `verify_annual_tax_ddjj_zip_export_candidate()`: toma el candidato ASCII
+    DDJJ ya preparado, agrega un registro tipo 0 revisado y no sensible,
+    escribe un ZIP canonico de una sola entrada ASCII mas manifest, y verifica
+    hashes, tamanos, nombres seguros, secuencia 0/1/2/3, largo fijo, evidencia
+    y flags no oficiales. No declara ZIP oficial, certificacion, upload SII,
+    codigo de software ni calculo tributario final.
 14. `stage6-official-tax-source-registry`: registro operacional de fuentes
     oficiales/experta. Implementado como `AnnualTaxOfficialSource`: modelo,
     migracion, API/snapshot/admin redactados y readiness bloqueante si una
