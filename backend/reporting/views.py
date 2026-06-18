@@ -2,13 +2,19 @@ from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from core.permissions import OperationalOverviewPermission, PartnerOwnSummaryPermission, ReportingPermission
+from core.permissions import (
+    OperationalOverviewPermission,
+    PartnerOwnSummaryPermission,
+    ReportingPermission,
+    ReportingReviewPackagePermission,
+)
 from core.scope_access import get_scope_access
 from .services import (
     ReportingTraceabilityError,
     build_annual_tax_summary,
     build_company_accounting_candidate_report,
     build_company_accounting_progress_report,
+    build_company_accounting_review_package_report,
     build_financial_monthly_summary,
     build_manual_resolution_summary,
     build_migration_manual_resolution_summary,
@@ -166,6 +172,42 @@ class CompanyAccountingCandidatesView(APIView):
             build_company_accounting_candidate_report,
             access=get_scope_access(request.user),
         )
+
+
+class CompanyAccountingReviewPackageView(APIView):
+    permission_classes = [ReportingReviewPackagePermission]
+
+    def post(self, request):
+        from patrimonio.models import Empresa
+
+        empresa_id = request.data.get('empresa_id')
+        fiscal_year = request.data.get('fiscal_year')
+        bank_support_manifest = request.data.get('bank_support_manifest')
+        if empresa_id in (None, ''):
+            raise ValidationError({'empresa_id': 'Este parametro es obligatorio.'})
+        if fiscal_year in (None, ''):
+            raise ValidationError({'fiscal_year': 'Este parametro es obligatorio.'})
+        try:
+            empresa_id = int(empresa_id)
+        except (TypeError, ValueError) as error:
+            raise ValidationError({'empresa_id': 'Debe ser un entero valido.'}) from error
+        try:
+            fiscal_year = int(fiscal_year)
+        except (TypeError, ValueError) as error:
+            raise ValidationError({'fiscal_year': 'Debe ser un entero valido.'}) from error
+        if not isinstance(bank_support_manifest, dict):
+            raise ValidationError({'bank_support_manifest': 'Debe ser un objeto JSON redactado.'})
+
+        try:
+            return _traceable_response(
+                build_company_accounting_review_package_report,
+                empresa_id,
+                fiscal_year,
+                bank_support_manifest,
+                access=get_scope_access(request.user),
+            )
+        except Empresa.DoesNotExist as error:
+            raise NotFound('Empresa no encontrada.') from error
 
 
 class AnnualTaxSummaryView(APIView):

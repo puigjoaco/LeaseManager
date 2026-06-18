@@ -90,6 +90,11 @@ class ReportingPermission(RolePermission):
     write_roles = set()
 
 
+class ReportingReviewPackagePermission(RolePermission):
+    read_roles = {ROLE_ADMIN, ROLE_REVIEWER}
+    write_roles = {ROLE_ADMIN, ROLE_REVIEWER}
+
+
 class PartnerOwnSummaryPermission(RolePermission):
     read_roles = {ROLE_ADMIN, ROLE_REVIEWER, ROLE_PARTNER}
     write_roles = set()

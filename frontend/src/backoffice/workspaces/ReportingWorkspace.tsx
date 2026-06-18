@@ -44,6 +44,12 @@ type ReportingCompanyProgressDraft = {
   fiscal_year: string
 }
 
+type ReportingCompanyReviewPackageDraft = {
+  empresa_id: string
+  fiscal_year: string
+  bank_support_manifest: string
+}
+
 type ReportingMigrationDraft = {
   status: string
 }
@@ -179,6 +185,53 @@ type ReportingCompanyCandidatesSummary = {
   trazabilidad: ReportTraceability
 }
 
+type ReportingCompanyReviewPackageSummary = {
+  schema_version: string
+  classification: string
+  ready_for_productive_accounting_review: boolean
+  summary: {
+    accounting_progress_percent: number
+    bank_support_coverage_percent: number
+    blocking_issues_total: number
+    warnings_total: number
+  }
+  empresa: { id: number; razon_social: string; estado: string }
+  fiscal_year: number
+  tax_year: number
+  boundary: {
+    autonomous_accounting: boolean
+    final_tax_calculation: boolean
+    sii_submission: boolean
+    uses_external_integrations: boolean
+    requires_responsible_review: boolean
+    requires_expert_or_official_validation: boolean
+  }
+  bank_support_coverage: {
+    classification: string
+    coverage_percent: number
+    ready_for_accounting_document_review: boolean
+    summary: {
+      required_operations: number
+      operations_with_full_support: number
+      attachments_total: number
+      confirmations_total: number
+    }
+    operations: Array<{
+      operation_ref: string
+      label_ref: string
+      status: string
+      required_categories: string[]
+      covered_categories: string[]
+      missing_categories: string[]
+      attachments_count: number
+    }>
+  }
+  issues: Array<{ code: string; severity: string; count: number; message: string }>
+  warnings: Array<{ code: string; severity: string; count: number; message: string }>
+  evidence: Record<string, string>
+  trazabilidad: ReportTraceability
+}
+
 type ReportingMigrationSummary = {
   total: number
   categorias: Array<{ category: string; total: number }>
@@ -203,6 +256,12 @@ function sumPercentages(values: Array<{ porcentaje: string }>) {
 
 function progressTone(value: ReportingCompanyProgressSummary): Tone {
   if (value.ready_for_company_accounting_review) return 'positive'
+  if (value.classification === 'sin_datos') return 'danger'
+  return 'warning'
+}
+
+function reviewPackageTone(value: ReportingCompanyReviewPackageSummary): Tone {
+  if (value.ready_for_productive_accounting_review) return 'positive'
   if (value.classification === 'sin_datos') return 'danger'
   return 'warning'
 }
@@ -241,6 +300,9 @@ export function ReportingWorkspace({
   reportingCompanyProgressDraft,
   setReportingCompanyProgressDraft,
   handleFetchCompanyProgressSummary,
+  reportingCompanyReviewPackageDraft,
+  setReportingCompanyReviewPackageDraft,
+  handleFetchCompanyReviewPackageSummary,
   reportingMigrationDraft,
   setReportingMigrationDraft,
   handleFetchMigrationSummary,
@@ -250,6 +312,7 @@ export function ReportingWorkspace({
   reportingAnnualSummary,
   reportingCompanyCandidatesSummary,
   reportingCompanyProgressSummary,
+  reportingCompanyReviewPackageSummary,
   reportingMigrationSummary,
   empresas,
   socios,
@@ -277,6 +340,9 @@ export function ReportingWorkspace({
   reportingCompanyProgressDraft: ReportingCompanyProgressDraft
   setReportingCompanyProgressDraft: Dispatch<SetStateAction<ReportingCompanyProgressDraft>>
   handleFetchCompanyProgressSummary: (event: FormEvent<HTMLFormElement>) => Promise<void>
+  reportingCompanyReviewPackageDraft: ReportingCompanyReviewPackageDraft
+  setReportingCompanyReviewPackageDraft: Dispatch<SetStateAction<ReportingCompanyReviewPackageDraft>>
+  handleFetchCompanyReviewPackageSummary: (event: FormEvent<HTMLFormElement>) => Promise<void>
   reportingMigrationDraft: ReportingMigrationDraft
   setReportingMigrationDraft: Dispatch<SetStateAction<ReportingMigrationDraft>>
   handleFetchMigrationSummary: (event: FormEvent<HTMLFormElement>) => Promise<void>
@@ -286,6 +352,7 @@ export function ReportingWorkspace({
   reportingAnnualSummary: ReportingAnnualSummary | null
   reportingCompanyCandidatesSummary: ReportingCompanyCandidatesSummary | null
   reportingCompanyProgressSummary: ReportingCompanyProgressSummary | null
+  reportingCompanyReviewPackageSummary: ReportingCompanyReviewPackageSummary | null
   reportingMigrationSummary: ReportingMigrationSummary | null
   empresas: EmpresaItem[]
   socios: SocioItem[]
@@ -399,6 +466,21 @@ export function ReportingWorkspace({
               </select>
               <input placeholder="Año comercial" value={reportingCompanyProgressDraft.fiscal_year} onChange={(event) => setReportingCompanyProgressDraft((current) => ({ ...current, fiscal_year: event.target.value }))} />
               <button type="submit" className="button-primary" disabled={isSubmitting || !reportingCompanyProgressDraft.empresa_id}>Cargar progreso</button>
+            </form>
+          </section>
+
+          <section className="panel">
+            <div className="section-heading"><div><h2>Paquete de revisión</h2><p>Progreso interno y manifiesto bancario/leasing redactado.</p></div></div>
+            <form className="entity-form" onSubmit={handleFetchCompanyReviewPackageSummary}>
+              <select value={reportingCompanyReviewPackageDraft.empresa_id} onChange={(event) => setReportingCompanyReviewPackageDraft((current) => ({ ...current, empresa_id: event.target.value }))}>
+                <option value="">Selecciona empresa</option>
+                {empresas.map((item) => (
+                  <option key={item.id} value={item.id}>{item.razon_social}</option>
+                ))}
+              </select>
+              <input placeholder="Año comercial" value={reportingCompanyReviewPackageDraft.fiscal_year} onChange={(event) => setReportingCompanyReviewPackageDraft((current) => ({ ...current, fiscal_year: event.target.value }))} />
+              <textarea rows={8} value={reportingCompanyReviewPackageDraft.bank_support_manifest} onChange={(event) => setReportingCompanyReviewPackageDraft((current) => ({ ...current, bank_support_manifest: event.target.value }))} />
+              <button type="submit" className="button-primary" disabled={isSubmitting || !reportingCompanyReviewPackageDraft.empresa_id}>Cargar paquete</button>
             </form>
           </section>
 
@@ -557,7 +639,11 @@ export function ReportingWorkspace({
             { label: 'F29', render: (row) => count(row.f29_monthly) },
             { label: 'Anual', render: (row) => `${count(row.annual_processes)} / ${count(row.annual_trial_balance)} / ${count(row.rli_cpt_workbooks)} / ${count(row.annual_dossier)} / ${count(row.annual_export)}` },
             { label: 'Acción', render: (row) => (
-              <button type="button" className="button-secondary" onClick={() => setReportingCompanyProgressDraft({ empresa_id: String(row.empresa_id), fiscal_year: String(row.fiscal_year) })}>
+              <button type="button" className="button-secondary" onClick={() => {
+                const nextDraft = { empresa_id: String(row.empresa_id), fiscal_year: String(row.fiscal_year) }
+                setReportingCompanyProgressDraft(nextDraft)
+                setReportingCompanyReviewPackageDraft((current) => ({ ...current, ...nextDraft }))
+              }}>
                 Usar
               </button>
             ) },
@@ -601,6 +687,58 @@ export function ReportingWorkspace({
             { label: 'Severidad', render: (row) => <Badge label={row.severity} tone={row.severity === 'blocking' ? 'warning' : 'neutral'} /> },
             { label: 'Conteo', render: (row) => count(row.count) },
             { label: 'Mensaje', render: (row) => row.message },
+          ]} />
+        </>
+      ) : null}
+
+      {reportingCompanyReviewPackageSummary ? (
+        <>
+          <TraceabilityBlock value={reportingCompanyReviewPackageSummary.trazabilidad} />
+          <section className="metric-grid">
+            <Metric label="Empresa" value={reportingCompanyReviewPackageSummary.empresa.razon_social} tone="neutral" />
+            <Metric label="Año comercial" value={String(reportingCompanyReviewPackageSummary.fiscal_year)} tone="neutral" />
+            <Metric label="AT" value={String(reportingCompanyReviewPackageSummary.tax_year)} tone="neutral" />
+            <Metric label="Clasificación" value={reportingCompanyReviewPackageSummary.classification} tone={reviewPackageTone(reportingCompanyReviewPackageSummary)} />
+            <Metric label="Progreso interno" value={`${reportingCompanyReviewPackageSummary.summary.accounting_progress_percent}%`} tone="neutral" />
+            <Metric label="Soporte banco/leasing" value={`${reportingCompanyReviewPackageSummary.summary.bank_support_coverage_percent}%`} tone={reportingCompanyReviewPackageSummary.bank_support_coverage.ready_for_accounting_document_review ? 'positive' : 'warning'} />
+            <Metric label="Bloqueos" value={count(reportingCompanyReviewPackageSummary.summary.blocking_issues_total)} tone={reportingCompanyReviewPackageSummary.summary.blocking_issues_total ? 'warning' : 'positive'} />
+            <Metric label="Revisión productiva" value={reportingCompanyReviewPackageSummary.ready_for_productive_accounting_review ? 'preparada' : 'pendiente'} tone={reviewPackageTone(reportingCompanyReviewPackageSummary)} />
+          </section>
+          <section className="panel">
+            <div className="section-heading">
+              <div><h2>Frontera del paquete</h2><p>{reportingCompanyReviewPackageSummary.schema_version}</p></div>
+              <Badge label={reportingCompanyReviewPackageSummary.ready_for_productive_accounting_review ? 'preparado' : 'pendiente'} tone={reviewPackageTone(reportingCompanyReviewPackageSummary)} />
+            </div>
+            <div className="list-stack">
+              <div className="list-row"><span>Integraciones externas</span><strong>{reportingCompanyReviewPackageSummary.boundary.uses_external_integrations ? 'habilitadas' : 'bloqueadas'}</strong></div>
+              <div className="list-row"><span>Contabilidad autónoma</span><strong>{reportingCompanyReviewPackageSummary.boundary.autonomous_accounting ? 'habilitada' : 'bloqueada'}</strong></div>
+              <div className="list-row"><span>Cálculo tributario final</span><strong>{reportingCompanyReviewPackageSummary.boundary.final_tax_calculation ? 'habilitado' : 'bloqueado'}</strong></div>
+              <div className="list-row"><span>Presentación SII</span><strong>{reportingCompanyReviewPackageSummary.boundary.sii_submission ? 'habilitada' : 'bloqueada'}</strong></div>
+              <div className="list-row"><span>Revisión responsable</span><strong>{reportingCompanyReviewPackageSummary.boundary.requires_responsible_review ? 'requerida' : 'no requerida'}</strong></div>
+              <div className="list-row"><span>Validación experta/oficial</span><strong>{reportingCompanyReviewPackageSummary.boundary.requires_expert_or_official_validation ? 'requerida' : 'no requerida'}</strong></div>
+            </div>
+          </section>
+          <TableBlock title="Cobertura bancaria/leasing" subtitle="Operaciones declaradas en el manifiesto redactado." rows={reportingCompanyReviewPackageSummary.bank_support_coverage.operations.map((item, index) => ({ id: `${item.operation_ref}-${index}`, ...item }))} empty="El manifiesto no declara operaciones bancarias/leasing." columns={[
+            { label: 'Operación', render: (row) => row.operation_ref },
+            { label: 'Etiqueta', render: (row) => row.label_ref || 'Sin etiqueta' },
+            { label: 'Estado', render: (row) => <Badge label={row.status} tone={row.status === 'covered' ? 'positive' : 'warning'} /> },
+            { label: 'Adjuntos', render: (row) => count(row.attachments_count) },
+            { label: 'Cubiertas', render: (row) => row.covered_categories.join(', ') || 'Ninguna' },
+            { label: 'Faltantes', render: (row) => row.missing_categories.join(', ') || 'Ninguna' },
+          ]} />
+          <TableBlock title="Problemas del paquete" subtitle="Bloqueos y advertencias antes de revisión responsable." rows={[
+            ...reportingCompanyReviewPackageSummary.issues.map((item, index) => ({ id: `issue-${index}`, tipo: 'bloqueo', ...item })),
+            ...reportingCompanyReviewPackageSummary.warnings.map((item, index) => ({ id: `warning-${index}`, tipo: 'advertencia', ...item })),
+          ]} empty="No hay problemas declarados en este paquete." columns={[
+            { label: 'Tipo', render: (row) => row.tipo },
+            { label: 'Código', render: (row) => row.code },
+            { label: 'Severidad', render: (row) => <Badge label={row.severity} tone={row.severity === 'blocking' ? 'warning' : 'neutral'} /> },
+            { label: 'Conteo', render: (row) => count(row.count) },
+            { label: 'Mensaje', render: (row) => row.message },
+          ]} />
+          <TableBlock title="Evidencia técnica" subtitle="Hashes derivados del progreso y del manifiesto redactado." rows={Object.entries(reportingCompanyReviewPackageSummary.evidence).map(([key, value]) => ({ id: key, key, value }))} empty="No hay hashes de evidencia para este paquete." columns={[
+            { label: 'Clave', render: (row) => row.key },
+            { label: 'Hash', render: (row) => row.value },
           ]} />
         </>
       ) : null}

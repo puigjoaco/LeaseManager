@@ -25,14 +25,14 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `codex/stage6-company-review-package`. |
-| Fuente exacta | `main` en `8fa70bf5`, despues del merge confirmado de PR #924 `codex/stage6-presentation-review-bundle`. |
-| Brecha activa | Etapa 6 ya puede generar y consolidar candidatos F22/DDJJ/export local, y tambien puede medir avance contable por empresa y cobertura bancaria/leasing por manifiesto redactado, pero falta una superficie unica de revision por empresa/ano que conecte ambos controles antes de tratar una contabilidad como lista para revision productiva. |
-| Motivo de prioridad | Inmobiliaria Puig no debe avanzar solo por artefactos anuales internos: la revision real/controlada necesita cruzar progreso contable/renta con respaldo documental bancario/leasing sin leer adjuntos reales ni versionar evidencia sensible. |
-| Worktree | `D:/Proyectos/LeaseManager-stage6-company-review-package`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
-| Rama | `codex/stage6-company-review-package`. |
-| Estado | Paquete en ejecucion solo mientras exista la rama/worktree tactico sin merge: agregar auditor/command de paquete de revision contable-renta por empresa/ano, combinando `audit_company_accounting_progress` y `audit_company_bank_support_coverage` con salida redactada. Si este texto esta en `main` despues del merge del PR de este frente, tratar el paquete como cerrado y no repetirlo. |
-| Gate esperado | Este paquete no lee documentos reales, correos, adjuntos, `.env`, DB real ni SII. Solo exige manifiesto redactado y DB local/controlada para decidir si una empresa/ano esta lista para revision responsable; no declara contabilidad final ni presentacion SII. |
+| Frente activo | `codex/stage6-company-review-api`. |
+| Fuente exacta | `main` en `c2dcd77d`, despues del merge confirmado de PR #925 `codex/stage6-company-review-package`. |
+| Brecha activa | El paquete de revision contable/renta por empresa y ano ya existe como core/command, pero Reporting aun no ofrece una API segura para solicitarlo desde una superficie operativa con scope de empresa y manifiesto bancario/leasing redactado. |
+| Motivo de prioridad | La revision responsable no debe depender de comandos manuales ni de adjuntos reales: el backoffice/reporting necesita pedir un paquete unico que cruce progreso contable/renta y respaldo bancario/leasing sin leer archivos, correos, `.env`, DB real, banco ni SII. |
+| Worktree | `D:/Proyectos/LeaseManager-stage6-company-review-api`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `codex/stage6-company-review-api`. |
+| Estado | Paquete en ejecucion: exponer endpoint Reporting POST y panel backoffice con `empresa_id`, `fiscal_year` y `bank_support_manifest` JSON redactado, aplicando scope por empresa, boundary no autonomo y salida sin secretos. El PR #811 antiguo de boundary tributario fue cerrado como obsoleto porque `main` ya tiene una frontera mas prudente. |
+| Gate esperado | Este paquete no lee documentos reales, correos, adjuntos, rutas de archivos, `.env`, DB real, banco ni SII. Solo recibe manifiesto JSON redactado y consulta DB local/controlada; no declara contabilidad final, calculo tributario final ni presentacion SII. |
 | Estado al cerrar paquete | Si `main` contiene el merge de este frente y la rama/worktree ya no existe, no reabrirlo ni repetir PR/CI/merge. Buscar el siguiente frente seguro desde repo limpio. |
 | Bloqueos relacionados | Carga productiva real, documentos completos, formato/certificacion F22/DDJJ, codigo autorizado por SII, contenido tributario final y presentacion SII siguen bloqueados por responsable tributario, autorizacion explicita, formato/certificacion vigente aplicable y evidencia no sensible. |
 | Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable ni integraciones externas sin autorizacion explicita. La aprobacion para presentacion solo puede existir como decision y evidencia trazables no sensibles; nunca como salida automatica del motor local. |

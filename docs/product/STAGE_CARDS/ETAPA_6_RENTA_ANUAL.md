@@ -1094,6 +1094,18 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   operaciones/categorias del mismo ano. No lee adjuntos, correos ni documentos
   reales, no abre banco ni SII y no declara contabilidad final: solo permite
   pasar a revision productiva responsable con evidencia no sensible.
+- Reporting expone `POST /api/v1/reporting/contabilidad/paquete-revision-empresa/`
+  para construir ese mismo paquete desde una superficie operativa con scope de
+  empresa. El body debe incluir `empresa_id`, `fiscal_year` y
+  `bank_support_manifest` como objeto JSON ya redactado; la API no acepta rutas
+  de archivos ni lee adjuntos, correos o documentos reales. La respuesta
+  conserva hashes, issues, trazabilidad y flags `autonomous_accounting=false`,
+  `final_tax_calculation=false`, `sii_submission=false` y
+  `requires_responsible_review=true`.
+- El backoffice de Reporting incorpora el panel "Paquete de revisión" para
+  solicitar ese POST con manifiesto JSON redactado y mostrar frontera, cobertura
+  bancaria/leasing, issues y hashes. El panel no sube archivos, no abre banco,
+  no abre SII y no convierte el paquete en contabilidad automatica.
 
 ```powershell
 scripts\run-stage6-readiness-gate.ps1 -PythonExe backend\.venv\Scripts\python.exe

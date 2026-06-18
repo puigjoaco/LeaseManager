@@ -28,6 +28,7 @@ from core.reference_validation import (
     redact_sensitive_payload,
     redact_sensitive_reference,
 )
+from core.company_accounting_review_package import build_company_accounting_review_package
 from core.company_accounting_progress import collect_company_accounting_candidates, collect_company_accounting_progress
 from core.scope_access import ScopeAccess, scope_queryset_for_access
 from core.state_transition_audit_readiness import transition_event_has_transition_metadata
@@ -1637,6 +1638,55 @@ def build_company_accounting_candidate_report(access: ScopeAccess | None = None)
             'autonomous_accounting': payload['selection_boundary']['autonomous_accounting'],
             'final_tax_calculation': payload['selection_boundary']['final_tax_calculation'],
             'sii_submission': payload['selection_boundary']['sii_submission'],
+        },
+    )
+    return payload
+
+
+def build_company_accounting_review_package_report(
+    empresa_id,
+    fiscal_year,
+    bank_support_manifest,
+    access: ScopeAccess | None = None,
+):
+    access = access or ScopeAccess(restricted=False, company_ids=set(), property_ids=set(), bank_account_ids=set())
+    scoped_empresa = scope_queryset_for_access(
+        Empresa.objects.filter(pk=empresa_id),
+        access,
+        company_paths=('id',),
+    ).first()
+    if scoped_empresa is None:
+        raise Empresa.DoesNotExist
+
+    payload = build_company_accounting_review_package(
+        empresa_id=scoped_empresa.id,
+        fiscal_year=fiscal_year,
+        bank_support_payload=bank_support_manifest,
+    )
+    payload['trazabilidad'] = _traceability_payload(
+        report_type='company_accounting_review_package',
+        sources=[
+            'ConfiguracionFiscalEmpresa',
+            'CierreMensualContable',
+            'BalanceComprobacion',
+            'F29PreparacionMensual',
+            'ProcesoRentaAnual',
+            'AnnualTaxTrialBalance',
+            'AnnualTaxWorkbook',
+            'AnnualTaxDossier',
+            'AnnualTaxExport',
+            'redacted_bank_support_manifest',
+        ],
+        checks={
+            'empresa_id': scoped_empresa.id,
+            'fiscal_year': fiscal_year,
+            'tax_year': payload['tax_year'],
+            'ready_for_productive_accounting_review': payload['ready_for_productive_accounting_review'],
+            'autonomous_accounting': payload['boundary']['autonomous_accounting'],
+            'final_tax_calculation': payload['boundary']['final_tax_calculation'],
+            'sii_submission': payload['boundary']['sii_submission'],
+            'uses_external_integrations': payload['boundary']['uses_external_integrations'],
+            'requires_responsible_review': payload['boundary']['requires_responsible_review'],
         },
     )
     return payload
