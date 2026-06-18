@@ -25,18 +25,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `codex/stage6-review-decision-ui`. |
-| Fuente exacta | `main` en `16e476c3`, despues del merge confirmado de PR #917 `codex/stage6-review-decision-api`. |
-| Brecha activa | El backend ya registraba decision responsable del `AnnualTaxReviewChecklist`, pero el backoffice SII no mostraba ni permitia operar esa decision desde el flujo de renta anual. |
-| Motivo de prioridad | Para pasar de dossier preparado a revision/presentacion controlada, el responsable debe poder ver el checklist anual y registrar `preparado`, `observado` o `aprobado_para_presentacion` desde UI con refs no sensibles. |
-| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-review-decision-ui`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
-| Rama | `codex/stage6-review-decision-ui`. |
-| Estado | Paquete en curso. Snapshot SII expone decision de checklist anual redactada y el backoffice agrega tabla/formulario de decision responsable que llama al endpoint transaccional. |
-| Gate esperado | Este paquete no declara cierre Etapa 6, no presenta SII, no calcula impuesto final y no aprueba automaticamente. Solo habilita operacion UI para registrar una decision manual trazable/no sensible sobre un checklist ya preparado. |
+| Frente activo | `codex/stage6-export-materializer`. |
+| Fuente exacta | `main` en `a8ca0a77`, despues del merge confirmado de PR #918 `codex/stage6-review-decision-ui`. |
+| Brecha activa | `AnnualTaxExport` ya conserva manifiesto y paquete local materializable/verificable, pero faltaba una herramienta operativa que escribiera esos archivos desde un export preparado y los verificara inmediatamente sin usar rutas versionables. |
+| Motivo de prioridad | Para pasar de previews internos a salidas exportables/controladas, el responsable necesita una forma repetible de materializar archivos locales DDJJ/F22 y comprobar hash, manifest y boundary antes de cualquier revision/presentacion. |
+| Worktree | `D:/Proyectos/10_ACTIVOS/LeaseManager-stage6-export-materializer`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `codex/stage6-export-materializer`. |
+| Estado | Paquete en curso. Se agrega comando controlado para materializar/verificar el paquete local de `AnnualTaxExport` bajo `local-evidence/` o fuera del repo, rechazando salidas versionables dentro del repo. |
+| Gate esperado | Este paquete no declara formato oficial certificado, no presenta SII, no calcula impuesto final y no usa datos reales. Solo convierte un `AnnualTaxExport` preparado en archivos locales verificables para revision controlada. |
 | Estado al cerrar paquete | Si `main` contiene el merge de este frente y la rama/worktree ya no existe, no reabrirlo ni repetir PR/CI/merge. Buscar el siguiente frente seguro desde repo limpio. |
 | Bloqueos relacionados | La decision tributaria final, formato/certificacion F22/DDJJ, codigo autorizado por SII, contenido tributario final y presentacion SII siguen bloqueados por responsable tributario, autorizacion explicita, formato/certificacion vigente aplicable y evidencia no sensible. |
 | Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable ni integraciones externas sin autorizacion explicita. La aprobacion para presentacion solo puede existir como decision y evidencia trazables no sensibles; nunca como salida automatica del motor local. |
-| Siguiente accion | Ejecutar tests focales backend/snapshot, build/lint frontend, gate Etapa 6, acceptance proporcional; si pasa, cerrar paquete con PR/CI/merge/limpieza. |
+| Siguiente accion | Ejecutar tests focales del comando, suite impactada Etapa 6/SII, gate Etapa 6, acceptance proporcional, higiene y diff; si pasa, cerrar paquete con PR/CI/merge/limpieza. |
 
 ## Actualizacion
 

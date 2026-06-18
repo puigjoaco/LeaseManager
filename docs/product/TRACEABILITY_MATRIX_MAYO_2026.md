@@ -3109,6 +3109,15 @@ y el formulario registra `preparado`, `observado` o
 la frontera de revision controlada: no envia SII, no convierte el export local
 en formato oficial y no calcula renta final.
 
+Nota 2026-06-18: Renta Anual agrega herramienta controlada para materializar
+archivos locales desde `AnnualTaxExport`. El comando
+`materialize_annual_tax_export_file_package` toma un export preparado, escribe
+archivos y `manifest.json` bajo `local-evidence/` por defecto o ruta externa
+controlada, reabre el paquete con el verificador y devuelve hash/resumen
+auditable. Rechaza salidas dentro del repo fuera de `local-evidence/`. Esto
+avanza de preview interno a paquete exportable local verificable, sin declarar
+formato oficial, upload SII, presentacion ni calculo final.
+
 Nota 2026-06-17: PlataformaBase/CI ajusta Release Gate para remover el matcher
 generico `python` de `actions/setup-python` justo antes de acceptance. La suite
 mantiene tracebacks esperados de rollback/auditoria en logs y sigue fallando por
