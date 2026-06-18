@@ -132,6 +132,7 @@ ANNUAL_TAX_F22_FIXED_WIDTH_CANDIDATE_VERSION = 'annual-tax-f22-fixed-width-candi
 ANNUAL_TAX_DDJJ_ASCII_CANDIDATE_VERSION = 'annual-tax-ddjj-ascii-candidate-v1'
 ANNUAL_TAX_DDJJ_ZIP_CANDIDATE_VERSION = 'annual-tax-ddjj-zip-candidate-v1'
 ANNUAL_TAX_PRESENTATION_REVIEW_BUNDLE_VERSION = 'annual-tax-presentation-review-bundle-v1'
+ANNUAL_TAX_CONTROLLED_PRESENTATION_PACKAGE_VERSION = 'annual-tax-controlled-presentation-package-v1'
 F22_FIXED_WIDTH_ENTRY_REVIEW_STATES = {'approved_for_candidate', 'aprobado_para_candidato'}
 F22_CERTIFICATION_CODE_REVIEW_STATES = {
     'synthetic_for_local_candidate',
@@ -6322,6 +6323,268 @@ def verify_annual_tax_presentation_review_bundle(
         'official_format': False,
         'sii_submission': False,
         'final_tax_calculation': False,
+    }
+
+
+def _controlled_presentation_package_hash(package_payload):
+    payload = dict(package_payload)
+    summary = dict(payload.get('summary') or {})
+    summary.pop('package_hash', None)
+    payload['summary'] = summary
+    return _source_bundle_hash(payload)
+
+
+def build_annual_tax_controlled_presentation_package(
+    export,
+    *,
+    presentation_review_bundle_dir,
+    export_package_dir=None,
+    f22_candidate_dir=None,
+    ddjj_ascii_candidate_dirs=None,
+    ddjj_zip_candidate_dirs=None,
+    handoff_authorization_ref,
+    responsible_ref,
+    presentation_window_ref,
+    package_note='',
+):
+    verification = verify_annual_tax_presentation_review_bundle(
+        export,
+        presentation_review_bundle_dir,
+        export_package_dir=export_package_dir,
+        f22_candidate_dir=f22_candidate_dir,
+        ddjj_ascii_candidate_dirs=ddjj_ascii_candidate_dirs,
+        ddjj_zip_candidate_dirs=ddjj_zip_candidate_dirs,
+    )
+    if (
+        verification.get('classification') != 'aprobado_para_presentacion_controlada'
+        or verification.get('ready_for_controlled_presentation_review') is not True
+    ):
+        raise ValueError(
+            'El paquete controlado requiere un bundle aprobado para presentacion controlada.'
+        )
+
+    handoff_authorization_ref = _ensure_non_sensitive_reference(
+        handoff_authorization_ref,
+        'handoff_authorization_ref',
+    )
+    responsible_ref = _ensure_non_sensitive_reference(responsible_ref, 'responsible_ref')
+    presentation_window_ref = _ensure_non_sensitive_reference(
+        presentation_window_ref,
+        'presentation_window_ref',
+    )
+    package_note = _ensure_non_sensitive_text(package_note, 'package_note')
+    if not handoff_authorization_ref:
+        raise ValueError('El paquete controlado requiere handoff_authorization_ref trazable.')
+    if not responsible_ref:
+        raise ValueError('El paquete controlado requiere responsible_ref trazable.')
+    if not presentation_window_ref:
+        raise ValueError('El paquete controlado requiere presentation_window_ref trazable.')
+
+    bundle_dir = Path(presentation_review_bundle_dir)
+    bundle_manifest = _read_canonical_annual_tax_manifest(
+        bundle_dir,
+        'annual-tax-presentation-review-bundle.json',
+        'Bundle de revision anual',
+    )
+    bundle_summary = bundle_manifest['summary']
+    review = bundle_manifest.get('review') if isinstance(bundle_manifest.get('review'), dict) else {}
+    handoff = {
+        'handoff_authorization_ref': handoff_authorization_ref,
+        'responsible_ref': responsible_ref,
+        'presentation_window_ref': presentation_window_ref,
+        'package_note': package_note,
+        'handoff_authorization_ref_hash': hashlib.sha256(
+            handoff_authorization_ref.encode('utf-8')
+        ).hexdigest(),
+        'responsible_ref_hash': hashlib.sha256(responsible_ref.encode('utf-8')).hexdigest(),
+        'presentation_window_ref_hash': hashlib.sha256(
+            presentation_window_ref.encode('utf-8')
+        ).hexdigest(),
+    }
+    presentation_review = {
+        'bundle_version': verification['bundle_version'],
+        'bundle_hash': verification['bundle_hash'],
+        'classification': verification['classification'],
+        'review_decision_state': verification['review_decision_state'],
+        'review_decision_ref': review.get('review_decision_ref'),
+        'review_decision_evidence_ref': review.get('review_decision_evidence_ref'),
+        'review_responsible_ref': review.get('responsible_ref'),
+        'artifact_kinds': bundle_summary.get('artifact_kinds') or [],
+        'artifacts_total': verification['artifacts_total'],
+        'artifacts_verified_total': verification['artifacts_verified_total'],
+        'artifact_coverage_ready': verification['artifact_coverage_ready'],
+        'artifact_coverage_hash': verification['artifact_coverage_hash'],
+        'official_compatibility_ready': verification['official_compatibility_ready'],
+        'official_compatibility_issue_codes': verification['official_compatibility_issue_codes'],
+        'official_compatibility_blocking_gap_keys': verification['official_compatibility_blocking_gap_keys'],
+    }
+    boundary = {
+        'official_format': False,
+        'sii_submission': False,
+        'sii_submission_attempted': False,
+        'final_tax_calculation': False,
+        'ready_for_sii_submission': False,
+        'requires_official_format_gate': True,
+        'requires_explicit_submission_authorization': True,
+        'requires_manual_sii_step': True,
+        'requires_responsible_review': False,
+        'leasemanager_boundary': 'controlled_presentation_package_only',
+    }
+    summary = {
+        'package_version': ANNUAL_TAX_CONTROLLED_PRESENTATION_PACKAGE_VERSION,
+        'annual_tax_export_id': export.id,
+        'empresa_id': export.empresa_id,
+        'proceso_renta_anual_id': export.proceso_renta_anual_id,
+        'anio_tributario': export.anio_tributario,
+        'anio_comercial': export.anio_comercial,
+        'classification': 'preparado_para_presentacion_controlada',
+        'presentation_bundle_hash': verification['bundle_hash'],
+        'ready_for_controlled_presentation_package': True,
+        'ready_for_controlled_presentation_review': True,
+        'artifact_coverage_ready': verification['artifact_coverage_ready'],
+        'artifact_coverage_issue_codes': verification['artifact_coverage_issue_codes'],
+        'official_compatibility_ready': verification['official_compatibility_ready'],
+        'official_compatibility_issue_codes': verification['official_compatibility_issue_codes'],
+        'ready_for_sii_submission': False,
+        'official_format': False,
+        'sii_submission': False,
+        'final_tax_calculation': False,
+        'handoff_authorization_ref_hash': handoff['handoff_authorization_ref_hash'],
+        'responsible_ref_hash': handoff['responsible_ref_hash'],
+        'presentation_window_ref_hash': handoff['presentation_window_ref_hash'],
+    }
+    package = {
+        'summary': summary,
+        'handoff': handoff,
+        'presentation_review': presentation_review,
+        'boundary': boundary,
+        'issues': [],
+    }
+    package['summary']['package_hash'] = _controlled_presentation_package_hash(package)
+    return package
+
+
+def write_annual_tax_controlled_presentation_package(
+    export,
+    output_dir,
+    *,
+    presentation_review_bundle_dir,
+    export_package_dir=None,
+    f22_candidate_dir=None,
+    ddjj_ascii_candidate_dirs=None,
+    ddjj_zip_candidate_dirs=None,
+    handoff_authorization_ref,
+    responsible_ref,
+    presentation_window_ref,
+    package_note='',
+):
+    package = build_annual_tax_controlled_presentation_package(
+        export,
+        presentation_review_bundle_dir=presentation_review_bundle_dir,
+        export_package_dir=export_package_dir,
+        f22_candidate_dir=f22_candidate_dir,
+        ddjj_ascii_candidate_dirs=ddjj_ascii_candidate_dirs,
+        ddjj_zip_candidate_dirs=ddjj_zip_candidate_dirs,
+        handoff_authorization_ref=handoff_authorization_ref,
+        responsible_ref=responsible_ref,
+        presentation_window_ref=presentation_window_ref,
+        package_note=package_note,
+    )
+    target_dir = _prepare_clean_annual_tax_output_dir(
+        output_dir,
+        'El destino del paquete controlado anual debe ser un directorio.',
+        'El directorio destino del paquete controlado anual debe estar vacio antes de materializar la entrega.',
+    )
+    manifest_path = target_dir / 'annual-tax-controlled-presentation-package.json'
+    manifest_path.write_text(
+        json.dumps(package, sort_keys=True, separators=(',', ':'), ensure_ascii=True, default=str),
+        encoding='utf-8',
+    )
+    return {
+        **package,
+        'output_dir': str(target_dir),
+        'manifest_file': str(manifest_path),
+    }
+
+
+def verify_annual_tax_controlled_presentation_package(
+    export,
+    package_dir,
+    *,
+    presentation_review_bundle_dir,
+    export_package_dir=None,
+    f22_candidate_dir=None,
+    ddjj_ascii_candidate_dirs=None,
+    ddjj_zip_candidate_dirs=None,
+    handoff_authorization_ref,
+    responsible_ref,
+    presentation_window_ref,
+    package_note='',
+):
+    expected = build_annual_tax_controlled_presentation_package(
+        export,
+        presentation_review_bundle_dir=presentation_review_bundle_dir,
+        export_package_dir=export_package_dir,
+        f22_candidate_dir=f22_candidate_dir,
+        ddjj_ascii_candidate_dirs=ddjj_ascii_candidate_dirs,
+        ddjj_zip_candidate_dirs=ddjj_zip_candidate_dirs,
+        handoff_authorization_ref=handoff_authorization_ref,
+        responsible_ref=responsible_ref,
+        presentation_window_ref=presentation_window_ref,
+        package_note=package_note,
+    )
+    target_dir = Path(package_dir)
+    if not target_dir.exists() or not target_dir.is_dir():
+        raise ValueError('El directorio del paquete controlado no existe o no es un directorio.')
+    entries = list(target_dir.iterdir())
+    if {entry.name for entry in entries if entry.is_file()} != {'annual-tax-controlled-presentation-package.json'}:
+        raise ValueError('El paquete controlado contiene archivos no declarados.')
+    if any(not entry.is_file() for entry in entries):
+        raise ValueError('El paquete controlado contiene entradas no permitidas.')
+    manifest_payload = _read_canonical_annual_tax_manifest(
+        target_dir,
+        'annual-tax-controlled-presentation-package.json',
+        'Paquete controlado anual',
+    )
+    if manifest_payload != expected:
+        raise ValueError('El paquete controlado anual no coincide con el estado esperado.')
+    if manifest_payload['summary'].get('package_hash') != _controlled_presentation_package_hash(manifest_payload):
+        raise ValueError('El paquete controlado anual no coincide con su hash.')
+    boundary = manifest_payload.get('boundary') if isinstance(manifest_payload, dict) else {}
+    if (
+        boundary.get('official_format') not in (False, None)
+        or boundary.get('sii_submission') not in (False, None)
+        or boundary.get('sii_submission_attempted') not in (False, None)
+        or boundary.get('final_tax_calculation') not in (False, None)
+        or boundary.get('ready_for_sii_submission') not in (False, None)
+    ):
+        raise ValueError(
+            'El paquete controlado no puede declarar formato oficial, presentacion SII ni calculo final.'
+        )
+    return {
+        'verified': True,
+        'package_version': manifest_payload['summary']['package_version'],
+        'package_hash': manifest_payload['summary']['package_hash'],
+        'classification': manifest_payload['summary']['classification'],
+        'presentation_bundle_hash': manifest_payload['summary']['presentation_bundle_hash'],
+        'ready_for_controlled_presentation_package': manifest_payload['summary']['ready_for_controlled_presentation_package'],
+        'ready_for_controlled_presentation_review': manifest_payload['summary']['ready_for_controlled_presentation_review'],
+        'artifact_coverage_ready': manifest_payload['summary']['artifact_coverage_ready'],
+        'artifact_coverage_issue_codes': manifest_payload['summary']['artifact_coverage_issue_codes'],
+        'official_compatibility_ready': manifest_payload['summary']['official_compatibility_ready'],
+        'official_compatibility_issue_codes': manifest_payload['summary']['official_compatibility_issue_codes'],
+        'handoff_authorization_ref_hash': manifest_payload['summary']['handoff_authorization_ref_hash'],
+        'responsible_ref_hash': manifest_payload['summary']['responsible_ref_hash'],
+        'presentation_window_ref_hash': manifest_payload['summary']['presentation_window_ref_hash'],
+        'ready_for_sii_submission': False,
+        'official_format': False,
+        'sii_submission': False,
+        'sii_submission_attempted': False,
+        'final_tax_calculation': False,
+        'requires_official_format_gate': True,
+        'requires_explicit_submission_authorization': True,
+        'requires_manual_sii_step': True,
+        'requires_responsible_review': False,
     }
 
 

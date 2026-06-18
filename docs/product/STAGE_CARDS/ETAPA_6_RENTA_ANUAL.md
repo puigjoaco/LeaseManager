@@ -481,6 +481,17 @@ bundle solo marca `preparado_para_revision` o
 `aprobado_para_presentacion_controlada` segun decision responsable registrada;
 mantiene `ready_for_sii_submission=false`, `official_format=false`,
 `sii_submission=false` y `final_tax_calculation=false`.
+`materialize_annual_tax_controlled_presentation_package` orquesta la corrida
+local completa para revision/presentacion controlada: materializa y verifica en
+una raiz vacia el paquete `AnnualTaxExport`, el candidato F22 fixed-width, los
+candidatos DDJJ ASCII/ZIP esperados por layouts DDJJ reales y el bundle final
+de revision. Rechaza salidas versionadas fuera de `local-evidence/`, exige
+entradas DDJJ revisadas por formulario antes de escribir subcarpetas, reutiliza
+los validadores de hashes/cobertura y emite solo hashes, conteos y nombres de
+subdirectorios. Esta herramienta acerca la operacion a un paquete unico
+exportable/controlable, pero conserva `official_format=false`,
+`sii_submission=false`, `ready_for_sii_submission=false` y
+`final_tax_calculation=false`.
 `AnnualTaxF22ExportLayout` materializa la capa F22 por ano tributario antes del
 export local: conserva `form_code=F22`, medio preferente, refs no sensibles de
 certificacion/formato/instrucciones/responsable, fuentes oficiales/expertas,
@@ -1034,6 +1045,17 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   el bundle queda `preparado_con_cobertura_incompleta` y emite
   `stage6.presentation_review.artifact_coverage_gap`; no puede pasar a
   `aprobado_para_presentacion_controlada`.
+- El paquete local de entrega controlada exige ese bundle ya
+  `aprobado_para_presentacion_controlada` y refs no sensibles de autorizacion
+  de handoff, responsable y ventana de presentacion. El comando
+  `materialize_annual_tax_controlled_presentation_package` materializa en una
+  raiz limpia el paquete `AnnualTaxExport`, F22 fixed-width, DDJJ ASCII/ZIP,
+  bundle de revision y subpaquete `controlled-presentation-handoff`; falla antes
+  de escribir si el checklist no esta aprobado o si las refs son sensibles. El
+  manifest declara `ready_for_controlled_presentation_package=true`, pero
+  conserva `official_format=false`, `sii_submission=false`,
+  `sii_submission_attempted=false`, `final_tax_calculation=false` y
+  `ready_for_sii_submission=false`.
 - La API/snapshot/admin/backoffice de SII exponen `AnnualTaxReviewChecklist`
   con checklist ref, responsable, evidencia, decision de revision y payload
   anual redactados; el admin es solo lectura para preservar que la checklist
