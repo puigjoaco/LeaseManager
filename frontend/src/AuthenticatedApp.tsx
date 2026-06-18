@@ -106,7 +106,7 @@ function createManualResolutionDraft() {
 const DEFAULT_COMPANY_REVIEW_MANIFEST_JSON = JSON.stringify(
   {
     schema_version: 'company-bank-support-coverage-manifest.v1',
-    company_ref: 'empresa-redactada',
+    company_ref: 'company-1',
     fiscal_year: 2026,
     tax_year: 2027,
     required_operations: [],
@@ -1760,6 +1760,8 @@ type ReportingCompanyAccountingReviewPackage = {
   summary: {
     accounting_progress_percent: number
     bank_support_coverage_percent: number
+    expected_company_ref: string
+    bank_support_company_ref: string
     blocking_issues_total: number
     warnings_total: number
   }

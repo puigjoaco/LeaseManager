@@ -25,18 +25,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `codex/company-review-manifest-company-ref`. |
-| Fuente exacta | `main` en `fb5e19f7`, despues del merge confirmado de PR #927 `codex/stage6-at2025-compatibility`. |
-| Brecha activa | El paquete de revision contable/renta por empresa cruza avance anual y manifiesto bancario/leasing redactado, pero debe impedir que un manifiesto completo de otra empresa habilite la revision productiva de la empresa auditada. |
-| Motivo de prioridad | Para Inmobiliaria Puig, los respaldos Banco de Chile/leasing solo sirven si quedan amarrados a la misma empresa y ano auditados. Una cobertura documental completa pero de otra empresa no puede tratarse como evidencia contable valida. |
-| Worktree | `D:/Proyectos/LeaseManager-company-review-manifest-company-ref`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
-| Rama | `codex/company-review-manifest-company-ref`. |
-| Estado | Paquete en ejecucion: exigir `company_ref` canonico en `bank_support_manifest`, exponer `expected_company_ref`/`bank_support_company_ref` y bloquear revision productiva si falta o no corresponde a la empresa auditada. |
-| Gate esperado | Este paquete usa solo fixtures y manifiestos redactados. No lee `.env`, DB real, documentos reales, correos, adjuntos, EDIG ejecutable, banco ni SII autenticado; no declara contabilidad final, calculo tributario final ni presentacion SII. |
-| Estado al cerrar paquete | Si `main` contiene el merge de este frente y la rama/worktree ya no existe, no reabrirlo ni repetir PR/CI/merge. Buscar el siguiente frente contable seguro desde repo limpio. |
+| Frente activo | `codex/reporting-review-company-ref-display`. |
+| Fuente exacta | `main` en `e9becb27`, despues del merge confirmado de PR #928 `codex/company-review-manifest-company-ref`. |
+| Brecha activa | El core/API ya bloquea manifiestos bancarios/leasing de otra empresa, pero el backoffice de Reporting aun no muestra al revisor `expected_company_ref` y `bank_support_company_ref`; el bloqueo queda visible solo como issue tecnico. |
+| Motivo de prioridad | La revision responsable debe poder distinguir en pantalla si el paquete esta pendiente por cobertura documental, avance contable o manifiesto cruzado de empresa, sin abrir adjuntos, banco, SII ni datos reales. |
+| Worktree | `D:/Proyectos/LeaseManager-reporting-review-company-ref-display`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `codex/reporting-review-company-ref-display`. |
+| Estado | Paquete en ejecucion: tipar y mostrar en backoffice la referencia canonica esperada y la referencia del manifiesto, y ajustar el manifiesto demo a `company-1` como ejemplo no sensible. |
+| Gate esperado | Este paquete solo cambia UI/tipos/documentacion sobre datos ya redactados que entrega la API. No lee `.env`, DB real, documentos reales, correos, adjuntos, EDIG ejecutable, banco ni SII autenticado; no declara contabilidad final, calculo tributario final ni presentacion SII. |
+| Estado al cerrar paquete | Si `main` contiene el merge de este frente y la rama/worktree ya no existe, no reabrirlo ni repetir PR/CI/merge. Buscar el siguiente frente seguro desde repo limpio. |
 | Bloqueos relacionados | Carga productiva real, documentos completos, manifest real redactado/autorizado, formato/certificacion F22/DDJJ aplicable, contenido tributario final y presentacion SII siguen bloqueados por responsable tributario, autorizacion explicita y evidencia no sensible. |
-| Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable, correos ni integraciones externas sin autorizacion explicita. Un paquete preparado solo habilita revision responsable; nunca contabilidad autonoma ni presentacion automatica. |
-| Siguiente accion | En rama tactica abierta: completar validaciones proporcionales, registrar evidencia, cerrar con commit, PR, CI remoto, merge y limpieza. En `main` post-merge: no reabrir este paquete; tomar el siguiente frente seguro de contabilidad/renta. |
+| Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable, correos ni integraciones externas sin autorizacion explicita. El panel solo muestra frontera y referencias redactadas para revision responsable; nunca contabilidad autonoma ni presentacion automatica. |
+| Siguiente accion | En rama tactica abierta: completar validaciones proporcionales, registrar evidencia, cerrar con commit, PR, CI remoto, merge y limpieza. En `main` post-merge: no reabrir este paquete; tomar el siguiente frente seguro. |
 
 ## Actualizacion
 
