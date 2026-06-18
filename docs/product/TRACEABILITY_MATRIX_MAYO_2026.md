@@ -140,6 +140,12 @@ salida conserva hashes, issues, trazabilidad y boundary no autonomo:
 `autonomous_accounting=false`, `final_tax_calculation=false`,
 `sii_submission=false` y revision responsable obligatoria.
 
+Nota 2026-06-18: El backoffice de Reporting muestra en el panel "Paquete de
+revision" las refs `expected_company_ref` y `bank_support_company_ref` devueltas
+por la API. Esto hace visible para el revisor si el manifiesto bancario/leasing
+pertenece a la empresa auditada, manteniendo el mismatch como bloqueo y sin
+exponer RUTs, adjuntos, correos, banco ni SII.
+
 Nota 2026-06-18: El paquete de revision contable/renta por empresa exige que
 el manifiesto bancario/leasing redactado declare el `company_ref` canonico de
 la empresa auditada. `build_company_accounting_review_package` expone

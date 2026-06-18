@@ -192,6 +192,8 @@ type ReportingCompanyReviewPackageSummary = {
   summary: {
     accounting_progress_percent: number
     bank_support_coverage_percent: number
+    expected_company_ref: string
+    bank_support_company_ref: string
     blocking_issues_total: number
     warnings_total: number
   }
@@ -701,6 +703,12 @@ export function ReportingWorkspace({
             <Metric label="Clasificación" value={reportingCompanyReviewPackageSummary.classification} tone={reviewPackageTone(reportingCompanyReviewPackageSummary)} />
             <Metric label="Progreso interno" value={`${reportingCompanyReviewPackageSummary.summary.accounting_progress_percent}%`} tone="neutral" />
             <Metric label="Soporte banco/leasing" value={`${reportingCompanyReviewPackageSummary.summary.bank_support_coverage_percent}%`} tone={reportingCompanyReviewPackageSummary.bank_support_coverage.ready_for_accounting_document_review ? 'positive' : 'warning'} />
+            <Metric label="Ref esperada" value={reportingCompanyReviewPackageSummary.summary.expected_company_ref || 'sin ref'} tone="neutral" />
+            <Metric
+              label="Ref manifiesto"
+              value={reportingCompanyReviewPackageSummary.summary.bank_support_company_ref || 'sin ref'}
+              tone={reportingCompanyReviewPackageSummary.summary.bank_support_company_ref && reportingCompanyReviewPackageSummary.summary.bank_support_company_ref === reportingCompanyReviewPackageSummary.summary.expected_company_ref ? 'positive' : 'warning'}
+            />
             <Metric label="Bloqueos" value={count(reportingCompanyReviewPackageSummary.summary.blocking_issues_total)} tone={reportingCompanyReviewPackageSummary.summary.blocking_issues_total ? 'warning' : 'positive'} />
             <Metric label="Revisión productiva" value={reportingCompanyReviewPackageSummary.ready_for_productive_accounting_review ? 'preparada' : 'pendiente'} tone={reviewPackageTone(reportingCompanyReviewPackageSummary)} />
           </section>
@@ -716,6 +724,8 @@ export function ReportingWorkspace({
               <div className="list-row"><span>Presentación SII</span><strong>{reportingCompanyReviewPackageSummary.boundary.sii_submission ? 'habilitada' : 'bloqueada'}</strong></div>
               <div className="list-row"><span>Revisión responsable</span><strong>{reportingCompanyReviewPackageSummary.boundary.requires_responsible_review ? 'requerida' : 'no requerida'}</strong></div>
               <div className="list-row"><span>Validación experta/oficial</span><strong>{reportingCompanyReviewPackageSummary.boundary.requires_expert_or_official_validation ? 'requerida' : 'no requerida'}</strong></div>
+              <div className="list-row"><span>Empresa esperada</span><strong>{reportingCompanyReviewPackageSummary.summary.expected_company_ref || 'sin ref'}</strong></div>
+              <div className="list-row"><span>Empresa del manifiesto</span><strong>{reportingCompanyReviewPackageSummary.summary.bank_support_company_ref || 'sin ref'}</strong></div>
             </div>
           </section>
           <TableBlock title="Cobertura bancaria/leasing" subtitle="Operaciones declaradas en el manifiesto redactado." rows={reportingCompanyReviewPackageSummary.bank_support_coverage.operations.map((item, index) => ({ id: `${item.operation_ref}-${index}`, ...item }))} empty="El manifiesto no declara operaciones bancarias/leasing." columns={[

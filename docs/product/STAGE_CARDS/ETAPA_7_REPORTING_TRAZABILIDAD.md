@@ -141,6 +141,10 @@ externa final.
   scope por empresa y sin RUT. La vista permite seleccionar un candidato y
   cargarlo en `contabilidad/progreso-empresa/`; no afirma avance real contra
   fuente externa ni reemplaza el gate de cierre.
+- El panel de paquete de revision contable/renta muestra `expected_company_ref`
+  y `bank_support_company_ref` como refs redactadas para que el revisor vea si
+  el manifiesto bancario/leasing corresponde a la empresa auditada. Un mismatch
+  sigue como bloqueo del paquete; la UI no expone RUTs ni abre adjuntos.
 - Para esas senales de progreso, un `ProcesoRentaAnual` preparado o superior
   solo cuenta si esta enlazado a un `AnnualTaxSourceBundle` congelado. Reporting
   no debe presentar un proceso anual huerfano como avance listo para revision:

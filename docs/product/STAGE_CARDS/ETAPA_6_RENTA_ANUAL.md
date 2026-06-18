@@ -1114,8 +1114,9 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   `requires_responsible_review=true`.
 - El backoffice de Reporting incorpora el panel "Paquete de revisión" para
   solicitar ese POST con manifiesto JSON redactado y mostrar frontera, cobertura
-  bancaria/leasing, issues y hashes. El panel no sube archivos, no abre banco,
-  no abre SII y no convierte el paquete en contabilidad automatica.
+  bancaria/leasing, refs de empresa esperada/manifiesto, issues y hashes. El
+  panel no sube archivos, no abre banco, no abre SII y no convierte el paquete
+  en contabilidad automatica.
 
 ```powershell
 scripts\run-stage6-readiness-gate.ps1 -PythonExe backend\.venv\Scripts\python.exe
