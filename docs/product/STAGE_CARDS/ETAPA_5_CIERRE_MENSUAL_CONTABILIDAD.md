@@ -208,6 +208,16 @@ contable o tributaria requiere criterio.
   empresa queda bloqueada como `bank_support_company_ref_missing`. Esto evita
   usar respaldos de otro contribuyente para habilitar la revision contable de
   Inmobiliaria Puig u otra empresa piloto.
+- `audit_company_document_intake` agrega la puerta previa para respaldos reales:
+  recibe un manifiesto `company-document-intake-manifest.v1` con `source_batches`
+  y `documents` redactados, bloquea RUTs completos, rutas absolutas, URLs,
+  correos, passwords, tokens, credenciales, categorias no reconocidas, batches
+  desconocidos, documentos duplicados y anos desalineados. Desde ese intake
+  deriva un `company-bank-support-coverage-manifest.v1` y un puente hacia
+  `annual-tax-source-manifest.v1` sin leer adjuntos, sin abrir Gmail/banco/SII,
+  sin copiar archivos reales al repo y sin declarar contabilidad autonoma.
+  Esta capa convierte "recibimos documentos" en cobertura trazable y medible
+  antes de cargar, cuadrar o entregar revision contable.
 - `materialize_company_accounting_review_package` convierte ese diagnostico en
   una carpeta local verificable bajo `local-evidence/`, con manifest canonico
   `company-accounting-review-package.json`. El paquete queda hasheado,
