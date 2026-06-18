@@ -51,6 +51,7 @@ from sii.models import (
     EstadoAnnualTaxDossier,
     EstadoAnnualTaxExport,
     EstadoAnnualTaxOfficialSource,
+    EstadoAnnualTaxReviewDecision,
     EstadoAnnualTaxReviewChecklist,
     EstadoAnnualTaxSourceBundle,
     EstadoAnnualTaxTrialBalance,
@@ -1319,24 +1320,52 @@ def _collect_annual_tax_review_checklist_issues(checklists, processes, active_fi
                         or int(item_summary.get('completed_items_total') or 0) != checklist.completed_items_total
                         or int(item_summary.get('blockers_total') or 0) != checklist.blockers_total
                         or int(item_summary.get('warnings_total') or 0) != checklist.warnings_total
+                        or item_summary.get('review_decision_state') != checklist.review_decision_state
+                        or item_summary.get('review_decision_ref') != checklist.review_decision_ref
                     ):
                         counts['process_tax_review_checklist_summary_mismatch'] += 1
                         break
 
         for checklist in process_checklists:
             payload = checklist.review_payload if isinstance(checklist.review_payload, dict) else {}
+            review_decision = payload.get('review_decision') if isinstance(payload.get('review_decision'), dict) else {}
             if not has_text(checklist.checklist_ref):
                 counts['tax_review_checklist_ref_missing'] += 1
             if not has_text(checklist.responsible_ref):
                 counts['tax_review_checklist_responsible_missing'] += 1
             if not has_text(checklist.evidence_ref):
                 counts['tax_review_checklist_evidence_missing'] += 1
+            if (
+                not has_text(checklist.review_decision_state)
+                or payload.get('review_decision_state') != checklist.review_decision_state
+                or review_decision.get('state') != checklist.review_decision_state
+            ):
+                counts['tax_review_checklist_decision_missing'] += 1
             if checklist.completed_items_total != checklist.items_total:
                 counts['tax_review_checklist_incomplete'] += 1
             if checklist.blockers_total:
                 counts['tax_review_checklist_blocked'] += 1
             if checklist.warnings_total:
                 counts['tax_review_checklist_warning_review_required'] += 1
+            if checklist.review_decision_state == EstadoAnnualTaxReviewDecision.OBSERVED:
+                counts['tax_review_checklist_observed'] += 1
+            if checklist.review_decision_state == EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION:
+                if (
+                    not has_text(checklist.review_decision_ref)
+                    or not has_text(review_decision.get('decision_ref'))
+                    or not has_text(review_decision.get('responsible_ref'))
+                ):
+                    counts['tax_review_checklist_approval_missing'] += 1
+                if (
+                    checklist.completed_items_total != checklist.items_total
+                    or checklist.blockers_total
+                    or checklist.warnings_total
+                    or review_decision.get('ready_for_presentation') is not True
+                    or review_decision.get('automatic_approval') not in (False, None)
+                ):
+                    counts['tax_review_checklist_approval_incoherent'] += 1
+            elif review_decision.get('ready_for_presentation') not in (False, None):
+                counts['tax_review_checklist_approval_incoherent'] += 1
             if payload.get('official_format') not in (False, None):
                 counts['tax_review_checklist_official_format_boundary'] += 1
             if payload.get('sii_submission') not in (False, None) or bool(payload.get('sii_submission_attempted')):
@@ -2508,6 +2537,11 @@ def collect_stage6_renta_anual_readiness(
             'AnnualTaxReviewChecklist preparado requiere evidencia trazable no sensible.',
         ),
         (
+            'tax_review_checklist_decision_missing',
+            'stage6.tax_review_checklist_decision_missing',
+            'AnnualTaxReviewChecklist requiere decision de revision tributaria coherente con su payload.',
+        ),
+        (
             'tax_review_checklist_incomplete',
             'stage6.tax_review_checklist_incomplete',
             'AnnualTaxReviewChecklist conserva items incompletos antes de cierre.',
@@ -2521,6 +2555,21 @@ def collect_stage6_renta_anual_readiness(
             'tax_review_checklist_warning_review_required',
             'stage6.tax_review_checklist_warning_review_required',
             'AnnualTaxReviewChecklist conserva warnings que requieren revision tributaria responsable.',
+        ),
+        (
+            'tax_review_checklist_observed',
+            'stage6.tax_review_checklist_observed',
+            'AnnualTaxReviewChecklist permanece observado y requiere resolucion responsable.',
+        ),
+        (
+            'tax_review_checklist_approval_missing',
+            'stage6.tax_review_checklist_approval_missing',
+            'Aprobacion para presentacion requiere decision y responsable trazables no sensibles.',
+        ),
+        (
+            'tax_review_checklist_approval_incoherent',
+            'stage6.tax_review_checklist_approval_incoherent',
+            'Aprobacion para presentacion no puede convivir con items incompletos, bloqueos, warnings ni aprobacion automatica.',
         ),
         (
             'tax_review_checklist_official_format_boundary',

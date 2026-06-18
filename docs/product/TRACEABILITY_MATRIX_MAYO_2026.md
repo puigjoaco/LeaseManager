@@ -86,6 +86,15 @@ usar estado sintetico controlado, pero no puede declarar autorizacion SII ni que
 venir con estado oficial revisado y authorization ref no sensible. La capa queda
 lista para revision responsable sin abrir certificacion, upload ni presentacion.
 
+Nota 2026-06-18: Etapa 6/Renta Anual agrega boundary de decision tributaria en
+`AnnualTaxReviewChecklist`. El checklist conserva `review_decision_state` y
+`review_decision_ref`: `observado` bloquea cierre, `preparado_para_revision`
+solo indica paquete local completo para revision responsable, y
+`aprobado_para_presentacion` exige decision/ref/responsable no sensibles y
+`automatic_approval=false`. La readiness reporta decisiones faltantes,
+observadas, aprobaciones incompletas o aprobaciones automaticas sin declarar
+calculo final, certificacion ni presentacion SII.
+
 Nota 2026-06-17: Etapa 6/Renta Anual agrega candidato DDJJ ASCII posicional
 con `build_annual_tax_ddjj_ascii_export_candidate()`,
 `write_annual_tax_ddjj_ascii_export_candidate()` y

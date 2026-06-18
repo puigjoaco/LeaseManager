@@ -572,6 +572,12 @@ class EstadoAnnualTaxReviewChecklist(models.TextChoices):
     RETIRED = 'retirado', 'Retirado'
 
 
+class EstadoAnnualTaxReviewDecision(models.TextChoices):
+    PREPARED_FOR_REVIEW = 'preparado_para_revision', 'Preparado para revision'
+    OBSERVED = 'observado', 'Observado'
+    APPROVED_FOR_PRESENTATION = 'aprobado_para_presentacion', 'Aprobado para presentacion'
+
+
 class TipoAnnualTaxExport(models.TextChoices):
     PREVIEW_PACKAGE = 'preview_package', 'Preview package'
 
@@ -3888,6 +3894,7 @@ class AnnualTaxReviewChecklist(OperationalSIITextNormalizationMixin, Timestamped
         'checklist_ref',
         'responsible_ref',
         'evidence_ref',
+        'review_decision_ref',
         'hash_checklist',
     )
 
@@ -3935,6 +3942,12 @@ class AnnualTaxReviewChecklist(OperationalSIITextNormalizationMixin, Timestamped
     completed_items_total = models.PositiveIntegerField(default=0)
     blockers_total = models.PositiveIntegerField(default=0)
     warnings_total = models.PositiveIntegerField(default=0)
+    review_decision_state = models.CharField(
+        max_length=32,
+        choices=EstadoAnnualTaxReviewDecision.choices,
+        default=EstadoAnnualTaxReviewDecision.PREPARED_FOR_REVIEW,
+    )
+    review_decision_ref = models.CharField(max_length=255, blank=True)
     review_payload = models.JSONField(default=dict, blank=True)
     hash_checklist = models.CharField(max_length=64, blank=True)
     estado = models.CharField(
@@ -3967,11 +3980,25 @@ class AnnualTaxReviewChecklist(OperationalSIITextNormalizationMixin, Timestamped
         _add_non_sensitive_reference_error(errors, self, 'checklist_ref')
         _add_non_sensitive_reference_error(errors, self, 'responsible_ref')
         _add_non_sensitive_reference_error(errors, self, 'evidence_ref')
+        _add_non_sensitive_reference_error(errors, self, 'review_decision_ref')
         _add_non_sensitive_payload_error(errors, 'review_payload', self.review_payload)
         if has_text(self.hash_checklist) and not _is_sha256(self.hash_checklist):
             errors['hash_checklist'] = 'hash_checklist debe ser SHA-256 hexadecimal de 64 caracteres.'
         if self.completed_items_total > self.items_total:
             errors['completed_items_total'] = 'completed_items_total no puede superar items_total.'
+        checklist_is_complete = (
+            self.items_total > 0
+            and self.completed_items_total == self.items_total
+            and self.blockers_total == 0
+            and self.warnings_total == 0
+        )
+        if self.review_decision_state == EstadoAnnualTaxReviewDecision.PREPARED_FOR_REVIEW and not checklist_is_complete:
+            errors['review_decision_state'] = 'Decision preparada para revision requiere checklist completo y sin observaciones.'
+        if self.review_decision_state == EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION:
+            if not checklist_is_complete:
+                errors['review_decision_state'] = 'Aprobacion para presentacion requiere checklist completo y sin observaciones.'
+            if not has_text(self.review_decision_ref):
+                errors['review_decision_ref'] = 'Aprobacion para presentacion requiere decision_ref trazable no sensible.'
 
         try:
             process = self.proceso_renta_anual
@@ -4061,6 +4088,33 @@ class AnnualTaxReviewChecklist(OperationalSIITextNormalizationMixin, Timestamped
                 errors['review_payload'] = (
                     'review_payload debe coincidir con empresa, proceso, dossier, export, fuente, regla, matriz, anio y totales.'
                 )
+            if self.review_payload.get('review_decision_state') not in (self.review_decision_state, None):
+                _add_error(errors, 'review_payload', 'review_decision_state debe coincidir con la decision del checklist.')
+            review_decision = self.review_payload.get('review_decision')
+            if review_decision is not None and not isinstance(review_decision, dict):
+                _add_error(errors, 'review_payload', 'review_decision debe ser un objeto JSON.')
+            elif isinstance(review_decision, dict):
+                decision_state = review_decision.get('state')
+                if decision_state != self.review_decision_state:
+                    _add_error(errors, 'review_payload', 'review_decision.state debe coincidir con la decision del checklist.')
+                ready_for_presentation = review_decision.get('ready_for_presentation')
+                if (
+                    self.review_decision_state == EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION
+                    and ready_for_presentation is not True
+                ):
+                    _add_error(errors, 'review_payload', 'Aprobacion para presentacion requiere ready_for_presentation=true.')
+                if (
+                    self.review_decision_state != EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION
+                    and ready_for_presentation not in (False, None)
+                ):
+                    _add_error(errors, 'review_payload', 'Solo una decision aprobada puede marcar ready_for_presentation.')
+                if review_decision.get('automatic_approval') not in (False, None):
+                    _add_error(errors, 'review_payload', 'La aprobacion de revision tributaria no puede ser automatica.')
+                if self.review_decision_state == EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION:
+                    if not has_text(review_decision.get('decision_ref')):
+                        _add_error(errors, 'review_payload', 'Aprobacion requiere decision_ref no sensible en review_decision.')
+                    if not has_text(review_decision.get('responsible_ref')):
+                        _add_error(errors, 'review_payload', 'Aprobacion requiere responsible_ref no sensible en review_decision.')
             for key in ('official_format', 'sii_submission', 'final_tax_calculation'):
                 if self.review_payload.get(key) not in (False, None):
                     _add_error(errors, 'review_payload', 'Checklist anual no declara formato oficial, presentacion SII ni calculo fiscal final.')

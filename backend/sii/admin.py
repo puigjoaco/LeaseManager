@@ -1282,6 +1282,8 @@ class AnnualTaxReviewChecklistAdmin(admin.ModelAdmin):
         'completed_items_total',
         'blockers_total',
         'warnings_total',
+        'review_decision_state',
+        'review_decision_ref_redacted',
         'review_payload_redacted',
         'hash_checklist',
         'estado',
@@ -1293,13 +1295,14 @@ class AnnualTaxReviewChecklistAdmin(admin.ModelAdmin):
         'empresa',
         'anio_tributario',
         'estado',
+        'review_decision_state',
         'items_total',
         'completed_items_total',
         'blockers_total',
         'warnings_total',
         'checklist_ref_redacted',
     )
-    list_filter = ('anio_tributario', 'estado')
+    list_filter = ('anio_tributario', 'estado', 'review_decision_state')
     search_fields = ('empresa__razon_social',)
 
     @admin.display(description='checklist_ref')
@@ -1313,6 +1316,10 @@ class AnnualTaxReviewChecklistAdmin(admin.ModelAdmin):
     @admin.display(description='evidence_ref')
     def evidence_ref_redacted(self, obj):
         return _redacted_attr(obj, 'evidence_ref')
+
+    @admin.display(description='review_decision_ref')
+    def review_decision_ref_redacted(self, obj):
+        return _redacted_attr(obj, 'review_decision_ref')
 
     @admin.display(description='review_payload')
     def review_payload_redacted(self, obj):
