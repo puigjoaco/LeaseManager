@@ -193,6 +193,16 @@ paginas renderizadas, participantes reportados, blockers y siguiente accion.
 Ese handoff no incluye cola visual, rutas, nombres ni RUTs, no reemplaza
 `package.ownership` y no habilita `ready_for_annual_generation`; solo deja
 trazado que falta inyectar un snapshot ownership validado.
+`inject_annual_tax_ownership_patch_into_controlled_package` cierra ese puente:
+toma un paquete/template controlado, el template ownership y un patch local ya
+validado, reejecuta `validate_annual_tax_ownership_patch`, inyecta
+`package.ownership` solo si el patch queda listo, actualiza `ownership_review`
+como handoff inyectado y reaudita
+`audit_annual_tax_controlled_package_readiness`. Como el resultado contiene
+nombres y RUTs, el comando exige `--output`, nunca imprime el paquete completo
+por stdout y rechaza `--patch` o `--output` dentro del repo fuera de
+`local-evidence/`. No escribe DB, no calcula renta final, no abre SII y no
+reemplaza la revision responsable de ownership.
 `apply_annual_tax_controlled_db_load` materializa ese paquete normalizado en DB
 local/controlada solo con `--apply`: crea o actualiza cierres mensuales,
 LibroDiario, LibroMayor, BalanceComprobacion, obligaciones, F29 y
