@@ -416,6 +416,12 @@ ownership cuando `ownership_review` ya declara patch validado/listo junto a
 participantes/porcentaje total deben coincidir con el snapshot. Si no calzan,
 readiness bloquea generacion anual y el writer rechaza antes de escribir DB.
 
+Nota 2026-06-19: `apply_annual_tax_controlled_db_load` redacta errores de
+archivo del tramo CLI. Un package faltante, lectura fallida o escritura fallida
+del resultado ya no imprime rutas locales completas, evitando exponer nombres,
+RUTs o carpetas privadas durante la preparacion AC/AT. La restriccion de outputs
+versionables fuera de `local-evidence/` se mantiene.
+
 Nota 2026-06-16: `build_annual_tax_controlled_values_draft` ya materializa
 `real_estate_support` como `package.real_estate`: registro estructurado de
 bienes raices, codigos internos estables, tipo de inmueble, evidencia por

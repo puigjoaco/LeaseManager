@@ -435,6 +435,45 @@ class AnnualTaxControlledDbLoadTests(TestCase):
                     stdout=StringIO(),
                 )
 
+    def test_command_missing_package_error_does_not_echo_sensitive_path(self):
+        empresa = self._create_empresa()
+        with TemporaryDirectory() as temp_dir:
+            package_path = Path(temp_dir) / 'Socio Controlado Uno 11111111-1.json'
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'apply_annual_tax_controlled_db_load',
+                    package=str(package_path),
+                    empresa_id=empresa.id,
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+
+    def test_command_output_write_error_does_not_echo_sensitive_path(self):
+        empresa = self._create_empresa()
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            package_path = temp_root / 'controlled-load.json'
+            output_path = temp_root / 'Socio Controlado Uno 11111111-1.json'
+            output_path.mkdir()
+            package_path.write_text(json.dumps(self._package(months=range(1, 2))), encoding='utf-8')
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'apply_annual_tax_controlled_db_load',
+                    package=str(package_path),
+                    empresa_id=empresa.id,
+                    output=str(output_path),
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+
     def test_command_accepts_template_wrapper_package_draft(self):
         empresa = self._create_empresa()
         with TemporaryDirectory() as temp_dir:
