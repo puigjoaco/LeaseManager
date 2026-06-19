@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import re
 from collections import Counter, defaultdict
+from pathlib import Path
 from typing import Any
 
 from core.annual_tax_source_manifest import (
@@ -21,6 +23,11 @@ from core.reference_validation import REDACTED_SENSITIVE_REFERENCE, contains_sen
 
 
 DOCUMENT_INTAKE_SCHEMA_VERSION = 'company-document-intake-manifest.v1'
+DOCUMENT_INTAKE_PACKAGE_SCHEMA_VERSION = 'company-document-intake-package.v1'
+DOCUMENT_INTAKE_PACKAGE_MANIFEST = 'company-document-intake-package.json'
+DOCUMENT_INTAKE_AUDIT_FILE = 'company-document-intake-audit.json'
+BANK_SUPPORT_MANIFEST_DRAFT_FILE = 'company-bank-support-coverage-manifest.json'
+ANNUAL_SOURCE_INTAKE_BRIDGE_FILE = 'annual-tax-source-intake-bridge.json'
 ANNUAL_SOURCE_INTAKE_BRIDGE_SCHEMA_VERSION = 'annual-tax-source-intake-bridge.v1'
 ALL_OPERATIONS = '*'
 
@@ -146,6 +153,27 @@ def _issue(code: str, message: str, *, severity: str = 'blocking', count: int = 
         'count': int(count),
         'message': message,
     }
+
+
+def _canonical_json(payload: Any) -> str:
+    return json.dumps(payload, sort_keys=True, separators=(',', ':'), ensure_ascii=True, default=str)
+
+
+def _read_canonical_json(path: Path) -> Any:
+    try:
+        return json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(f'No se pudo leer JSON canonico en {path.name}: {error}') from error
+
+
+def _prepare_clean_output_dir(output_dir: Any) -> Path:
+    target_dir = Path(output_dir)
+    if target_dir.exists() and not target_dir.is_dir():
+        raise ValueError('El destino del paquete de intake documental debe ser un directorio.')
+    if target_dir.exists() and any(target_dir.iterdir()):
+        raise ValueError('El directorio destino del paquete de intake documental debe estar vacio.')
+    target_dir.mkdir(parents=True, exist_ok=True)
+    return target_dir
 
 
 def _classification(*, documents_total: int, blocking_issues: list[dict[str, Any]]) -> str:
@@ -823,4 +851,161 @@ def audit_company_document_intake(*, payload: dict[str, Any]) -> dict[str, Any]:
             'password_or_credential_allowed': False,
             'document_refs_must_be_opaque': True,
         },
+    }
+
+
+def _package_manifest_for(audit_result: dict[str, Any]) -> dict[str, Any]:
+    files = [
+        {
+            'file': DOCUMENT_INTAKE_AUDIT_FILE,
+            'kind': 'company_document_intake_audit',
+            'schema_version': audit_result['schema_version'],
+            'payload_hash': payload_hash(audit_result),
+        },
+        {
+            'file': BANK_SUPPORT_MANIFEST_DRAFT_FILE,
+            'kind': 'company_bank_support_coverage_manifest_draft',
+            'schema_version': audit_result['bank_support_manifest_draft']['schema_version'],
+            'payload_hash': audit_result['evidence']['bank_support_manifest_hash'],
+        },
+        {
+            'file': ANNUAL_SOURCE_INTAKE_BRIDGE_FILE,
+            'kind': 'annual_tax_source_intake_bridge',
+            'schema_version': audit_result['annual_source_bridge']['schema_version'],
+            'payload_hash': audit_result['evidence']['annual_source_bridge_hash'],
+        },
+    ]
+    manifest = {
+        'schema_version': DOCUMENT_INTAKE_PACKAGE_SCHEMA_VERSION,
+        'source_schema_version': DOCUMENT_INTAKE_SCHEMA_VERSION,
+        'classification': audit_result['classification'],
+        'ready_for_document_intake_review': audit_result['ready_for_document_intake_review'],
+        'ready_for_bank_support_manifest': audit_result['ready_for_bank_support_manifest'],
+        'ready_for_source_manifest_reconciliation': audit_result['ready_for_source_manifest_reconciliation'],
+        'ready_for_productive_document_review': audit_result['ready_for_productive_document_review'],
+        'summary': audit_result['summary'],
+        'evidence': audit_result['evidence'],
+        'issue_counts': audit_result['issue_counts'],
+        'files': files,
+        'boundary': audit_result['boundary'],
+        'manifest_policy': audit_result['manifest_policy'],
+    }
+    manifest['package_hash'] = payload_hash(
+        {
+            'schema_version': manifest['schema_version'],
+            'source_schema_version': manifest['source_schema_version'],
+            'classification': manifest['classification'],
+            'summary': manifest['summary'],
+            'evidence': manifest['evidence'],
+            'issue_counts': manifest['issue_counts'],
+            'files': manifest['files'],
+            'boundary': manifest['boundary'],
+            'manifest_policy': manifest['manifest_policy'],
+        }
+    )
+    return manifest
+
+
+def write_company_document_intake_package(
+    *,
+    payload: dict[str, Any],
+    output_dir: Any,
+) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        raise ValueError('payload debe ser un objeto JSON.')
+
+    audit_result = audit_company_document_intake(payload=payload)
+    package_manifest = _package_manifest_for(audit_result)
+    target_dir = _prepare_clean_output_dir(output_dir)
+    file_payloads = {
+        DOCUMENT_INTAKE_PACKAGE_MANIFEST: package_manifest,
+        DOCUMENT_INTAKE_AUDIT_FILE: audit_result,
+        BANK_SUPPORT_MANIFEST_DRAFT_FILE: audit_result['bank_support_manifest_draft'],
+        ANNUAL_SOURCE_INTAKE_BRIDGE_FILE: audit_result['annual_source_bridge'],
+    }
+    for file_name, file_payload in file_payloads.items():
+        (target_dir / file_name).write_text(_canonical_json(file_payload), encoding='utf-8')
+
+    return {
+        **package_manifest,
+        'output_dir': str(target_dir),
+        'package_manifest_file': str(target_dir / DOCUMENT_INTAKE_PACKAGE_MANIFEST),
+        'audit_file': str(target_dir / DOCUMENT_INTAKE_AUDIT_FILE),
+        'bank_support_manifest_file': str(target_dir / BANK_SUPPORT_MANIFEST_DRAFT_FILE),
+        'annual_source_bridge_file': str(target_dir / ANNUAL_SOURCE_INTAKE_BRIDGE_FILE),
+    }
+
+
+def verify_company_document_intake_package(
+    *,
+    payload: dict[str, Any],
+    package_dir: Any,
+) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        raise ValueError('payload debe ser un objeto JSON.')
+
+    expected_audit = audit_company_document_intake(payload=payload)
+    expected_manifest = _package_manifest_for(expected_audit)
+    expected_files = {
+        DOCUMENT_INTAKE_PACKAGE_MANIFEST,
+        DOCUMENT_INTAKE_AUDIT_FILE,
+        BANK_SUPPORT_MANIFEST_DRAFT_FILE,
+        ANNUAL_SOURCE_INTAKE_BRIDGE_FILE,
+    }
+    target_dir = Path(package_dir)
+    if not target_dir.exists() or not target_dir.is_dir():
+        raise ValueError('El directorio del paquete de intake documental no existe.')
+    entries = list(target_dir.iterdir())
+    if {entry.name for entry in entries if entry.is_file()} != expected_files:
+        raise ValueError('El paquete de intake documental contiene archivos no declarados.')
+    if any(not entry.is_file() for entry in entries):
+        raise ValueError('El paquete de intake documental contiene entradas no permitidas.')
+
+    manifest = _read_canonical_json(target_dir / DOCUMENT_INTAKE_PACKAGE_MANIFEST)
+    audit_payload = _read_canonical_json(target_dir / DOCUMENT_INTAKE_AUDIT_FILE)
+    bank_manifest = _read_canonical_json(target_dir / BANK_SUPPORT_MANIFEST_DRAFT_FILE)
+    annual_bridge = _read_canonical_json(target_dir / ANNUAL_SOURCE_INTAKE_BRIDGE_FILE)
+
+    if manifest != expected_manifest:
+        raise ValueError('El manifest del paquete de intake documental no coincide con el estado esperado.')
+    if audit_payload != expected_audit:
+        raise ValueError('La auditoria de intake documental no coincide con el estado esperado.')
+    if bank_manifest != expected_audit['bank_support_manifest_draft']:
+        raise ValueError('El manifiesto bancario/leasing derivado no coincide con el estado esperado.')
+    if annual_bridge != expected_audit['annual_source_bridge']:
+        raise ValueError('El puente anual derivado no coincide con el estado esperado.')
+    if manifest.get('package_hash') != _package_manifest_for(audit_payload)['package_hash']:
+        raise ValueError('El paquete de intake documental no coincide con su hash.')
+
+    boundary = manifest.get('boundary') or {}
+    if (
+        boundary.get('reads_real_documents') is not False
+        or boundary.get('stores_real_attachments') is not False
+        or boundary.get('uses_email_connector') is not False
+        or boundary.get('opens_bank_gate') is not False
+        or boundary.get('opens_sii_gate') is not False
+        or boundary.get('autonomous_accounting') is not False
+        or boundary.get('final_tax_calculation') is not False
+        or boundary.get('sii_submission') is not False
+        or boundary.get('requires_responsible_review') is not True
+    ):
+        raise ValueError('El paquete de intake documental rompe el boundary de revision responsable.')
+
+    return {
+        'verified': True,
+        'schema_version': manifest['schema_version'],
+        'package_hash': manifest['package_hash'],
+        'classification': manifest['classification'],
+        'ready_for_document_intake_review': manifest['ready_for_document_intake_review'],
+        'ready_for_bank_support_manifest': manifest['ready_for_bank_support_manifest'],
+        'ready_for_source_manifest_reconciliation': manifest['ready_for_source_manifest_reconciliation'],
+        'ready_for_productive_document_review': manifest['ready_for_productive_document_review'],
+        'summary': manifest['summary'],
+        'issue_counts': manifest['issue_counts'],
+        'files': manifest['files'],
+        'boundary': boundary,
+        'package_manifest_file': str(target_dir / DOCUMENT_INTAKE_PACKAGE_MANIFEST),
+        'audit_file': str(target_dir / DOCUMENT_INTAKE_AUDIT_FILE),
+        'bank_support_manifest_file': str(target_dir / BANK_SUPPORT_MANIFEST_DRAFT_FILE),
+        'annual_source_bridge_file': str(target_dir / ANNUAL_SOURCE_INTAKE_BRIDGE_FILE),
     }

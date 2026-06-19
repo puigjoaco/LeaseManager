@@ -8,7 +8,11 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import SimpleTestCase
 
-from core.company_document_intake import audit_company_document_intake
+from core.company_document_intake import (
+    audit_company_document_intake,
+    verify_company_document_intake_package,
+)
+from core.management.commands.materialize_company_document_intake import _safe_path_component
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 
 
@@ -230,3 +234,146 @@ class CompanyDocumentIntakeTests(SimpleTestCase):
 
             result = json.loads(output_path.read_text(encoding='utf-8'))
             self.assertTrue(result['ready_for_productive_document_review'])
+
+    def test_materialize_company_document_intake_command_writes_verified_package(self):
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+        manifest = _complete_manifest()
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            manifest_path = Path(temp_dir) / 'document-intake.json'
+            output_dir = Path(temp_dir) / 'company-document-intake-package'
+            manifest_path.write_text(json.dumps(manifest), encoding='utf-8')
+            stdout = StringIO()
+
+            call_command(
+                'materialize_company_document_intake',
+                manifest=str(manifest_path),
+                output_dir=str(output_dir),
+                stdout=stdout,
+            )
+
+            result = json.loads(stdout.getvalue())
+            verification = verify_company_document_intake_package(
+                payload=manifest,
+                package_dir=output_dir,
+            )
+
+            self.assertTrue(result['materialized'])
+            self.assertEqual(result['package_hash'], verification['package_hash'])
+            self.assertEqual(result['classification'], 'preparado')
+            self.assertTrue(result['ready_for_document_intake_review'])
+            self.assertTrue(result['ready_for_bank_support_manifest'])
+            self.assertTrue(result['ready_for_source_manifest_reconciliation'])
+            self.assertTrue(result['ready_for_productive_document_review'])
+            self.assertEqual(result['company_ref'], 'company-1')
+            self.assertEqual(result['fiscal_year'], 2025)
+            self.assertEqual(result['tax_year'], 2026)
+            self.assertGreater(result['documents_total'], 0)
+            self.assertFalse(result['reads_real_documents'])
+            self.assertFalse(result['stores_real_attachments'])
+            self.assertFalse(result['uses_email_connector'])
+            self.assertFalse(result['opens_bank_gate'])
+            self.assertFalse(result['opens_sii_gate'])
+            self.assertFalse(result['autonomous_accounting'])
+            self.assertFalse(result['final_tax_calculation'])
+            self.assertFalse(result['sii_submission'])
+            self.assertTrue(result['requires_responsible_review'])
+
+            for file_key in (
+                'package_manifest_file',
+                'audit_file',
+                'bank_support_manifest_file',
+                'annual_source_bridge_file',
+            ):
+                self.assertTrue((output_dir / result[file_key]).is_file())
+
+            rendered = stdout.getvalue()
+            for file_path in output_dir.iterdir():
+                rendered += file_path.read_text(encoding='utf-8')
+            self.assertNotIn('://', rendered)
+            self.assertNotIn('@', rendered)
+
+    def test_materialize_company_document_intake_rejects_nonempty_output_dir(self):
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            manifest_path = Path(temp_dir) / 'document-intake.json'
+            manifest_path.write_text(json.dumps(_complete_manifest()), encoding='utf-8')
+            output_dir = Path(temp_dir) / 'company-document-intake-package'
+            output_dir.mkdir()
+            stale_file = output_dir / 'stale.txt'
+            stale_file.write_text('previous document intake residue', encoding='utf-8')
+
+            with self.assertRaisesMessage(CommandError, 'debe estar vacio'):
+                call_command(
+                    'materialize_company_document_intake',
+                    manifest=str(manifest_path),
+                    output_dir=str(output_dir),
+                    stdout=StringIO(),
+                )
+
+            self.assertTrue(stale_file.exists())
+
+    def test_materialize_company_document_intake_rejects_versioned_repo_output(self):
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            manifest_path = Path(temp_dir) / 'document-intake.json'
+            manifest_path.write_text(json.dumps(_complete_manifest()), encoding='utf-8')
+            blocked_output = Path(settings.PROJECT_ROOT) / 'docs' / 'company-document-intake-package'
+
+            with self.assertRaisesMessage(CommandError, 'local-evidence'):
+                call_command(
+                    'materialize_company_document_intake',
+                    manifest=str(manifest_path),
+                    output_dir=str(blocked_output),
+                    stdout=StringIO(),
+                )
+
+            self.assertFalse(blocked_output.exists())
+
+    def test_materialize_company_document_intake_redacts_sensitive_manifest_values(self):
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+        manifest = _complete_manifest()
+        manifest['company_ref'] = '76.123.456-7'
+        manifest['source_batches'][0]['source_ref'] = 'https://mail.example.test/thread?token=secret'
+        manifest['documents'][0]['local_path'] = 'C:\\Users\\owner\\Downloads\\factura.pdf'
+        manifest['documents'][1]['password'] = 'last-six-rut-digits'
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            manifest_path = Path(temp_dir) / 'document-intake.json'
+            output_dir = Path(temp_dir) / 'company-document-intake-package'
+            manifest_path.write_text(json.dumps(manifest), encoding='utf-8')
+            stdout = StringIO()
+
+            call_command(
+                'materialize_company_document_intake',
+                manifest=str(manifest_path),
+                output_dir=str(output_dir),
+                stdout=stdout,
+            )
+
+            result = json.loads(stdout.getvalue())
+            self.assertEqual(result['classification'], 'parcial')
+            self.assertFalse(result['ready_for_productive_document_review'])
+            rendered = stdout.getvalue()
+            for file_path in output_dir.iterdir():
+                rendered += file_path.read_text(encoding='utf-8')
+            for sensitive_value in (
+                'https://mail.example.test',
+                'last-six-rut-digits',
+                '76.123.456-7',
+                'C:\\Users\\owner\\Downloads',
+            ):
+                self.assertNotIn(sensitive_value, rendered)
+            self.assertIn(REDACTED_SENSITIVE_REFERENCE, rendered)
+
+    def test_materialize_company_document_intake_default_path_component_redacts_sensitive_ref(self):
+        self.assertEqual(_safe_path_component('76.123.456-7'), 'sensitive-ref')
+        self.assertEqual(_safe_path_component('https://mail.example.test/thread'), 'sensitive-ref')
+        self.assertEqual(_safe_path_component('owner@example.test'), 'sensitive-ref')
+        self.assertEqual(_safe_path_component('Company 1'), 'company-1')

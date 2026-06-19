@@ -1153,6 +1153,14 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   como inputs, no lee adjuntos, no abre correos, banco ni SII, y conserva
   `autonomous_accounting=false`, `final_tax_calculation=false` y
   `sii_submission=false`.
+- `materialize_company_document_intake` escribe ese intake en una carpeta local
+  verificable con `company-document-intake-package.json`,
+  `company-document-intake-audit.json`,
+  `company-bank-support-coverage-manifest.json` y
+  `annual-tax-source-intake-bridge.json`. El paquete queda hasheado y reabrible
+  sin leer documentos reales, correos, banco, SII ni `.env`; el verificador
+  rechaza archivos extra o boundary roto antes de usarlo como insumo redactado
+  para revision responsable.
 - `build_company_accounting_review_package` y el comando
   `audit_company_accounting_review_package` unen el avance contable/renta por
   empresa/ano con la cobertura bancaria/leasing redactada. El paquete queda
