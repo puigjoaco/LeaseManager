@@ -11,7 +11,10 @@ from core.annual_tax_controlled_db_load import (
     CONTROLLED_DB_LOAD_SCHEMA_VERSION,
     FORBIDDEN_EXPECTED_OUTPUT_KEYS,
 )
-from core.annual_tax_controlled_package_template import CONTROLLED_DB_LOAD_TEMPLATE_SCHEMA_VERSION
+from core.annual_tax_controlled_package_template import (
+    CONTROLLED_DB_LOAD_TEMPLATE_SCHEMA_VERSION,
+    CONTROLLED_OWNERSHIP_REVIEW_HANDOFF_SCHEMA_VERSION,
+)
 from core.annual_tax_controlled_load_plan import COMPARISON_ONLY_CATEGORIES
 from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 from patrimonio.validators import validate_rut
@@ -52,6 +55,13 @@ def _decimal(value: Any) -> Decimal | None:
         return Decimal(str(value))
     except (InvalidOperation, ValueError):
         return None
+
+
+def _int_value(value: Any) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 def _date_value(value: Any) -> date | None:
@@ -225,6 +235,48 @@ def _validate_ownership_for_annual_generation(
         blockers.add('ownership_snapshot_invalid')
         _add_invalid(invalid_paths, '$.ownership.participants')
     return {'present': True, 'participants_count': valid_participants}
+
+
+def _ownership_review_handoff_summary(package: dict[str, Any], warnings: list[str]) -> dict[str, Any]:
+    review = package.get('ownership_review')
+    if review in (None, {}):
+        return {'present': False}
+    if not isinstance(review, dict):
+        warning = 'ownership_review_handoff_invalid'
+        if warning not in warnings:
+            warnings.append(warning)
+        return {'present': True, 'valid': False}
+
+    valid = review.get('schema_version') == CONTROLLED_OWNERSHIP_REVIEW_HANDOFF_SCHEMA_VERSION
+    if not valid:
+        warning = 'ownership_review_handoff_invalid'
+        if warning not in warnings:
+            warnings.append(warning)
+
+    ready_for_controlled_db_load = bool(review.get('ready_for_controlled_db_load'))
+    if ready_for_controlled_db_load and not isinstance(package.get('ownership'), dict):
+        warning = 'ownership_review_ready_requires_package_ownership'
+        if warning not in warnings:
+            warnings.append(warning)
+
+    return {
+        'present': True,
+        'valid': valid,
+        'source_checklist_hash_present': bool(str(review.get('source_checklist_hash') or '').strip()),
+        'reviewable_candidates_total': _int_value(review.get('reviewable_candidates_total')),
+        'rendered_candidates_total': _int_value(review.get('rendered_candidates_total')),
+        'validation_present': bool(review.get('validation_present')),
+        'participants_count': _int_value(review.get('participants_count')),
+        'blocking_items_total': _int_value(review.get('blocking_items_total')),
+        'validation_blockers': list(review.get('validation_blockers') or []),
+        'ready_for_manual_review': bool(review.get('ready_for_manual_review')),
+        'ready_for_controlled_db_load': ready_for_controlled_db_load,
+        'can_inject_ownership_into_controlled_package': bool(
+            review.get('can_inject_ownership_into_controlled_package')
+        ),
+        'next_action': str(review.get('next_action') or ''),
+        'replaces_ownership_snapshot': False,
+    }
 
 
 def _validate_labor_previsional_source(
@@ -437,6 +489,7 @@ def audit_annual_tax_controlled_package_readiness(*, payload: dict[str, Any]) ->
         invalid_paths=invalid_paths,
         blockers=blockers,
     )
+    ownership_review_summary = _ownership_review_handoff_summary(package, warnings)
 
     annual_refs = package.get('annual_input_source_refs')
     if not isinstance(annual_refs, dict) or not annual_refs.get('annual_ledger_input'):
@@ -510,6 +563,7 @@ def audit_annual_tax_controlled_package_readiness(*, payload: dict[str, Any]) ->
             'annual_generation_invalid_paths_count': len(annual_generation_invalid_paths),
             'comparison_targets_present': comparison_targets_present,
             'ownership_snapshot': ownership_summary,
+            'ownership_review_handoff': ownership_review_summary,
             'labor_previsional_source': labor_previsional_summary,
         },
         'safety': {

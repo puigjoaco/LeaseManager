@@ -7,10 +7,12 @@ from typing import Any
 
 from core.annual_tax_controlled_db_load import CONTROLLED_DB_LOAD_SCHEMA_VERSION
 from core.annual_tax_controlled_load_plan import CALCULATION_INPUT_CATEGORIES, COMPARISON_ONLY_CATEGORIES
+from core.annual_tax_ownership_review_checklist import OWNERSHIP_REVIEW_CHECKLIST_SCHEMA_VERSION
 from core.annual_tax_source_manifest import payload_hash
 
 
 CONTROLLED_DB_LOAD_TEMPLATE_SCHEMA_VERSION = 'annual-tax-controlled-db-load-template.v1'
+CONTROLLED_OWNERSHIP_REVIEW_HANDOFF_SCHEMA_VERSION = 'annual-tax-ownership-review-handoff.v1'
 MONTHS = tuple(range(1, 13))
 
 MONTHLY_INPUT_CATEGORIES = (
@@ -106,6 +108,96 @@ def _source_manifest_hash(manifest: dict[str, Any]) -> str:
     )
 
 
+def _int_value(value: Any) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _ownership_review_handoff(
+    *,
+    checklist: dict[str, Any] | None,
+    company_ref: str,
+    commercial_year: int,
+    tax_year: int,
+) -> dict[str, Any] | None:
+    if checklist is None:
+        return None
+    if not isinstance(checklist, dict):
+        raise ValueError('ownership_review_checklist JSON must be an object.')
+    if checklist.get('schema_version') != OWNERSHIP_REVIEW_CHECKLIST_SCHEMA_VERSION:
+        raise ValueError(
+            f'ownership_review_checklist.schema_version debe ser {OWNERSHIP_REVIEW_CHECKLIST_SCHEMA_VERSION}.'
+        )
+    if str(checklist.get('company_ref') or '').strip() != company_ref:
+        raise ValueError('ownership_review_checklist.company_ref no coincide con el manifiesto.')
+    if _int_value(checklist.get('commercial_year')) != commercial_year:
+        raise ValueError('ownership_review_checklist.commercial_year no coincide con el manifiesto.')
+    if _int_value(checklist.get('tax_year')) != tax_year:
+        raise ValueError('ownership_review_checklist.tax_year no coincide con el manifiesto.')
+
+    summary = checklist.get('summary') if isinstance(checklist.get('summary'), dict) else {}
+    validation_summary = (
+        checklist.get('validation_summary') if isinstance(checklist.get('validation_summary'), dict) else {}
+    )
+    decision = checklist.get('decision') if isinstance(checklist.get('decision'), dict) else {}
+    checklist_items = [
+        item
+        for item in (checklist.get('checklist_items') or [])
+        if isinstance(item, dict)
+    ]
+    blocking_item_keys = [
+        str(item.get('key') or '').strip()
+        for item in checklist_items
+        if str(item.get('status') or '').strip() != 'ready' and str(item.get('key') or '').strip()
+    ]
+    validation_blockers = [
+        str(blocker or '').strip()
+        for blocker in (validation_summary.get('blockers') or [])
+        if str(blocker or '').strip()
+    ]
+    ready_for_controlled_db_load = bool(summary.get('ready_for_controlled_db_load'))
+    return {
+        'schema_version': CONTROLLED_OWNERSHIP_REVIEW_HANDOFF_SCHEMA_VERSION,
+        'source_checklist_hash': payload_hash(
+            {
+                'schema_version': checklist.get('schema_version'),
+                'company_ref': checklist.get('company_ref'),
+                'commercial_year': checklist.get('commercial_year'),
+                'tax_year': checklist.get('tax_year'),
+                'source_template_hash': checklist.get('source_template_hash'),
+                'summary': summary,
+                'validation_summary': validation_summary,
+                'checklist_items': checklist_items,
+            }
+        ),
+        'reviewable_candidates_total': _int_value(summary.get('reviewable_candidates_total')),
+        'rendered_candidates_total': _int_value(summary.get('rendered_candidates_total')),
+        'validation_present': bool(summary.get('validation_present')),
+        'participants_count': _int_value(summary.get('participants_count')),
+        'percentage_total': str(summary.get('percentage_total') or '0.00'),
+        'blocking_items_total': _int_value(summary.get('blocking_items_total')),
+        'blocking_item_keys': blocking_item_keys,
+        'validation_blockers': validation_blockers,
+        'ready_for_manual_review': bool(summary.get('ready_for_manual_review')),
+        'ready_for_controlled_db_load': ready_for_controlled_db_load,
+        'can_inject_ownership_into_controlled_package': bool(
+            decision.get('can_inject_ownership_into_controlled_package')
+        ),
+        'next_action': (
+            'inject_validated_ownership_snapshot_into_package_ownership'
+            if ready_for_controlled_db_load
+            else 'complete_validated_ownership_patch_before_package_ownership'
+        ),
+        'writes_database': False,
+        'stores_source_paths': False,
+        'stores_person_names': False,
+        'stores_rut_values': False,
+        'auto_generates_ownership': False,
+    }
+
+
 def _package_month(
     *,
     company_ref: str,
@@ -153,7 +245,11 @@ def _package_month(
     }
 
 
-def build_annual_tax_controlled_db_load_template(*, manifest: dict[str, Any]) -> dict[str, Any]:
+def build_annual_tax_controlled_db_load_template(
+    *,
+    manifest: dict[str, Any],
+    ownership_review_checklist: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     if not isinstance(manifest, dict):
         raise ValueError('Manifest JSON must be an object.')
 
@@ -180,6 +276,12 @@ def build_annual_tax_controlled_db_load_template(*, manifest: dict[str, Any]) ->
     comparison_targets = _comparison_refs(grouped)
     annual_inputs = _annual_refs(grouped)
     labor_previsional = _labor_previsional_section(coverage=coverage, grouped=grouped)
+    ownership_review = _ownership_review_handoff(
+        checklist=ownership_review_checklist,
+        company_ref=company_ref,
+        commercial_year=commercial_year,
+        tax_year=tax_year,
+    )
     monthly_input_refs_complete = all(not months for months in missing_months_by_category.values())
     annual_ledger_refs_complete = bool(annual_inputs.get('annual_ledger_input'))
     package_draft = {
@@ -204,6 +306,8 @@ def build_annual_tax_controlled_db_load_template(*, manifest: dict[str, Any]) ->
             for month in MONTHS
         ],
     }
+    if ownership_review is not None:
+        package_draft['ownership_review'] = ownership_review
 
     input_categories_present = sorted(
         category
@@ -215,6 +319,21 @@ def build_annual_tax_controlled_db_load_template(*, manifest: dict[str, Any]) ->
         for category in COMPARISON_ONLY_CATEGORIES
         if grouped.get(category)
     )
+
+    manual_completion_required = [
+        'Revisar/transcribir totales mensuales de Libro Diario y Libro Mayor desde fuente AC2024 controlada.',
+        'Revisar/transcribir BalanceComprobacion mensual cuadrado desde fuente AC2024 controlada.',
+        'Completar obligaciones mensuales PPM/F29 desde fuente AC2024 controlada.',
+        'Completar fuente laboral/previsional mensual si aplica a DJ1887/remuneraciones.',
+        'Completar labor_previsional.source_ref con una referencia no sensible si DJ1887/remuneraciones aplica.',
+        'Reemplazar responsible_ref y approval_ref pendientes por referencias no sensibles antes de aplicar writer.',
+    ]
+    if ownership_review is not None:
+        manual_completion_required.append(
+            'Inyectar snapshot package.ownership solo despues de validar el patch ownership controlado.'
+            if ownership_review['ready_for_controlled_db_load']
+            else 'Completar patch ownership controlado antes de crear package.ownership.'
+        )
 
     return {
         'schema_version': CONTROLLED_DB_LOAD_TEMPLATE_SCHEMA_VERSION,
@@ -245,17 +364,20 @@ def build_annual_tax_controlled_db_load_template(*, manifest: dict[str, Any]) ->
             'labor_previsional_required': labor_previsional['required'],
             'labor_previsional_source_present': bool(labor_previsional['source_refs']),
             'labor_previsional_required_by_ddjj_forms': labor_previsional['required_by_ddjj_forms'],
+            'ownership_review_present': ownership_review is not None,
+            'ownership_review_ready_for_manual_review': bool(
+                ownership_review and ownership_review['ready_for_manual_review']
+            ),
+            'ownership_review_ready_for_controlled_db_load': bool(
+                ownership_review and ownership_review['ready_for_controlled_db_load']
+            ),
+            'ownership_review_rendered_candidates_total': (
+                ownership_review['rendered_candidates_total'] if ownership_review else 0
+            ),
             'ready_for_writer': False,
             'reason_not_ready_for_writer': 'manual_values_required',
         },
-        'manual_completion_required': [
-            'Revisar/transcribir totales mensuales de Libro Diario y Libro Mayor desde fuente AC2024 controlada.',
-            'Revisar/transcribir BalanceComprobacion mensual cuadrado desde fuente AC2024 controlada.',
-            'Completar obligaciones mensuales PPM/F29 desde fuente AC2024 controlada.',
-            'Completar fuente laboral/previsional mensual si aplica a DJ1887/remuneraciones.',
-            'Completar labor_previsional.source_ref con una referencia no sensible si DJ1887/remuneraciones aplica.',
-            'Reemplazar responsible_ref y approval_ref pendientes por referencias no sensibles antes de aplicar writer.',
-        ],
+        'manual_completion_required': manual_completion_required,
         'package_draft': package_draft,
         'comparison_targets': comparison_targets,
     }

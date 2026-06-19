@@ -35,6 +35,21 @@ def _validate_output_path(output_path: Path) -> None:
         ) from error
 
 
+def _load_optional_json(path_option: str) -> dict | None:
+    if not path_option:
+        return None
+    path = _resolve_path(path_option)
+    if not path.exists() or not path.is_file():
+        raise CommandError(f'No existe JSON opcional: {path}')
+    try:
+        payload = json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, json.JSONDecodeError) as error:
+        raise CommandError(f'No se pudo leer JSON opcional: {error}') from error
+    if not isinstance(payload, dict):
+        raise CommandError(f'JSON opcional debe ser objeto: {path}')
+    return payload
+
+
 class Command(BaseCommand):
     help = (
         'Construye un template seguro para completar una carga DB local AC/AT; '
@@ -43,6 +58,11 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--manifest', required=True, help='JSON de build_annual_tax_source_manifest.')
+        parser.add_argument(
+            '--ownership-review-checklist',
+            default='',
+            help='JSON annual-tax-ownership-review-checklist.v1 para adjuntar handoff ownership redactado.',
+        )
         parser.add_argument('--output', default='', help='Ruta opcional para escribir JSON del template.')
         parser.add_argument(
             '--fail-on-incomplete',
@@ -62,10 +82,14 @@ class Command(BaseCommand):
 
         try:
             manifest = load_manifest_json(manifest_path.read_text(encoding='utf-8'))
+            ownership_review_checklist = _load_optional_json(options.get('ownership_review_checklist') or '')
         except (OSError, ValueError, json.JSONDecodeError) as error:
             raise CommandError(f'Manifest invalido: {error}') from error
 
-        template = build_annual_tax_controlled_db_load_template(manifest=manifest)
+        template = build_annual_tax_controlled_db_load_template(
+            manifest=manifest,
+            ownership_review_checklist=ownership_review_checklist,
+        )
         rendered = json.dumps(template, indent=2, ensure_ascii=True)
         if output_path is not None:
             output_path.parent.mkdir(parents=True, exist_ok=True)

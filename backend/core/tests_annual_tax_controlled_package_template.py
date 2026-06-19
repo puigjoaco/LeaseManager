@@ -7,7 +7,11 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import SimpleTestCase
 
-from core.annual_tax_controlled_package_template import build_annual_tax_controlled_db_load_template
+from core.annual_tax_controlled_package_template import (
+    CONTROLLED_OWNERSHIP_REVIEW_HANDOFF_SCHEMA_VERSION,
+    build_annual_tax_controlled_db_load_template,
+)
+from core.annual_tax_ownership_review_checklist import OWNERSHIP_REVIEW_CHECKLIST_SCHEMA_VERSION
 from core.annual_tax_source_manifest import build_annual_tax_source_manifest
 
 
@@ -58,6 +62,48 @@ class AnnualTaxControlledPackageTemplateTests(SimpleTestCase):
             commercial_year=2024,
             tax_year=2025,
         )
+
+    def _ownership_review_checklist(self, *, ready=False) -> dict:
+        return {
+            'schema_version': OWNERSHIP_REVIEW_CHECKLIST_SCHEMA_VERSION,
+            'company_ref': 'inmobiliaria-puig',
+            'commercial_year': 2024,
+            'tax_year': 2025,
+            'source_template_hash': 'b' * 64,
+            'summary': {
+                'reviewable_candidates_total': 10,
+                'rendered_candidates_total': 10,
+                'validation_present': ready,
+                'participants_count': 2 if ready else 0,
+                'percentage_total': '100.00' if ready else '0.00',
+                'blocking_items_total': 0 if ready else 3,
+                'ready_for_manual_review': True,
+                'ready_for_controlled_db_load': ready,
+            },
+            'validation_summary': {
+                'blockers': [] if ready else ['ownership_patch_validation_missing'],
+            },
+            'candidate_review_queue': [
+                {
+                    'candidate_ref_hash': 'c' * 64,
+                    'source_path': 'legal/Socio Controlado Uno/constitucion.pdf',
+                    'person_name': 'Socio Controlado Uno',
+                }
+            ],
+            'checklist_items': [
+                {
+                    'key': 'participants_completed_from_legal_review',
+                    'status': 'ready' if ready else 'pending',
+                },
+                {
+                    'key': 'participants_total_percentage_100',
+                    'status': 'ready' if ready else 'pending',
+                },
+            ],
+            'decision': {
+                'can_inject_ownership_into_controlled_package': ready,
+            },
+        }
 
     def test_template_builds_writer_draft_without_using_expected_outputs_as_inputs(self):
         with TemporaryDirectory() as temp_dir:
@@ -140,18 +186,46 @@ class AnnualTaxControlledPackageTemplateTests(SimpleTestCase):
         self.assertEqual(february['f29']['estado_preparacion'], 'no_aplica')
         self.assertTrue(february['f29']['resumen']['no_declaration'])
 
+    def test_template_attaches_redacted_ownership_review_handoff(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            self._build_complete_source_tree(source_root)
+            manifest = self._manifest(source_root)
+
+        template = build_annual_tax_controlled_db_load_template(
+            manifest=manifest,
+            ownership_review_checklist=self._ownership_review_checklist(),
+        )
+        rendered = json.dumps(template, ensure_ascii=True)
+        handoff = template['package_draft']['ownership_review']
+
+        self.assertEqual(handoff['schema_version'], CONTROLLED_OWNERSHIP_REVIEW_HANDOFF_SCHEMA_VERSION)
+        self.assertEqual(handoff['reviewable_candidates_total'], 10)
+        self.assertEqual(handoff['rendered_candidates_total'], 10)
+        self.assertFalse(handoff['ready_for_controlled_db_load'])
+        self.assertIn('ownership_patch_validation_missing', handoff['validation_blockers'])
+        self.assertTrue(template['summary']['ownership_review_present'])
+        self.assertTrue(template['summary']['ownership_review_ready_for_manual_review'])
+        self.assertFalse(template['summary']['ownership_review_ready_for_controlled_db_load'])
+        self.assertNotIn('candidate_review_queue', rendered)
+        self.assertNotIn('legal/Socio Controlado Uno/constitucion.pdf', rendered)
+        self.assertNotIn('Socio Controlado Uno', rendered)
+
     def test_command_outputs_template_and_refuses_versioned_output_outside_local_evidence(self):
         with TemporaryDirectory() as temp_dir:
             source_root = Path(temp_dir) / 'source'
             source_root.mkdir()
             self._build_complete_source_tree(source_root)
             manifest_path = Path(temp_dir) / 'manifest.json'
+            checklist_path = Path(temp_dir) / 'ownership-checklist.json'
             manifest_path.write_text(json.dumps(self._manifest(source_root)), encoding='utf-8')
+            checklist_path.write_text(json.dumps(self._ownership_review_checklist(ready=True)), encoding='utf-8')
             stdout = StringIO()
 
             call_command(
                 'build_annual_tax_controlled_db_load_template',
                 manifest=str(manifest_path),
+                ownership_review_checklist=str(checklist_path),
                 fail_on_incomplete=True,
                 stdout=stdout,
             )
@@ -160,6 +234,7 @@ class AnnualTaxControlledPackageTemplateTests(SimpleTestCase):
             self.assertEqual(result['schema_version'], 'annual-tax-controlled-db-load-template.v1')
             self.assertFalse(result['safety']['writes_database'])
             self.assertFalse(result['package_draft']['expected_outputs_used_as_inputs'])
+            self.assertTrue(result['package_draft']['ownership_review']['ready_for_controlled_db_load'])
 
             with self.assertRaisesMessage(CommandError, 'local-evidence'):
                 call_command(
