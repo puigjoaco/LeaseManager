@@ -3,6 +3,7 @@ from datetime import date
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from django.conf import settings
 from django.core.management import call_command
@@ -568,6 +569,85 @@ class CompanyAccountingReviewPackageTests(TestCase):
             self.assertIn('company_accounting_review.bank_support_company_ref_mismatch', rendered)
             self.assertIn('company_bank_support.sensitive_reference', rendered)
 
+    def test_audit_command_missing_manifest_error_does_not_echo_sensitive_path(self):
+        empresa = self._create_empresa()
+
+        with TemporaryDirectory() as temp_dir:
+            missing_path = Path(temp_dir) / 'Socio Controlado Uno 11111111-1.json'
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'audit_company_accounting_review_package',
+                    empresa_id=empresa.id,
+                    fiscal_year=2025,
+                    bank_support_manifest=str(missing_path),
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No existe manifest JSON o no es un archivo legible.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+
+    def test_audit_command_read_error_does_not_echo_sensitive_path(self):
+        empresa = self._create_empresa()
+        manifest = _complete_bank_manifest(empresa=empresa)
+
+        with TemporaryDirectory() as temp_dir:
+            manifest_path = Path(temp_dir) / 'Socio Controlado Uno 11111111-1.json'
+            manifest_path.write_text(json.dumps(manifest), encoding='utf-8')
+
+            with patch.object(
+                Path,
+                'read_text',
+                side_effect=OSError('D:/Privado/Socio Controlado Uno 11111111-1/bank-support.json'),
+            ):
+                with self.assertRaises(CommandError) as error:
+                    call_command(
+                        'audit_company_accounting_review_package',
+                        empresa_id=empresa.id,
+                        fiscal_year=2025,
+                        bank_support_manifest=str(manifest_path),
+                        stdout=StringIO(),
+                    )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No se pudo leer manifest JSON.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+            self.assertNotIn('D:/Privado', rendered_error)
+
+    def test_audit_command_write_error_does_not_echo_sensitive_path(self):
+        empresa = self._create_empresa()
+        manifest = _complete_bank_manifest(empresa=empresa)
+
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            manifest_path = temp_root / 'bank-support-manifest.json'
+            output_path = temp_root / 'Socio Controlado Uno 11111111-1' / 'review-package.json'
+            manifest_path.write_text(json.dumps(manifest), encoding='utf-8')
+
+            with patch.object(
+                Path,
+                'write_text',
+                side_effect=OSError('D:/Privado/Socio Controlado Uno 11111111-1/review-package.json'),
+            ):
+                with self.assertRaises(CommandError) as error:
+                    call_command(
+                        'audit_company_accounting_review_package',
+                        empresa_id=empresa.id,
+                        fiscal_year=2025,
+                        bank_support_manifest=str(manifest_path),
+                        output=str(output_path),
+                        stdout=StringIO(),
+                    )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No se pudo escribir paquete de revision contable/renta.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+            self.assertNotIn('D:/Privado', rendered_error)
+
     def test_materialize_company_accounting_review_package_command_writes_verified_package(self):
         empresa = self._create_empresa()
         self._prepare_complete_accounting_layers(empresa)
@@ -749,3 +829,90 @@ class CompanyAccountingReviewPackageTests(TestCase):
                 self.assertNotIn(sensitive_value, stdout.getvalue())
                 self.assertNotIn(sensitive_value, manifest_rendered)
             self.assertIn(REDACTED_SENSITIVE_REFERENCE, manifest_rendered)
+
+    def test_materialize_command_missing_manifest_error_does_not_echo_sensitive_path(self):
+        empresa = self._create_empresa()
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            missing_path = Path(temp_dir) / 'Socio Controlado Uno 11111111-1.json'
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'materialize_company_accounting_review_package',
+                    empresa_id=empresa.id,
+                    fiscal_year=2025,
+                    bank_support_manifest=str(missing_path),
+                    output_dir=str(Path(temp_dir) / 'company-accounting-review-package'),
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No existe manifest JSON o no es un archivo legible.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+
+    def test_materialize_command_read_error_does_not_echo_sensitive_path(self):
+        empresa = self._create_empresa()
+        manifest = _complete_bank_manifest(empresa=empresa)
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            temp_root = Path(temp_dir)
+            manifest_path = temp_root / 'Socio Controlado Uno 11111111-1.json'
+            manifest_path.write_text(json.dumps(manifest), encoding='utf-8')
+
+            with patch.object(
+                Path,
+                'read_text',
+                side_effect=OSError('D:/Privado/Socio Controlado Uno 11111111-1/bank-support.json'),
+            ):
+                with self.assertRaises(CommandError) as error:
+                    call_command(
+                        'materialize_company_accounting_review_package',
+                        empresa_id=empresa.id,
+                        fiscal_year=2025,
+                        bank_support_manifest=str(manifest_path),
+                        output_dir=str(temp_root / 'company-accounting-review-package'),
+                        stdout=StringIO(),
+                    )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No se pudo leer manifest JSON.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+            self.assertNotIn('D:/Privado', rendered_error)
+
+    def test_materialize_command_write_error_does_not_echo_sensitive_path(self):
+        empresa = self._create_empresa()
+        manifest = _complete_bank_manifest(empresa=empresa)
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            temp_root = Path(temp_dir)
+            manifest_path = temp_root / 'bank-support-manifest.json'
+            manifest_path.write_text(json.dumps(manifest), encoding='utf-8')
+
+            with patch.object(
+                Path,
+                'write_text',
+                side_effect=OSError('D:/Privado/Socio Controlado Uno 11111111-1/review-package.json'),
+            ):
+                with self.assertRaises(CommandError) as error:
+                    call_command(
+                        'materialize_company_accounting_review_package',
+                        empresa_id=empresa.id,
+                        fiscal_year=2025,
+                        bank_support_manifest=str(manifest_path),
+                        output_dir=str(temp_root / 'Socio Controlado Uno 11111111-1'),
+                        stdout=StringIO(),
+                    )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No se pudo escribir/verificar paquete contable/renta.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+            self.assertNotIn('D:/Privado', rendered_error)

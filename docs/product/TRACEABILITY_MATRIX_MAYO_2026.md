@@ -198,6 +198,13 @@ bancario/leasing redactado y conserva `autonomous_accounting=false`,
 `final_tax_calculation=false`, `sii_submission=false` y
 `requires_responsible_review=true`; no lee adjuntos reales, banco, SII ni `.env`.
 
+Nota 2026-06-19: `audit_company_accounting_review_package` y
+`materialize_company_accounting_review_package` redactan errores de archivo. Si
+el manifest bancario/leasing falta, no puede leerse, o el paquete no puede
+escribirse/verificarse, el CLI responde sin rutas locales completas, nombres ni
+RUTs. Asi el review package que alimenta preguntas responsables no convierte
+stdout/logs en superficie de PII.
+
 Nota 2026-06-18: Etapa 6/Renta Anual separa el codigo de certificacion F22 del
 candidato local. `build_annual_tax_f22_fixed_width_export_candidate()` ahora
 requiere fuente no sensible, responsable revisor y estado de revision para los

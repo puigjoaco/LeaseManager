@@ -1234,6 +1234,10 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   documentos reales, no abre banco ni SII y no declara contabilidad final:
   solo permite pasar a revision productiva responsable con evidencia no
   sensible.
+  Los comandos `audit_company_accounting_review_package` y
+  `materialize_company_accounting_review_package` redactan errores de archivo:
+  manifest bancario faltante, lectura fallida o escritura/verificacion fallida
+  no devuelven rutas locales completas con nombres, RUTs o carpetas privadas.
 - `materialize_company_accounting_review_package` escribe ese mismo paquete en
   una carpeta local verificable con manifest canonico
   `company-accounting-review-package.json`. El writer y verificador rechazan

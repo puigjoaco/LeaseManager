@@ -58,7 +58,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         manifest_path = _resolve_path(options['bank_support_manifest'])
         if not manifest_path.exists() or not manifest_path.is_file():
-            raise CommandError(f'No existe manifest JSON: {manifest_path}')
+            raise CommandError('No existe manifest JSON o no es un archivo legible.')
 
         output_path = None
         if options['output']:
@@ -67,8 +67,10 @@ class Command(BaseCommand):
 
         try:
             bank_support_payload = json.loads(manifest_path.read_text(encoding='utf-8'))
-        except (OSError, json.JSONDecodeError) as error:
-            raise CommandError(f'Manifest invalido: {error}') from error
+        except json.JSONDecodeError as error:
+            raise CommandError(f'Manifest JSON invalido: line {error.lineno}, column {error.colno}.') from error
+        except OSError as error:
+            raise CommandError('No se pudo leer manifest JSON.') from error
         if not isinstance(bank_support_payload, dict):
             raise CommandError('Manifest invalido: la raiz debe ser un objeto JSON.')
 
@@ -89,8 +91,11 @@ class Command(BaseCommand):
 
         rendered = json.dumps(result, indent=2, ensure_ascii=True, default=str)
         if output_path is not None:
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(rendered, encoding='utf-8')
+            try:
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text(rendered, encoding='utf-8')
+            except OSError as error:
+                raise CommandError('No se pudo escribir paquete de revision contable/renta.') from error
         else:
             self.stdout.write(rendered)
 

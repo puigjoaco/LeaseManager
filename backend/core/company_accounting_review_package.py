@@ -246,8 +246,12 @@ def verify_company_accounting_review_package(
     manifest_path = target_dir / COMPANY_ACCOUNTING_REVIEW_PACKAGE_MANIFEST
     try:
         manifest_payload = json.loads(manifest_path.read_text(encoding='utf-8'))
-    except (OSError, json.JSONDecodeError) as error:
-        raise ValueError(f'No se pudo leer manifest del paquete de revision contable/renta: {error}') from error
+    except json.JSONDecodeError as error:
+        raise ValueError(
+            f'Manifest del paquete de revision contable/renta invalido: line {error.lineno}, column {error.colno}.'
+        ) from error
+    except OSError as error:
+        raise ValueError('No se pudo leer manifest del paquete de revision contable/renta.') from error
     if manifest_payload != expected:
         raise ValueError('El paquete de revision contable/renta no coincide con el estado esperado.')
     if manifest_payload.get('package_hash') != _canonical_hash(_package_hash_payload(manifest_payload)):
