@@ -382,6 +382,16 @@ codigos libres no canonicos. Esto reemplaza pendientes dispersos en chat por
 un artefacto local bajo `local-evidence/`, sin leer documentos reales, abrir
 banco/SII, escribir DB ni declarar contabilidad/renta final.
 
+Nota 2026-06-19: `materialize_company_accounting_responsible_answers`
+materializa la revision de respuestas responsables contra el paquete de
+preguntas. El payload `company-accounting-responsible-answers.v1` solo acepta
+refs no sensibles para responsable, decision, evidencia y siguiente accion;
+bloquea preguntas desconocidas, duplicadas o faltantes, refs sensibles y campos
+de texto libre tanto en el payload como en cada respuesta. El manifest
+`company-accounting-responsible-answers-review.json` guarda hashes y estados de
+decision, no respuestas crudas ni PII, y mantiene cerrados calculo tributario
+final, revision productiva y presentacion SII.
+
 Nota 2026-06-16: `build_annual_tax_controlled_values_draft` ya materializa
 `real_estate_support` como `package.real_estate`: registro estructurado de
 bienes raices, codigos internos estables, tipo de inmueble, evidencia por

@@ -1,0 +1,185 @@
+import json
+from io import StringIO
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+from django.core.management import call_command
+from django.core.management.base import CommandError
+from django.test import SimpleTestCase, override_settings
+
+from core.company_accounting_responsible_answers import (
+    COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_MANIFEST,
+    COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_REVIEW_SCHEMA_VERSION,
+    COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_SCHEMA_VERSION,
+    validate_company_accounting_responsible_answers,
+)
+from core.company_accounting_responsible_questions import build_company_accounting_responsible_questions
+
+
+class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
+    def _questions_packet(self) -> dict:
+        return build_company_accounting_responsible_questions(
+            source_payloads={
+                'ownership_validation': {
+                    'schema_version': 'annual-tax-ownership-patch-validation.v1',
+                    'company_ref': 'company-1',
+                    'commercial_year': 2025,
+                    'tax_year': 2026,
+                    'blockers': ['ownership_patch_missing'],
+                },
+                'bank_support_coverage': {
+                    'schema_version': 'company-bank-support-coverage-manifest.v1',
+                    'company_ref': 'company-1',
+                    'fiscal_year': 2025,
+                    'tax_year': 2026,
+                    'issues': [{'code': 'company_bank_support.bank_confirmation_missing', 'severity': 'blocking'}],
+                },
+            },
+            company_ref='company-1',
+            fiscal_year=2025,
+            tax_year=2026,
+        )
+
+    def _answers_payload(self, packet: dict) -> dict:
+        return {
+            'schema_version': COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_SCHEMA_VERSION,
+            'company_ref': packet['company_ref'],
+            'fiscal_year': packet['fiscal_year'],
+            'tax_year': packet['tax_year'],
+            'responsible_ref': 'responsible-review-ac2025-at2026',
+            'decision_ref': 'responsible-decisions-ac2025-at2026-v1',
+            'evidence_ref': 'responsible-evidence-ac2025-at2026-v1',
+            'answers': [
+                {
+                    'question_key': question['key'],
+                    'decision_state': 'respondido',
+                    'evidence_ref': f'evidence-{index}',
+                    'next_action_ref': f'next-action-{index}',
+                }
+                for index, question in enumerate(packet['questions'], start=1)
+            ],
+        }
+
+    def test_validates_complete_answers_without_storing_raw_text(self):
+        packet = self._questions_packet()
+        review = validate_company_accounting_responsible_answers(
+            questions_packet=packet,
+            answers_payload=self._answers_payload(packet),
+        )
+        rendered = json.dumps(review, ensure_ascii=True)
+
+        self.assertEqual(review['schema_version'], COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_REVIEW_SCHEMA_VERSION)
+        self.assertTrue(review['summary']['ready_for_responsible_decision_handoff'])
+        self.assertFalse(review['summary']['ready_for_productive_accounting_review'])
+        self.assertFalse(review['summary']['final_tax_calculation'])
+        self.assertFalse(review['summary']['sii_submission'])
+        self.assertEqual(review['summary']['questions_total'], len(packet['questions']))
+        self.assertEqual(review['summary']['answers_total'], len(packet['questions']))
+        self.assertEqual(review['summary']['blocking_issues_total'], 0)
+        self.assertTrue(all(not answer['raw_text_stored'] for answer in review['answers']))
+        self.assertNotIn('answer_text', rendered)
+
+    def test_missing_answers_are_blocking_when_complete_required(self):
+        packet = self._questions_packet()
+        answers = self._answers_payload(packet)
+        answers['answers'] = answers['answers'][:1]
+
+        review = validate_company_accounting_responsible_answers(
+            questions_packet=packet,
+            answers_payload=answers,
+        )
+        issue_codes = {issue['code'] for issue in review['issues']}
+
+        self.assertFalse(review['summary']['ready_for_responsible_decision_handoff'])
+        self.assertEqual(review['summary']['missing_questions_total'], len(packet['questions']) - 1)
+        self.assertIn('responsible_answers.questions_unanswered', issue_codes)
+
+    def test_unknown_or_sensitive_references_are_blocking_without_leaking_values(self):
+        packet = self._questions_packet()
+        answers = self._answers_payload(packet)
+        answers['responsible_ref'] = 'responsable 11111111-1'
+        answers['answers'][0]['question_key'] = 'ownership.unknown'
+        answers['answers'][1]['evidence_ref'] = 'D:/Privado/Socio Controlado Uno 11111111-1.pdf'
+
+        review = validate_company_accounting_responsible_answers(
+            questions_packet=packet,
+            answers_payload=answers,
+            require_complete=False,
+        )
+        rendered = json.dumps(review, ensure_ascii=True)
+        issue_codes = {issue['code'] for issue in review['issues']}
+
+        self.assertIn('responsible_answers.responsible_ref_invalid', issue_codes)
+        self.assertIn('responsible_answers.question_key_unknown', issue_codes)
+        self.assertIn('responsible_answers.evidence_ref_invalid', issue_codes)
+        self.assertNotIn('Socio Controlado Uno', rendered)
+        self.assertNotIn('11111111-1', rendered)
+        self.assertNotIn('D:/Privado', rendered)
+
+    def test_raw_answer_text_fields_are_blocking_and_not_persisted(self):
+        packet = self._questions_packet()
+        answers = self._answers_payload(packet)
+        answers['notes'] = 'No copiar decision privada con RUT 11111111-1'
+        answers['answers'][0]['answer_text'] = 'No copiar Socio Controlado Uno 11111111-1'
+
+        review = validate_company_accounting_responsible_answers(
+            questions_packet=packet,
+            answers_payload=answers,
+        )
+        rendered = json.dumps(review, ensure_ascii=True)
+        issue_codes = {issue['code'] for issue in review['issues']}
+
+        self.assertFalse(review['summary']['ready_for_responsible_decision_handoff'])
+        self.assertIn('responsible_answers.raw_text_field_not_allowed', issue_codes)
+        self.assertEqual(review['summary']['blocking_issues_total'], 2)
+        self.assertNotIn('Socio Controlado Uno', rendered)
+        self.assertNotIn('11111111-1', rendered)
+
+    def test_command_materializes_answers_review_with_safe_stdout(self):
+        packet = self._questions_packet()
+        answers = self._answers_payload(packet)
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            questions_path = temp_root / 'questions.json'
+            answers_path = temp_root / 'answers.json'
+            output_dir = temp_root / 'answers-review'
+            questions_path.write_text(json.dumps(packet), encoding='utf-8')
+            answers_path.write_text(json.dumps(answers), encoding='utf-8')
+            stdout = StringIO()
+
+            call_command(
+                'materialize_company_accounting_responsible_answers',
+                questions_packet=str(questions_path),
+                answers=str(answers_path),
+                output_dir=str(output_dir),
+                stdout=stdout,
+            )
+
+            summary = json.loads(stdout.getvalue())
+            manifest = json.loads((output_dir / COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_MANIFEST).read_text())
+            self.assertEqual(summary['schema_version'], COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_REVIEW_SCHEMA_VERSION)
+            self.assertEqual(summary['answers_total'], len(packet['questions']))
+            self.assertTrue(summary['ready_for_responsible_decision_handoff'])
+            self.assertEqual(manifest['summary']['answers_total'], len(packet['questions']))
+
+    def test_command_rejects_repo_output_outside_local_evidence(self):
+        packet = self._questions_packet()
+        answers = self._answers_payload(packet)
+        with TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / 'repo'
+            docs_dir = repo_root / 'docs'
+            docs_dir.mkdir(parents=True)
+            questions_path = repo_root / 'questions.json'
+            answers_path = repo_root / 'answers.json'
+            questions_path.write_text(json.dumps(packet), encoding='utf-8')
+            answers_path.write_text(json.dumps(answers), encoding='utf-8')
+
+            with override_settings(PROJECT_ROOT=str(repo_root)):
+                with self.assertRaisesMessage(CommandError, 'local-evidence'):
+                    call_command(
+                        'materialize_company_accounting_responsible_answers',
+                        questions_packet=str(questions_path),
+                        answers=str(answers_path),
+                        output_dir=str(docs_dir / 'answers-review'),
+                        stdout=StringIO(),
+                    )
