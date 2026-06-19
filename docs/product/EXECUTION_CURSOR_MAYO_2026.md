@@ -25,18 +25,18 @@ nueva.
 
 | Campo | Valor |
 | --- | --- |
-| Frente activo | `codex/company-intake-package-handoff`. |
-| Fuente exacta | `main` en `744a790f`, despues del merge confirmado de PR #936 `codex/company-document-intake-materializer`. |
-| Brecha activa | El intake documental ya se materializa como carpeta local, pero el siguiente flujo contable/renta aun necesita poder reabrir esa carpeta desde disco, verificar hashes/boundary sin depender del manifest original ni del chat, y tomar de ahi el manifiesto bancario/leasing derivado. |
-| Motivo de prioridad | La revision contable/renta debe encadenar evidencia portable: intake materializado -> manifiesto bancario/leasing derivado -> paquete contable/renta. Esto evita pegar JSON sueltos, reinyectar contexto o confiar en narrativa previa, y mantiene la frontera de revision responsable. |
-| Worktree | `D:/Proyectos/LeaseManager-company-intake-package-handoff`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
-| Rama | `codex/company-intake-package-handoff`. |
-| Estado | Paquete en ejecucion: agregar verificacion desde disco de `company-document-intake-package`, rechazar tamper/archivos extra/JSON no canonico/boundary roto y permitir que `materialize_company_accounting_review_package` consuma `--document-intake-package-dir` como fuente verificada del manifiesto bancario/leasing. |
-| Gate esperado | Este paquete usa solo fixtures, SQLite efimero y paquetes redactados locales bajo `local-evidence`. No lee `.env`, DB real, documentos reales, correos, adjuntos, banco, SII autenticado, EDIG ejecutable ni integraciones; no declara contabilidad autonoma, calculo tributario final ni presentacion SII. |
-| Estado al cerrar paquete | Si `main` contiene el merge de este frente y la rama/worktree ya no existe, no reabrirlo ni repetir PR/CI/merge. El siguiente frente debe tomar el handoff verificado o continuar la carga contable/renta segura. |
-| Bloqueos relacionados | Carga productiva real, documentos completos reales, manifest real redactado/autorizado, lectura de correos/adjuntos, respaldo bancario/leasing revisado archivo por archivo, formato/certificacion F22/DDJJ aplicable, contenido tributario final y presentacion SII siguen bloqueados por responsable tributario, autorizacion explicita y evidencia no sensible. |
-| Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable, correos ni integraciones externas sin autorizacion explicita. Un intake preparado solo habilita revision y carga controlada; nunca contabilidad autonoma ni presentacion automatica. |
-| Siguiente accion | En rama tactica abierta: completar validaciones proporcionales, ampliar evidencia, cerrar con commit, PR, CI remoto, merge y limpieza. En `main` post-merge: no reabrir este paquete; tomar el siguiente frente seguro de contabilidad/renta. |
+| Frente activo | `codex/ownership-visual-index-checklist`. |
+| Fuente exacta | `main` en `45d1e98e`, despues del merge confirmado de PR #937 `codex/company-intake-package-handoff`. |
+| Brecha activa | Inmobiliaria Puig AC2025/AT2026 ya tiene template ownership y un indice visual local con candidatos societarios renderizados, pero `build_annual_tax_ownership_review_checklist` solo contaba el paquete visual canonico y dejaba esos candidatos como no renderizados. |
+| Motivo de prioridad | Ownership/vigencia es bloqueo real para cargar el paquete anual y liberar RLI/CPT/RAI/SAC, DJ1948/F22 o dossier controlado. El checklist debe reflejar evidencia visual existente sin copiar rutas, nombres, RUTs ni archivos sensibles al repo. |
+| Worktree | `D:/Proyectos/LeaseManager-ownership-visual-index-checklist`. Existe worktree historico pausado `C:/Users/puigj/.codex/worktrees/b2d9/LeaseManager` en rama `codex/thread-019ea306-rescue`; no tocar, no stagear y no subir sus PDFs/artefactos salvo decision explicita. |
+| Rama | `codex/ownership-visual-index-checklist`. |
+| Estado | Paquete en ejecucion: permitir que el checklist ownership consuma `ownership-visual-index.v1`, contar paginas renderizadas ya existentes y conservar salida redactada. En la evidencia local AC2025/AT2026 el checklist queda con 10 candidatos y 10 renderizados, pero `ready_for_controlled_db_load=false` por falta de patch validado de participantes. |
+| Gate esperado | Este paquete usa fixtures, SQLite efimero y artefactos locales bajo `local-evidence`. No lee `.env`, DB real, SII real, banco, EDIG ejecutable, correos ni integraciones; no declara ownership final, contabilidad final, calculo tributario final ni presentacion SII. |
+| Estado al cerrar paquete | Si `main` contiene el merge de este frente y la rama/worktree ya no existe, no reabrirlo ni repetir PR/CI/merge. El siguiente frente debe completar el patch/snapshot ownership controlado o seguir la carga contable/renta con estado observado. |
+| Bloqueos relacionados | Snapshot ownership final, participantes vigentes al 31-12-2025, Banco Chile certificado/cartola formal 31-12-2025, formato/certificacion F22/DDJJ aplicable, contenido tributario final y presentacion SII siguen bloqueados por responsable tributario, autorizacion explicita y evidencia no sensible. |
+| Politica de reanudacion | No usar `.env`, secretos, DB real, produccion, SII real, EDIG ejecutable, correos ni integraciones externas sin autorizacion explicita. Un checklist observado solo habilita revision/OCR responsable; nunca genera socios, porcentajes, calculo final ni presentacion automatica. |
+| Siguiente accion | En rama tactica abierta: completar validaciones proporcionales, ampliar evidencia, cerrar con commit, PR, CI remoto, merge y limpieza. En `main` post-merge: no reabrir este paquete; tomar el patch ownership controlado o la carga contable/renta observada como siguiente frente. |
 
 ## Actualizacion
 

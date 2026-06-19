@@ -10,6 +10,7 @@ from core.annual_tax_source_manifest import payload_hash
 
 
 OWNERSHIP_REVIEW_CHECKLIST_SCHEMA_VERSION = 'annual-tax-ownership-review-checklist.v1'
+OWNERSHIP_VISUAL_INDEX_SCHEMA_VERSION = 'ownership-visual-index.v1'
 
 
 def _hash_value(value: Any) -> str:
@@ -23,6 +24,14 @@ def _candidate_key(candidate: dict[str, Any]) -> str:
 def _visual_index(visual_packet: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
     if not isinstance(visual_packet, dict):
         return {}
+    if visual_packet.get('schema_version') == OWNERSHIP_VISUAL_INDEX_SCHEMA_VERSION:
+        return {
+            str(item.get('path_ref') or ''): {
+                'rendered_pages': list(item.get('rendered_pages') or []),
+            }
+            for item in visual_packet.get('records') or []
+            if isinstance(item, dict) and item.get('path_ref')
+        }
     return {
         str(item.get('path_ref') or ''): item
         for item in visual_packet.get('items') or []
@@ -105,9 +114,13 @@ def build_annual_tax_ownership_review_checklist(
         raise ValueError(f'template.schema_version debe ser {OWNERSHIP_SNAPSHOT_TEMPLATE_SCHEMA_VERSION}.')
     if (
         isinstance(visual_packet, dict)
-        and visual_packet.get('schema_version') != OWNERSHIP_VISUAL_REVIEW_PACKET_SCHEMA_VERSION
+        and visual_packet.get('schema_version')
+        not in {OWNERSHIP_VISUAL_REVIEW_PACKET_SCHEMA_VERSION, OWNERSHIP_VISUAL_INDEX_SCHEMA_VERSION}
     ):
-        raise ValueError(f'visual_packet.schema_version debe ser {OWNERSHIP_VISUAL_REVIEW_PACKET_SCHEMA_VERSION}.')
+        raise ValueError(
+            'visual_packet.schema_version debe ser '
+            f'{OWNERSHIP_VISUAL_REVIEW_PACKET_SCHEMA_VERSION} o {OWNERSHIP_VISUAL_INDEX_SCHEMA_VERSION}.'
+        )
 
     candidates = _reviewable_candidates(template=template, visual_packet=visual_packet)
     validation_state = _validation_summary(validation)

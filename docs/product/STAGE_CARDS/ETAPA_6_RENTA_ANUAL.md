@@ -163,13 +163,15 @@ la arquitectura esta lista para recibir ownership controlado, pero no inventa
 socios, RUTs ni porcentajes desde F22/DDJJ, registros finales o inferencia.
 `build_annual_tax_ownership_review_checklist` consolida el siguiente paso sin
 exponer PII: combina template, reporte de validacion redactado y paquete visual
-opcional en una cola de revision con candidatos hasheados, conteos de paginas
-renderizadas, items pendientes y decision de readiness. La corrida real local
-AC2024/AT2025 queda `ready_for_manual_review=true`, con 10 candidatos y 10
-candidatos renderizados, pero `ready_for_controlled_db_load=false` por
-`ownership_patch_missing` y `participants_count=0`. Esto fija la accion
-correcta: completar participantes bajo `local-evidence/` desde revision/OCR
-legal controlada, no desde outputs finales ni memoria del chat.
+canonico o `ownership-visual-index.v1` local en una cola de revision con
+candidatos hasheados, conteos de paginas renderizadas, items pendientes y
+decision de readiness. La corrida real local AC2025/AT2026 queda
+`ready_for_manual_review=true`, con 10 candidatos y 10 candidatos renderizados,
+pero `ready_for_controlled_db_load=false` por
+`ownership_patch_validation_missing`, `participants_count=0` y falta de patch
+validado. Esto fija la accion correcta: completar participantes bajo
+`local-evidence/` desde revision/OCR legal controlada, no desde outputs finales
+ni memoria del chat.
 `build_annual_tax_controlled_load_plan` traduce ese manifiesto a un plan de
 carga contra modelos canonicos de LeaseManager sin escribir DB: cierres,
 libros, balance, obligaciones, F29, hechos mensuales y balance tributario
