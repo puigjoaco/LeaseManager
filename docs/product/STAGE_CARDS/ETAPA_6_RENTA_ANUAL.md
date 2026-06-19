@@ -202,6 +202,12 @@ repo, debe estar bajo `local-evidence/`; el comando falla en directorios no
 vacios, no imprime nombres/RUTs ni rutas de candidatos, no lee documentos
 reales y no escribe DB. El patch privado completado sigue fuera de Git y debe
 pasar por `validate_annual_tax_ownership_patch` antes de inyectarse.
+Tambien puede recibir `company-accounting-responsible-answers-review.json`
+redactado y reducirlo a resumen hasheado dentro del manifest: presente/listo,
+conteos, categorias, estados de decision e issue codes, sin copiar refs
+individuales ni respuestas crudas. Si las respuestas responsables siguen
+pendientes, el workbench conserva `responsible_answers_ready=false` para no
+confundir el borrador privado con revision completa.
 `inject_annual_tax_ownership_patch_into_controlled_package` cierra ese puente:
 toma un paquete/template controlado, el template ownership y un patch local ya
 validado, reejecuta `validate_annual_tax_ownership_patch`, inyecta

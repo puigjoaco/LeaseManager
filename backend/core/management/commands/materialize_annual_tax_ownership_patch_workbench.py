@@ -86,6 +86,11 @@ class Command(BaseCommand):
         parser.add_argument('--template', required=True, help='JSON annual-tax-ownership-snapshot-template.v1.')
         parser.add_argument('--checklist', default='', help='JSON annual-tax-ownership-review-checklist.v1 opcional.')
         parser.add_argument(
+            '--responsible-answers-review',
+            default='',
+            help='JSON company-accounting-responsible-answers-review.v1 opcional y redactado.',
+        )
+        parser.add_argument(
             '--output-dir',
             default='',
             help='Directorio destino. Si queda dentro del repo debe estar bajo local-evidence/.',
@@ -107,6 +112,12 @@ class Command(BaseCommand):
         checklist = None
         if options.get('checklist'):
             checklist = _read_json(_resolve_path(options['checklist']), label='checklist')
+        responsible_answers_review = None
+        if options.get('responsible_answers_review'):
+            responsible_answers_review = _read_json(
+                _resolve_path(options['responsible_answers_review']),
+                label='responsible_answers_review',
+            )
 
         output_dir = _resolve_path(options['output_dir']) if options.get('output_dir') else _default_output_dir(template)
         _validate_output_dir(output_dir)
@@ -115,6 +126,7 @@ class Command(BaseCommand):
             workbench = build_annual_tax_ownership_patch_workbench(
                 template=template,
                 checklist=checklist,
+                responsible_answers_review=responsible_answers_review,
                 responsible_ref=options['responsible_ref'],
                 approval_ref=options['approval_ref'],
             )
@@ -134,6 +146,8 @@ class Command(BaseCommand):
             'draft_ready_for_manual_completion': manifest['summary']['draft_ready_for_manual_completion'],
             'reviewable_candidates_total': manifest['summary']['reviewable_candidates_total'],
             'rendered_candidates_total': manifest['summary']['rendered_candidates_total'],
+            'responsible_answers_present': manifest['summary']['responsible_answers_present'],
+            'responsible_answers_ready': manifest['summary']['responsible_answers_ready'],
             'questions_total': manifest['summary']['questions_total'],
             'private_questions_total': manifest['summary']['private_questions_total'],
             'writes_database': False,

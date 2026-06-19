@@ -8,6 +8,9 @@ from typing import Any
 from core.annual_tax_ownership_patch_validator import OWNERSHIP_CONTROLLED_PATCH_SCHEMA_VERSION
 from core.annual_tax_ownership_review_checklist import OWNERSHIP_REVIEW_CHECKLIST_SCHEMA_VERSION
 from core.annual_tax_ownership_snapshot_template import OWNERSHIP_SNAPSHOT_TEMPLATE_SCHEMA_VERSION
+from core.company_accounting_responsible_answers import (
+    COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_REVIEW_SCHEMA_VERSION,
+)
 from core.annual_tax_source_manifest import payload_hash
 
 
@@ -98,6 +101,86 @@ def _checklist_summary(checklist: dict[str, Any] | None, *, context: tuple[str, 
     }
 
 
+def _safe_int(value: Any) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _responsible_answers_summary(
+    responsible_answers_review: dict[str, Any] | None,
+    *,
+    context: tuple[str, int, int],
+) -> dict[str, Any]:
+    if responsible_answers_review is None:
+        return {
+            'present': False,
+            'hash': '',
+            'questions_total': 0,
+            'answers_total': 0,
+            'missing_questions_total': 0,
+            'blocking_issues_total': 0,
+            'decision_states': {},
+            'categories': {},
+            'issue_codes': [],
+            'ready_for_responsible_decision_handoff': False,
+        }
+    if responsible_answers_review.get('schema_version') != COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_REVIEW_SCHEMA_VERSION:
+        raise ValueError(
+            f'responsible_answers_review.schema_version debe ser '
+            f'{COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_REVIEW_SCHEMA_VERSION}.'
+        )
+    company_ref, commercial_year, tax_year = context
+    if str(responsible_answers_review.get('company_ref') or '') != company_ref:
+        raise ValueError('responsible_answers_review.company_ref no coincide con template.company_ref.')
+    if _safe_int(responsible_answers_review.get('fiscal_year')) != commercial_year:
+        raise ValueError('responsible_answers_review.fiscal_year no coincide con template.commercial_year.')
+    if _safe_int(responsible_answers_review.get('tax_year')) != tax_year:
+        raise ValueError('responsible_answers_review.tax_year no coincide con template.tax_year.')
+
+    summary = responsible_answers_review.get('summary') if isinstance(responsible_answers_review.get('summary'), dict) else {}
+    issues = responsible_answers_review.get('issues') if isinstance(responsible_answers_review.get('issues'), list) else []
+    decision_states = summary.get('decision_states') if isinstance(summary.get('decision_states'), dict) else {}
+    categories = summary.get('categories') if isinstance(summary.get('categories'), dict) else {}
+    issue_codes = sorted(
+        str(issue.get('code') or '').strip()
+        for issue in issues
+        if isinstance(issue, dict) and str(issue.get('code') or '').strip()
+    )
+    fingerprint = {
+        'schema_version': responsible_answers_review.get('schema_version'),
+        'company_ref': responsible_answers_review.get('company_ref'),
+        'fiscal_year': responsible_answers_review.get('fiscal_year'),
+        'tax_year': responsible_answers_review.get('tax_year'),
+        'questions_packet_hash': responsible_answers_review.get('questions_packet_hash'),
+        'summary': {
+            'questions_total': _safe_int(summary.get('questions_total')),
+            'answers_total': _safe_int(summary.get('answers_total')),
+            'missing_questions_total': _safe_int(summary.get('missing_questions_total')),
+            'blocking_issues_total': _safe_int(summary.get('blocking_issues_total')),
+            'decision_states': dict(sorted(decision_states.items())),
+            'categories': dict(sorted(categories.items())),
+            'ready_for_responsible_decision_handoff': bool(
+                summary.get('ready_for_responsible_decision_handoff')
+            ),
+        },
+        'issue_codes': issue_codes,
+    }
+    return {
+        'present': True,
+        'hash': payload_hash(fingerprint),
+        'questions_total': fingerprint['summary']['questions_total'],
+        'answers_total': fingerprint['summary']['answers_total'],
+        'missing_questions_total': fingerprint['summary']['missing_questions_total'],
+        'blocking_issues_total': fingerprint['summary']['blocking_issues_total'],
+        'decision_states': fingerprint['summary']['decision_states'],
+        'categories': fingerprint['summary']['categories'],
+        'issue_codes': issue_codes,
+        'ready_for_responsible_decision_handoff': fingerprint['summary']['ready_for_responsible_decision_handoff'],
+    }
+
+
 def _patch_draft(
     *,
     template: dict[str, Any],
@@ -176,6 +259,7 @@ def build_annual_tax_ownership_patch_workbench(
     *,
     template: dict[str, Any],
     checklist: dict[str, Any] | None = None,
+    responsible_answers_review: dict[str, Any] | None = None,
     responsible_ref: str = 'pending-responsible-review',
     approval_ref: str = 'pending-approval',
 ) -> dict[str, Any]:
@@ -188,6 +272,10 @@ def build_annual_tax_ownership_patch_workbench(
 
     company_ref, commercial_year, tax_year = _context_from_template(template)
     checklist_summary = _checklist_summary(checklist, context=(company_ref, commercial_year, tax_year))
+    responsible_answers_summary = _responsible_answers_summary(
+        responsible_answers_review,
+        context=(company_ref, commercial_year, tax_year),
+    )
     patch_draft = _patch_draft(
         template=template,
         responsible_ref=responsible_ref,
@@ -202,6 +290,7 @@ def build_annual_tax_ownership_patch_workbench(
         'tax_year': tax_year,
         'source_template_hash': _template_hash(template),
         'checklist_hash': checklist_summary['hash'],
+        'responsible_answers_review_hash': responsible_answers_summary['hash'],
         'files': {
             'manifest': OWNERSHIP_PATCH_WORKBENCH_MANIFEST_FILENAME,
             'private_patch_draft': OWNERSHIP_PATCH_DRAFT_PRIVATE_FILENAME,
@@ -214,11 +303,15 @@ def build_annual_tax_ownership_patch_workbench(
             'checklist_ready_for_manual_review': checklist_summary['ready_for_manual_review'],
             'checklist_ready_for_controlled_db_load': checklist_summary['ready_for_controlled_db_load'],
             'checklist_blocking_items_total': checklist_summary['blocking_items_total'],
+            'responsible_answers_present': responsible_answers_summary['present'],
+            'responsible_answers_ready': responsible_answers_summary['ready_for_responsible_decision_handoff'],
+            'responsible_answers_blocking_issues_total': responsible_answers_summary['blocking_issues_total'],
             'patch_participants_count': len(patch_draft['ownership'].get('participants') or []),
             'questions_total': len(questions),
             'private_questions_total': sum(1 for item in questions if item['store_only_in_private_patch']),
         },
         'checklist_summary': checklist_summary,
+        'responsible_answers_summary': responsible_answers_summary,
         'review_questions': questions,
         'safety': {
             'writes_database': False,
@@ -238,8 +331,12 @@ def build_annual_tax_ownership_patch_workbench(
         },
         'decision': {
             'ready_for_manual_patch_completion': True,
+            'responsible_answers_ready_for_patch_completion': responsible_answers_summary[
+                'ready_for_responsible_decision_handoff'
+            ],
             'ready_for_controlled_db_load': False,
             'next_actions': [
+                'Completar y validar company-accounting-responsible-answers si responsible_answers_ready=false.',
                 'Completar ownership-patch-draft.private.json solo bajo local-evidence/ o ruta externa controlada.',
                 'No versionar el patch privado completado porque puede contener nombres y RUTs.',
                 'Ejecutar validate_annual_tax_ownership_patch sobre el patch completado.',

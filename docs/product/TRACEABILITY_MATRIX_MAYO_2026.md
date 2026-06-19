@@ -401,6 +401,14 @@ validador trata `pendiente` como bloqueante, evitando que un template sin
 revision se confunda con handoff listo, contabilidad/renta final o presentacion
 SII.
 
+Nota 2026-06-19: `materialize_annual_tax_ownership_patch_workbench` acepta ahora
+un `company-accounting-responsible-answers-review.json` redactado. El workbench
+lo valida contra company/AC/AT del template ownership y guarda solo resumen
+hasheado: presencia, readiness, conteos, categorias, estados e issue codes, sin
+copiar refs individuales ni respuestas crudas. Si las respuestas siguen
+pendientes, el manifest marca `responsible_answers_ready=false`; el patch privado
+continua fuera de Git y sigue requiriendo validacion antes de inyectar ownership.
+
 Nota 2026-06-16: `build_annual_tax_controlled_values_draft` ya materializa
 `real_estate_support` como `package.real_estate`: registro estructurado de
 bienes raices, codigos internos estables, tipo de inmueble, evidencia por
