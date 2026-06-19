@@ -335,6 +335,15 @@ archivos sensibles; conserva `ready_for_controlled_db_load=false` mientras falte
 100.00. Esto mejora la cola real de revision ownership sin declarar snapshot
 final, calculo tributario ni presentacion SII.
 
+Nota 2026-06-19: `build_annual_tax_controlled_db_load_template` acepta un
+`annual-tax-ownership-review-checklist.v1` opcional y lo reduce a
+`package_draft.ownership_review` como handoff no sensible: hash, conteos,
+blockers y siguiente accion. `audit_annual_tax_controlled_package_readiness`
+expone ese handoff en `summary.ownership_review_handoff`, pero sigue exigiendo
+`package.ownership` para `ready_for_annual_generation`. Asi AC2025/AT2026 puede
+arrastrar el estado real de revision ownership hacia el paquete controlado sin
+inventar socios, porcentajes, RUTs ni cierre anual.
+
 Nota 2026-06-16: `build_annual_tax_controlled_values_draft` ya materializa
 `real_estate_support` como `package.real_estate`: registro estructurado de
 bienes raices, codigos internos estables, tipo de inmueble, evidencia por

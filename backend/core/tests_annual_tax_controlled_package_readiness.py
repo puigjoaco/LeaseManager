@@ -9,7 +9,10 @@ from django.test import SimpleTestCase
 
 from core.annual_tax_controlled_db_load import CONTROLLED_DB_LOAD_SCHEMA_VERSION
 from core.annual_tax_controlled_package_readiness import audit_annual_tax_controlled_package_readiness
-from core.annual_tax_controlled_package_template import build_annual_tax_controlled_db_load_template
+from core.annual_tax_controlled_package_template import (
+    CONTROLLED_OWNERSHIP_REVIEW_HANDOFF_SCHEMA_VERSION,
+    build_annual_tax_controlled_db_load_template,
+)
 from core.annual_tax_source_manifest import build_annual_tax_source_manifest
 
 
@@ -77,6 +80,31 @@ class AnnualTaxControlledPackageReadinessTests(SimpleTestCase):
                     'evidence_ref': 'ownership-evidence-controlled-two',
                 },
             ],
+        }
+
+    def _ownership_review_handoff(self, *, ready=True):
+        return {
+            'schema_version': CONTROLLED_OWNERSHIP_REVIEW_HANDOFF_SCHEMA_VERSION,
+            'source_checklist_hash': 'b' * 64,
+            'reviewable_candidates_total': 10,
+            'rendered_candidates_total': 10,
+            'validation_present': ready,
+            'participants_count': 2 if ready else 0,
+            'percentage_total': '100.00' if ready else '0.00',
+            'blocking_items_total': 0 if ready else 3,
+            'blocking_item_keys': [] if ready else ['participants_completed_from_legal_review'],
+            'validation_blockers': [] if ready else ['ownership_patch_validation_missing'],
+            'ready_for_manual_review': True,
+            'ready_for_controlled_db_load': ready,
+            'can_inject_ownership_into_controlled_package': ready,
+            'next_action': 'inject_validated_ownership_snapshot_into_package_ownership'
+            if ready
+            else 'complete_validated_ownership_patch_before_package_ownership',
+            'writes_database': False,
+            'stores_source_paths': False,
+            'stores_person_names': False,
+            'stores_rut_values': False,
+            'auto_generates_ownership': False,
         }
 
     def _complete_package(self, *, f29_no_aplica_months=(), include_ownership=True):
@@ -224,6 +252,22 @@ class AnnualTaxControlledPackageReadinessTests(SimpleTestCase):
         self.assertIn('ownership_snapshot_missing', result['annual_generation_blockers'])
         self.assertIn('$.ownership', result['annual_generation_missing_paths'])
         self.assertFalse(result['summary']['ownership_snapshot']['present'])
+        self.assertFalse(result['summary']['ownership_review_handoff']['present'])
+
+    def test_ownership_review_handoff_does_not_replace_controlled_snapshot(self):
+        package = self._complete_package(include_ownership=False)
+        package['ownership_review'] = self._ownership_review_handoff(ready=True)
+
+        result = audit_annual_tax_controlled_package_readiness(payload=package)
+
+        self.assertTrue(result['ready_for_db_writer'])
+        self.assertFalse(result['ready_for_annual_generation'])
+        self.assertIn('ownership_snapshot_missing', result['annual_generation_blockers'])
+        self.assertIn('ownership_review_ready_requires_package_ownership', result['warnings'])
+        self.assertFalse(result['summary']['ownership_snapshot']['present'])
+        self.assertTrue(result['summary']['ownership_review_handoff']['present'])
+        self.assertTrue(result['summary']['ownership_review_handoff']['ready_for_controlled_db_load'])
+        self.assertFalse(result['summary']['ownership_review_handoff']['replaces_ownership_snapshot'])
 
     def test_invalid_ownership_snapshot_blocks_annual_generation_only(self):
         package = self._complete_package()

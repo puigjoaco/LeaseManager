@@ -186,6 +186,13 @@ entrada y `comparison_targets`, y deja los valores contables/tributarios vacios
 para parser o carga manual controlada. No escribe DB ni convierte outputs
 esperados en insumos. Los meses F29 marcados en el manifiesto como sin
 declaracion quedan modelados como `no_aplica`, no como documento faltante.
+El template tambien puede recibir un
+`annual-tax-ownership-review-checklist.v1` y transportar solo un
+`ownership_review` redactado: hash del checklist, conteos de candidatos,
+paginas renderizadas, participantes reportados, blockers y siguiente accion.
+Ese handoff no incluye cola visual, rutas, nombres ni RUTs, no reemplaza
+`package.ownership` y no habilita `ready_for_annual_generation`; solo deja
+trazado que falta inyectar un snapshot ownership validado.
 `apply_annual_tax_controlled_db_load` materializa ese paquete normalizado en DB
 local/controlada solo con `--apply`: crea o actualiza cierres mensuales,
 LibroDiario, LibroMayor, BalanceComprobacion, obligaciones, F29 y
@@ -213,6 +220,10 @@ que no faltan meses y que existen objetivos de comparacion, pero mantiene
 draft real post revision laboral completa, `ready_for_db_writer=true` y
 `ready_for_annual_generation=false` por `ownership_snapshot_missing`. Febrero y
 diciembre F29 `no_aplica` no cuentan como faltantes.
+Cuando existe `ownership_review`, el auditor lo expone como
+`ownership_review_handoff` y advierte si esta listo para inyeccion pero aun no
+existe `package.ownership`; no lo usa como fuente societaria ni como permiso
+para generar el mirror anual.
 `build_annual_tax_controlled_values_draft` completa ese paquete desde fuentes
 AC2024 permitidas y read-only: Libro Diario, Libro Mayor, Libro Inventario, F29,
 libros de remuneraciones y soporte de bienes raices. La corrida real de
