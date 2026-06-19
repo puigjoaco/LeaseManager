@@ -161,9 +161,13 @@ def _canonical_json(payload: Any) -> str:
 
 def _read_canonical_json(path: Path) -> Any:
     try:
-        return json.loads(path.read_text(encoding='utf-8'))
+        raw_content = path.read_text(encoding='utf-8')
+        payload = json.loads(raw_content)
     except (OSError, json.JSONDecodeError) as error:
         raise ValueError(f'No se pudo leer JSON canonico en {path.name}: {error}') from error
+    if raw_content != _canonical_json(payload):
+        raise ValueError(f'JSON no canonico en {path.name}.')
+    return payload
 
 
 def _prepare_clean_output_dir(output_dir: Any) -> Path:
@@ -174,6 +178,15 @@ def _prepare_clean_output_dir(output_dir: Any) -> Path:
         raise ValueError('El directorio destino del paquete de intake documental debe estar vacio.')
     target_dir.mkdir(parents=True, exist_ok=True)
     return target_dir
+
+
+def _expected_package_files() -> set[str]:
+    return {
+        DOCUMENT_INTAKE_PACKAGE_MANIFEST,
+        DOCUMENT_INTAKE_AUDIT_FILE,
+        BANK_SUPPORT_MANIFEST_DRAFT_FILE,
+        ANNUAL_SOURCE_INTAKE_BRIDGE_FILE,
+    }
 
 
 def _classification(*, documents_total: int, blocking_issues: list[dict[str, Any]]) -> str:
@@ -946,17 +959,11 @@ def verify_company_document_intake_package(
 
     expected_audit = audit_company_document_intake(payload=payload)
     expected_manifest = _package_manifest_for(expected_audit)
-    expected_files = {
-        DOCUMENT_INTAKE_PACKAGE_MANIFEST,
-        DOCUMENT_INTAKE_AUDIT_FILE,
-        BANK_SUPPORT_MANIFEST_DRAFT_FILE,
-        ANNUAL_SOURCE_INTAKE_BRIDGE_FILE,
-    }
     target_dir = Path(package_dir)
     if not target_dir.exists() or not target_dir.is_dir():
         raise ValueError('El directorio del paquete de intake documental no existe.')
     entries = list(target_dir.iterdir())
-    if {entry.name for entry in entries if entry.is_file()} != expected_files:
+    if {entry.name for entry in entries if entry.is_file()} != _expected_package_files():
         raise ValueError('El paquete de intake documental contiene archivos no declarados.')
     if any(not entry.is_file() for entry in entries):
         raise ValueError('El paquete de intake documental contiene entradas no permitidas.')
@@ -1004,6 +1011,86 @@ def verify_company_document_intake_package(
         'issue_counts': manifest['issue_counts'],
         'files': manifest['files'],
         'boundary': boundary,
+        'package_manifest_file': str(target_dir / DOCUMENT_INTAKE_PACKAGE_MANIFEST),
+        'audit_file': str(target_dir / DOCUMENT_INTAKE_AUDIT_FILE),
+        'bank_support_manifest_file': str(target_dir / BANK_SUPPORT_MANIFEST_DRAFT_FILE),
+        'annual_source_bridge_file': str(target_dir / ANNUAL_SOURCE_INTAKE_BRIDGE_FILE),
+    }
+
+
+def verify_company_document_intake_package_from_disk(*, package_dir: Any) -> dict[str, Any]:
+    target_dir = Path(package_dir)
+    if not target_dir.exists() or not target_dir.is_dir():
+        raise ValueError('El directorio del paquete de intake documental no existe.')
+    entries = list(target_dir.iterdir())
+    if {entry.name for entry in entries if entry.is_file()} != _expected_package_files():
+        raise ValueError('El paquete de intake documental contiene archivos no declarados.')
+    if any(not entry.is_file() for entry in entries):
+        raise ValueError('El paquete de intake documental contiene entradas no permitidas.')
+
+    manifest = _read_canonical_json(target_dir / DOCUMENT_INTAKE_PACKAGE_MANIFEST)
+    audit_payload = _read_canonical_json(target_dir / DOCUMENT_INTAKE_AUDIT_FILE)
+    bank_manifest = _read_canonical_json(target_dir / BANK_SUPPORT_MANIFEST_DRAFT_FILE)
+    annual_bridge = _read_canonical_json(target_dir / ANNUAL_SOURCE_INTAKE_BRIDGE_FILE)
+
+    if manifest.get('schema_version') != DOCUMENT_INTAKE_PACKAGE_SCHEMA_VERSION:
+        raise ValueError('El manifest del paquete de intake documental tiene version no soportada.')
+    if manifest.get('source_schema_version') != DOCUMENT_INTAKE_SCHEMA_VERSION:
+        raise ValueError('El manifest del paquete de intake documental no apunta al schema de intake soportado.')
+    if audit_payload.get('schema_version') != DOCUMENT_INTAKE_SCHEMA_VERSION:
+        raise ValueError('La auditoria de intake documental tiene version no soportada.')
+
+    expected_manifest = _package_manifest_for(audit_payload)
+    if manifest != expected_manifest:
+        raise ValueError('El manifest del paquete de intake documental no coincide con la auditoria incluida.')
+    if bank_manifest != audit_payload.get('bank_support_manifest_draft'):
+        raise ValueError('El manifiesto bancario/leasing derivado no coincide con la auditoria incluida.')
+    if annual_bridge != audit_payload.get('annual_source_bridge'):
+        raise ValueError('El puente anual derivado no coincide con la auditoria incluida.')
+    if manifest.get('package_hash') != expected_manifest['package_hash']:
+        raise ValueError('El paquete de intake documental no coincide con su hash.')
+
+    payload_by_file = {
+        DOCUMENT_INTAKE_AUDIT_FILE: audit_payload,
+        BANK_SUPPORT_MANIFEST_DRAFT_FILE: bank_manifest,
+        ANNUAL_SOURCE_INTAKE_BRIDGE_FILE: annual_bridge,
+    }
+    for file_spec in manifest.get('files') or []:
+        file_name = file_spec.get('file')
+        if file_name not in payload_by_file:
+            raise ValueError('El manifest del paquete de intake documental declara un archivo no permitido.')
+        if file_spec.get('payload_hash') != payload_hash(payload_by_file[file_name]):
+            raise ValueError(f'Hash desalineado en {file_name}.')
+
+    boundary = manifest.get('boundary') or {}
+    if (
+        boundary.get('reads_real_documents') is not False
+        or boundary.get('stores_real_attachments') is not False
+        or boundary.get('uses_email_connector') is not False
+        or boundary.get('opens_bank_gate') is not False
+        or boundary.get('opens_sii_gate') is not False
+        or boundary.get('autonomous_accounting') is not False
+        or boundary.get('final_tax_calculation') is not False
+        or boundary.get('sii_submission') is not False
+        or boundary.get('requires_responsible_review') is not True
+    ):
+        raise ValueError('El paquete de intake documental rompe el boundary de revision responsable.')
+
+    return {
+        'verified': True,
+        'schema_version': manifest['schema_version'],
+        'package_hash': manifest['package_hash'],
+        'classification': manifest['classification'],
+        'ready_for_document_intake_review': manifest['ready_for_document_intake_review'],
+        'ready_for_bank_support_manifest': manifest['ready_for_bank_support_manifest'],
+        'ready_for_source_manifest_reconciliation': manifest['ready_for_source_manifest_reconciliation'],
+        'ready_for_productive_document_review': manifest['ready_for_productive_document_review'],
+        'summary': manifest['summary'],
+        'issue_counts': manifest['issue_counts'],
+        'files': manifest['files'],
+        'boundary': boundary,
+        'bank_support_manifest': bank_manifest,
+        'annual_source_bridge': annual_bridge,
         'package_manifest_file': str(target_dir / DOCUMENT_INTAKE_PACKAGE_MANIFEST),
         'audit_file': str(target_dir / DOCUMENT_INTAKE_AUDIT_FILE),
         'bank_support_manifest_file': str(target_dir / BANK_SUPPORT_MANIFEST_DRAFT_FILE),

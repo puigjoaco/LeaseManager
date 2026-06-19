@@ -1161,6 +1161,12 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   sin leer documentos reales, correos, banco, SII ni `.env`; el verificador
   rechaza archivos extra o boundary roto antes de usarlo como insumo redactado
   para revision responsable.
+- El verificador de intake desde disco valida tambien JSON canonico, hashes de
+  cada archivo, alineacion entre auditoria, manifiesto bancario/leasing y puente
+  anual, y rechaza tamper sin necesitar el manifest original. Con
+  `--document-intake-package-dir`, `materialize_company_accounting_review_package`
+  toma el `company-bank-support-coverage-manifest.json` desde ese paquete ya
+  verificado y mantiene el handoff como evidencia portable.
 - `build_company_accounting_review_package` y el comando
   `audit_company_accounting_review_package` unen el avance contable/renta por
   empresa/ano con la cobertura bancaria/leasing redactada. El paquete queda

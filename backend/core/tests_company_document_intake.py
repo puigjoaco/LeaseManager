@@ -11,6 +11,7 @@ from django.test import SimpleTestCase
 from core.company_document_intake import (
     audit_company_document_intake,
     verify_company_document_intake_package,
+    verify_company_document_intake_package_from_disk,
 )
 from core.management.commands.materialize_company_document_intake import _safe_path_component
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
@@ -258,10 +259,14 @@ class CompanyDocumentIntakeTests(SimpleTestCase):
                 payload=manifest,
                 package_dir=output_dir,
             )
+            disk_verification = verify_company_document_intake_package_from_disk(package_dir=output_dir)
 
             self.assertTrue(result['materialized'])
             self.assertEqual(result['package_hash'], verification['package_hash'])
+            self.assertEqual(result['package_hash'], disk_verification['package_hash'])
             self.assertEqual(result['classification'], 'preparado')
+            self.assertEqual(disk_verification['bank_support_manifest']['schema_version'], 'company-bank-support-coverage-manifest.v1')
+            self.assertEqual(disk_verification['annual_source_bridge']['schema_version'], 'annual-tax-source-intake-bridge.v1')
             self.assertTrue(result['ready_for_document_intake_review'])
             self.assertTrue(result['ready_for_bank_support_manifest'])
             self.assertTrue(result['ready_for_source_manifest_reconciliation'])
@@ -293,6 +298,34 @@ class CompanyDocumentIntakeTests(SimpleTestCase):
                 rendered += file_path.read_text(encoding='utf-8')
             self.assertNotIn('://', rendered)
             self.assertNotIn('@', rendered)
+
+    def test_verify_company_document_intake_package_from_disk_rejects_tampered_file(self):
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+        manifest = _complete_manifest()
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            manifest_path = Path(temp_dir) / 'document-intake.json'
+            output_dir = Path(temp_dir) / 'company-document-intake-package'
+            manifest_path.write_text(json.dumps(manifest), encoding='utf-8')
+
+            call_command(
+                'materialize_company_document_intake',
+                manifest=str(manifest_path),
+                output_dir=str(output_dir),
+                stdout=StringIO(),
+            )
+
+            bank_manifest_path = output_dir / 'company-bank-support-coverage-manifest.json'
+            bank_manifest = json.loads(bank_manifest_path.read_text(encoding='utf-8'))
+            bank_manifest['attachments'] = bank_manifest['attachments'][1:]
+            bank_manifest_path.write_text(
+                json.dumps(bank_manifest, sort_keys=True, separators=(',', ':'), ensure_ascii=True),
+                encoding='utf-8',
+            )
+
+            with self.assertRaisesMessage(ValueError, 'no coincide con la auditoria incluida'):
+                verify_company_document_intake_package_from_disk(package_dir=output_dir)
 
     def test_materialize_company_document_intake_rejects_nonempty_output_dir(self):
         local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'

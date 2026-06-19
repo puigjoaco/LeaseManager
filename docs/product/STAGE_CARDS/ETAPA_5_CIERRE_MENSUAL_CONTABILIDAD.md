@@ -227,6 +227,13 @@ contable o tributaria requiere criterio.
   `stores_real_attachments=false`, `opens_bank_gate=false`,
   `opens_sii_gate=false`, `autonomous_accounting=false`,
   `final_tax_calculation=false` y `requires_responsible_review=true`.
+- El paquete de intake documental tambien se puede reabrir desde disco sin el
+  manifest original: `verify_company_document_intake_package_from_disk` valida
+  archivos esperados, JSON canonico, hashes, auditoria, manifiesto
+  bancario/leasing derivado, puente anual y boundary. El comando
+  `materialize_company_accounting_review_package` acepta
+  `--document-intake-package-dir` para usar ese manifiesto derivado verificado,
+  evitando pegar JSON suelto o depender de contexto de chat.
 - `materialize_company_accounting_review_package` convierte ese diagnostico en
   una carpeta local verificable bajo `local-evidence/`, con manifest canonico
   `company-accounting-review-package.json`. El paquete queda hasheado,
