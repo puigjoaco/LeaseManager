@@ -435,6 +435,11 @@ del resultado ya no imprime rutas locales completas, evitando exponer nombres,
 RUTs o carpetas privadas durante la preparacion AC/AT. La restriccion de outputs
 versionables fuera de `local-evidence/` se mantiene.
 
+Nota 2026-06-19: `audit_annual_tax_controlled_package_readiness` aplica la
+misma regla antes del writer controlado. Un package faltante, lectura fallida o
+escritura fallida del reporte de readiness responde sin rutas locales completas,
+nombres ni RUTs, manteniendo el diagnostico AC/AT como artefacto no sensible.
+
 Nota 2026-06-19: `materialize_annual_tax_ownership_patch_workbench` aplica la
 misma regla al tramo privado del workbench ownership. Template faltante, JSON
 invalido, lectura fallida o escritura fallida del workbench producen errores

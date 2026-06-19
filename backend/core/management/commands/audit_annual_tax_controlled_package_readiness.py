@@ -57,7 +57,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         package_path = _resolve_path(options['package'])
         if not package_path.exists() or not package_path.is_file():
-            raise CommandError(f'No existe package JSON: {package_path}')
+            raise CommandError('No existe package JSON o no es un archivo legible.')
 
         output_path = None
         if options['output']:
@@ -66,14 +66,21 @@ class Command(BaseCommand):
 
         try:
             payload = load_package_readiness_json(package_path.read_text(encoding='utf-8'))
-        except (OSError, ValueError, json.JSONDecodeError) as error:
+        except json.JSONDecodeError as error:
+            raise CommandError(f'Package JSON invalido: line {error.lineno}, column {error.colno}.') from error
+        except OSError as error:
+            raise CommandError('No se pudo leer package JSON.') from error
+        except ValueError as error:
             raise CommandError(f'Package invalido: {error}') from error
 
         result = audit_annual_tax_controlled_package_readiness(payload=payload)
         rendered = json.dumps(result, indent=2, ensure_ascii=True, default=str)
         if output_path is not None:
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(rendered, encoding='utf-8')
+            try:
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text(rendered, encoding='utf-8')
+            except OSError as error:
+                raise CommandError('No se pudo escribir auditoria de paquete controlado.') from error
         else:
             self.stdout.write(rendered)
 

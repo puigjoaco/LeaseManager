@@ -257,6 +257,10 @@ que no faltan meses y que existen objetivos de comparacion, pero mantiene
 draft real post revision laboral completa, `ready_for_db_writer=true` y
 `ready_for_annual_generation=false` por `ownership_snapshot_missing`. Febrero y
 diciembre F29 `no_aplica` no cuentan como faltantes.
+El comando `audit_annual_tax_controlled_package_readiness` redacta errores de
+archivo: package faltante, lectura fallida o escritura fallida del reporte no
+devuelven rutas locales completas con nombres, RUTs o carpetas privadas. La
+restriccion de outputs versionables fuera de `local-evidence/` se mantiene.
 Cuando existe `ownership_review`, el auditor lo expone como
 `ownership_review_handoff` y advierte si esta listo para inyeccion pero aun no
 existe `package.ownership`; no lo usa como fuente societaria ni como permiso

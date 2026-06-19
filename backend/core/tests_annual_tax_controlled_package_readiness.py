@@ -2,6 +2,7 @@ import json
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
@@ -356,3 +357,68 @@ class AnnualTaxControlledPackageReadinessTests(SimpleTestCase):
                     output='docs/ac2024-controlled-package-readiness.json',
                     stdout=StringIO(),
                 )
+
+    def test_command_missing_package_error_does_not_echo_sensitive_path(self):
+        with TemporaryDirectory() as temp_dir:
+            missing_path = Path(temp_dir) / 'Socio Controlado Uno 11111111-1.json'
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'audit_annual_tax_controlled_package_readiness',
+                    package=str(missing_path),
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No existe package JSON o no es un archivo legible.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+
+    def test_command_read_error_does_not_echo_sensitive_path(self):
+        with TemporaryDirectory() as temp_dir:
+            package_path = Path(temp_dir) / 'Socio Controlado Uno 11111111-1.json'
+            package_path.write_text(json.dumps(self._complete_package()), encoding='utf-8')
+
+            with patch.object(
+                Path,
+                'read_text',
+                side_effect=OSError('D:/Privado/Socio Controlado Uno 11111111-1/package.json'),
+            ):
+                with self.assertRaises(CommandError) as error:
+                    call_command(
+                        'audit_annual_tax_controlled_package_readiness',
+                        package=str(package_path),
+                        stdout=StringIO(),
+                    )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No se pudo leer package JSON.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+            self.assertNotIn('D:/Privado', rendered_error)
+
+    def test_command_write_error_does_not_echo_sensitive_path(self):
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            package_path = temp_root / 'package.json'
+            output_path = temp_root / 'Socio Controlado Uno 11111111-1' / 'readiness.json'
+            package_path.write_text(json.dumps(self._complete_package()), encoding='utf-8')
+
+            with patch.object(
+                Path,
+                'write_text',
+                side_effect=OSError('D:/Privado/Socio Controlado Uno 11111111-1/readiness.json'),
+            ):
+                with self.assertRaises(CommandError) as error:
+                    call_command(
+                        'audit_annual_tax_controlled_package_readiness',
+                        package=str(package_path),
+                        output=str(output_path),
+                        stdout=StringIO(),
+                    )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No se pudo escribir auditoria de paquete controlado.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+            self.assertNotIn('D:/Privado', rendered_error)
