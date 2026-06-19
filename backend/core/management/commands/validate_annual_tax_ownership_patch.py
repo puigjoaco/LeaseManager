@@ -46,6 +46,28 @@ def _validate_patch_path(patch_path: Path) -> None:
         )
 
 
+def _read_json(path: Path, *, label: str) -> dict:
+    if not path.exists() or not path.is_file():
+        raise CommandError(f'No existe {label} JSON o no es un archivo legible.')
+    try:
+        payload = json.loads(path.read_text(encoding='utf-8'))
+    except json.JSONDecodeError as error:
+        raise CommandError(f'{label} JSON invalido: line {error.lineno}, column {error.colno}.') from error
+    except OSError as error:
+        raise CommandError(f'No se pudo leer {label} JSON.') from error
+    if not isinstance(payload, dict):
+        raise CommandError(f'{label} JSON debe ser un objeto.')
+    return payload
+
+
+def _write_json(path: Path, *, rendered: str) -> None:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(rendered, encoding='utf-8')
+    except OSError as error:
+        raise CommandError('No se pudo escribir la validacion redactada.') from error
+
+
 class Command(BaseCommand):
     help = (
         'Valida un patch local de ownership AC/AT contra el template controlado; '
@@ -69,10 +91,6 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         template_path = _resolve_path(options['template'])
         patch_path = _resolve_path(options['patch'])
-        if not template_path.exists() or not template_path.is_file():
-            raise CommandError(f'No existe template JSON: {template_path}')
-        if not patch_path.exists() or not patch_path.is_file():
-            raise CommandError(f'No existe patch JSON: {patch_path}')
         _validate_patch_path(patch_path)
 
         output_path = None
@@ -81,16 +99,15 @@ class Command(BaseCommand):
             _validate_output_path(output_path)
 
         try:
-            template = json.loads(template_path.read_text(encoding='utf-8'))
-            patch = json.loads(patch_path.read_text(encoding='utf-8'))
+            template = _read_json(template_path, label='template')
+            patch = _read_json(patch_path, label='patch')
             result = validate_annual_tax_ownership_patch(template=template, patch=patch)
-        except (OSError, ValueError, json.JSONDecodeError) as error:
+        except ValueError as error:
             raise CommandError(f'Ownership patch invalido: {error}') from error
 
         rendered = json.dumps(result, indent=2, ensure_ascii=True, default=str)
         if output_path is not None:
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(rendered, encoding='utf-8')
+            _write_json(output_path, rendered=rendered)
         else:
             self.stdout.write(rendered)
 

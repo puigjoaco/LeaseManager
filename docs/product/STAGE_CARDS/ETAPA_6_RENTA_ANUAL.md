@@ -212,6 +212,11 @@ nombres y RUTs, el comando exige `--output`, nunca imprime el paquete completo
 por stdout y rechaza `--patch` o `--output` dentro del repo fuera de
 `local-evidence/`. No escribe DB, no calcula renta final, no abre SII y no
 reemplaza la revision responsable de ownership.
+Los comandos `validate_annual_tax_ownership_patch` e
+`inject_annual_tax_ownership_patch_into_controlled_package` mantienen errores
+de lectura/escritura redactados: si un template, patch, package u output falla,
+la consola no devuelve rutas locales completas que puedan contener nombres,
+RUTs o carpetas privadas.
 `apply_annual_tax_controlled_db_load` materializa ese paquete normalizado en DB
 local/controlada solo con `--apply`: crea o actualiza cierres mensuales,
 LibroDiario, LibroMayor, BalanceComprobacion, obligaciones, F29 y

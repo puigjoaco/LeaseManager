@@ -288,3 +288,52 @@ class AnnualTaxOwnershipPatchInjectorTests(SimpleTestCase):
                         stdout=StringIO(),
                     )
 
+    def test_command_missing_patch_error_does_not_echo_sensitive_path(self):
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            package_path = temp_root / 'package.json'
+            template_path = temp_root / 'template.json'
+            patch_path = temp_root / 'Socio Controlado Uno 11111111-1.json'
+            output_path = temp_root / 'ownership-injected-package.json'
+            package_path.write_text(json.dumps(self._complete_package()), encoding='utf-8')
+            template_path.write_text(json.dumps(self._template()), encoding='utf-8')
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'inject_annual_tax_ownership_patch_into_controlled_package',
+                    package=str(package_path),
+                    template=str(template_path),
+                    patch=str(patch_path),
+                    output=str(output_path),
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+
+    def test_command_output_write_error_does_not_echo_sensitive_path(self):
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            package_path = temp_root / 'package.json'
+            template_path = temp_root / 'template.json'
+            patch_path = temp_root / 'patch.json'
+            output_path = temp_root / 'Socio Controlado Uno 11111111-1.json'
+            output_path.mkdir()
+            package_path.write_text(json.dumps(self._complete_package()), encoding='utf-8')
+            template_path.write_text(json.dumps(self._template()), encoding='utf-8')
+            patch_path.write_text(json.dumps(self._valid_patch()), encoding='utf-8')
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'inject_annual_tax_ownership_patch_into_controlled_package',
+                    package=str(package_path),
+                    template=str(template_path),
+                    patch=str(patch_path),
+                    output=str(output_path),
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
