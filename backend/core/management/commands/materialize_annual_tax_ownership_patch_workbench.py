@@ -47,8 +47,10 @@ def _read_json(path: Path, *, label: str) -> dict:
         raise CommandError(f'No existe {label} JSON o no es un archivo legible.')
     try:
         payload = json.loads(path.read_text(encoding='utf-8'))
-    except (OSError, json.JSONDecodeError) as error:
-        raise CommandError(f'{label} JSON invalido: {error}') from error
+    except json.JSONDecodeError as error:
+        raise CommandError(f'{label} JSON invalido: line {error.lineno}, column {error.colno}.') from error
+    except OSError as error:
+        raise CommandError(f'No se pudo leer {label} JSON.') from error
     if not isinstance(payload, dict):
         raise CommandError(f'{label} JSON debe ser un objeto.')
     return payload
@@ -133,6 +135,8 @@ class Command(BaseCommand):
             written = write_annual_tax_ownership_patch_workbench(workbench=workbench, output_dir=output_dir)
         except ValueError as error:
             raise CommandError(f'No se pudo materializar ownership patch workbench: {error}') from error
+        except OSError as error:
+            raise CommandError('No se pudo escribir ownership patch workbench.') from error
 
         manifest = workbench['manifest']
         summary = {

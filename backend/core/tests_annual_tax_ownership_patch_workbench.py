@@ -2,6 +2,7 @@ import json
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
@@ -265,6 +266,72 @@ class AnnualTaxOwnershipPatchWorkbenchTests(SimpleTestCase):
             rendered_error = str(error.exception)
             self.assertNotIn('Socio Controlado Uno', rendered_error)
             self.assertNotIn('11111111-1', rendered_error)
+
+    def test_command_read_error_does_not_echo_sensitive_path(self):
+        with TemporaryDirectory() as temp_dir:
+            template_path = Path(temp_dir) / 'Socio Controlado Uno 11111111-1.json'
+            template_path.write_text('{}', encoding='utf-8')
+
+            with patch.object(
+                Path,
+                'read_text',
+                side_effect=OSError('D:/Privado/Socio Controlado Uno 11111111-1.json'),
+            ):
+                with self.assertRaises(CommandError) as error:
+                    call_command(
+                        'materialize_annual_tax_ownership_patch_workbench',
+                        template=str(template_path),
+                        stdout=StringIO(),
+                    )
+
+            rendered_error = str(error.exception)
+            self.assertIn('No se pudo leer template JSON', rendered_error)
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+            self.assertNotIn('D:/Privado', rendered_error)
+
+    def test_command_invalid_json_error_does_not_echo_sensitive_path(self):
+        with TemporaryDirectory() as temp_dir:
+            template_path = Path(temp_dir) / 'Socio Controlado Uno 11111111-1.json'
+            template_path.write_text('{', encoding='utf-8')
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'materialize_annual_tax_ownership_patch_workbench',
+                    template=str(template_path),
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertIn('template JSON invalido: line 1, column 2', rendered_error)
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+
+    def test_command_write_error_does_not_echo_sensitive_path(self):
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            template_path = temp_root / 'template.json'
+            output_dir = temp_root / 'Socio Controlado Uno 11111111-1'
+            template_path.write_text(json.dumps(self._template()), encoding='utf-8')
+
+            with patch.object(
+                Path,
+                'write_text',
+                side_effect=OSError('D:/Privado/Socio Controlado Uno 11111111-1/workbench.json'),
+            ):
+                with self.assertRaises(CommandError) as error:
+                    call_command(
+                        'materialize_annual_tax_ownership_patch_workbench',
+                        template=str(template_path),
+                        output_dir=str(output_dir),
+                        stdout=StringIO(),
+                    )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No se pudo escribir ownership patch workbench.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+            self.assertNotIn('D:/Privado', rendered_error)
 
     def test_checklist_context_must_match_template(self):
         checklist = self._checklist()
