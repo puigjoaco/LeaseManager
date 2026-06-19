@@ -127,6 +127,8 @@ class Command(BaseCommand):
             written = write_company_accounting_responsible_answers_review(review=review, output_dir=output_dir)
         except ValueError as error:
             raise CommandError(f'No se pudo escribir revision de respuestas responsables: {error}') from error
+        except OSError as error:
+            raise CommandError('No se pudo escribir revision de respuestas responsables.') from error
 
         summary = {
             'schema_version': review['schema_version'],
