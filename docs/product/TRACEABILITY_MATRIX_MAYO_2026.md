@@ -382,6 +382,12 @@ codigos libres no canonicos. Esto reemplaza pendientes dispersos en chat por
 un artefacto local bajo `local-evidence/`, sin leer documentos reales, abrir
 banco/SII, escribir DB ni declarar contabilidad/renta final.
 
+Nota 2026-06-19: `materialize_company_accounting_responsible_questions`
+tambien redacta errores de archivo. Si una fuente JSON no puede leerse o el
+paquete no puede persistirse, el CLI responde con mensajes genericos sin rutas
+locales completas, nombres ni RUTs. Asi el primer tramo del handoff responsable
+mantiene el boundary no sensible antes de que existan respuestas privadas.
+
 Nota 2026-06-19: `materialize_company_accounting_responsible_answers`
 materializa la revision de respuestas responsables contra el paquete de
 preguntas. El payload `company-accounting-responsible-answers.v1` solo acepta

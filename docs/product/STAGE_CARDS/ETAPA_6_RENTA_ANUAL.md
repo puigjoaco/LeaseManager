@@ -1253,6 +1253,9 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   codigos/flags/contexto. Si la salida queda dentro del repo debe estar bajo
   `local-evidence/`. No lee documentos reales, no abre banco/SII, no escribe DB
   y no declara contabilidad final, calculo tributario final ni presentacion SII.
+  El comando redacta errores de lectura/escritura: si no puede leer una fuente
+  JSON o persistir el paquete, la consola no devuelve rutas locales completas
+  que puedan contener nombres, RUTs o carpetas privadas.
 - `materialize_company_accounting_responsible_answers` valida respuestas
   responsables redactadas contra `company-accounting-responsible-questions.json`
   y materializa `company-accounting-responsible-answers-review.json`. El paquete
