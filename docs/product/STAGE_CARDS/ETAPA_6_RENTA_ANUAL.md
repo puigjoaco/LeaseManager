@@ -229,6 +229,10 @@ LibroDiario, LibroMayor, BalanceComprobacion, obligaciones, F29 y
 MonthlyTaxFact, rechazando refs sensibles y cualquier Balance/RLI/CPT/RAI/DDJJ/
 F22 final usado como input. Por defecto opera en dry-run para validar sin
 escribir DB.
+El comando tambien redacta errores de archivo: si falta el package, falla su
+lectura o no puede escribir el resultado, no devuelve rutas locales completas
+que puedan contener nombres, RUTs o carpetas privadas. Las salidas dentro del
+repo siguen restringidas a `local-evidence/`.
 El mismo paquete puede incluir `ownership` como snapshot patrimonial controlado:
 fuente no sensible, fecha `as_of`, socios con RUT valido, porcentajes, vigencias
 y evidencia no sensible. El writer materializa `Socio` y
