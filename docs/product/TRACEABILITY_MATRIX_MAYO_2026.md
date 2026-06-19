@@ -362,6 +362,15 @@ RUTs ni rutas; el patch privado puede ser completado por revision responsable y
 debe validarse antes de entrar al paquete AC/AT. Asi el avance queda
 trackeable sin convertir el chat o Git en repositorio de PII.
 
+Nota 2026-06-19: `validate_annual_tax_ownership_patch` e
+`inject_annual_tax_ownership_patch_into_controlled_package` endurecen la
+redaccion de errores de archivo para el tramo privado del ownership patch. Si
+faltan template/patch/package o falla la escritura del output, los comandos
+reportan el tipo de problema sin eco de rutas locales completas, evitando que
+nombres, RUTs o carpetas privadas aparezcan en stdout/logs. No cambia el
+boundary: patch y outputs con PII siguen fuera de Git o bajo `local-evidence/`,
+sin DB real, SII real ni calculo final.
+
 Nota 2026-06-16: `build_annual_tax_controlled_values_draft` ya materializa
 `real_estate_support` como `package.real_estate`: registro estructurado de
 bienes raices, codigos internos estables, tipo de inmueble, evidencia por

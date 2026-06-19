@@ -167,3 +167,22 @@ class AnnualTaxOwnershipPatchValidatorTests(SimpleTestCase):
                         patch=str(patch_path),
                         stdout=StringIO(),
                     )
+
+    def test_command_missing_patch_error_does_not_echo_sensitive_path(self):
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            template_path = temp_root / 'template.json'
+            patch_path = temp_root / 'Socio Controlado Uno 11111111-1.json'
+            template_path.write_text(json.dumps(self._template()), encoding='utf-8')
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'validate_annual_tax_ownership_patch',
+                    template=str(template_path),
+                    patch=str(patch_path),
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
