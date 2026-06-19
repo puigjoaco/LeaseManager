@@ -218,6 +218,15 @@ contable o tributaria requiere criterio.
   sin copiar archivos reales al repo y sin declarar contabilidad autonoma.
   Esta capa convierte "recibimos documentos" en cobertura trazable y medible
   antes de cargar, cuadrar o entregar revision contable.
+- `materialize_company_document_intake` convierte ese intake en una carpeta
+  local verificable bajo `local-evidence/`: escribe
+  `company-document-intake-package.json`, la auditoria canonica, el manifiesto
+  bancario/leasing derivado y el puente anual. El writer y verificador rechazan
+  destinos no vacios, salidas versionables fuera de `local-evidence/` y paquetes
+  contaminados; conserva `reads_real_documents=false`,
+  `stores_real_attachments=false`, `opens_bank_gate=false`,
+  `opens_sii_gate=false`, `autonomous_accounting=false`,
+  `final_tax_calculation=false` y `requires_responsible_review=true`.
 - `materialize_company_accounting_review_package` convierte ese diagnostico en
   una carpeta local verificable bajo `local-evidence/`, con manifest canonico
   `company-accounting-review-package.json`. El paquete queda hasheado,

@@ -3227,6 +3227,19 @@ SII ni documentos reales desde el comando. Es la capa que permite pasar de
 "tenemos documentos" a cobertura medible para contabilidad/renta, sin declarar
 contabilidad final, calculo tributario final ni presentacion.
 
+Nota 2026-06-18: Contabilidad/Renta agrega
+`materialize_company_document_intake` para escribir el intake documental
+redactado como paquete local verificable bajo `local-evidence/`. El paquete
+incluye `company-document-intake-package.json`,
+`company-document-intake-audit.json`,
+`company-bank-support-coverage-manifest.json` y
+`annual-tax-source-intake-bridge.json`; todos quedan en JSON canonico con hashes.
+El verificador rechaza salidas contaminadas, archivos extra y boundary roto, y
+mantiene `reads_real_documents=false`, `stores_real_attachments=false`,
+`opens_bank_gate=false`, `opens_sii_gate=false`,
+`autonomous_accounting=false`, `final_tax_calculation=false` y
+`sii_submission=false`.
+
 Nota 2026-06-18: Renta Anual agrega endpoint transaccional para registrar la
 decision responsable del `AnnualTaxReviewChecklist`. La API
 `POST /api/v1/sii/anual/review-checklists/<id>/decision/` permite pasar a
