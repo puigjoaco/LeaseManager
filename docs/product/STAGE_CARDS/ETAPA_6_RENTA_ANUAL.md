@@ -254,6 +254,12 @@ Cuando existe `ownership_review`, el auditor lo expone como
 `ownership_review_handoff` y advierte si esta listo para inyeccion pero aun no
 existe `package.ownership`; no lo usa como fuente societaria ni como permiso
 para generar el mirror anual.
+Si `ownership_review` ya declara una validacion lista junto a `package.ownership`,
+el readiness exige `redacted_patch_hash` del patch validado y que
+`participants_count`/`percentage_total` coincidan con el snapshot ownership. El
+writer DB aplica la misma consistencia antes de abrir transaccion, evitando que
+un handoff privado desalineado o sin hash de validacion cargue socios o hechos
+mensuales.
 `build_annual_tax_controlled_values_draft` completa ese paquete desde fuentes
 AC2024 permitidas y read-only: Libro Diario, Libro Mayor, Libro Inventario, F29,
 libros de remuneraciones y soporte de bienes raices. La corrida real de

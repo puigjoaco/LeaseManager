@@ -269,6 +269,36 @@ class AnnualTaxControlledPackageReadinessTests(SimpleTestCase):
         self.assertTrue(result['summary']['ownership_review_handoff']['ready_for_controlled_db_load'])
         self.assertFalse(result['summary']['ownership_review_handoff']['replaces_ownership_snapshot'])
 
+    def test_ownership_review_handoff_matches_controlled_snapshot(self):
+        package = self._complete_package()
+        package['ownership_review'] = self._ownership_review_handoff(ready=True)
+        package['ownership_review']['redacted_patch_hash'] = 'c' * 64
+
+        result = audit_annual_tax_controlled_package_readiness(payload=package)
+
+        self.assertTrue(result['ready_for_db_writer'])
+        self.assertTrue(result['ready_for_annual_generation'])
+        self.assertNotIn('ownership_review_handoff_mismatch', result['annual_generation_blockers'])
+        self.assertNotIn('ownership_review_redacted_patch_hash_missing', result['warnings'])
+        self.assertTrue(result['summary']['ownership_review_handoff']['redacted_patch_hash_present'])
+
+    def test_ownership_review_handoff_mismatch_blocks_annual_generation(self):
+        package = self._complete_package()
+        package['ownership_review'] = self._ownership_review_handoff(ready=True)
+        package['ownership_review']['redacted_patch_hash'] = 'c' * 64
+        package['ownership_review']['participants_count'] = 1
+        package['ownership_review']['percentage_total'] = '99.00'
+
+        result = audit_annual_tax_controlled_package_readiness(payload=package)
+
+        self.assertTrue(result['ready_for_db_writer'])
+        self.assertFalse(result['ready_for_annual_generation'])
+        self.assertIn('ownership_review_handoff_mismatch', result['annual_generation_blockers'])
+        self.assertIn('ownership_review_participants_count_mismatch', result['warnings'])
+        self.assertIn('ownership_review_percentage_total_mismatch', result['warnings'])
+        self.assertIn('$.ownership_review.participants_count', result['annual_generation_invalid_paths'])
+        self.assertIn('$.ownership_review.percentage_total', result['annual_generation_invalid_paths'])
+
     def test_invalid_ownership_snapshot_blocks_annual_generation_only(self):
         package = self._complete_package()
         package['ownership']['participants'][1]['percentage'] = '39.00'

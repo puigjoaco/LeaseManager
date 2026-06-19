@@ -409,6 +409,13 @@ copiar refs individuales ni respuestas crudas. Si las respuestas siguen
 pendientes, el manifest marca `responsible_answers_ready=false`; el patch privado
 continua fuera de Git y sigue requiriendo validacion antes de inyectar ownership.
 
+Nota 2026-06-19: `audit_annual_tax_controlled_package_readiness` y
+`apply_annual_tax_controlled_db_load` verifican la consistencia del handoff
+ownership cuando `ownership_review` ya declara patch validado/listo junto a
+`package.ownership`: debe existir `redacted_patch_hash` y los conteos de
+participantes/porcentaje total deben coincidir con el snapshot. Si no calzan,
+readiness bloquea generacion anual y el writer rechaza antes de escribir DB.
+
 Nota 2026-06-16: `build_annual_tax_controlled_values_draft` ya materializa
 `real_estate_support` como `package.real_estate`: registro estructurado de
 bienes raices, codigos internos estables, tipo de inmueble, evidencia por

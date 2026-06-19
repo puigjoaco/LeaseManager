@@ -170,6 +170,31 @@ class AnnualTaxControlledDbLoadTests(TestCase):
         }
         return package
 
+    def _with_ready_ownership_review(self, package):
+        package['ownership_review'] = {
+            'schema_version': 'annual-tax-ownership-review-handoff.v1',
+            'source_checklist_hash': 'b' * 64,
+            'redacted_patch_hash': 'c' * 64,
+            'reviewable_candidates_total': 10,
+            'rendered_candidates_total': 10,
+            'validation_present': True,
+            'participants_count': 2,
+            'percentage_total': '100.00',
+            'blocking_items_total': 0,
+            'blocking_item_keys': [],
+            'validation_blockers': [],
+            'ready_for_manual_review': True,
+            'ready_for_controlled_db_load': True,
+            'can_inject_ownership_into_controlled_package': True,
+            'next_action': 'package_ownership_injected_reaudit_readiness',
+            'writes_database': False,
+            'stores_source_paths': False,
+            'stores_person_names': False,
+            'stores_rut_values': False,
+            'auto_generates_ownership': False,
+        }
+        return package
+
     def test_apply_controlled_package_materializes_monthly_accounting_and_tax_facts(self):
         empresa = self._create_empresa()
 
@@ -239,6 +264,52 @@ class AnnualTaxControlledDbLoadTests(TestCase):
         self.assertEqual(second_result['created_updated']['Socio']['updated'], 2)
         self.assertEqual(second_result['created_updated']['ParticipacionPatrimonial']['updated'], 2)
         self.assertEqual(ParticipacionPatrimonial.objects.filter(empresa_owner=empresa).count(), 2)
+
+    def test_apply_controlled_package_accepts_consistent_ownership_review_handoff(self):
+        empresa = self._create_empresa()
+        package = self._with_ready_ownership_review(self._with_ownership(self._package()))
+
+        result = apply_annual_tax_controlled_db_load(
+            empresa=empresa,
+            package=package,
+            write_database=True,
+        )
+
+        self.assertTrue(result['ready_for_annual_generation'])
+        self.assertEqual(result['ownership_snapshot']['participants_loaded'], 2)
+        self.assertEqual(MonthlyTaxFact.objects.filter(empresa=empresa).count(), 12)
+
+    def test_apply_rejects_ready_ownership_handoff_without_patch_hash_before_writing(self):
+        empresa = self._create_empresa()
+        package = self._with_ready_ownership_review(self._with_ownership(self._package()))
+        package['ownership_review']['redacted_patch_hash'] = ''
+
+        with self.assertRaisesMessage(ValueError, 'redacted_patch_hash'):
+            apply_annual_tax_controlled_db_load(
+                empresa=empresa,
+                package=package,
+                write_database=True,
+            )
+
+        self.assertEqual(Socio.objects.count(), 0)
+        self.assertEqual(ParticipacionPatrimonial.objects.filter(empresa_owner=empresa).count(), 0)
+        self.assertEqual(MonthlyTaxFact.objects.filter(empresa=empresa).count(), 0)
+
+    def test_apply_rejects_ownership_handoff_mismatch_before_writing(self):
+        empresa = self._create_empresa()
+        package = self._with_ready_ownership_review(self._with_ownership(self._package()))
+        package['ownership_review']['participants_count'] = 1
+
+        with self.assertRaisesMessage(ValueError, 'participants_count'):
+            apply_annual_tax_controlled_db_load(
+                empresa=empresa,
+                package=package,
+                write_database=True,
+            )
+
+        self.assertEqual(Socio.objects.count(), 0)
+        self.assertEqual(ParticipacionPatrimonial.objects.filter(empresa_owner=empresa).count(), 0)
+        self.assertEqual(MonthlyTaxFact.objects.filter(empresa=empresa).count(), 0)
 
     def test_apply_rejects_incomplete_ownership_snapshot_without_writing(self):
         empresa = self._create_empresa()
