@@ -202,6 +202,9 @@ repo, debe estar bajo `local-evidence/`; el comando falla en directorios no
 vacios, no imprime nombres/RUTs ni rutas de candidatos, no lee documentos
 reales y no escribe DB. El patch privado completado sigue fuera de Git y debe
 pasar por `validate_annual_tax_ownership_patch` antes de inyectarse.
+El comando tambien redacta errores de archivo: si falta el template, falla la
+lectura JSON o no se puede escribir el workbench, la consola no devuelve rutas
+locales completas que puedan contener nombres, RUTs o carpetas privadas.
 Tambien puede recibir `company-accounting-responsible-answers-review.json`
 redactado y reducirlo a resumen hasheado dentro del manifest: presente/listo,
 conteos, categorias, estados de decision e issue codes, sin copiar refs

@@ -422,6 +422,13 @@ del resultado ya no imprime rutas locales completas, evitando exponer nombres,
 RUTs o carpetas privadas durante la preparacion AC/AT. La restriccion de outputs
 versionables fuera de `local-evidence/` se mantiene.
 
+Nota 2026-06-19: `materialize_annual_tax_ownership_patch_workbench` aplica la
+misma regla al tramo privado del workbench ownership. Template faltante, JSON
+invalido, lectura fallida o escritura fallida del workbench producen errores
+redactados sin rutas locales completas, nombres ni RUTs. Esto permite continuar
+el flujo de respuestas responsables -> workbench -> patch privado sin convertir
+la consola, Git o el chat en superficie de PII.
+
 Nota 2026-06-16: `build_annual_tax_controlled_values_draft` ya materializa
 `real_estate_support` como `package.real_estate`: registro estructurado de
 bienes raices, codigos internos estables, tipo de inmueble, evidencia por
