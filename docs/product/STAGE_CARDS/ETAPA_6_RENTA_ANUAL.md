@@ -1223,6 +1223,17 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   `sii_submission=false` y `requires_responsible_review=true`. La salida sirve
   para entregar evidencia ordenada a revision responsable/experta, no para
   ejecutar contabilidad o renta final de forma autonoma.
+- `materialize_company_accounting_responsible_questions` convierte artefactos
+  JSON ya redactados (`company-accounting-review-package`, cobertura bancaria,
+  validacion ownership o readiness de paquete controlado) en
+  `company-accounting-responsible-questions.json`: preguntas concretas por
+  ownership, Banco Chile/leasing, criterio tributario, documentos faltantes y
+  avance contable. El paquete no copia mensajes de issues, nombres, RUTs, rutas
+  locales ni textos crudos; los codigos no canonicos quedan redactados como
+  `noncanonical-issue-code` y los hashes se calculan desde una huella segura de
+  codigos/flags/contexto. Si la salida queda dentro del repo debe estar bajo
+  `local-evidence/`. No lee documentos reales, no abre banco/SII, no escribe DB
+  y no declara contabilidad final, calculo tributario final ni presentacion SII.
 - Reporting expone `POST /api/v1/reporting/contabilidad/paquete-revision-empresa/`
   para construir ese mismo paquete desde una superficie operativa con scope de
   empresa. El body debe incluir `empresa_id`, `fiscal_year` y

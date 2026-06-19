@@ -371,6 +371,17 @@ nombres, RUTs o carpetas privadas aparezcan en stdout/logs. No cambia el
 boundary: patch y outputs con PII siguen fuera de Git o bajo `local-evidence/`,
 sin DB real, SII real ni calculo final.
 
+Nota 2026-06-19: `materialize_company_accounting_responsible_questions`
+materializa el handoff de preguntas concretas para Joaquin/revision
+responsable desde artefactos ya redactados: paquete de revision contable/renta,
+cobertura bancaria/leasing, validacion ownership y readiness del paquete
+controlado. La salida `company-accounting-responsible-questions.json` agrupa
+ownership, Banco Chile/leasing, criterio tributario, documentos faltantes y
+avance contable sin copiar mensajes de issues, nombres, RUTs, rutas locales ni
+codigos libres no canonicos. Esto reemplaza pendientes dispersos en chat por
+un artefacto local bajo `local-evidence/`, sin leer documentos reales, abrir
+banco/SII, escribir DB ni declarar contabilidad/renta final.
+
 Nota 2026-06-16: `build_annual_tax_controlled_values_draft` ya materializa
 `real_estate_support` como `package.real_estate`: registro estructurado de
 bienes raices, codigos internos estables, tipo de inmueble, evidencia por
