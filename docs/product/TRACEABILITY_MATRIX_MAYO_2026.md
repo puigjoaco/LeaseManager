@@ -3240,6 +3240,18 @@ mantiene `reads_real_documents=false`, `stores_real_attachments=false`,
 `autonomous_accounting=false`, `final_tax_calculation=false` y
 `sii_submission=false`.
 
+Nota 2026-06-19: Contabilidad/Renta agrega handoff verificable desde paquete de
+intake documental. `verify_company_document_intake_package_from_disk` reabre la
+carpeta materializada sin requerir el manifest original, valida JSON canonico,
+hashes, archivos esperados, auditoria, manifiesto bancario/leasing, puente anual
+y boundary no autonomo. `materialize_company_accounting_review_package` puede
+recibir `--document-intake-package-dir` y tomar desde ahi el manifiesto
+`company-bank-support-coverage-manifest.json` ya verificado, evitando pegar JSON
+suelto o depender de contexto de conversacion. Esto solo encadena evidencia
+redactada hacia revision responsable; no lee documentos reales, correos, banco,
+SII ni `.env`, y no declara contabilidad final, calculo tributario final ni
+presentacion.
+
 Nota 2026-06-18: Renta Anual agrega endpoint transaccional para registrar la
 decision responsable del `AnnualTaxReviewChecklist`. La API
 `POST /api/v1/sii/anual/review-checklists/<id>/decision/` permite pasar a

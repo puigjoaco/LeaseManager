@@ -24,6 +24,7 @@ from core.company_accounting_review_package import (
     canonical_company_review_ref,
     verify_company_accounting_review_package,
 )
+from core.company_document_intake import write_company_document_intake_package
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Socio
 from sii.models import (
@@ -101,6 +102,66 @@ def _complete_bank_manifest(*, empresa=None, fiscal_year=2025, tax_year=2026):
                 'statement_strength': 'expected_complete',
             }
         ],
+    }
+
+
+def _complete_document_intake_manifest(*, empresa, fiscal_year=2025, tax_year=2026):
+    company_ref = canonical_company_review_ref(empresa.id)
+    operations = [
+        {'operation_ref': f'leasing-op-{index:02d}', 'label_ref': f'bank-leasing-{index:02d}'}
+        for index in range(1, 4)
+    ]
+    documents = []
+    for operation in operations:
+        operation_ref = operation['operation_ref']
+        documents.extend(
+            [
+                {
+                    'document_ref': f'{operation_ref}-contract-schedule',
+                    'batch_ref': 'gmail-thread-redacted',
+                    'category': 'bank_contract_or_schedule',
+                    'operation_refs': [operation_ref],
+                },
+                {
+                    'document_ref': f'{operation_ref}-payment-history',
+                    'batch_ref': 'gmail-thread-redacted',
+                    'category': 'bank_payment_history',
+                    'operation_refs': [operation_ref],
+                },
+            ]
+        )
+    documents.extend(
+        [
+            {
+                'document_ref': 'invoice-bundle-redacted',
+                'batch_ref': 'gmail-thread-redacted',
+                'category': 'bank_invoice_or_tax_document_bundle',
+                'operation_refs': ['*'],
+            },
+            {
+                'document_ref': 'bank-confirmation-redacted',
+                'batch_ref': 'gmail-thread-redacted',
+                'category': 'bank_confirmation',
+                'statement_strength': 'expected_complete',
+            },
+        ]
+    )
+    return {
+        'schema_version': 'company-document-intake-manifest.v1',
+        'company_ref': company_ref,
+        'fiscal_year': fiscal_year,
+        'tax_year': tax_year,
+        'source_batches': [
+            {
+                'batch_ref': 'gmail-thread-redacted',
+                'source_kind': 'manual_review_packet',
+                'source_ref': 'manual-review-packet-redacted',
+                'declared_complete': True,
+                'statement_strength': 'expected_complete',
+            }
+        ],
+        'required_bank_operations': operations,
+        'documents': documents,
     }
 
 
@@ -559,6 +620,45 @@ class CompanyAccountingReviewPackageTests(TestCase):
             self.assertNotIn('://', manifest_rendered)
             self.assertNotIn('@', rendered)
             self.assertNotIn('@', manifest_rendered)
+
+    def test_materialize_company_accounting_review_package_accepts_verified_document_intake_package(self):
+        empresa = self._create_empresa()
+        self._prepare_complete_accounting_layers(empresa)
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            intake_dir = Path(temp_dir) / 'company-document-intake-package'
+            output_dir = Path(temp_dir) / 'company-accounting-review-package'
+            intake_manifest = _complete_document_intake_manifest(empresa=empresa)
+            intake_package = write_company_document_intake_package(
+                payload=intake_manifest,
+                output_dir=intake_dir,
+            )
+            stdout = StringIO()
+
+            call_command(
+                'materialize_company_accounting_review_package',
+                empresa_id=empresa.id,
+                fiscal_year=2025,
+                document_intake_package_dir=str(intake_dir),
+                output_dir=str(output_dir),
+                stdout=stdout,
+            )
+
+            result = json.loads(stdout.getvalue())
+
+            self.assertTrue(result['materialized'])
+            self.assertEqual(result['source_kind'], 'document_intake_package')
+            self.assertEqual(result['document_intake_package_hash'], intake_package['package_hash'])
+            self.assertEqual(result['classification'], 'preparado')
+            self.assertTrue(result['ready_for_productive_accounting_review'])
+            self.assertEqual(result['bank_support_company_ref'], canonical_company_review_ref(empresa.id))
+            self.assertEqual(result['bank_support_coverage_percent'], 100)
+            self.assertFalse(result['autonomous_accounting'])
+            self.assertFalse(result['final_tax_calculation'])
+            self.assertFalse(result['sii_submission'])
+            self.assertTrue((output_dir / result['manifest_file']).is_file())
 
     def test_materialize_company_accounting_review_package_rejects_nonempty_output_dir(self):
         empresa = self._create_empresa()

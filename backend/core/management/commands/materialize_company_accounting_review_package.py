@@ -9,6 +9,7 @@ from core.company_accounting_review_package import (
     verify_company_accounting_review_package,
     write_company_accounting_review_package,
 )
+from core.company_document_intake import verify_company_document_intake_package_from_disk
 from patrimonio.models import Empresa
 
 
@@ -58,8 +59,16 @@ class Command(BaseCommand):
         parser.add_argument('--fiscal-year', type=int, required=True, help='Ano comercial a auditar.')
         parser.add_argument(
             '--bank-support-manifest',
-            required=True,
+            default='',
             help='JSON redactado company-bank-support-coverage-manifest.v1.',
+        )
+        parser.add_argument(
+            '--document-intake-package-dir',
+            default='',
+            help=(
+                'Directorio materializado por materialize_company_document_intake. '
+                'Si se usa, el manifiesto bancario/leasing se toma del paquete verificado.'
+            ),
         )
         parser.add_argument(
             '--output-dir',
@@ -73,9 +82,10 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        manifest_path = _resolve_path(options['bank_support_manifest'])
-        if not manifest_path.exists() or not manifest_path.is_file():
-            raise CommandError(f'No existe manifest JSON: {manifest_path}')
+        if bool(options['bank_support_manifest']) == bool(options['document_intake_package_dir']):
+            raise CommandError(
+                'Debe indicar exactamente una fuente: --bank-support-manifest o --document-intake-package-dir.'
+            )
 
         output_dir = (
             _resolve_path(options['output_dir'])
@@ -87,12 +97,24 @@ class Command(BaseCommand):
         )
         _validate_output_dir(output_dir)
 
-        try:
-            bank_support_payload = json.loads(manifest_path.read_text(encoding='utf-8'))
-        except (OSError, json.JSONDecodeError) as error:
-            raise CommandError(f'Manifest invalido: {error}') from error
-        if not isinstance(bank_support_payload, dict):
-            raise CommandError('Manifest invalido: la raiz debe ser un objeto JSON.')
+        intake_package = None
+        if options['document_intake_package_dir']:
+            intake_dir = _resolve_path(options['document_intake_package_dir'])
+            try:
+                intake_package = verify_company_document_intake_package_from_disk(package_dir=intake_dir)
+            except ValueError as error:
+                raise CommandError(f'Paquete de intake documental invalido: {error}') from error
+            bank_support_payload = intake_package['bank_support_manifest']
+        else:
+            manifest_path = _resolve_path(options['bank_support_manifest'])
+            if not manifest_path.exists() or not manifest_path.is_file():
+                raise CommandError(f'No existe manifest JSON: {manifest_path}')
+            try:
+                bank_support_payload = json.loads(manifest_path.read_text(encoding='utf-8'))
+            except (OSError, json.JSONDecodeError) as error:
+                raise CommandError(f'Manifest invalido: {error}') from error
+            if not isinstance(bank_support_payload, dict):
+                raise CommandError('Manifest invalido: la raiz debe ser un objeto JSON.')
 
         try:
             written = write_company_accounting_review_package(
@@ -135,6 +157,8 @@ class Command(BaseCommand):
             'bank_support_coverage_percent': verification['summary']['bank_support_coverage_percent'],
             'issues_total': verification['issues_total'],
             'warnings_total': verification['warnings_total'],
+            'source_kind': 'document_intake_package' if intake_package else 'bank_support_manifest',
+            'document_intake_package_hash': intake_package['package_hash'] if intake_package else '',
             'autonomous_accounting': False,
             'final_tax_calculation': False,
             'sii_submission': False,
