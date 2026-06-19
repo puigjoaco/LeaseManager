@@ -344,6 +344,15 @@ expone ese handoff en `summary.ownership_review_handoff`, pero sigue exigiendo
 arrastrar el estado real de revision ownership hacia el paquete controlado sin
 inventar socios, porcentajes, RUTs ni cierre anual.
 
+Nota 2026-06-19: `inject_annual_tax_ownership_patch_into_controlled_package`
+agrega el paso controlado entre un patch ownership validado y el paquete
+normalizado AC/AT. El comando exige salida explicita porque el resultado
+contiene `package.ownership` con nombres/RUTs, bloquea patch/output versionados
+fuera de `local-evidence/`, revalida el patch antes de inyectar, actualiza el
+handoff `ownership_review` y reaudita readiness. Esto permite pasar de checklist
+redactado a snapshot ownership controlado sin stdout sensible, DB, SII real,
+calculo tributario final ni presentacion.
+
 Nota 2026-06-16: `build_annual_tax_controlled_values_draft` ya materializa
 `real_estate_support` como `package.real_estate`: registro estructurado de
 bienes raices, codigos internos estables, tipo de inmueble, evidencia por
