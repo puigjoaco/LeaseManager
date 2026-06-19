@@ -326,6 +326,15 @@ corrida AC2024/AT2025 con ownership controlado, el proof deja
 por un manifiesto historico, sin usar outputs finales como input ni declarar
 calculo tributario final.
 
+Nota 2026-06-19: `build_annual_tax_ownership_review_checklist` acepta tambien
+`ownership-visual-index.v1` como evidencia visual local ya renderizada. Para
+Inmobiliaria Puig AC2025/AT2026 el checklist puede contar 10 candidatos
+ownership y 10 candidatos renderizados sin copiar rutas, nombres, RUTs ni
+archivos sensibles; conserva `ready_for_controlled_db_load=false` mientras falte
+`validate_annual_tax_ownership_patch` con participantes vigentes y porcentaje
+100.00. Esto mejora la cola real de revision ownership sin declarar snapshot
+final, calculo tributario ni presentacion SII.
+
 Nota 2026-06-16: `build_annual_tax_controlled_values_draft` ya materializa
 `real_estate_support` como `package.real_estate`: registro estructurado de
 bienes raices, codigos internos estables, tipo de inmueble, evidencia por

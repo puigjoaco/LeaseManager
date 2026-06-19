@@ -59,7 +59,11 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('--template', required=True, help='JSON annual-tax-ownership-snapshot-template.v1.')
         parser.add_argument('--validation', default='', help='JSON redactado de validate_annual_tax_ownership_patch.')
-        parser.add_argument('--visual-packet', default='', help='JSON annual-tax-ownership-visual-review-packet.v1 opcional.')
+        parser.add_argument(
+            '--visual-packet',
+            default='',
+            help='JSON annual-tax-ownership-visual-review-packet.v1 u ownership-visual-index.v1 opcional.',
+        )
         parser.add_argument('--output', default='', help='Ruta opcional para escribir checklist JSON.')
         parser.add_argument(
             '--fail-on-not-ready',
