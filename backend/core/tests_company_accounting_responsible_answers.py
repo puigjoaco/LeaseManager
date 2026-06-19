@@ -2,6 +2,7 @@ import json
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
@@ -257,6 +258,37 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
                         stdout=StringIO(),
                     )
 
+    def test_command_write_error_does_not_echo_sensitive_path(self):
+        packet = self._questions_packet()
+        answers = self._answers_payload(packet)
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            questions_path = temp_root / 'questions.json'
+            answers_path = temp_root / 'answers.json'
+            output_dir = temp_root / 'Socio Controlado Uno 11111111-1'
+            questions_path.write_text(json.dumps(packet), encoding='utf-8')
+            answers_path.write_text(json.dumps(answers), encoding='utf-8')
+
+            with patch.object(
+                Path,
+                'write_text',
+                side_effect=OSError('D:/Privado/Socio Controlado Uno 11111111-1/answers-review.json'),
+            ):
+                with self.assertRaises(CommandError) as error:
+                    call_command(
+                        'materialize_company_accounting_responsible_answers',
+                        questions_packet=str(questions_path),
+                        answers=str(answers_path),
+                        output_dir=str(output_dir),
+                        stdout=StringIO(),
+                    )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No se pudo escribir revision de respuestas responsables.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+            self.assertNotIn('D:/Privado', rendered_error)
+
     def test_template_command_rejects_repo_output_outside_local_evidence(self):
         packet = self._questions_packet()
         with TemporaryDirectory() as temp_dir:
@@ -274,3 +306,30 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
                         output_dir=str(docs_dir / 'answers-template'),
                         stdout=StringIO(),
                     )
+
+    def test_template_command_write_error_does_not_echo_sensitive_path(self):
+        packet = self._questions_packet()
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            questions_path = temp_root / 'questions.json'
+            output_dir = temp_root / 'Socio Controlado Uno 11111111-1'
+            questions_path.write_text(json.dumps(packet), encoding='utf-8')
+
+            with patch.object(
+                Path,
+                'write_text',
+                side_effect=OSError('D:/Privado/Socio Controlado Uno 11111111-1/answers-template.json'),
+            ):
+                with self.assertRaises(CommandError) as error:
+                    call_command(
+                        'materialize_company_accounting_responsible_answers_template',
+                        questions_packet=str(questions_path),
+                        output_dir=str(output_dir),
+                        stdout=StringIO(),
+                    )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No se pudo escribir template de respuestas responsables.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+            self.assertNotIn('D:/Privado', rendered_error)

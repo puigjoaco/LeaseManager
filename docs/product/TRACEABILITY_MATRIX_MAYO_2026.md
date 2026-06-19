@@ -429,6 +429,13 @@ redactados sin rutas locales completas, nombres ni RUTs. Esto permite continuar
 el flujo de respuestas responsables -> workbench -> patch privado sin convertir
 la consola, Git o el chat en superficie de PII.
 
+Nota 2026-06-19: `materialize_company_accounting_responsible_answers` y
+`materialize_company_accounting_responsible_answers_template` tambien redactan
+errores de escritura. Si la revision o el template no pueden persistirse, el
+CLI responde con mensaje generico sin rutas locales completas, nombres ni RUTs.
+Asi el tramo preguntas -> respuestas responsables -> workbench mantiene el
+boundary no sensible incluso cuando el directorio privado falla.
+
 Nota 2026-06-16: `build_annual_tax_controlled_values_draft` ya materializa
 `real_estate_support` como `package.real_estate`: registro estructurado de
 bienes raices, codigos internos estables, tipo de inmueble, evidencia por
