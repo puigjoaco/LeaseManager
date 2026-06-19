@@ -193,6 +193,15 @@ paginas renderizadas, participantes reportados, blockers y siguiente accion.
 Ese handoff no incluye cola visual, rutas, nombres ni RUTs, no reemplaza
 `package.ownership` y no habilita `ready_for_annual_generation`; solo deja
 trazado que falta inyectar un snapshot ownership validado.
+`materialize_annual_tax_ownership_patch_workbench` materializa el espacio
+privado para completar ese snapshot: desde el template ownership y un checklist
+redactado opcional crea `ownership-patch-workbench.json` como manifest seguro y
+`ownership-patch-draft.private.json` como borrador rellenable con el schema
+`annual-tax-ownership-controlled-patch.v1`. Si el destino queda dentro del
+repo, debe estar bajo `local-evidence/`; el comando falla en directorios no
+vacios, no imprime nombres/RUTs ni rutas de candidatos, no lee documentos
+reales y no escribe DB. El patch privado completado sigue fuera de Git y debe
+pasar por `validate_annual_tax_ownership_patch` antes de inyectarse.
 `inject_annual_tax_ownership_patch_into_controlled_package` cierra ese puente:
 toma un paquete/template controlado, el template ownership y un patch local ya
 validado, reejecuta `validate_annual_tax_ownership_patch`, inyecta
