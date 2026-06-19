@@ -353,6 +353,15 @@ handoff `ownership_review` y reaudita readiness. Esto permite pasar de checklist
 redactado a snapshot ownership controlado sin stdout sensible, DB, SII real,
 calculo tributario final ni presentacion.
 
+Nota 2026-06-19: `materialize_annual_tax_ownership_patch_workbench` prepara el
+paso manual anterior a esa inyeccion sin abrir fuentes reales desde el sistema:
+desde el template ownership y un checklist redactado opcional escribe un manifest
+redactado y un `ownership-patch-draft.private.json` bajo `local-evidence/` o
+ruta externa controlada. La salida de consola no expone candidatos, nombres,
+RUTs ni rutas; el patch privado puede ser completado por revision responsable y
+debe validarse antes de entrar al paquete AC/AT. Asi el avance queda
+trackeable sin convertir el chat o Git en repositorio de PII.
+
 Nota 2026-06-16: `build_annual_tax_controlled_values_draft` ya materializa
 `real_estate_support` como `package.real_estate`: registro estructurado de
 bienes raices, codigos internos estables, tipo de inmueble, evidencia por
