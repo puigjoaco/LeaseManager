@@ -1234,6 +1234,16 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   codigos/flags/contexto. Si la salida queda dentro del repo debe estar bajo
   `local-evidence/`. No lee documentos reales, no abre banco/SII, no escribe DB
   y no declara contabilidad final, calculo tributario final ni presentacion SII.
+- `materialize_company_accounting_responsible_answers` valida respuestas
+  responsables redactadas contra `company-accounting-responsible-questions.json`
+  y materializa `company-accounting-responsible-answers-review.json`. El paquete
+  exige refs no sensibles de responsable, decision, evidencia y siguiente accion,
+  bloquea preguntas desconocidas, respuestas faltantes, duplicados, refs
+  sensibles y campos de texto libre en payload o respuesta. La salida solo puede
+  quedar bajo `local-evidence/` si esta dentro del repo, no guarda nombres, RUTs,
+  rutas locales, adjuntos ni respuestas crudas, y conserva
+  `ready_for_productive_accounting_review=false`, `final_tax_calculation=false`
+  y `sii_submission=false`.
 - Reporting expone `POST /api/v1/reporting/contabilidad/paquete-revision-empresa/`
   para construir ese mismo paquete desde una superficie operativa con scope de
   empresa. El body debe incluir `empresa_id`, `fiscal_year` y
