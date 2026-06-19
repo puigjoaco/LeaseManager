@@ -17,6 +17,11 @@ from core.annual_tax_ownership_patch_workbench import (
 )
 from core.annual_tax_ownership_review_checklist import OWNERSHIP_REVIEW_CHECKLIST_SCHEMA_VERSION
 from core.annual_tax_ownership_snapshot_template import OWNERSHIP_SNAPSHOT_TEMPLATE_SCHEMA_VERSION
+from core.company_accounting_responsible_answers import (
+    COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_SCHEMA_VERSION,
+    validate_company_accounting_responsible_answers,
+)
+from core.company_accounting_responsible_questions import build_company_accounting_responsible_questions
 
 
 class AnnualTaxOwnershipPatchWorkbenchTests(SimpleTestCase):
@@ -72,6 +77,51 @@ class AnnualTaxOwnershipPatchWorkbenchTests(SimpleTestCase):
             ],
         }
 
+    def _responsible_answers_review(self, *, pending: bool = False) -> dict:
+        questions_packet = build_company_accounting_responsible_questions(
+            source_payloads={
+                'ownership_validation': {
+                    'schema_version': 'annual-tax-ownership-patch-validation.v1',
+                    'company_ref': 'inmobiliaria-puig',
+                    'commercial_year': 2025,
+                    'tax_year': 2026,
+                    'blockers': ['ownership_patch_missing'],
+                },
+                'bank_support_coverage': {
+                    'schema_version': 'company-bank-support-coverage-manifest.v1',
+                    'company_ref': 'inmobiliaria-puig',
+                    'fiscal_year': 2025,
+                    'tax_year': 2026,
+                    'issues': [{'code': 'company_bank_support.bank_confirmation_missing', 'severity': 'blocking'}],
+                },
+            },
+            company_ref='inmobiliaria-puig',
+            fiscal_year=2025,
+            tax_year=2026,
+        )
+        answers = {
+            'schema_version': COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_SCHEMA_VERSION,
+            'company_ref': 'inmobiliaria-puig',
+            'fiscal_year': 2025,
+            'tax_year': 2026,
+            'responsible_ref': 'responsible-review-ac2025-at2026',
+            'decision_ref': 'responsible-decisions-ac2025-at2026-v1',
+            'evidence_ref': 'responsible-evidence-ac2025-at2026-v1',
+            'answers': [
+                {
+                    'question_key': question['key'],
+                    'decision_state': 'pendiente' if pending and index == 1 else 'respondido',
+                    'evidence_ref': f'evidence-{index}',
+                    'next_action_ref': f'next-action-{index}',
+                }
+                for index, question in enumerate(questions_packet['questions'], start=1)
+            ],
+        }
+        return validate_company_accounting_responsible_answers(
+            questions_packet=questions_packet,
+            answers_payload=answers,
+        )
+
     def test_workbench_creates_private_patch_draft_without_leaking_candidate_paths(self):
         result = build_annual_tax_ownership_patch_workbench(
             template=self._template(),
@@ -92,6 +142,52 @@ class AnnualTaxOwnershipPatchWorkbenchTests(SimpleTestCase):
         self.assertNotIn('legal/Socio Controlado Uno/constitucion.pdf', rendered_manifest)
         self.assertNotIn('Socio Controlado Uno', rendered_manifest)
 
+    def test_workbench_summarizes_responsible_answers_review_without_copying_answer_refs(self):
+        result = build_annual_tax_ownership_patch_workbench(
+            template=self._template(),
+            checklist=self._checklist(),
+            responsible_answers_review=self._responsible_answers_review(),
+        )
+        rendered_manifest = json.dumps(result['manifest'], ensure_ascii=True)
+        responsible_summary = result['manifest']['responsible_answers_summary']
+
+        self.assertTrue(result['manifest']['summary']['responsible_answers_present'])
+        self.assertTrue(result['manifest']['summary']['responsible_answers_ready'])
+        self.assertEqual(result['manifest']['summary']['responsible_answers_blocking_issues_total'], 0)
+        self.assertTrue(responsible_summary['present'])
+        self.assertEqual(responsible_summary['questions_total'], 2)
+        self.assertEqual(responsible_summary['answers_total'], 2)
+        self.assertEqual(responsible_summary['decision_states'], {'respondido': 2})
+        self.assertIn('ownership', responsible_summary['categories'])
+        self.assertIn('bank_leasing', responsible_summary['categories'])
+        self.assertNotIn('evidence-1', rendered_manifest)
+        self.assertNotIn('responsible-decisions-ac2025-at2026-v1', rendered_manifest)
+
+    def test_workbench_marks_pending_responsible_answers_as_not_ready(self):
+        result = build_annual_tax_ownership_patch_workbench(
+            template=self._template(),
+            responsible_answers_review=self._responsible_answers_review(pending=True),
+        )
+
+        self.assertTrue(result['manifest']['summary']['responsible_answers_present'])
+        self.assertFalse(result['manifest']['summary']['responsible_answers_ready'])
+        self.assertEqual(result['manifest']['summary']['responsible_answers_blocking_issues_total'], 1)
+        self.assertIn(
+            'responsible_answers.decision_pending',
+            result['manifest']['responsible_answers_summary']['issue_codes'],
+        )
+        self.assertFalse(result['manifest']['decision']['responsible_answers_ready_for_patch_completion'])
+
+    def test_responsible_answers_review_context_must_match_template(self):
+        review = self._responsible_answers_review()
+        review['tax_year'] = 2027
+
+        with self.assertRaisesMessage(ValueError, 'tax_year'):
+            build_annual_tax_ownership_patch_workbench(
+                template=self._template(),
+                responsible_answers_review=review,
+            )
+
     def test_write_workbench_refuses_non_empty_output_dir(self):
         with TemporaryDirectory() as temp_dir:
             output_dir = Path(temp_dir) / 'workbench'
@@ -107,15 +203,18 @@ class AnnualTaxOwnershipPatchWorkbenchTests(SimpleTestCase):
             temp_root = Path(temp_dir)
             template_path = temp_root / 'template.json'
             checklist_path = temp_root / 'checklist.json'
+            responsible_answers_path = temp_root / 'responsible-answers-review.json'
             output_dir = temp_root / 'workbench'
             template_path.write_text(json.dumps(self._template()), encoding='utf-8')
             checklist_path.write_text(json.dumps(self._checklist()), encoding='utf-8')
+            responsible_answers_path.write_text(json.dumps(self._responsible_answers_review()), encoding='utf-8')
             stdout = StringIO()
 
             call_command(
                 'materialize_annual_tax_ownership_patch_workbench',
                 template=str(template_path),
                 checklist=str(checklist_path),
+                responsible_answers_review=str(responsible_answers_path),
                 output_dir=str(output_dir),
                 stdout=stdout,
             )
@@ -127,7 +226,10 @@ class AnnualTaxOwnershipPatchWorkbenchTests(SimpleTestCase):
             self.assertEqual(summary['schema_version'], OWNERSHIP_PATCH_WORKBENCH_SCHEMA_VERSION)
             self.assertEqual(summary['manifest_file'], OWNERSHIP_PATCH_WORKBENCH_MANIFEST_FILENAME)
             self.assertEqual(summary['private_patch_draft_file'], OWNERSHIP_PATCH_DRAFT_PRIVATE_FILENAME)
+            self.assertTrue(summary['responsible_answers_present'])
+            self.assertTrue(summary['responsible_answers_ready'])
             self.assertEqual(manifest['summary']['rendered_candidates_total'], 10)
+            self.assertTrue(manifest['responsible_answers_summary']['ready_for_responsible_decision_handoff'])
             self.assertEqual(patch_draft['ownership']['participants'], [])
             self.assertNotIn('Socio Controlado Uno', rendered_summary)
             self.assertNotIn('11111111-1', rendered_summary)
