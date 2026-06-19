@@ -35,6 +35,7 @@ from sii.models import (
 
 
 CONTROLLED_DB_LOAD_SCHEMA_VERSION = 'annual-tax-controlled-db-load.v1'
+CONTROLLED_OWNERSHIP_REVIEW_HANDOFF_SCHEMA_VERSION = 'annual-tax-ownership-review-handoff.v1'
 
 FORBIDDEN_EXPECTED_OUTPUT_KEYS = {
     'expected_outputs',
@@ -159,6 +160,33 @@ def _validate_ownership_snapshot(ownership: Any, *, commercial_year: int) -> Non
         raise ValueError('ownership.participants debe sumar 100.00%.')
 
 
+def _validate_ownership_review_handoff_consistency(payload: dict[str, Any]) -> None:
+    ownership = payload.get('ownership')
+    review = payload.get('ownership_review')
+    if not isinstance(ownership, dict) or not ownership or not isinstance(review, dict):
+        return
+    if not (review.get('ready_for_controlled_db_load') is True or review.get('validation_present') is True):
+        return
+    if review.get('schema_version') != CONTROLLED_OWNERSHIP_REVIEW_HANDOFF_SCHEMA_VERSION:
+        raise ValueError(
+            f'ownership_review.schema_version debe ser {CONTROLLED_OWNERSHIP_REVIEW_HANDOFF_SCHEMA_VERSION}.'
+        )
+    if not str(review.get('redacted_patch_hash') or '').strip():
+        raise ValueError('ownership_review.redacted_patch_hash es obligatorio cuando package.ownership ya fue validado.')
+
+    participants = ownership.get('participants') if isinstance(ownership.get('participants'), list) else []
+    if int(review.get('participants_count') or 0) != len(participants):
+        raise ValueError('ownership_review.participants_count no coincide con ownership.participants.')
+    expected_percentage = sum(
+        _decimal(participant.get('percentage'), field_name='ownership.participant.percentage')
+        for participant in participants
+        if isinstance(participant, dict)
+    )
+    review_percentage = _decimal(review.get('percentage_total'), field_name='ownership_review.percentage_total')
+    if review_percentage != expected_percentage:
+        raise ValueError('ownership_review.percentage_total no coincide con ownership.participants.')
+
+
 def _real_estate_properties(real_estate: Any) -> list[dict[str, Any]]:
     if not isinstance(real_estate, dict):
         return []
@@ -274,6 +302,7 @@ def _validate_package(payload: dict[str, Any]) -> tuple[int, int, str, str, str]
     if commercial_year < 2000 or tax_year != commercial_year + 1:
         raise ValueError('commercial_year y tax_year deben formar un par AC/AT valido.')
     _validate_ownership_snapshot(payload.get('ownership'), commercial_year=commercial_year)
+    _validate_ownership_review_handoff_consistency(payload)
     _validate_real_estate_snapshot(payload.get('real_estate'), commercial_year=commercial_year)
     _validate_labor_previsional_source(payload.get('labor_previsional'))
 

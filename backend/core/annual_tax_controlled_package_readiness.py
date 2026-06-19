@@ -159,7 +159,7 @@ def _validate_ownership_for_annual_generation(
     if not isinstance(ownership, dict) or not ownership:
         blockers.add('ownership_snapshot_missing')
         _add_missing(missing_paths, '$.ownership')
-        return {'present': False, 'participants_count': 0}
+        return {'present': False, 'participants_count': 0, 'percentage_total': '0.00'}
 
     if not _non_sensitive_text(ownership.get('source_ref')):
         blockers.add('ownership_snapshot_invalid')
@@ -176,7 +176,7 @@ def _validate_ownership_for_annual_generation(
     if not isinstance(participants, list) or not participants:
         blockers.add('ownership_snapshot_missing')
         _add_missing(missing_paths, '$.ownership.participants')
-        return {'present': True, 'participants_count': 0}
+        return {'present': True, 'participants_count': 0, 'percentage_total': '0.00'}
 
     period_start = date(commercial_year, 1, 1) if commercial_year >= 2000 else None
     period_end = date(commercial_year, 12, 31) if commercial_year >= 2000 else None
@@ -234,10 +234,17 @@ def _validate_ownership_for_annual_generation(
     if total_percentage != Decimal('100.00'):
         blockers.add('ownership_snapshot_invalid')
         _add_invalid(invalid_paths, '$.ownership.participants')
-    return {'present': True, 'participants_count': valid_participants}
+    return {'present': True, 'participants_count': valid_participants, 'percentage_total': str(total_percentage)}
 
 
-def _ownership_review_handoff_summary(package: dict[str, Any], warnings: list[str]) -> dict[str, Any]:
+def _ownership_review_handoff_summary(
+    package: dict[str, Any],
+    warnings: list[str],
+    *,
+    ownership_summary: dict[str, Any],
+    annual_generation_invalid_paths: list[str],
+    annual_generation_blockers: set[str],
+) -> dict[str, Any]:
     review = package.get('ownership_review')
     if review in (None, {}):
         return {'present': False}
@@ -258,11 +265,35 @@ def _ownership_review_handoff_summary(package: dict[str, Any], warnings: list[st
         warning = 'ownership_review_ready_requires_package_ownership'
         if warning not in warnings:
             warnings.append(warning)
+    redacted_patch_hash_present = bool(str(review.get('redacted_patch_hash') or '').strip())
+    if ready_for_controlled_db_load and isinstance(package.get('ownership'), dict):
+        expected_count = int(ownership_summary.get('participants_count') or 0)
+        expected_percentage = _decimal(ownership_summary.get('percentage_total'))
+        review_percentage = _decimal(review.get('percentage_total'))
+        if not redacted_patch_hash_present:
+            warning = 'ownership_review_redacted_patch_hash_missing'
+            if warning not in warnings:
+                warnings.append(warning)
+            annual_generation_blockers.add('ownership_review_handoff_mismatch')
+            _add_invalid(annual_generation_invalid_paths, '$.ownership_review.redacted_patch_hash')
+        if _int_value(review.get('participants_count')) != expected_count:
+            warning = 'ownership_review_participants_count_mismatch'
+            if warning not in warnings:
+                warnings.append(warning)
+            annual_generation_blockers.add('ownership_review_handoff_mismatch')
+            _add_invalid(annual_generation_invalid_paths, '$.ownership_review.participants_count')
+        if review_percentage != expected_percentage:
+            warning = 'ownership_review_percentage_total_mismatch'
+            if warning not in warnings:
+                warnings.append(warning)
+            annual_generation_blockers.add('ownership_review_handoff_mismatch')
+            _add_invalid(annual_generation_invalid_paths, '$.ownership_review.percentage_total')
 
     return {
         'present': True,
         'valid': valid,
         'source_checklist_hash_present': bool(str(review.get('source_checklist_hash') or '').strip()),
+        'redacted_patch_hash_present': redacted_patch_hash_present,
         'reviewable_candidates_total': _int_value(review.get('reviewable_candidates_total')),
         'rendered_candidates_total': _int_value(review.get('rendered_candidates_total')),
         'validation_present': bool(review.get('validation_present')),
@@ -489,7 +520,13 @@ def audit_annual_tax_controlled_package_readiness(*, payload: dict[str, Any]) ->
         invalid_paths=invalid_paths,
         blockers=blockers,
     )
-    ownership_review_summary = _ownership_review_handoff_summary(package, warnings)
+    ownership_review_summary = _ownership_review_handoff_summary(
+        package,
+        warnings,
+        ownership_summary=ownership_summary,
+        annual_generation_invalid_paths=annual_generation_invalid_paths,
+        annual_generation_blockers=annual_generation_blockers,
+    )
 
     annual_refs = package.get('annual_input_source_refs')
     if not isinstance(annual_refs, dict) or not annual_refs.get('annual_ledger_input'):
