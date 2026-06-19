@@ -108,11 +108,13 @@ class Command(BaseCommand):
         else:
             manifest_path = _resolve_path(options['bank_support_manifest'])
             if not manifest_path.exists() or not manifest_path.is_file():
-                raise CommandError(f'No existe manifest JSON: {manifest_path}')
+                raise CommandError('No existe manifest JSON o no es un archivo legible.')
             try:
                 bank_support_payload = json.loads(manifest_path.read_text(encoding='utf-8'))
-            except (OSError, json.JSONDecodeError) as error:
-                raise CommandError(f'Manifest invalido: {error}') from error
+            except json.JSONDecodeError as error:
+                raise CommandError(f'Manifest JSON invalido: line {error.lineno}, column {error.colno}.') from error
+            except OSError as error:
+                raise CommandError('No se pudo leer manifest JSON.') from error
             if not isinstance(bank_support_payload, dict):
                 raise CommandError('Manifest invalido: la raiz debe ser un objeto JSON.')
 
@@ -133,6 +135,8 @@ class Command(BaseCommand):
             raise CommandError(f'No existe Empresa con id={options["empresa_id"]}.') from error
         except ValueError as error:
             raise CommandError(f'No se pudo materializar/verificar paquete contable/renta: {error}') from error
+        except OSError as error:
+            raise CommandError('No se pudo escribir/verificar paquete contable/renta.') from error
         except (OperationalError, ProgrammingError) as error:
             raise CommandError(
                 'No se pudo materializar paquete contable/renta porque la base configurada no esta migrada o no es accesible.'
