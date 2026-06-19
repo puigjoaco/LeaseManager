@@ -1244,6 +1244,14 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   rutas locales, adjuntos ni respuestas crudas, y conserva
   `ready_for_productive_accounting_review=false`, `final_tax_calculation=false`
   y `sii_submission=false`.
+- `materialize_company_accounting_responsible_answers_template` crea un
+  `company-accounting-responsible-answers.template.json` rellenable desde el
+  paquete de preguntas. El template copia solo claves, categorias, issue codes
+  y severidades no sensibles; deja todas las decisiones en `pendiente`, usa refs
+  placeholder seguras y no incluye campos de texto libre. `pendiente` queda
+  bloqueante en el validador de respuestas, por lo que el template no puede
+  confundirse con aprobacion, revision productiva, calculo tributario final ni
+  presentacion SII.
 - Reporting expone `POST /api/v1/reporting/contabilidad/paquete-revision-empresa/`
   para construir ese mismo paquete desde una superficie operativa con scope de
   empresa. El body debe incluir `empresa_id`, `fiscal_year` y

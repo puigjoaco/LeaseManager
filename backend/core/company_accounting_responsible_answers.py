@@ -17,6 +17,7 @@ from core.reference_validation import contains_sensitive_reference
 COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_SCHEMA_VERSION = 'company-accounting-responsible-answers.v1'
 COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_REVIEW_SCHEMA_VERSION = 'company-accounting-responsible-answers-review.v1'
 COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_MANIFEST = 'company-accounting-responsible-answers-review.json'
+COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST = 'company-accounting-responsible-answers.template.json'
 
 CHILEAN_RUT_PATTERN = re.compile(r'\b\d{1,2}\.?\d{3}\.?\d{3}-[\dkK]\b')
 WINDOWS_ABSOLUTE_PATH_PATTERN = re.compile(r'(^|[\s"\'])([A-Za-z]:[\\/]|\\\\)')
@@ -139,6 +140,8 @@ def _safe_answer_entry(
     if decision_state not in ALLOWED_DECISION_STATES:
         issues.append(_issue('responsible_answers.decision_state_invalid'))
         decision_state = 'pendiente'
+    elif decision_state == 'pendiente':
+        issues.append(_issue('responsible_answers.decision_pending'))
 
     responsible_ref = answer.get('responsible_ref') or fallback_responsible_ref
     decision_ref = answer.get('decision_ref') or fallback_decision_ref
@@ -320,6 +323,111 @@ def validate_company_accounting_responsible_answers(
         }
     )
     return review
+
+
+def build_company_accounting_responsible_answers_template(
+    *,
+    questions_packet: dict[str, Any],
+    responsible_ref: str = 'responsible-ref-pending',
+    decision_ref: str = 'decision-ref-pending',
+    evidence_ref: str = 'evidence-ref-pending',
+    next_action_ref: str = 'next-action-pending',
+) -> dict[str, Any]:
+    if not isinstance(questions_packet, dict):
+        raise ValueError('questions_packet debe ser un objeto JSON.')
+
+    issues = _validate_questions_packet(questions_packet)
+    if issues:
+        raise ValueError('questions_packet no es materializable como template de respuestas responsables.')
+
+    questions = _question_index(questions_packet)
+    fallback_responsible_ref = _safe_ref(responsible_ref, fallback='responsible-ref-pending')
+    fallback_decision_ref = _safe_ref(decision_ref, fallback='decision-ref-pending')
+    fallback_evidence_ref = _safe_ref(evidence_ref, fallback='evidence-ref-pending')
+    fallback_next_action_ref = _safe_ref(next_action_ref, fallback='next-action-pending')
+
+    answers = []
+    for question in sorted(questions.values(), key=lambda item: item['key']):
+        answers.append(
+            {
+                'question_key': question['key'],
+                'category': question['category'],
+                'source_issue_code': question['source_issue_code'],
+                'source_severity': question['severity'],
+                'decision_state': 'pendiente',
+                'responsible_ref': fallback_responsible_ref,
+                'decision_ref': fallback_decision_ref,
+                'evidence_ref': fallback_evidence_ref,
+                'next_action_ref': fallback_next_action_ref,
+            }
+        )
+
+    template = {
+        'schema_version': COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_SCHEMA_VERSION,
+        'template_schema_version': 'company-accounting-responsible-answers-template.v1',
+        'generated_at': datetime.now(timezone.utc).isoformat(),
+        'company_ref': _safe_ref(questions_packet.get('company_ref'), fallback='company-ref-pending'),
+        'fiscal_year': _safe_int(questions_packet.get('fiscal_year')),
+        'tax_year': _safe_int(questions_packet.get('tax_year')),
+        'responsible_ref': fallback_responsible_ref,
+        'decision_ref': fallback_decision_ref,
+        'evidence_ref': fallback_evidence_ref,
+        'questions_packet_hash': _canonical_hash(
+            {
+                'schema_version': questions_packet.get('schema_version'),
+                'company_ref': questions_packet.get('company_ref'),
+                'fiscal_year': questions_packet.get('fiscal_year'),
+                'tax_year': questions_packet.get('tax_year'),
+                'questions': sorted(questions.values(), key=lambda item: item['key']),
+                'boundary': questions_packet.get('boundary') if isinstance(questions_packet.get('boundary'), dict) else {},
+            }
+        ),
+        'answers': answers,
+        'template_summary': {
+            'questions_total': len(questions),
+            'answers_total': len(answers),
+            'decision_state': 'pendiente',
+            'ready_for_responsible_decision_handoff': False,
+            'ready_for_productive_accounting_review': False,
+            'final_tax_calculation': False,
+            'sii_submission': False,
+        },
+        'boundary': dict(RESPONSIBLE_ANSWERS_BOUNDARY),
+    }
+    template['template_hash'] = _canonical_hash(
+        {
+            'schema_version': template['schema_version'],
+            'template_schema_version': template['template_schema_version'],
+            'company_ref': template['company_ref'],
+            'fiscal_year': template['fiscal_year'],
+            'tax_year': template['tax_year'],
+            'questions_packet_hash': template['questions_packet_hash'],
+            'answers': template['answers'],
+            'template_summary': template['template_summary'],
+            'boundary': template['boundary'],
+        }
+    )
+    return template
+
+
+def write_company_accounting_responsible_answers_template(
+    *,
+    template: dict[str, Any],
+    output_dir: Path,
+) -> dict[str, str]:
+    if output_dir.exists() and not output_dir.is_dir():
+        raise ValueError('El destino del template de respuestas responsables debe ser un directorio.')
+    if output_dir.exists() and any(output_dir.iterdir()):
+        raise ValueError('El directorio destino del template de respuestas responsables debe estar vacio.')
+    output_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = output_dir / COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST
+    manifest_path.write_text(
+        json.dumps(template, indent=2, ensure_ascii=True, sort_keys=True, default=str),
+        encoding='utf-8',
+    )
+    return {
+        'manifest_file': str(manifest_path),
+    }
 
 
 def write_company_accounting_responsible_answers_review(*, review: dict[str, Any], output_dir: Path) -> dict[str, str]:

@@ -11,6 +11,8 @@ from core.company_accounting_responsible_answers import (
     COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_MANIFEST,
     COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_REVIEW_SCHEMA_VERSION,
     COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_SCHEMA_VERSION,
+    COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST,
+    build_company_accounting_responsible_answers_template,
     validate_company_accounting_responsible_answers,
 )
 from core.company_accounting_responsible_questions import build_company_accounting_responsible_questions
@@ -94,6 +96,50 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
         self.assertEqual(review['summary']['missing_questions_total'], len(packet['questions']) - 1)
         self.assertIn('responsible_answers.questions_unanswered', issue_codes)
 
+    def test_pending_decisions_are_blocking(self):
+        packet = self._questions_packet()
+        answers = self._answers_payload(packet)
+        answers['answers'][0]['decision_state'] = 'pendiente'
+
+        review = validate_company_accounting_responsible_answers(
+            questions_packet=packet,
+            answers_payload=answers,
+        )
+        issue_codes = {issue['code'] for issue in review['issues']}
+
+        self.assertFalse(review['summary']['ready_for_responsible_decision_handoff'])
+        self.assertIn('responsible_answers.decision_pending', issue_codes)
+
+    def test_builds_pending_answers_template_without_raw_text_or_sensitive_values(self):
+        packet = self._questions_packet()
+        template = build_company_accounting_responsible_answers_template(
+            questions_packet=packet,
+            responsible_ref='responsable 11111111-1',
+            decision_ref='decision-ref-ac2025-at2026',
+            evidence_ref='D:/Privado/Socio Controlado Uno.pdf',
+            next_action_ref='complete-responsible-review',
+        )
+        rendered = json.dumps(template, ensure_ascii=True)
+        review = validate_company_accounting_responsible_answers(
+            questions_packet=packet,
+            answers_payload=template,
+        )
+        issue_codes = {issue['code'] for issue in review['issues']}
+
+        self.assertEqual(template['schema_version'], COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_SCHEMA_VERSION)
+        self.assertEqual(template['template_schema_version'], 'company-accounting-responsible-answers-template.v1')
+        self.assertEqual(template['template_summary']['answers_total'], len(packet['questions']))
+        self.assertFalse(template['template_summary']['ready_for_responsible_decision_handoff'])
+        self.assertTrue(all(answer['decision_state'] == 'pendiente' for answer in template['answers']))
+        self.assertTrue(all(answer['responsible_ref'] == 'responsible-ref-pending' for answer in template['answers']))
+        self.assertTrue(all(answer['evidence_ref'] == 'evidence-ref-pending' for answer in template['answers']))
+        self.assertIn('responsible_answers.decision_pending', issue_codes)
+        self.assertEqual(review['summary']['blocking_issues_total'], len(packet['questions']))
+        self.assertNotIn('Socio Controlado Uno', rendered)
+        self.assertNotIn('11111111-1', rendered)
+        self.assertNotIn('D:/Privado', rendered)
+        self.assertNotIn('answer_text', rendered)
+
     def test_unknown_or_sensitive_references_are_blocking_without_leaking_values(self):
         packet = self._questions_packet()
         answers = self._answers_payload(packet)
@@ -162,6 +208,33 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
             self.assertTrue(summary['ready_for_responsible_decision_handoff'])
             self.assertEqual(manifest['summary']['answers_total'], len(packet['questions']))
 
+    def test_command_materializes_answers_template_with_safe_stdout(self):
+        packet = self._questions_packet()
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            questions_path = temp_root / 'questions.json'
+            output_dir = temp_root / 'answers-template'
+            questions_path.write_text(json.dumps(packet), encoding='utf-8')
+            stdout = StringIO()
+
+            call_command(
+                'materialize_company_accounting_responsible_answers_template',
+                questions_packet=str(questions_path),
+                output_dir=str(output_dir),
+                responsible_ref='responsable 11111111-1',
+                stdout=stdout,
+            )
+
+            summary = json.loads(stdout.getvalue())
+            manifest = json.loads((output_dir / COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST).read_text())
+            rendered = json.dumps(manifest, ensure_ascii=True)
+            self.assertEqual(summary['schema_version'], COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_SCHEMA_VERSION)
+            self.assertEqual(summary['template_schema_version'], 'company-accounting-responsible-answers-template.v1')
+            self.assertEqual(summary['answers_total'], len(packet['questions']))
+            self.assertFalse(summary['ready_for_responsible_decision_handoff'])
+            self.assertEqual(manifest['template_summary']['answers_total'], len(packet['questions']))
+            self.assertNotIn('11111111-1', rendered)
+
     def test_command_rejects_repo_output_outside_local_evidence(self):
         packet = self._questions_packet()
         answers = self._answers_payload(packet)
@@ -181,5 +254,23 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
                         questions_packet=str(questions_path),
                         answers=str(answers_path),
                         output_dir=str(docs_dir / 'answers-review'),
+                        stdout=StringIO(),
+                    )
+
+    def test_template_command_rejects_repo_output_outside_local_evidence(self):
+        packet = self._questions_packet()
+        with TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / 'repo'
+            docs_dir = repo_root / 'docs'
+            docs_dir.mkdir(parents=True)
+            questions_path = repo_root / 'questions.json'
+            questions_path.write_text(json.dumps(packet), encoding='utf-8')
+
+            with override_settings(PROJECT_ROOT=str(repo_root)):
+                with self.assertRaisesMessage(CommandError, 'local-evidence'):
+                    call_command(
+                        'materialize_company_accounting_responsible_answers_template',
+                        questions_packet=str(questions_path),
+                        output_dir=str(docs_dir / 'answers-template'),
                         stdout=StringIO(),
                     )

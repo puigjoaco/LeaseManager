@@ -392,6 +392,15 @@ de texto libre tanto en el payload como en cada respuesta. El manifest
 decision, no respuestas crudas ni PII, y mantiene cerrados calculo tributario
 final, revision productiva y presentacion SII.
 
+Nota 2026-06-19: `materialize_company_accounting_responsible_answers_template`
+genera el template rellenable `company-accounting-responsible-answers.template.json`
+desde el paquete de preguntas. El template conserva solo claves/categorias/codigos
+no sensibles, deja todas las respuestas en `pendiente`, usa refs placeholder
+seguras y no permite texto libre como sustituto de decision responsable. El
+validador trata `pendiente` como bloqueante, evitando que un template sin
+revision se confunda con handoff listo, contabilidad/renta final o presentacion
+SII.
+
 Nota 2026-06-16: `build_annual_tax_controlled_values_draft` ya materializa
 `real_estate_support` como `package.real_estate`: registro estructurado de
 bienes raices, codigos internos estables, tipo de inmueble, evidencia por
