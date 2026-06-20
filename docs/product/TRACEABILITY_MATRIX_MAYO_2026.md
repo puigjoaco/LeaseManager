@@ -457,6 +457,15 @@ separa `review_missing`, `review_not_ready`, multiples reviews listos y un unico
 handoff listo. En el root actual reporta `review_missing`, por lo que no se
 materializa workbench estricto ni se inventa revision responsable.
 
+Nota 2026-06-20: `audit_company_accounting_responsible_handoff_preflight`
+consolida el handoff responsable AC/AT: escanea manifests de preguntas,
+template y review bajo `local-evidence/`, no devuelve rutas crudas y separa
+`ready_for_responsible_answer_completion` de
+`ready_for_responsible_decision_handoff`. En la corrida local AC2025/AT2026
+hay un paquete de preguntas y un template listos para completar 4 respuestas,
+pero no existe review responsable listo; por tanto el siguiente paso es
+respuesta responsable redactada, no ownership/writer ni presentacion SII.
+
 Nota 2026-06-19: `materialize_company_accounting_responsible_answers_template`
 genera el template rellenable `company-accounting-responsible-answers.template.json`
 desde el paquete de preguntas. El template conserva solo claves/categorias/codigos

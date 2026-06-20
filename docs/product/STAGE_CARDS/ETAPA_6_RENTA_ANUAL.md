@@ -1353,6 +1353,14 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   handoff listo. Esto reemplaza la inspeccion manual del filesystem para no
   usar el chat como evidencia ni confundir plantillas/checklists con un review
   responsable listo.
+- `audit_company_accounting_responsible_handoff_preflight` consolida ese borde
+  de reanudacion: escanea bajo `local-evidence/` los manifests de preguntas
+  responsables, template de respuestas y review responsable; devuelve solo
+  hashes, conteos y readiness efectiva. Asi diferencia "preguntas/template
+  listos para completar respuestas" de "review responsable listo", sin rutas
+  crudas ni documentos reales. Un template listo conserva
+  `ready_for_responsible_decision_handoff=false`; solo un review validado puede
+  alimentar el workbench estricto o el tramo de ownership controlado.
 - Reporting expone `POST /api/v1/reporting/contabilidad/paquete-revision-empresa/`
   para construir ese mismo paquete desde una superficie operativa con scope de
   empresa. El body debe incluir `empresa_id`, `fiscal_year` y

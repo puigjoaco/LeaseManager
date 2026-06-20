@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from core.company_accounting_responsible_questions import (
+    COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST,
     COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_SCHEMA_VERSION,
 )
 from core.reference_validation import contains_sensitive_reference
@@ -19,7 +20,13 @@ COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_REVIEW_SCHEMA_VERSION = 'company-accounti
 COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_DISCOVERY_SCHEMA_VERSION = (
     'company-accounting-responsible-answers-review-discovery.v1'
 )
+COMPANY_ACCOUNTING_RESPONSIBLE_HANDOFF_PREFLIGHT_SCHEMA_VERSION = (
+    'company-accounting-responsible-handoff-preflight.v1'
+)
 COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_MANIFEST = 'company-accounting-responsible-answers-review.json'
+COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_SCHEMA_VERSION = (
+    'company-accounting-responsible-answers-template.v1'
+)
 COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST = 'company-accounting-responsible-answers.template.json'
 
 CHILEAN_RUT_PATTERN = re.compile(r'\b\d{1,2}\.?\d{3}\.?\d{3}-[\dkK]\b')
@@ -647,4 +654,249 @@ def audit_company_accounting_responsible_answers_review_presence(*, search_root:
         },
         'issue_codes': sorted(issue_codes),
         'candidates': candidates,
+    }
+
+
+def _read_manifest_candidates(*, root: Path, manifest_name: str, builder) -> tuple[list[dict[str, Any]], int]:
+    candidates: list[dict[str, Any]] = []
+    read_errors_total = 0
+    if not root.exists():
+        return candidates, read_errors_total
+    for manifest_path in sorted(root.rglob(manifest_name)):
+        try:
+            relative_path_ref = manifest_path.resolve().relative_to(root).as_posix()
+        except ValueError:
+            relative_path_ref = manifest_name
+        try:
+            payload = json.loads(manifest_path.read_text(encoding='utf-8'))
+            if not isinstance(payload, dict):
+                raise ValueError('manifest JSON debe ser objeto')
+        except (json.JSONDecodeError, OSError, ValueError):
+            read_errors_total += 1
+            candidates.append(
+                {
+                    'candidate_hash': _canonical_hash(
+                        {'relative_path_ref': relative_path_ref, 'error': 'responsible_handoff.manifest_read_failed'}
+                    ),
+                    'path_hash': _canonical_hash({'relative_path_ref': relative_path_ref}),
+                    'manifest_file': manifest_name,
+                    'schema_valid': False,
+                    'company_ref': 'company-ref-invalid',
+                    'fiscal_year': 0,
+                    'tax_year': 0,
+                    'issue_codes': ['responsible_handoff.manifest_read_failed'],
+                    'raw_path_returned': False,
+                }
+            )
+            continue
+        candidates.append(builder(payload=payload, relative_path_ref=relative_path_ref))
+    return candidates, read_errors_total
+
+
+def _questions_discovery_candidate(*, payload: dict[str, Any], relative_path_ref: str) -> dict[str, Any]:
+    summary = payload.get('summary') if isinstance(payload.get('summary'), dict) else {}
+    boundary = payload.get('boundary') if isinstance(payload.get('boundary'), dict) else {}
+    schema_valid = payload.get('schema_version') == COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_SCHEMA_VERSION
+    company_ref_raw = str(payload.get('company_ref') or '').strip()
+    company_ref_safe = _is_safe_ref(company_ref_raw)
+    questions = payload.get('questions') if isinstance(payload.get('questions'), list) else []
+    reported_questions_total = _safe_int(summary.get('questions_total'))
+    questions_total = len(questions)
+    categories_total = _safe_int(summary.get('categories_total'))
+    reported_ready = bool(summary.get('ready_for_responsible_review'))
+    issue_codes = set()
+    if not schema_valid:
+        issue_codes.add('responsible_handoff.questions_schema_invalid')
+    if not company_ref_safe:
+        issue_codes.add('responsible_handoff.questions_company_ref_invalid')
+    if questions_total <= 0:
+        issue_codes.add('responsible_handoff.questions_missing')
+    if reported_questions_total and questions_total < reported_questions_total:
+        issue_codes.add('responsible_handoff.question_count_mismatch')
+    if boundary.get('final_tax_calculation') not in (False, None) or boundary.get('sii_submission') not in (False, None):
+        issue_codes.add('responsible_handoff.questions_boundary_invalid')
+    sorted_issue_codes = sorted(issue_codes)
+    effective_ready = schema_valid and company_ref_safe and questions_total > 0 and reported_ready and not sorted_issue_codes
+    path_hash = _canonical_hash({'relative_path_ref': relative_path_ref})
+    fingerprint = {
+        'path_hash': path_hash,
+        'schema_valid': schema_valid,
+        'company_ref': _safe_ref(company_ref_raw, fallback='company-ref-invalid'),
+        'fiscal_year': _safe_int(payload.get('fiscal_year')),
+        'tax_year': _safe_int(payload.get('tax_year')),
+        'questions_total': questions_total,
+        'categories_total': categories_total,
+        'reported_ready_for_responsible_review': reported_ready,
+        'ready_for_responsible_review': effective_ready,
+        'issue_codes': sorted_issue_codes,
+    }
+    return {
+        'candidate_hash': _canonical_hash(fingerprint),
+        'path_hash': path_hash,
+        'manifest_file': COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST,
+        'schema_valid': schema_valid,
+        'company_ref': fingerprint['company_ref'],
+        'fiscal_year': fingerprint['fiscal_year'],
+        'tax_year': fingerprint['tax_year'],
+        'questions_total': questions_total,
+        'categories_total': categories_total,
+        'reported_ready_for_responsible_review': reported_ready,
+        'ready_for_responsible_review': effective_ready,
+        'issue_codes': sorted_issue_codes,
+        'raw_path_returned': False,
+        'final_tax_calculation': False,
+        'sii_submission': False,
+    }
+
+
+def _template_discovery_candidate(*, payload: dict[str, Any], relative_path_ref: str) -> dict[str, Any]:
+    summary = payload.get('template_summary') if isinstance(payload.get('template_summary'), dict) else {}
+    boundary = payload.get('boundary') if isinstance(payload.get('boundary'), dict) else {}
+    schema_valid = payload.get('schema_version') == COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_SCHEMA_VERSION
+    template_schema_valid = (
+        payload.get('template_schema_version') == COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_SCHEMA_VERSION
+    )
+    company_ref_raw = str(payload.get('company_ref') or '').strip()
+    company_ref_safe = _is_safe_ref(company_ref_raw)
+    answers = payload.get('answers') if isinstance(payload.get('answers'), list) else []
+    questions_total = _safe_int(summary.get('questions_total'))
+    reported_answers_total = _safe_int(summary.get('answers_total'))
+    answers_total = len(answers)
+    pending_answers_total = sum(1 for answer in answers if isinstance(answer, dict) and answer.get('decision_state') == 'pendiente')
+    issue_codes = set()
+    if not schema_valid:
+        issue_codes.add('responsible_handoff.template_answers_schema_invalid')
+    if not template_schema_valid:
+        issue_codes.add('responsible_handoff.template_schema_invalid')
+    if not company_ref_safe:
+        issue_codes.add('responsible_handoff.template_company_ref_invalid')
+    if questions_total <= 0 or answers_total <= 0:
+        issue_codes.add('responsible_handoff.template_answers_missing')
+    if reported_answers_total and answers_total < reported_answers_total:
+        issue_codes.add('responsible_handoff.template_answer_count_mismatch')
+    if questions_total and answers_total < questions_total:
+        issue_codes.add('responsible_handoff.template_answer_count_mismatch')
+    if boundary.get('final_tax_calculation') not in (False, None) or boundary.get('sii_submission') not in (False, None):
+        issue_codes.add('responsible_handoff.template_boundary_invalid')
+    sorted_issue_codes = sorted(issue_codes)
+    ready_for_manual_completion = (
+        schema_valid
+        and template_schema_valid
+        and company_ref_safe
+        and questions_total > 0
+        and answers_total >= questions_total
+        and not sorted_issue_codes
+    )
+    path_hash = _canonical_hash({'relative_path_ref': relative_path_ref})
+    fingerprint = {
+        'path_hash': path_hash,
+        'schema_valid': schema_valid,
+        'template_schema_valid': template_schema_valid,
+        'company_ref': _safe_ref(company_ref_raw, fallback='company-ref-invalid'),
+        'fiscal_year': _safe_int(payload.get('fiscal_year')),
+        'tax_year': _safe_int(payload.get('tax_year')),
+        'questions_total': questions_total,
+        'answers_total': answers_total,
+        'pending_answers_total': pending_answers_total,
+        'ready_for_manual_completion': ready_for_manual_completion,
+        'issue_codes': sorted_issue_codes,
+    }
+    return {
+        'candidate_hash': _canonical_hash(fingerprint),
+        'path_hash': path_hash,
+        'manifest_file': COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST,
+        'schema_valid': schema_valid,
+        'template_schema_valid': template_schema_valid,
+        'company_ref': fingerprint['company_ref'],
+        'fiscal_year': fingerprint['fiscal_year'],
+        'tax_year': fingerprint['tax_year'],
+        'questions_total': questions_total,
+        'answers_total': answers_total,
+        'pending_answers_total': pending_answers_total,
+        'ready_for_manual_completion': ready_for_manual_completion,
+        'ready_for_responsible_decision_handoff': False,
+        'issue_codes': sorted_issue_codes,
+        'raw_path_returned': False,
+        'final_tax_calculation': False,
+        'sii_submission': False,
+    }
+
+
+def audit_company_accounting_responsible_handoff_preflight(*, search_root: Path) -> dict[str, Any]:
+    root = Path(search_root).resolve()
+    question_candidates, question_read_errors = _read_manifest_candidates(
+        root=root,
+        manifest_name=COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST,
+        builder=_questions_discovery_candidate,
+    )
+    template_candidates, template_read_errors = _read_manifest_candidates(
+        root=root,
+        manifest_name=COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST,
+        builder=_template_discovery_candidate,
+    )
+    review_audit = audit_company_accounting_responsible_answers_review_presence(search_root=root)
+    ready_questions = [candidate for candidate in question_candidates if candidate.get('ready_for_responsible_review')]
+    ready_templates = [candidate for candidate in template_candidates if candidate.get('ready_for_manual_completion')]
+    review_ready = bool(review_audit['summary']['ready_for_responsible_decision_handoff'])
+    issue_codes = set(review_audit['issue_codes'])
+    if not question_candidates:
+        issue_codes.add('responsible_handoff.questions_missing')
+    if question_read_errors:
+        issue_codes.add('responsible_handoff.questions_read_failed')
+    if len(ready_questions) > 1:
+        issue_codes.add('responsible_handoff.multiple_ready_question_packets')
+    if question_candidates and not ready_questions:
+        issue_codes.add('responsible_handoff.questions_not_ready')
+    if not template_candidates:
+        issue_codes.add('responsible_handoff.template_missing')
+    if template_read_errors:
+        issue_codes.add('responsible_handoff.template_read_failed')
+    if len(ready_templates) > 1:
+        issue_codes.add('responsible_handoff.multiple_ready_answer_templates')
+    if template_candidates and not ready_templates:
+        issue_codes.add('responsible_handoff.template_not_ready')
+    ready_for_answer_completion = len(ready_questions) == 1 and len(ready_templates) == 1 and not review_ready
+    if ready_for_answer_completion:
+        issue_codes.add('responsible_handoff.review_pending')
+    return {
+        'schema_version': COMPANY_ACCOUNTING_RESPONSIBLE_HANDOFF_PREFLIGHT_SCHEMA_VERSION,
+        'generated_at': datetime.now(timezone.utc).isoformat(),
+        'search': {
+            'manifest_files': [
+                COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST,
+                COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST,
+                COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_MANIFEST,
+            ],
+            'raw_paths_returned': False,
+            'reads_real_documents': False,
+            'uses_external_integrations': False,
+            'opens_bank_gate': False,
+            'opens_sii_gate': False,
+        },
+        'summary': {
+            'questions_candidates_total': len(question_candidates),
+            'ready_question_packets_total': len(ready_questions),
+            'template_candidates_total': len(template_candidates),
+            'ready_answer_templates_total': len(ready_templates),
+            'review_candidates_total': review_audit['summary']['candidates_total'],
+            'ready_review_candidates_total': review_audit['summary']['ready_candidates_total'],
+            'ready_for_responsible_answer_completion': ready_for_answer_completion,
+            'ready_for_responsible_decision_handoff': review_ready,
+            'ready_for_productive_accounting_review': False,
+            'final_tax_calculation': False,
+            'sii_submission': False,
+        },
+        'issue_codes': sorted(issue_codes),
+        'questions': {
+            'read_errors_total': question_read_errors,
+            'candidates': question_candidates,
+        },
+        'answer_templates': {
+            'read_errors_total': template_read_errors,
+            'candidates': template_candidates,
+        },
+        'reviews': {
+            'read_errors_total': review_audit['summary']['read_errors_total'],
+            'candidates': review_audit['candidates'],
+        },
     }

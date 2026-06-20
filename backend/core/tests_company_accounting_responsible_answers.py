@@ -10,6 +10,7 @@ from django.test import SimpleTestCase, override_settings
 
 from core.company_accounting_responsible_answers import (
     COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_DISCOVERY_SCHEMA_VERSION,
+    COMPANY_ACCOUNTING_RESPONSIBLE_HANDOFF_PREFLIGHT_SCHEMA_VERSION,
     COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_MANIFEST,
     COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_REVIEW_SCHEMA_VERSION,
     COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_SCHEMA_VERSION,
@@ -17,7 +18,10 @@ from core.company_accounting_responsible_answers import (
     build_company_accounting_responsible_answers_template,
     validate_company_accounting_responsible_answers,
 )
-from core.company_accounting_responsible_questions import build_company_accounting_responsible_questions
+from core.company_accounting_responsible_questions import (
+    COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST,
+    build_company_accounting_responsible_questions,
+)
 
 
 class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
@@ -680,6 +684,166 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
                 with self.assertRaisesMessage(CommandError, 'local-evidence'):
                     call_command(
                         'audit_company_accounting_responsible_answers_review_presence',
+                        search_root=str(docs_dir),
+                        stdout=StringIO(),
+                    )
+
+    def test_handoff_preflight_reports_missing_artifacts_without_manual_path(self):
+        with TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / 'repo'
+            (repo_root / 'local-evidence').mkdir(parents=True)
+            stdout = StringIO()
+
+            with override_settings(PROJECT_ROOT=str(repo_root)):
+                call_command('audit_company_accounting_responsible_handoff_preflight', stdout=stdout)
+
+            audit = json.loads(stdout.getvalue())
+            self.assertEqual(audit['schema_version'], COMPANY_ACCOUNTING_RESPONSIBLE_HANDOFF_PREFLIGHT_SCHEMA_VERSION)
+            self.assertEqual(audit['summary']['questions_candidates_total'], 0)
+            self.assertEqual(audit['summary']['template_candidates_total'], 0)
+            self.assertEqual(audit['summary']['review_candidates_total'], 0)
+            self.assertFalse(audit['summary']['ready_for_responsible_answer_completion'])
+            self.assertFalse(audit['summary']['ready_for_responsible_decision_handoff'])
+            self.assertIn('responsible_handoff.questions_missing', audit['issue_codes'])
+            self.assertIn('responsible_handoff.template_missing', audit['issue_codes'])
+            self.assertIn('responsible_answers.review_missing', audit['issue_codes'])
+            self.assertFalse(audit['search']['raw_paths_returned'])
+
+    def test_handoff_preflight_finds_questions_and_template_without_returning_paths(self):
+        packet = self._questions_packet()
+        template = build_company_accounting_responsible_answers_template(
+            questions_packet=packet,
+            next_action_ref='complete-ac2025-at2026-responsible-review',
+        )
+        with TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / 'repo'
+            sensitive_dir = repo_root / 'local-evidence' / 'Socio Controlado Uno 11111111-1'
+            questions_dir = sensitive_dir / 'questions'
+            template_dir = sensitive_dir / 'template'
+            questions_dir.mkdir(parents=True)
+            template_dir.mkdir(parents=True)
+            (questions_dir / COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST).write_text(
+                json.dumps(packet),
+                encoding='utf-8',
+            )
+            (template_dir / COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST).write_text(
+                json.dumps(template),
+                encoding='utf-8',
+            )
+            stdout = StringIO()
+
+            with override_settings(PROJECT_ROOT=str(repo_root)):
+                call_command(
+                    'audit_company_accounting_responsible_handoff_preflight',
+                    require_answer_template_ready=True,
+                    stdout=stdout,
+                )
+
+            audit = json.loads(stdout.getvalue())
+            rendered = json.dumps(audit, ensure_ascii=True)
+            self.assertEqual(audit['summary']['questions_candidates_total'], 1)
+            self.assertEqual(audit['summary']['ready_question_packets_total'], 1)
+            self.assertEqual(audit['summary']['template_candidates_total'], 1)
+            self.assertEqual(audit['summary']['ready_answer_templates_total'], 1)
+            self.assertTrue(audit['summary']['ready_for_responsible_answer_completion'])
+            self.assertFalse(audit['summary']['ready_for_responsible_decision_handoff'])
+            self.assertIn('responsible_handoff.review_pending', audit['issue_codes'])
+            self.assertIn('responsible_answers.review_missing', audit['issue_codes'])
+            self.assertTrue(audit['questions']['candidates'][0]['path_hash'])
+            self.assertTrue(audit['answer_templates']['candidates'][0]['path_hash'])
+            self.assertNotIn('Socio Controlado Uno', rendered)
+            self.assertNotIn('11111111-1', rendered)
+            self.assertNotIn(str(sensitive_dir), rendered)
+
+    def test_handoff_preflight_reports_ready_review_without_answer_completion(self):
+        packet = self._questions_packet()
+        template = build_company_accounting_responsible_answers_template(questions_packet=packet)
+        review = validate_company_accounting_responsible_answers(
+            questions_packet=packet,
+            answers_payload=self._answers_payload(packet),
+        )
+        with TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / 'repo'
+            local_root = repo_root / 'local-evidence' / 'responsible'
+            questions_dir = local_root / 'questions'
+            template_dir = local_root / 'template'
+            review_dir = local_root / 'review'
+            questions_dir.mkdir(parents=True)
+            template_dir.mkdir(parents=True)
+            review_dir.mkdir(parents=True)
+            (questions_dir / COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST).write_text(
+                json.dumps(packet),
+                encoding='utf-8',
+            )
+            (template_dir / COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST).write_text(
+                json.dumps(template),
+                encoding='utf-8',
+            )
+            (review_dir / COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_MANIFEST).write_text(
+                json.dumps(review),
+                encoding='utf-8',
+            )
+            output_path = repo_root / 'local-evidence' / 'audit' / 'responsible-handoff-preflight.json'
+            stdout = StringIO()
+
+            with override_settings(PROJECT_ROOT=str(repo_root)):
+                call_command(
+                    'audit_company_accounting_responsible_handoff_preflight',
+                    output=str(output_path),
+                    require_review_ready=True,
+                    stdout=stdout,
+                )
+
+            audit = json.loads(stdout.getvalue())
+            written = json.loads(output_path.read_text(encoding='utf-8'))
+            self.assertTrue(audit['summary']['ready_for_responsible_decision_handoff'])
+            self.assertFalse(audit['summary']['ready_for_responsible_answer_completion'])
+            self.assertEqual(audit['summary']['ready_review_candidates_total'], 1)
+            self.assertEqual(written['summary'], audit['summary'])
+
+    def test_handoff_preflight_rejects_forged_template_counts(self):
+        packet = self._questions_packet()
+        template = build_company_accounting_responsible_answers_template(questions_packet=packet)
+        template['answers'] = []
+        template['template_summary']['answers_total'] = len(packet['questions'])
+        with TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / 'repo'
+            local_root = repo_root / 'local-evidence' / 'responsible'
+            questions_dir = local_root / 'questions'
+            template_dir = local_root / 'template'
+            questions_dir.mkdir(parents=True)
+            template_dir.mkdir(parents=True)
+            (questions_dir / COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST).write_text(
+                json.dumps(packet),
+                encoding='utf-8',
+            )
+            (template_dir / COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST).write_text(
+                json.dumps(template),
+                encoding='utf-8',
+            )
+            stdout = StringIO()
+
+            with override_settings(PROJECT_ROOT=str(repo_root)):
+                call_command('audit_company_accounting_responsible_handoff_preflight', stdout=stdout)
+
+            audit = json.loads(stdout.getvalue())
+            self.assertFalse(audit['summary']['ready_for_responsible_answer_completion'])
+            self.assertEqual(audit['summary']['ready_answer_templates_total'], 0)
+            self.assertIn(
+                'responsible_handoff.template_answer_count_mismatch',
+                audit['answer_templates']['candidates'][0]['issue_codes'],
+            )
+
+    def test_handoff_preflight_command_rejects_search_root_outside_local_evidence(self):
+        with TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / 'repo'
+            docs_dir = repo_root / 'docs'
+            docs_dir.mkdir(parents=True)
+
+            with override_settings(PROJECT_ROOT=str(repo_root)):
+                with self.assertRaisesMessage(CommandError, 'local-evidence'):
+                    call_command(
+                        'audit_company_accounting_responsible_handoff_preflight',
                         search_root=str(docs_dir),
                         stdout=StringIO(),
                     )
