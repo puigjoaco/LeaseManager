@@ -23,11 +23,15 @@ COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_DISCOVERY_SCHEMA_VERSION = (
 COMPANY_ACCOUNTING_RESPONSIBLE_HANDOFF_PREFLIGHT_SCHEMA_VERSION = (
     'company-accounting-responsible-handoff-preflight.v1'
 )
+COMPANY_ACCOUNTING_RESPONSIBLE_HANDOFF_PACKET_SCHEMA_VERSION = (
+    'company-accounting-responsible-handoff-packet.v1'
+)
 COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_MANIFEST = 'company-accounting-responsible-answers-review.json'
 COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_SCHEMA_VERSION = (
     'company-accounting-responsible-answers-template.v1'
 )
 COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST = 'company-accounting-responsible-answers.template.json'
+COMPANY_ACCOUNTING_RESPONSIBLE_HANDOFF_PACKET_MANIFEST = 'company-accounting-responsible-handoff-packet.json'
 
 CHILEAN_RUT_PATTERN = re.compile(r'\b\d{1,2}\.?\d{3}\.?\d{3}-[\dkK]\b')
 WINDOWS_ABSOLUTE_PATH_PATTERN = re.compile(r'(^|[\s"\'])([A-Za-z]:[\\/]|\\\\)')
@@ -470,6 +474,218 @@ def write_company_accounting_responsible_answers_template(
     )
     return {
         'manifest_file': str(manifest_path),
+    }
+
+
+def _handoff_packet_fingerprint(manifest: dict[str, Any]) -> dict[str, Any]:
+    return {
+        'schema_version': manifest.get('schema_version'),
+        'company_ref': manifest.get('company_ref'),
+        'fiscal_year': manifest.get('fiscal_year'),
+        'tax_year': manifest.get('tax_year'),
+        'manifest_files': manifest.get('manifest_files'),
+        'artifacts': manifest.get('artifacts'),
+        'summary': manifest.get('summary'),
+        'issue_codes': manifest.get('issue_codes'),
+        'boundary': manifest.get('boundary'),
+    }
+
+
+def build_company_accounting_responsible_handoff_packet(
+    *,
+    questions_packet: dict[str, Any],
+    answers_template: dict[str, Any],
+) -> dict[str, Any]:
+    if not isinstance(questions_packet, dict):
+        raise ValueError('questions_packet debe ser un objeto JSON.')
+    if not isinstance(answers_template, dict):
+        raise ValueError('answers_template debe ser un objeto JSON.')
+
+    questions_issues = _validate_questions_packet(questions_packet)
+    if questions_issues:
+        raise ValueError('questions_packet no es materializable como handoff responsable.')
+    if answers_template.get('schema_version') != COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_SCHEMA_VERSION:
+        raise ValueError('answers_template tiene schema_version incompatible.')
+    if answers_template.get('template_schema_version') != COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_SCHEMA_VERSION:
+        raise ValueError('answers_template no es un template rellenable vigente.')
+
+    review = validate_company_accounting_responsible_answers(
+        questions_packet=questions_packet,
+        answers_payload=answers_template,
+        require_complete=True,
+    )
+    review_issue_codes = sorted({issue['code'] for issue in review['issues']})
+    allowed_template_issues = {'responsible_answers.decision_pending'}
+    if set(review_issue_codes) - allowed_template_issues:
+        raise ValueError('answers_template contiene inconsistencias distintas de decisiones pendientes.')
+
+    questions_total = len(_question_index(questions_packet))
+    answers_total = len(answers_template.get('answers') if isinstance(answers_template.get('answers'), list) else [])
+    pending_answers_total = sum(
+        1
+        for answer in answers_template.get('answers', [])
+        if isinstance(answer, dict) and answer.get('decision_state') == 'pendiente'
+    )
+    if questions_total <= 0 or answers_total != questions_total or pending_answers_total != questions_total:
+        raise ValueError('answers_template debe cubrir todas las preguntas en estado pendiente.')
+    if answers_template.get('questions_packet_hash') != review['questions_packet_hash']:
+        raise ValueError('answers_template no corresponde al paquete de preguntas informado.')
+
+    template_summary = answers_template.get('template_summary') if isinstance(answers_template.get('template_summary'), dict) else {}
+    if template_summary.get('ready_for_responsible_decision_handoff') not in (False, None):
+        raise ValueError('answers_template no puede declarar handoff responsable listo.')
+    if template_summary.get('final_tax_calculation') not in (False, None) or template_summary.get('sii_submission') not in (False, None):
+        raise ValueError('answers_template no puede declarar calculo tributario final ni presentacion SII.')
+
+    questions_summary = questions_packet.get('summary') if isinstance(questions_packet.get('summary'), dict) else {}
+    manifest = {
+        'schema_version': COMPANY_ACCOUNTING_RESPONSIBLE_HANDOFF_PACKET_SCHEMA_VERSION,
+        'generated_at': datetime.now(timezone.utc).isoformat(),
+        'company_ref': review['company_ref'],
+        'fiscal_year': review['fiscal_year'],
+        'tax_year': review['tax_year'],
+        'manifest_files': {
+            'handoff_packet': COMPANY_ACCOUNTING_RESPONSIBLE_HANDOFF_PACKET_MANIFEST,
+            'questions_packet': COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST,
+            'answers_template': COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST,
+        },
+        'artifacts': {
+            'questions_packet': {
+                'manifest_file': COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST,
+                'schema_version': questions_packet.get('schema_version'),
+                'questions_total': questions_total,
+                'categories_total': _safe_int(questions_summary.get('categories_total')),
+                'payload_hash': _canonical_hash(questions_packet),
+                'package_hash': questions_packet.get('package_hash') or _canonical_hash(questions_packet),
+            },
+            'answers_template': {
+                'manifest_file': COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST,
+                'schema_version': answers_template.get('schema_version'),
+                'template_schema_version': answers_template.get('template_schema_version'),
+                'answers_total': answers_total,
+                'pending_answers_total': pending_answers_total,
+                'payload_hash': _canonical_hash(answers_template),
+                'template_hash': answers_template.get('template_hash') or _canonical_hash(answers_template),
+            },
+        },
+        'summary': {
+            'questions_total': questions_total,
+            'answers_total': answers_total,
+            'pending_answers_total': pending_answers_total,
+            'ready_for_responsible_answer_completion': True,
+            'ready_for_responsible_decision_handoff': False,
+            'ready_for_productive_accounting_review': False,
+            'final_tax_calculation': False,
+            'sii_submission': False,
+        },
+        'issue_codes': ['responsible_handoff.review_pending'],
+        'boundary': {
+            'purpose': 'agrupar_preguntas_y_template_para_revision_responsable_contabilidad_renta',
+            'reads_real_documents': False,
+            'stores_real_attachments': False,
+            'stores_person_names': False,
+            'stores_rut_values': False,
+            'stores_raw_answers': False,
+            'uses_external_integrations': False,
+            'opens_bank_gate': False,
+            'opens_sii_gate': False,
+            'autonomous_accounting': False,
+            'final_tax_calculation': False,
+            'sii_submission': False,
+            'requires_responsible_review': True,
+        },
+    }
+    manifest['package_hash'] = _canonical_hash(_handoff_packet_fingerprint(manifest))
+    return manifest
+
+
+def write_company_accounting_responsible_handoff_packet(
+    *,
+    questions_packet: dict[str, Any],
+    answers_template: dict[str, Any],
+    output_dir: Path,
+) -> dict[str, str]:
+    if output_dir.exists() and not output_dir.is_dir():
+        raise ValueError('El destino del handoff responsable debe ser un directorio.')
+    if output_dir.exists() and any(output_dir.iterdir()):
+        raise ValueError('El directorio destino del handoff responsable debe estar vacio.')
+    manifest = build_company_accounting_responsible_handoff_packet(
+        questions_packet=questions_packet,
+        answers_template=answers_template,
+    )
+    output_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = output_dir / COMPANY_ACCOUNTING_RESPONSIBLE_HANDOFF_PACKET_MANIFEST
+    questions_path = output_dir / COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST
+    template_path = output_dir / COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=True, sort_keys=True, default=str),
+        encoding='utf-8',
+    )
+    questions_path.write_text(
+        json.dumps(questions_packet, indent=2, ensure_ascii=True, sort_keys=True, default=str),
+        encoding='utf-8',
+    )
+    template_path.write_text(
+        json.dumps(answers_template, indent=2, ensure_ascii=True, sort_keys=True, default=str),
+        encoding='utf-8',
+    )
+    return {
+        'manifest_file': str(manifest_path),
+        'questions_file': str(questions_path),
+        'answers_template_file': str(template_path),
+    }
+
+
+def verify_company_accounting_responsible_handoff_packet(*, package_dir: Path) -> dict[str, Any]:
+    if not package_dir.exists() or not package_dir.is_dir():
+        raise ValueError('El paquete de handoff responsable debe ser un directorio existente.')
+
+    expected_files = {
+        COMPANY_ACCOUNTING_RESPONSIBLE_HANDOFF_PACKET_MANIFEST,
+        COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST,
+        COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST,
+    }
+    actual_files = {path.name for path in package_dir.iterdir() if path.is_file()}
+    if actual_files != expected_files or any(path.is_dir() for path in package_dir.iterdir()):
+        raise ValueError('El paquete de handoff responsable debe contener solo los manifests esperados.')
+
+    try:
+        manifest = json.loads(
+            (package_dir / COMPANY_ACCOUNTING_RESPONSIBLE_HANDOFF_PACKET_MANIFEST).read_text(encoding='utf-8')
+        )
+        questions_packet = json.loads(
+            (package_dir / COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST).read_text(encoding='utf-8')
+        )
+        answers_template = json.loads(
+            (package_dir / COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST).read_text(encoding='utf-8')
+        )
+    except (json.JSONDecodeError, OSError) as error:
+        raise ValueError('El paquete de handoff responsable contiene JSON invalido o ilegible.') from error
+    if not isinstance(manifest, dict) or not isinstance(questions_packet, dict) or not isinstance(answers_template, dict):
+        raise ValueError('Los manifests del paquete de handoff responsable deben ser objetos JSON.')
+
+    expected_manifest = build_company_accounting_responsible_handoff_packet(
+        questions_packet=questions_packet,
+        answers_template=answers_template,
+    )
+    if _handoff_packet_fingerprint(manifest) != _handoff_packet_fingerprint(expected_manifest):
+        raise ValueError('El manifest de handoff responsable no coincide con preguntas y template.')
+    if manifest.get('package_hash') != expected_manifest.get('package_hash'):
+        raise ValueError('El hash del paquete de handoff responsable no coincide.')
+
+    return {
+        'schema_version': manifest['schema_version'],
+        'verified': True,
+        'manifest_file': COMPANY_ACCOUNTING_RESPONSIBLE_HANDOFF_PACKET_MANIFEST,
+        'questions_file': COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST,
+        'answers_template_file': COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST,
+        'company_ref': manifest['company_ref'],
+        'fiscal_year': manifest['fiscal_year'],
+        'tax_year': manifest['tax_year'],
+        'package_hash': manifest['package_hash'],
+        'summary': manifest['summary'],
+        'issue_codes': manifest['issue_codes'],
+        'raw_paths_returned': False,
     }
 
 

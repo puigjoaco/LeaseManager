@@ -15,8 +15,12 @@ from core.company_accounting_responsible_answers import (
     COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_REVIEW_SCHEMA_VERSION,
     COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_SCHEMA_VERSION,
     COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST,
+    COMPANY_ACCOUNTING_RESPONSIBLE_HANDOFF_PACKET_MANIFEST,
+    COMPANY_ACCOUNTING_RESPONSIBLE_HANDOFF_PACKET_SCHEMA_VERSION,
     build_company_accounting_responsible_answers_template,
+    build_company_accounting_responsible_handoff_packet,
     validate_company_accounting_responsible_answers,
+    verify_company_accounting_responsible_handoff_packet,
 )
 from core.company_accounting_responsible_questions import (
     COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST,
@@ -708,6 +712,138 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
             self.assertIn('responsible_handoff.template_missing', audit['issue_codes'])
             self.assertIn('responsible_answers.review_missing', audit['issue_codes'])
             self.assertFalse(audit['search']['raw_paths_returned'])
+
+    def test_builds_handoff_packet_from_questions_and_template(self):
+        packet = self._questions_packet()
+        template = build_company_accounting_responsible_answers_template(
+            questions_packet=packet,
+            next_action_ref='complete-ac2025-at2026-responsible-review',
+        )
+
+        manifest = build_company_accounting_responsible_handoff_packet(
+            questions_packet=packet,
+            answers_template=template,
+        )
+        rendered = json.dumps(manifest, ensure_ascii=True)
+
+        self.assertEqual(manifest['schema_version'], COMPANY_ACCOUNTING_RESPONSIBLE_HANDOFF_PACKET_SCHEMA_VERSION)
+        self.assertEqual(manifest['manifest_files']['handoff_packet'], COMPANY_ACCOUNTING_RESPONSIBLE_HANDOFF_PACKET_MANIFEST)
+        self.assertEqual(manifest['manifest_files']['questions_packet'], COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST)
+        self.assertEqual(
+            manifest['manifest_files']['answers_template'],
+            COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST,
+        )
+        self.assertEqual(manifest['summary']['questions_total'], len(packet['questions']))
+        self.assertEqual(manifest['summary']['answers_total'], len(packet['questions']))
+        self.assertEqual(manifest['summary']['pending_answers_total'], len(packet['questions']))
+        self.assertTrue(manifest['summary']['ready_for_responsible_answer_completion'])
+        self.assertFalse(manifest['summary']['ready_for_responsible_decision_handoff'])
+        self.assertFalse(manifest['summary']['ready_for_productive_accounting_review'])
+        self.assertFalse(manifest['summary']['final_tax_calculation'])
+        self.assertFalse(manifest['summary']['sii_submission'])
+        self.assertEqual(manifest['issue_codes'], ['responsible_handoff.review_pending'])
+        self.assertTrue(manifest['package_hash'])
+        self.assertNotIn('answer_text', rendered)
+        self.assertNotIn('D:\\', rendered)
+
+    def test_handoff_packet_rejects_inconsistent_template(self):
+        packet = self._questions_packet()
+        template = build_company_accounting_responsible_answers_template(questions_packet=packet)
+        template['answers'] = template['answers'][:-1]
+
+        with self.assertRaises(ValueError):
+            build_company_accounting_responsible_handoff_packet(
+                questions_packet=packet,
+                answers_template=template,
+            )
+
+    def test_handoff_packet_command_materializes_and_verifies_without_paths(self):
+        packet = self._questions_packet()
+        template = build_company_accounting_responsible_answers_template(
+            questions_packet=packet,
+            next_action_ref='complete-ac2025-at2026-responsible-review',
+        )
+        with TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / 'repo'
+            sensitive_dir = repo_root / 'local-evidence' / 'Socio Controlado Uno 11111111-1'
+            input_dir = sensitive_dir / 'inputs'
+            output_dir = repo_root / 'local-evidence' / 'stage6' / 'responsible-handoff-packets' / 'packet-1'
+            input_dir.mkdir(parents=True)
+            (input_dir / COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST).write_text(
+                json.dumps(packet),
+                encoding='utf-8',
+            )
+            (input_dir / COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST).write_text(
+                json.dumps(template),
+                encoding='utf-8',
+            )
+            stdout = StringIO()
+
+            with override_settings(PROJECT_ROOT=str(repo_root)):
+                call_command(
+                    'materialize_company_accounting_responsible_handoff_packet',
+                    questions_packet=str(input_dir / COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST),
+                    answers_template=str(input_dir / COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST),
+                    output_dir=str(output_dir),
+                    stdout=stdout,
+                )
+
+            summary = json.loads(stdout.getvalue())
+            rendered = json.dumps(summary, ensure_ascii=True)
+            written_files = sorted(path.name for path in output_dir.iterdir())
+            verification = verify_company_accounting_responsible_handoff_packet(package_dir=output_dir)
+
+            self.assertEqual(summary['schema_version'], COMPANY_ACCOUNTING_RESPONSIBLE_HANDOFF_PACKET_SCHEMA_VERSION)
+            self.assertTrue(summary['materialized'])
+            self.assertTrue(summary['verified'])
+            self.assertEqual(summary['manifest_file'], COMPANY_ACCOUNTING_RESPONSIBLE_HANDOFF_PACKET_MANIFEST)
+            self.assertEqual(summary['questions_file'], COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST)
+            self.assertEqual(summary['answers_template_file'], COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST)
+            self.assertTrue(summary['ready_for_responsible_answer_completion'])
+            self.assertFalse(summary['ready_for_responsible_decision_handoff'])
+            self.assertFalse(summary['raw_paths_returned'])
+            self.assertEqual(verification['summary']['questions_total'], len(packet['questions']))
+            self.assertEqual(
+                written_files,
+                sorted(
+                    [
+                        COMPANY_ACCOUNTING_RESPONSIBLE_HANDOFF_PACKET_MANIFEST,
+                        COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST,
+                        COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST,
+                    ]
+                ),
+            )
+            self.assertNotIn('Socio Controlado Uno', rendered)
+            self.assertNotIn('11111111-1', rendered)
+            self.assertNotIn(str(input_dir), rendered)
+
+    def test_handoff_packet_command_rejects_repo_output_outside_local_evidence(self):
+        packet = self._questions_packet()
+        template = build_company_accounting_responsible_answers_template(questions_packet=packet)
+        with TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / 'repo'
+            input_dir = repo_root / 'local-evidence' / 'inputs'
+            input_dir.mkdir(parents=True)
+            (input_dir / COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST).write_text(
+                json.dumps(packet),
+                encoding='utf-8',
+            )
+            (input_dir / COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST).write_text(
+                json.dumps(template),
+                encoding='utf-8',
+            )
+            docs_dir = repo_root / 'docs'
+            docs_dir.mkdir()
+
+            with override_settings(PROJECT_ROOT=str(repo_root)):
+                with self.assertRaisesMessage(CommandError, 'local-evidence'):
+                    call_command(
+                        'materialize_company_accounting_responsible_handoff_packet',
+                        questions_packet=str(input_dir / COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST),
+                        answers_template=str(input_dir / COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST),
+                        output_dir=str(docs_dir / 'packet'),
+                        stdout=StringIO(),
+                    )
 
     def test_handoff_preflight_finds_questions_and_template_without_returning_paths(self):
         packet = self._questions_packet()
