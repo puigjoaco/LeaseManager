@@ -1372,7 +1372,11 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   listos para completar respuestas" de "review responsable listo", sin rutas
   crudas ni documentos reales. Un template listo conserva
   `ready_for_responsible_decision_handoff=false`; solo un review validado puede
-  alimentar el workbench estricto o el tramo de ownership controlado.
+  alimentar el workbench estricto o el tramo de ownership controlado. Si existe
+  un handoff packet materializado que contiene copias canonicas de las mismas
+  preguntas/template, el preflight cuenta los duplicados fisicos pero deduplica
+  readiness por hash semantico; esas copias no bloquean falsamente como
+  multiples handoffs distintos.
 - Reporting expone `POST /api/v1/reporting/contabilidad/paquete-revision-empresa/`
   para construir ese mismo paquete desde una superficie operativa con scope de
   empresa. El body debe incluir `empresa_id`, `fiscal_year` y

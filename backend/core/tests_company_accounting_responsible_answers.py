@@ -21,6 +21,7 @@ from core.company_accounting_responsible_answers import (
     build_company_accounting_responsible_handoff_packet,
     validate_company_accounting_responsible_answers,
     verify_company_accounting_responsible_handoff_packet,
+    write_company_accounting_responsible_handoff_packet,
 )
 from core.company_accounting_responsible_questions import (
     COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST,
@@ -887,6 +888,58 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
             self.assertIn('responsible_answers.review_missing', audit['issue_codes'])
             self.assertTrue(audit['questions']['candidates'][0]['path_hash'])
             self.assertTrue(audit['answer_templates']['candidates'][0]['path_hash'])
+            self.assertNotIn('Socio Controlado Uno', rendered)
+            self.assertNotIn('11111111-1', rendered)
+            self.assertNotIn(str(sensitive_dir), rendered)
+
+    def test_handoff_preflight_dedupes_materialized_packet_copies(self):
+        packet = self._questions_packet()
+        template = build_company_accounting_responsible_answers_template(
+            questions_packet=packet,
+            next_action_ref='complete-ac2025-at2026-responsible-review',
+        )
+        with TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / 'repo'
+            sensitive_dir = repo_root / 'local-evidence' / 'Socio Controlado Uno 11111111-1'
+            questions_dir = sensitive_dir / 'questions'
+            template_dir = sensitive_dir / 'template'
+            packet_dir = sensitive_dir / 'handoff-packet'
+            questions_dir.mkdir(parents=True)
+            template_dir.mkdir(parents=True)
+            (questions_dir / COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST).write_text(
+                json.dumps(packet),
+                encoding='utf-8',
+            )
+            (template_dir / COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST).write_text(
+                json.dumps(template),
+                encoding='utf-8',
+            )
+            write_company_accounting_responsible_handoff_packet(
+                questions_packet=packet,
+                answers_template=template,
+                output_dir=packet_dir,
+            )
+            stdout = StringIO()
+
+            with override_settings(PROJECT_ROOT=str(repo_root)):
+                call_command(
+                    'audit_company_accounting_responsible_handoff_preflight',
+                    require_answer_template_ready=True,
+                    stdout=stdout,
+                )
+
+            audit = json.loads(stdout.getvalue())
+            rendered = json.dumps(audit, ensure_ascii=True)
+            self.assertEqual(audit['summary']['questions_candidates_total'], 2)
+            self.assertEqual(audit['summary']['template_candidates_total'], 2)
+            self.assertEqual(audit['summary']['ready_question_packets_total'], 1)
+            self.assertEqual(audit['summary']['ready_answer_templates_total'], 1)
+            self.assertEqual(audit['summary']['duplicate_ready_question_packets_total'], 1)
+            self.assertEqual(audit['summary']['duplicate_ready_answer_templates_total'], 1)
+            self.assertTrue(audit['summary']['ready_for_responsible_answer_completion'])
+            self.assertNotIn('responsible_handoff.multiple_ready_question_packets', audit['issue_codes'])
+            self.assertNotIn('responsible_handoff.multiple_ready_answer_templates', audit['issue_codes'])
+            self.assertIn('responsible_handoff.review_pending', audit['issue_codes'])
             self.assertNotIn('Socio Controlado Uno', rendered)
             self.assertNotIn('11111111-1', rendered)
             self.assertNotIn(str(sensitive_dir), rendered)
