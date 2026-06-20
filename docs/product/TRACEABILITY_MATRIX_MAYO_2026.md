@@ -446,6 +446,14 @@ continua fuera de Git y sigue requiriendo validacion antes de inyectar ownership
 Con `--require-responsible-answers-ready`, el comando falla antes de escribir
 si ese review falta o conserva blockers, dejando una frontera ejecutable para
 el tramo respuestas responsables completas -> workbench -> patch ownership.
+Nota 2026-06-20: `materialize_annual_tax_ownership_patch_workbench` deriva la
+readiness efectiva del review de respuestas responsables desde sus conteos,
+`missing_question_keys` e issue codes, y no solo desde el booleano declarado.
+Si un review externo declara listo pero conserva preguntas faltantes, blockers,
+issue codes o menos respuestas que preguntas, el manifest guarda
+`reported_ready_for_responsible_decision_handoff=true` como trazabilidad, pero
+mantiene `responsible_answers_ready=false` y `--require-responsible-answers-ready`
+falla antes de escribir el workbench.
 Nota 2026-06-20: `materialize_annual_tax_ownership_patch_workbench` y el
 builder del workbench validan ahora que `responsible_ref` y `approval_ref` sean
 refs no sensibles antes de escribir el patch privado. RUTs, rutas locales, URLs,

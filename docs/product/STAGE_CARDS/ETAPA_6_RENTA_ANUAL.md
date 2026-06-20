@@ -218,6 +218,11 @@ conteos, categorias, estados de decision e issue codes, sin copiar refs
 individuales ni respuestas crudas. Si las respuestas responsables siguen
 pendientes, el workbench conserva `responsible_answers_ready=false` para no
 confundir el borrador privado con revision completa.
+La readiness efectiva no confia solo en el booleano declarado por el review:
+si hay `missing_question_keys`, `missing_questions_total>0`,
+`blocking_issues_total>0`, issue codes, o menos respuestas que preguntas, el
+workbench conserva `reported_ready_for_responsible_decision_handoff` como dato
+de trazabilidad pero fuerza `responsible_answers_ready=false`.
 Con `--require-responsible-answers-ready`, el comando falla antes de escribir
 si falta ese review listo o conserva blockers; ese modo se usa cuando el flujo
 ya debe pasar desde respuestas responsables completadas hacia patch ownership
