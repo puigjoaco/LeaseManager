@@ -68,6 +68,7 @@ def _redacted_participant(
     participant: dict[str, Any],
     index: int,
     commercial_year: int,
+    required_snapshot_date: date,
     blockers: set[str],
     missing_paths: list[str],
     invalid_paths: list[str],
@@ -87,6 +88,9 @@ def _redacted_participant(
     starts_on = _date_value(participant.get('vigente_desde') or period_start.isoformat())
     raw_ends_on = participant.get('vigente_hasta')
     ends_on = _date_value(raw_ends_on)
+    covers_required_snapshot_date = bool(
+        starts_on and starts_on <= required_snapshot_date and not (ends_on and ends_on < required_snapshot_date)
+    )
 
     if participant_type != 'socio':
         blockers.add('ownership_patch_invalid')
@@ -124,6 +128,9 @@ def _redacted_participant(
     elif starts_on > period_end or (ends_on and ends_on < period_start):
         blockers.add('ownership_patch_invalid')
         _add_once(invalid_paths, participant_path)
+    elif not covers_required_snapshot_date:
+        blockers.add('ownership_patch_invalid')
+        _add_once(invalid_paths, participant_path)
 
     participant_summary = {
         'index': index,
@@ -141,6 +148,7 @@ def _redacted_participant(
         'overlaps_commercial_year': bool(
             starts_on and starts_on <= period_end and not (ends_on and ends_on < period_start)
         ),
+        'covers_required_snapshot_date': covers_required_snapshot_date,
     }
     return participant_summary, percentage
 
@@ -180,6 +188,7 @@ def validate_annual_tax_ownership_patch(*, template: dict[str, Any], patch: dict
         blockers.add('ownership_patch_context_invalid')
         _add_once(invalid_paths, '$.commercial_year')
         _add_once(invalid_paths, '$.tax_year')
+    required_snapshot_date = date(commercial_year, 12, 31) if commercial_year >= 1 else None
 
     candidate_sources = template.get('candidate_sources')
     if not isinstance(candidate_sources, list) or not candidate_sources:
@@ -211,7 +220,7 @@ def validate_annual_tax_ownership_patch(*, template: dict[str, Any], patch: dict
     if as_of is None:
         blockers.add('ownership_patch_invalid')
         _add_once(missing_paths, '$.ownership.as_of')
-    elif commercial_year >= 2000 and as_of.year != commercial_year:
+    elif commercial_year >= 2000 and required_snapshot_date and as_of != required_snapshot_date:
         blockers.add('ownership_patch_invalid')
         _add_once(invalid_paths, '$.ownership.as_of')
 
@@ -234,6 +243,7 @@ def validate_annual_tax_ownership_patch(*, template: dict[str, Any], patch: dict
             participant=participant,
             index=index,
             commercial_year=commercial_year,
+            required_snapshot_date=required_snapshot_date or as_of or date(2000, 12, 31),
             blockers=blockers,
             missing_paths=missing_paths,
             invalid_paths=invalid_paths,
@@ -253,6 +263,7 @@ def validate_annual_tax_ownership_patch(*, template: dict[str, Any], patch: dict
         'tax_year': tax_year,
         'source_ref_hash': _hash_value(source_ref),
         'as_of': as_of.isoformat() if as_of else '',
+        'required_as_of': required_snapshot_date.isoformat() if required_snapshot_date else '',
         'participants': redacted_participants,
     }
     ready = not blockers
@@ -289,11 +300,12 @@ def validate_annual_tax_ownership_patch(*, template: dict[str, Any], patch: dict
             'source_ref_present': bool(source_ref),
             'source_ref_hash': _hash_value(source_ref),
             'as_of': as_of.isoformat() if as_of else '',
+            'required_as_of': required_snapshot_date.isoformat() if required_snapshot_date else '',
             'participants_count': len(participants),
             'valid_participants_count': sum(
                 1
                 for item in redacted_participants
-                if item['name_present'] and item['rut_valid'] and item['overlaps_commercial_year']
+                if item['name_present'] and item['rut_valid'] and item['covers_required_snapshot_date']
             ),
             'percentage_total': f'{total_percentage:.2f}',
             'percentage_total_is_100': total_percentage == Decimal('100.00'),
