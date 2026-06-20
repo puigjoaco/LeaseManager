@@ -1175,6 +1175,12 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   y lectura fallida de manifest no devuelven rutas locales completas con
   nombres, RUTs ni carpetas privadas. Las salidas versionables siguen
   restringidas a `local-evidence/`.
+- `audit_annual_tax_mirror_proof` aplica el mismo boundary de privacidad sobre
+  el proof final del espejo anual: manifest faltante o ilegible, source-root
+  ausente, ownership evidence faltante o ilegible y escritura fallida del
+  reporte responden con errores genericos sin rutas locales completas, nombres
+  ni RUTs. El comando sigue sin leer SII real ni convertir la prueba espejo en
+  cierre tributario final.
 - La normalizacion anual AC2024/AT2025 distingue lineas soporte y lineas
   comparables mediante `source_payload.expected_output_artifacts`. RLI/CPT se
   generan desde Libro Inventario y resultado contable, incluyendo mappings sobre

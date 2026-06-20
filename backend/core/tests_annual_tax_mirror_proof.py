@@ -4,6 +4,7 @@ from decimal import Decimal
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from django.conf import settings
 from django.core.management import call_command
@@ -544,3 +545,288 @@ class AnnualTaxMirrorProofTests(TestCase):
 
         self.assertFalse(written['summary']['ready_for_objective_completion'])
         self.assertIn('comparison.generated_artifacts_require_review', written['summary']['blockers'])
+
+    def test_command_missing_manifest_error_does_not_echo_sensitive_path(self):
+        empresa = self._create_empresa()
+
+        with TemporaryDirectory() as temp_dir:
+            manifest_path = Path(temp_dir) / 'Socio Controlado Uno 11111111-1.json'
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'audit_annual_tax_mirror_proof',
+                    '--empresa-id',
+                    str(empresa.id),
+                    '--commercial-year',
+                    '2024',
+                    '--tax-year',
+                    '2025',
+                    '--manifest',
+                    str(manifest_path),
+                    '--source-label',
+                    'inmobiliaria-puig-ac2024-controlled-writer',
+                    '--authorization-ref',
+                    'user-authorized-local-source-review',
+                    '--stage5-evidence-ref',
+                    'stage5-ledger-year-controlled-v1',
+                    '--stage4-sii-evidence-ref',
+                    'stage4-sii-annual-controlled-v1',
+                    '--fiscal-rule-ref',
+                    'ac2024-tax-rule-review-pending',
+                    '--certificates-proof-ref',
+                    'ac2024-certificates-proof-pending',
+                    '--responsible-ref',
+                    'stage6-responsibles-v1',
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No existe manifest JSON o no es un archivo legible.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+
+    def test_command_missing_source_root_error_does_not_echo_sensitive_path(self):
+        empresa = self._create_empresa()
+
+        with TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            manifest_path = temp_path / 'manifest.json'
+            source_root = temp_path / 'Socio Controlado Uno 11111111-1'
+            manifest_path.write_text(json.dumps(self._manifest()), encoding='utf-8')
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'audit_annual_tax_mirror_proof',
+                    '--empresa-id',
+                    str(empresa.id),
+                    '--commercial-year',
+                    '2024',
+                    '--tax-year',
+                    '2025',
+                    '--manifest',
+                    str(manifest_path),
+                    '--source-root',
+                    str(source_root),
+                    '--source-label',
+                    'inmobiliaria-puig-ac2024-controlled-writer',
+                    '--authorization-ref',
+                    'user-authorized-local-source-review',
+                    '--stage5-evidence-ref',
+                    'stage5-ledger-year-controlled-v1',
+                    '--stage4-sii-evidence-ref',
+                    'stage4-sii-annual-controlled-v1',
+                    '--fiscal-rule-ref',
+                    'ac2024-tax-rule-review-pending',
+                    '--certificates-proof-ref',
+                    'ac2024-certificates-proof-pending',
+                    '--responsible-ref',
+                    'stage6-responsibles-v1',
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No existe source-root o no es un directorio legible.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+
+    def test_command_manifest_read_error_does_not_echo_sensitive_path(self):
+        empresa = self._create_empresa()
+
+        with TemporaryDirectory() as temp_dir:
+            manifest_path = Path(temp_dir) / 'Socio Controlado Uno 11111111-1.json'
+            manifest_path.write_text(json.dumps(self._manifest()), encoding='utf-8')
+
+            with patch.object(
+                Path,
+                'read_text',
+                side_effect=OSError('D:/Privado/Socio Controlado Uno 11111111-1/manifest.json'),
+            ):
+                with self.assertRaises(CommandError) as error:
+                    call_command(
+                        'audit_annual_tax_mirror_proof',
+                        '--empresa-id',
+                        str(empresa.id),
+                        '--commercial-year',
+                        '2024',
+                        '--tax-year',
+                        '2025',
+                        '--manifest',
+                        str(manifest_path),
+                        '--source-label',
+                        'inmobiliaria-puig-ac2024-controlled-writer',
+                        '--authorization-ref',
+                        'user-authorized-local-source-review',
+                        '--stage5-evidence-ref',
+                        'stage5-ledger-year-controlled-v1',
+                        '--stage4-sii-evidence-ref',
+                        'stage4-sii-annual-controlled-v1',
+                        '--fiscal-rule-ref',
+                        'ac2024-tax-rule-review-pending',
+                        '--certificates-proof-ref',
+                        'ac2024-certificates-proof-pending',
+                        '--responsible-ref',
+                        'stage6-responsibles-v1',
+                        stdout=StringIO(),
+                    )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No se pudo leer manifest JSON.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+            self.assertNotIn('D:/Privado', rendered_error)
+
+    def test_command_missing_ownership_evidence_error_does_not_echo_sensitive_path(self):
+        empresa = self._create_empresa()
+
+        with TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            manifest_path = temp_path / 'manifest.json'
+            ownership_evidence_path = temp_path / 'Socio Controlado Uno 11111111-1.json'
+            manifest_path.write_text(json.dumps(self._manifest()), encoding='utf-8')
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'audit_annual_tax_mirror_proof',
+                    '--empresa-id',
+                    str(empresa.id),
+                    '--commercial-year',
+                    '2024',
+                    '--tax-year',
+                    '2025',
+                    '--manifest',
+                    str(manifest_path),
+                    '--ownership-evidence',
+                    str(ownership_evidence_path),
+                    '--source-label',
+                    'inmobiliaria-puig-ac2024-controlled-writer',
+                    '--authorization-ref',
+                    'user-authorized-local-source-review',
+                    '--stage5-evidence-ref',
+                    'stage5-ledger-year-controlled-v1',
+                    '--stage4-sii-evidence-ref',
+                    'stage4-sii-annual-controlled-v1',
+                    '--fiscal-rule-ref',
+                    'ac2024-tax-rule-review-pending',
+                    '--certificates-proof-ref',
+                    'ac2024-certificates-proof-pending',
+                    '--responsible-ref',
+                    'stage6-responsibles-v1',
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No existe ownership evidence JSON o no es un archivo legible.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+
+    def test_command_ownership_evidence_read_error_does_not_echo_sensitive_path(self):
+        empresa = self._create_empresa()
+
+        with TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            manifest_path = temp_path / 'manifest.json'
+            ownership_evidence_path = temp_path / 'Socio Controlado Uno 11111111-1.json'
+            manifest_path.write_text(json.dumps(self._manifest()), encoding='utf-8')
+            ownership_evidence_path.write_text(json.dumps(self._ownership_validation_evidence()), encoding='utf-8')
+            real_read_text = Path.read_text
+
+            def fail_only_ownership_evidence(path, *args, **kwargs):
+                if path == ownership_evidence_path:
+                    raise OSError('D:/Privado/Socio Controlado Uno 11111111-1/ownership-evidence.json')
+                return real_read_text(path, *args, **kwargs)
+
+            with patch.object(Path, 'read_text', fail_only_ownership_evidence):
+                with self.assertRaises(CommandError) as error:
+                    call_command(
+                        'audit_annual_tax_mirror_proof',
+                        '--empresa-id',
+                        str(empresa.id),
+                        '--commercial-year',
+                        '2024',
+                        '--tax-year',
+                        '2025',
+                        '--manifest',
+                        str(manifest_path),
+                        '--ownership-evidence',
+                        str(ownership_evidence_path),
+                        '--source-label',
+                        'inmobiliaria-puig-ac2024-controlled-writer',
+                        '--authorization-ref',
+                        'user-authorized-local-source-review',
+                        '--stage5-evidence-ref',
+                        'stage5-ledger-year-controlled-v1',
+                        '--stage4-sii-evidence-ref',
+                        'stage4-sii-annual-controlled-v1',
+                        '--fiscal-rule-ref',
+                        'ac2024-tax-rule-review-pending',
+                        '--certificates-proof-ref',
+                        'ac2024-certificates-proof-pending',
+                        '--responsible-ref',
+                        'stage6-responsibles-v1',
+                        stdout=StringIO(),
+                    )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No se pudo leer ownership evidence JSON.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+            self.assertNotIn('D:/Privado', rendered_error)
+
+    def test_command_write_error_does_not_echo_sensitive_path(self):
+        empresa = self._create_empresa()
+        self._load_and_generate_annual_layer(empresa)
+
+        with TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            source_root = temp_path / 'source'
+            source_root.mkdir()
+            manifest = self._manifest()
+            self._write_expected_output_sources(source_root, manifest)
+            manifest_path = temp_path / 'manifest.json'
+            output_path = temp_path / 'Socio Controlado Uno 11111111-1' / 'mirror-proof.json'
+            manifest_path.write_text(json.dumps(manifest), encoding='utf-8')
+
+            with patch.object(
+                Path,
+                'write_text',
+                side_effect=OSError('D:/Privado/Socio Controlado Uno 11111111-1/mirror-proof.json'),
+            ):
+                with self.assertRaises(CommandError) as error:
+                    call_command(
+                        'audit_annual_tax_mirror_proof',
+                        '--empresa-id',
+                        str(empresa.id),
+                        '--commercial-year',
+                        '2024',
+                        '--tax-year',
+                        '2025',
+                        '--manifest',
+                        str(manifest_path),
+                        '--source-root',
+                        str(source_root),
+                        '--source-label',
+                        'inmobiliaria-puig-ac2024-controlled-writer',
+                        '--authorization-ref',
+                        'user-authorized-local-source-review',
+                        '--stage5-evidence-ref',
+                        'stage5-ledger-year-controlled-v1',
+                        '--stage4-sii-evidence-ref',
+                        'stage4-sii-annual-controlled-v1',
+                        '--fiscal-rule-ref',
+                        'ac2024-tax-rule-review-pending',
+                        '--certificates-proof-ref',
+                        'ac2024-certificates-proof-pending',
+                        '--responsible-ref',
+                        'stage6-responsibles-v1',
+                        '--source-kind',
+                        'snapshot_controlado',
+                        '--output',
+                        str(output_path),
+                        stdout=StringIO(),
+                    )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No se pudo escribir auditoria de prueba espejo anual.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+            self.assertNotIn('D:/Privado', rendered_error)
