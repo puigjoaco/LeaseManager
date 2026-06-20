@@ -448,6 +448,14 @@ seguro para respuestas individuales que no traen `next_action_ref` propio. El
 template de respuestas responsables lo expone en el nivel superior y lo replica
 en las respuestas pendientes. Refs sensibles siguen bloqueando el handoff y no
 se copian al review.
+Nota 2026-06-20: `audit_company_accounting_responsible_answers_review_presence`
+convierte en gate local reproducible la pregunta "existe un review responsable
+listo?". El comando escanea solo manifests
+`company-accounting-responsible-answers-review.json` bajo `local-evidence/`,
+no devuelve rutas crudas, deriva readiness efectiva desde conteos/issues y
+separa `review_missing`, `review_not_ready`, multiples reviews listos y un unico
+handoff listo. En el root actual reporta `review_missing`, por lo que no se
+materializa workbench estricto ni se inventa revision responsable.
 
 Nota 2026-06-19: `materialize_company_accounting_responsible_answers_template`
 genera el template rellenable `company-accounting-responsible-answers.template.json`

@@ -9,6 +9,7 @@ from django.core.management.base import CommandError
 from django.test import SimpleTestCase, override_settings
 
 from core.company_accounting_responsible_answers import (
+    COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_DISCOVERY_SCHEMA_VERSION,
     COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_MANIFEST,
     COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_REVIEW_SCHEMA_VERSION,
     COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_SCHEMA_VERSION,
@@ -586,3 +587,99 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
             self.assertNotIn('Socio Controlado Uno', rendered_error)
             self.assertNotIn('11111111-1', rendered_error)
             self.assertNotIn(str(sensitive_dir), rendered_error)
+
+    def test_review_presence_audit_reports_missing_review_without_manual_path(self):
+        with TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / 'repo'
+            (repo_root / 'local-evidence').mkdir(parents=True)
+            stdout = StringIO()
+
+            with override_settings(PROJECT_ROOT=str(repo_root)):
+                call_command('audit_company_accounting_responsible_answers_review_presence', stdout=stdout)
+
+            summary = json.loads(stdout.getvalue())
+            self.assertEqual(summary['schema_version'], COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_DISCOVERY_SCHEMA_VERSION)
+            self.assertEqual(summary['summary']['candidates_total'], 0)
+            self.assertFalse(summary['summary']['ready_for_responsible_decision_handoff'])
+            self.assertIn('responsible_answers.review_missing', summary['issue_codes'])
+            self.assertFalse(summary['search']['raw_paths_returned'])
+
+    def test_review_presence_audit_finds_ready_review_without_returning_path(self):
+        packet = self._questions_packet()
+        review = validate_company_accounting_responsible_answers(
+            questions_packet=packet,
+            answers_payload=self._answers_payload(packet),
+        )
+        with TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / 'repo'
+            sensitive_dir = repo_root / 'local-evidence' / 'Socio Controlado Uno 11111111-1'
+            sensitive_dir.mkdir(parents=True)
+            (sensitive_dir / COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_MANIFEST).write_text(
+                json.dumps(review),
+                encoding='utf-8',
+            )
+            stdout = StringIO()
+
+            with override_settings(PROJECT_ROOT=str(repo_root)):
+                call_command('audit_company_accounting_responsible_answers_review_presence', stdout=stdout)
+
+            audit = json.loads(stdout.getvalue())
+            rendered = json.dumps(audit, ensure_ascii=True)
+            self.assertEqual(audit['summary']['candidates_total'], 1)
+            self.assertEqual(audit['summary']['ready_candidates_total'], 1)
+            self.assertTrue(audit['summary']['ready_for_responsible_decision_handoff'])
+            self.assertTrue(audit['candidates'][0]['ready_for_responsible_decision_handoff'])
+            self.assertTrue(audit['candidates'][0]['path_hash'])
+            self.assertNotIn('Socio Controlado Uno', rendered)
+            self.assertNotIn('11111111-1', rendered)
+            self.assertNotIn(str(sensitive_dir), rendered)
+
+    def test_review_presence_audit_derives_not_ready_from_forged_review_summary(self):
+        packet = self._questions_packet()
+        review = validate_company_accounting_responsible_answers(
+            questions_packet=packet,
+            answers_payload=self._answers_payload(packet),
+        )
+        review['summary']['ready_for_responsible_decision_handoff'] = True
+        review['summary']['missing_questions_total'] = 1
+        review['summary']['blocking_issues_total'] = 0
+        review['missing_question_keys'] = ['ownership.source-ref']
+        review['issues'] = []
+        with TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / 'repo'
+            output_path = repo_root / 'local-evidence' / 'audit' / 'responsible-review-discovery.json'
+            review_dir = repo_root / 'local-evidence' / 'responsible-review'
+            review_dir.mkdir(parents=True)
+            (review_dir / COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_MANIFEST).write_text(
+                json.dumps(review),
+                encoding='utf-8',
+            )
+            stdout = StringIO()
+
+            with override_settings(PROJECT_ROOT=str(repo_root)):
+                call_command(
+                    'audit_company_accounting_responsible_answers_review_presence',
+                    output=str(output_path),
+                    stdout=stdout,
+                )
+
+            audit = json.loads(stdout.getvalue())
+            written = json.loads(output_path.read_text(encoding='utf-8'))
+            self.assertFalse(audit['summary']['ready_for_responsible_decision_handoff'])
+            self.assertEqual(audit['candidates'][0]['missing_questions_total'], 1)
+            self.assertIn('responsible_answers.questions_unanswered', audit['candidates'][0]['issue_codes'])
+            self.assertEqual(written['summary'], audit['summary'])
+
+    def test_review_presence_command_rejects_search_root_outside_local_evidence(self):
+        with TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / 'repo'
+            docs_dir = repo_root / 'docs'
+            docs_dir.mkdir(parents=True)
+
+            with override_settings(PROJECT_ROOT=str(repo_root)):
+                with self.assertRaisesMessage(CommandError, 'local-evidence'):
+                    call_command(
+                        'audit_company_accounting_responsible_answers_review_presence',
+                        search_root=str(docs_dir),
+                        stdout=StringIO(),
+                    )

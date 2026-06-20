@@ -1345,6 +1345,14 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   bloqueante en el validador de respuestas, por lo que el template no puede
   confundirse con aprobacion, revision productiva, calculo tributario final ni
   presentacion SII.
+- `audit_company_accounting_responsible_answers_review_presence` audita si ya
+  existe un `company-accounting-responsible-answers-review.json` listo bajo
+  `local-evidence/`. El auditor no devuelve rutas crudas, solo hashes de
+  ubicacion, conteos, readiness efectiva e issue codes seguros; distingue
+  review faltante, review observado, multiples reviews listos y exactamente un
+  handoff listo. Esto reemplaza la inspeccion manual del filesystem para no
+  usar el chat como evidencia ni confundir plantillas/checklists con un review
+  responsable listo.
 - Reporting expone `POST /api/v1/reporting/contabilidad/paquete-revision-empresa/`
   para construir ese mismo paquete desde una superficie operativa con scope de
   empresa. El body debe incluir `empresa_id`, `fiscal_year` y
