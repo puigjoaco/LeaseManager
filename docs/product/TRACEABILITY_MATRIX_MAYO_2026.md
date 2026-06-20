@@ -3515,6 +3515,16 @@ cuando las refs externas estan presentes: no cambia `official_format=false`,
 `official_submission_allowed=false`, `sii_submission=false`,
 `ready_for_sii_submission=false` ni `final_tax_calculation=false`.
 
+Nota 2026-06-20: el cursor operativo de Renta Anual queda alineado con PR #965
+ya mergeado en `1710ad73` y deja de ordenar repetir
+`codex/stage6-load-plan-path-redaction`. La siguiente accion queda expresada
+como avance AC2025/AT2026 condicionado a evidencia autorizada: validar review
+responsable listo si existe, no inventarlo si falta o conserva blockers, y
+continuar solo con preparacion segura hasta tener patch ownership/vigencia
+controlado. El script canonico `codex-github-package.ps1` agrega fallback REST
+cuando `gh` no esta disponible en PATH, usando token de entorno o Git
+Credential Manager sin imprimirlo.
+
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |
 | Gobierno documental | Fuente de verdad, AGENTS, README, cursor operativo | `docs/governance`, `AGENTS.md`, `ORDEN_DE_LECTURA.md`, `.gitignore`, `docs/product/EXECUTION_CURSOR_MAYO_2026.md` | 0 | resuelto_confirmado | PR con CI verde y docs consistentes | Mantener actualizado al cambiar fuentes; bloqueos y evidencia son controles operativos de cierre, no arquitectura de producto; el cursor gobierna reanudaciones, worktrees tacticos y metatareas cerradas; artefactos locales de herramienta como `.codex-spreadsheet/`, `.playwright-cli/`, capturas PNG en el root y archivos manuales `CONFIDENCIAL`/`NO_SUBIR` quedan ignorados para no ensuciar `main` ni confundirse con paquetes activos; acceptance ejecuta `assert-repo-hygiene.ps1 -IncludeUntracked` para detectar artefactos sensibles no versionados ni ignorados sin leer secretos. |
