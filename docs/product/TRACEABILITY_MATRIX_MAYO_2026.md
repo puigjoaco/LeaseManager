@@ -438,6 +438,12 @@ abre y verifica el `company-accounting-responsible-handoff-packet` antes de leer
 siendo un archivo externo de respuestas completadas. Esto evita que el operador
 dependa de rutas sueltas o edite las copias canonicas del paquete; no crea
 review listo sin respuestas responsables validadas.
+Nota 2026-06-20: `audit_company_accounting_responsible_answers_draft` agrega un
+dry-run previo a la materializacion del review. Puede usar `--questions-packet`
+o `--handoff-packet-dir`, valida el borrador `--answers`, reporta blockers,
+readiness e issue codes, y no escribe
+`company-accounting-responsible-answers-review.json`. Con `--require-ready`
+sirve como gate local para corregir respuestas antes de crear un review listo.
 
 Nota 2026-06-20: `validate_company_accounting_responsible_answers` bloquea
 `company_ref` sensible o no canonico tanto en
