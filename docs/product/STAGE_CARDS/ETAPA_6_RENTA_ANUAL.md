@@ -672,6 +672,11 @@ responder el avance de una empresa piloto sin leer datos reales por defecto ni
 confundir preparacion tecnica con cierre tributario. La bandera
 `ready_for_company_accounting_review` solo significa lista para revision
 responsable.
+El medidor y el selector de candidatos no cuentan artefactos anuales downstream
+si su `AnnualTaxSourceBundle` no coincide con el bundle congelado del
+`ProcesoRentaAnual`. Esto evita que balances tributarios, workbooks, dossiers o
+exports heredados desde una fuente distinta inflen el progreso de una empresa
+piloto.
 El payload conserva `review_boundary`: incluso con progreso local completo,
 `autonomous_accounting=false`, `final_tax_calculation=false`,
 `sii_submission=false`, `requires_responsible_review=true` y

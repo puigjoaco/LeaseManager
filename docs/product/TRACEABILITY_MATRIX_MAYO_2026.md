@@ -20,6 +20,14 @@ Node 22, caches y comandos existentes, pero evita que el cierre operativo
 genere advertencias por runtime Node20 de acciones antiguas. No cambia producto,
 datos, gates externos ni autorizaciones.
 
+Nota 2026-06-20: Etapa 6/Renta Anual endurece el medidor operativo de progreso
+empresa/ano. `audit_company_accounting_progress` y
+`audit_company_accounting_candidates` cuentan `AnnualTaxTrialBalance`,
+workbooks RLI/CPT, dossier y export local solo si usan el mismo
+`AnnualTaxSourceBundle` congelado del `ProcesoRentaAnual`. Artefactos
+preparados heredados desde otra fuente quedan como fase faltante o senal cero;
+no habilitan review responsable, calculo tributario final ni presentacion SII.
+
 Nota 2026-06-17: Etapa 6/Renta Anual avanza desde manifiesto de archivos hacia
 paquete local materializable. `AnnualTaxExport` conserva
 `export_file_package_manifest` y `export_file_package_hash`; los servicios
