@@ -501,6 +501,13 @@ manifest o falla su lectura, los CLIs responden sin rutas locales completas,
 nombres ni RUTs. Esto conserva el tramo writer -> espejo anual -> comparacion
 como evidencia local no sensible.
 
+Nota 2026-06-19: `audit_annual_tax_mirror_proof` redacta errores de archivo del
+proof final de la prueba espejo anual. Manifest/source-root/ownership evidence
+faltantes o ilegibles y escritura fallida del reporte no exponen rutas locales
+completas, nombres ni RUTs. Esto cierra el tramo writer -> espejo anual ->
+comparacion -> proof como evidencia local no sensible, sin declarar renta final
+ni presentacion SII.
+
 Nota 2026-06-16: DJ1887/remuneraciones queda como boundary de fuente
 laboral-previsional para Etapa 6. Si el manifiesto AC/AT detecta DJ1887
 aceptada, `labor_previsional_source` pasa a requerido: falta de

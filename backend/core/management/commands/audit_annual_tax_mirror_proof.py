@@ -80,10 +80,10 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         manifest_path = _resolve_path(options['manifest'])
         if not manifest_path.exists() or not manifest_path.is_file():
-            raise CommandError(f'No existe manifest JSON: {manifest_path}')
+            raise CommandError('No existe manifest JSON o no es un archivo legible.')
         source_root = _resolve_path(options['source_root']) if options['source_root'] else None
         if source_root is not None and not source_root.is_dir():
-            raise CommandError(f'No existe source-root: {source_root}')
+            raise CommandError('No existe source-root o no es un directorio legible.')
 
         output_path = None
         if options['output']:
@@ -92,17 +92,23 @@ class Command(BaseCommand):
 
         try:
             manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
-        except (OSError, json.JSONDecodeError) as error:
-            raise CommandError(f'Manifest invalido: {error}') from error
+        except json.JSONDecodeError as error:
+            raise CommandError(f'Manifest JSON invalido: line {error.lineno}, column {error.colno}.') from error
+        except OSError as error:
+            raise CommandError('No se pudo leer manifest JSON.') from error
         ownership_evidence = None
         if options['ownership_evidence']:
             ownership_evidence_path = _resolve_path(options['ownership_evidence'])
             if not ownership_evidence_path.exists() or not ownership_evidence_path.is_file():
-                raise CommandError(f'No existe ownership evidence JSON: {ownership_evidence_path}')
+                raise CommandError('No existe ownership evidence JSON o no es un archivo legible.')
             try:
                 ownership_evidence = json.loads(ownership_evidence_path.read_text(encoding='utf-8'))
-            except (OSError, json.JSONDecodeError) as error:
-                raise CommandError(f'Ownership evidence invalida: {error}') from error
+            except json.JSONDecodeError as error:
+                raise CommandError(
+                    f'Ownership evidence JSON invalida: line {error.lineno}, column {error.colno}.'
+                ) from error
+            except OSError as error:
+                raise CommandError('No se pudo leer ownership evidence JSON.') from error
 
         try:
             empresa = Empresa.objects.get(pk=options['empresa_id'])
@@ -128,8 +134,11 @@ class Command(BaseCommand):
 
         rendered = json.dumps(result, indent=2, ensure_ascii=True, default=str)
         if output_path is not None:
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(rendered, encoding='utf-8')
+            try:
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text(rendered, encoding='utf-8')
+            except OSError as error:
+                raise CommandError('No se pudo escribir auditoria de prueba espejo anual.') from error
         else:
             self.stdout.write(rendered)
 
