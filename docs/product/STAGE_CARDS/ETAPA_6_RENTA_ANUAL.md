@@ -1304,6 +1304,7 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   y materializa `company-accounting-responsible-answers-review.json`. El paquete
   exige refs no sensibles de responsable, decision, evidencia y siguiente accion,
   bloquea `company_ref` sensible o no canonico en preguntas/respuestas,
+  `evidence_ref` o `next_action_ref` sensibles en el nivel superior del payload,
   preguntas desconocidas, respuestas faltantes, duplicados, refs sensibles y
   campos de texto libre en payload o respuesta. La salida solo puede quedar bajo
   `local-evidence/` si esta dentro del repo, no guarda nombres, RUTs, rutas

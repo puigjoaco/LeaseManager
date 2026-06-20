@@ -438,6 +438,11 @@ Nota 2026-06-20: `validate_company_accounting_responsible_answers` bloquea
 `company-accounting-responsible-answers.v1`. Si el otro lado conserva un
 `company_ref` seguro se usa solo para trazabilidad; el valor sensible no se
 copia al review ni permite `ready_for_responsible_decision_handoff=true`.
+Nota 2026-06-20: el mismo validador bloquea `evidence_ref` y
+`next_action_ref` sensibles en el nivel superior de
+`company-accounting-responsible-answers.v1`, aunque cada respuesta individual
+traiga refs seguros. Esos valores no se copian al review y el handoff queda
+observado hasta que todo el payload use referencias no sensibles.
 
 Nota 2026-06-19: `materialize_company_accounting_responsible_answers_template`
 genera el template rellenable `company-accounting-responsible-answers.template.json`
