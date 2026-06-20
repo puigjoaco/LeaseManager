@@ -1333,6 +1333,12 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   `company-accounting-responsible-answers-review.json` cuando la revision
   conserva blockers; asi el modo estricto no deja artefactos parciales que una
   reanudacion pueda confundir con un handoff listo.
+  Tambien acepta `--handoff-packet-dir` como fuente de preguntas canonicas:
+  antes de leerlas verifica el `company-accounting-responsible-handoff-packet`
+  completo y mantiene `--answers` como archivo externo de respuestas
+  completadas. Asi el responsable no tiene que copiar rutas sueltas de
+  preguntas/template ni editar el paquete verificable; el review solo nace de
+  respuestas externas validadas.
   El comando y el materializador de template redactan errores de
   lectura/escritura: si faltan o fallan los JSON de entrada, o si no pueden
   persistir la revision o el template, la consola no devuelve rutas locales

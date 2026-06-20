@@ -7,7 +7,9 @@ from django.core.management.base import BaseCommand, CommandError
 
 from core.company_accounting_responsible_answers import (
     COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_MANIFEST,
+    COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST,
     validate_company_accounting_responsible_answers,
+    verify_company_accounting_responsible_handoff_packet,
     write_company_accounting_responsible_answers_review,
 )
 
@@ -66,6 +68,17 @@ def _read_json(path: Path, *, label: str) -> dict:
     return payload
 
 
+def _read_questions_from_handoff_packet(package_dir: Path) -> dict:
+    try:
+        verify_company_accounting_responsible_handoff_packet(package_dir=package_dir)
+    except ValueError as error:
+        raise CommandError(f'No se pudo verificar handoff responsable: {error}') from error
+    return _read_json(
+        package_dir / COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST,
+        label='questions_packet',
+    )
+
+
 def _default_output_dir(*, company_ref: str, fiscal_year: int, tax_year: int) -> Path:
     return (
         _repo_root()
@@ -83,7 +96,15 @@ class Command(BaseCommand):
     )
 
     def add_arguments(self, parser):
-        parser.add_argument('--questions-packet', required=True, help='JSON company-accounting-responsible-questions.v1.')
+        parser.add_argument('--questions-packet', default='', help='JSON company-accounting-responsible-questions.v1.')
+        parser.add_argument(
+            '--handoff-packet-dir',
+            default='',
+            help=(
+                'Directorio company-accounting-responsible-handoff-packet verificable. '
+                'Usa sus preguntas canonicas como fuente; --answers sigue siendo un archivo aparte.'
+            ),
+        )
         parser.add_argument('--answers', required=True, help='JSON company-accounting-responsible-answers.v1.')
         parser.add_argument(
             '--output-dir',
@@ -105,7 +126,17 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        questions_packet = _read_json(_resolve_path(options['questions_packet']), label='questions_packet')
+        has_questions_packet = bool(options.get('questions_packet'))
+        has_handoff_packet_dir = bool(options.get('handoff_packet_dir'))
+        if has_questions_packet == has_handoff_packet_dir:
+            raise CommandError('Debe informar exactamente una fuente de preguntas: --questions-packet o --handoff-packet-dir.')
+
+        source_kind = 'handoff_packet' if has_handoff_packet_dir else 'questions_packet'
+        questions_packet = (
+            _read_questions_from_handoff_packet(_resolve_path(options['handoff_packet_dir']))
+            if has_handoff_packet_dir
+            else _read_json(_resolve_path(options['questions_packet']), label='questions_packet')
+        )
         answers_payload = _read_json(_resolve_path(options['answers']), label='answers')
         try:
             review = validate_company_accounting_responsible_answers(
@@ -140,6 +171,8 @@ class Command(BaseCommand):
         summary = {
             'schema_version': review['schema_version'],
             'materialized': True,
+            'source_kind': source_kind,
+            'handoff_packet_verified': has_handoff_packet_dir,
             'manifest_file': Path(written['manifest_file']).name,
             'expected_manifest_file': COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_MANIFEST,
             'company_ref': review['company_ref'],
