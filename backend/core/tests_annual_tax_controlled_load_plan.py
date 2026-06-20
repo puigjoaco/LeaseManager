@@ -2,6 +2,7 @@ import json
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
@@ -201,3 +202,79 @@ class AnnualTaxControlledLoadPlanTests(SimpleTestCase):
                     fail_on_blocking=True,
                     stdout=StringIO(),
                 )
+
+    def test_command_missing_manifest_error_does_not_echo_sensitive_path(self):
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            sensitive_dir = temp_root / 'Socio Controlado Uno 11111111-1'
+            sensitive_dir.mkdir()
+            manifest_path = sensitive_dir / 'missing-manifest.json'
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'build_annual_tax_controlled_load_plan',
+                    manifest=str(manifest_path),
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No existe manifest JSON o no es un archivo legible.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+            self.assertNotIn(str(sensitive_dir), rendered_error)
+
+    def test_command_manifest_read_error_does_not_echo_sensitive_path(self):
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            sensitive_dir = temp_root / 'Socio Controlado Uno 11111111-1'
+            sensitive_dir.mkdir()
+            manifest_path = sensitive_dir / 'manifest.json'
+            manifest_path.write_text('{}', encoding='utf-8')
+            original_read_text = Path.read_text
+
+            def read_text_side_effect(self, *args, **kwargs):
+                if self == manifest_path:
+                    raise OSError('D:/Privado/Socio Controlado Uno 11111111-1/manifest.json')
+                return original_read_text(self, *args, **kwargs)
+
+            with patch.object(Path, 'read_text', autospec=True, side_effect=read_text_side_effect):
+                with self.assertRaises(CommandError) as error:
+                    call_command(
+                        'build_annual_tax_controlled_load_plan',
+                        manifest=str(manifest_path),
+                        stdout=StringIO(),
+                    )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No se pudo leer manifest JSON.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+            self.assertNotIn('D:/Privado', rendered_error)
+
+    def test_command_output_write_error_does_not_echo_sensitive_path(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir) / 'source'
+            source_root.mkdir()
+            self._build_complete_source_tree(source_root)
+            manifest_path = Path(temp_dir) / 'manifest.json'
+            manifest_path.write_text(json.dumps(self._manifest(source_root)), encoding='utf-8')
+            output_path = Path(temp_dir) / 'Socio Controlado Uno 11111111-1' / 'load-plan.json'
+
+            with patch.object(
+                Path,
+                'write_text',
+                side_effect=OSError('D:/Privado/Socio Controlado Uno 11111111-1/load-plan.json'),
+            ):
+                with self.assertRaises(CommandError) as error:
+                    call_command(
+                        'build_annual_tax_controlled_load_plan',
+                        manifest=str(manifest_path),
+                        output=str(output_path),
+                        stdout=StringIO(),
+                    )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No se pudo escribir plan de carga controlada.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+            self.assertNotIn('D:/Privado', rendered_error)

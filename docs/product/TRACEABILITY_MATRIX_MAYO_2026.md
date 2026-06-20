@@ -826,6 +826,11 @@ RAI/DDJJ/F22 son comparacion, no insumo. La corrida real queda en
 `ready_for_db_load=false` porque faltan parser/carga manual controlada para
 libros anuales, F29 PDF y remuneraciones; pasos posteriores ya quedan
 trazados por writer DB local, run anual controlado y comparador de cobertura.
+Nota 2026-06-20: `build_annual_tax_controlled_load_plan` redacta errores de
+archivo del tramo CLI. Manifest faltante, lectura fallida o escritura fallida
+del plan devuelven mensajes genericos sin rutas locales completas, nombres ni
+RUTs, manteniendo la frontera segura antes del paquete normalizado y writer
+controlado.
 
 Nota 2026-06-14: Etapa 6 agrega `AnnualTaxTrialBalance` como capa anual de
 balance de ocho columnas entre `BalanceComprobacion` y RLI/CPT/DJ1847.

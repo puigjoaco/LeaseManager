@@ -183,6 +183,9 @@ esperados no se usan como input, pero `ready_for_db_load=false` hasta tener
 parser/carga manual controlada para libros anuales, F29 PDF, remuneraciones y
 fuente societaria, mas un paquete normalizado de entrada, capa anual generada y
 comparacion de outputs esperados.
+El comando redacta errores de archivo del tramo CLI: manifest faltante, lectura
+fallida o escritura fallida del plan no exponen rutas locales completas que
+puedan contener nombres, RUTs o carpetas privadas.
 `build_annual_tax_controlled_db_load_template` crea el template seguro de ese
 paquete normalizado desde el manifiesto: prearma 12 meses, separa refs de
 entrada y `comparison_targets`, y deja los valores contables/tributarios vacios
