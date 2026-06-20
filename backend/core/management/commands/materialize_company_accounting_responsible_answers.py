@@ -93,7 +93,10 @@ class Command(BaseCommand):
         parser.add_argument(
             '--allow-incomplete',
             action='store_true',
-            help='Permite materializar revision con preguntas sin responder.',
+            help=(
+                'Permite materializar revision observada con preguntas sin responder; '
+                'las preguntas faltantes siguen siendo bloqueantes.'
+            ),
         )
         parser.add_argument(
             '--fail-on-blocking',

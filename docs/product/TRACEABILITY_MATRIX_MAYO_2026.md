@@ -420,6 +420,12 @@ de texto libre tanto en el payload como en cada respuesta. El manifest
 `company-accounting-responsible-answers-review.json` guarda hashes y estados de
 decision, no respuestas crudas ni PII, y mantiene cerrados calculo tributario
 final, revision productiva y presentacion SII.
+Nota 2026-06-20: `materialize_company_accounting_responsible_answers`
+mantiene las preguntas faltantes como blocker incluso con `--allow-incomplete`.
+Ese modo solo permite materializar una revision observada bajo `local-evidence/`;
+no puede producir `ready_for_responsible_decision_handoff=true` mientras existan
+`missing_question_keys`. Asi el tramo respuestas responsables -> workbench
+ownership no puede avanzar con un review parcial confundido como listo.
 
 Nota 2026-06-19: `materialize_company_accounting_responsible_answers_template`
 genera el template rellenable `company-accounting-responsible-answers.template.json`
