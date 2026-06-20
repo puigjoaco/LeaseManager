@@ -215,6 +215,44 @@ class AnnualTaxOwnershipPatchWorkbenchTests(SimpleTestCase):
         )
         self.assertFalse(result['manifest']['decision']['responsible_answers_ready_for_patch_completion'])
 
+    def test_workbench_redacts_sensitive_summary_keys_from_review_inputs(self):
+        checklist = self._checklist()
+        checklist['checklist_items'][0]['key'] = 'D:/Privado/Socio Controlado Uno 11111111-1/checklist'
+        checklist['validation_summary']['blockers'] = ['D:/Privado/Socio Controlado Uno 11111111-1/blocker']
+        review = self._responsible_answers_review()
+        review['summary']['decision_states'] = {
+            'respondido': 2,
+            'D:/Privado/Socio Controlado Uno 11111111-1/decision': 1,
+        }
+        review['summary']['categories'] = {
+            'ownership': 1,
+            'D:/Privado/Socio Controlado Uno 11111111-1/category': 1,
+        }
+        review['issues'] = [
+            {
+                'code': 'D:/Privado/Socio Controlado Uno 11111111-1/issue',
+                'severity': 'blocking',
+                'count': 1,
+            }
+        ]
+
+        result = build_annual_tax_ownership_patch_workbench(
+            template=self._template(),
+            checklist=checklist,
+            responsible_answers_review=review,
+        )
+        manifest = result['manifest']
+        rendered_manifest = json.dumps(manifest, ensure_ascii=True)
+
+        self.assertIn('redacted-checklist-item', manifest['checklist_summary']['blocking_item_keys'])
+        self.assertIn('redacted-validation-blocker', manifest['checklist_summary']['validation_blockers'])
+        self.assertEqual(manifest['responsible_answers_summary']['decision_states']['redacted-decision-state'], 1)
+        self.assertEqual(manifest['responsible_answers_summary']['categories']['redacted-category'], 1)
+        self.assertIn('redacted-issue-code', manifest['responsible_answers_summary']['issue_codes'])
+        self.assertNotIn('Socio Controlado Uno', rendered_manifest)
+        self.assertNotIn('11111111-1', rendered_manifest)
+        self.assertNotIn('D:/Privado', rendered_manifest)
+
     def test_responsible_answers_review_context_must_match_template(self):
         review = self._responsible_answers_review()
         review['tax_year'] = 2027

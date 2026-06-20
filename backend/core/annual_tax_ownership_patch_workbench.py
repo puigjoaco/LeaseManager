@@ -98,11 +98,14 @@ def _checklist_summary(checklist: dict[str, Any] | None, *, context: tuple[str, 
         'ready_for_manual_review': bool(summary.get('ready_for_manual_review')),
         'ready_for_controlled_db_load': bool(summary.get('ready_for_controlled_db_load')),
         'blocking_item_keys': [
-            str(item.get('key') or '')
+            _safe_summary_ref(item.get('key'), fallback='redacted-checklist-item')
             for item in checklist_items
             if isinstance(item, dict) and str(item.get('status') or '') != 'ready'
         ],
-        'validation_blockers': list(validation_summary.get('blockers') or []),
+        'validation_blockers': _safe_summary_refs(
+            validation_summary.get('blockers'),
+            fallback='redacted-validation-blocker',
+        ),
     }
 
 
@@ -128,6 +131,35 @@ def _require_safe_ref(value: Any, *, field_name: str) -> str:
     if not _is_safe_ref(text):
         raise ValueError(f'{field_name} debe ser una referencia no sensible.')
     return text
+
+
+def _safe_summary_ref(value: Any, *, fallback: str) -> str:
+    text = str(value or '').strip()
+    return text if _is_safe_ref(text) else fallback
+
+
+def _safe_summary_counts(value: Any, *, fallback: str) -> dict[str, int]:
+    if not isinstance(value, dict):
+        return {}
+    counts: dict[str, int] = {}
+    for raw_key, raw_count in value.items():
+        key = _safe_summary_ref(raw_key, fallback=fallback)
+        count = _safe_int(raw_count)
+        if count <= 0:
+            count = 1
+        counts[key] = counts.get(key, 0) + count
+    return dict(sorted(counts.items()))
+
+
+def _safe_summary_refs(values: Any, *, fallback: str) -> list[str]:
+    if not isinstance(values, list):
+        return []
+    safe_refs = {
+        _safe_summary_ref(value, fallback=fallback)
+        for value in values
+        if str(value or '').strip()
+    }
+    return sorted(safe_refs)
 
 
 def _responsible_answers_summary(
@@ -163,10 +195,10 @@ def _responsible_answers_summary(
 
     summary = responsible_answers_review.get('summary') if isinstance(responsible_answers_review.get('summary'), dict) else {}
     issues = responsible_answers_review.get('issues') if isinstance(responsible_answers_review.get('issues'), list) else []
-    decision_states = summary.get('decision_states') if isinstance(summary.get('decision_states'), dict) else {}
-    categories = summary.get('categories') if isinstance(summary.get('categories'), dict) else {}
+    decision_states = _safe_summary_counts(summary.get('decision_states'), fallback='redacted-decision-state')
+    categories = _safe_summary_counts(summary.get('categories'), fallback='redacted-category')
     issue_codes = {
-        str(issue.get('code') or '').strip()
+        _safe_summary_ref(issue.get('code'), fallback='redacted-issue-code')
         for issue in issues
         if isinstance(issue, dict) and str(issue.get('code') or '').strip()
     }
@@ -212,8 +244,8 @@ def _responsible_answers_summary(
             'answers_total': answers_total,
             'missing_questions_total': missing_questions_total,
             'blocking_issues_total': blocking_issues_total,
-            'decision_states': dict(sorted(decision_states.items())),
-            'categories': dict(sorted(categories.items())),
+            'decision_states': decision_states,
+            'categories': categories,
             'reported_ready_for_responsible_decision_handoff': reported_ready,
             'ready_for_responsible_decision_handoff': effective_ready,
         },
