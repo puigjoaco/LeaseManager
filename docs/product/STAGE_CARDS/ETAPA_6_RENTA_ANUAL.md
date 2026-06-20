@@ -245,7 +245,11 @@ que puedan contener nombres, RUTs o carpetas privadas. Las salidas dentro del
 repo siguen restringidas a `local-evidence/`.
 El mismo paquete puede incluir `ownership` como snapshot patrimonial controlado:
 fuente no sensible, fecha `as_of`, socios con RUT valido, porcentajes, vigencias
-y evidencia no sensible. El writer materializa `Socio` y
+y evidencia no sensible. Para que el paquete sea apto para generacion anual,
+`as_of` debe ser el 31 de diciembre del ano comercial y todos los socios deben
+estar vigentes en esa fecha; la misma regla aplica tanto al readiness como al
+writer, aunque el paquete no haya sido construido por el inyector de patch. El
+writer materializa `Socio` y
 `ParticipacionPatrimonial` solo cuando se aplica contra DB local/controlada, y
 el mirror anual usa esas participaciones para RETIROS/DIVIDENDOS. Si la fuente
 patrimonial no existe, la arquitectura no inventa porcentajes desde cuentas de

@@ -165,10 +165,11 @@ def _validate_ownership_for_annual_generation(
         blockers.add('ownership_snapshot_invalid')
         _add_missing(missing_paths, '$.ownership.source_ref')
     as_of = _date_value(ownership.get('as_of'))
+    required_snapshot_date = date(commercial_year, 12, 31) if commercial_year >= 2000 else None
     if as_of is None:
         blockers.add('ownership_snapshot_invalid')
         _add_missing(missing_paths, '$.ownership.as_of')
-    elif commercial_year >= 2000 and as_of.year != commercial_year:
+    elif required_snapshot_date and as_of != required_snapshot_date:
         blockers.add('ownership_snapshot_invalid')
         _add_invalid(invalid_paths, '$.ownership.as_of')
 
@@ -229,12 +230,21 @@ def _validate_ownership_for_annual_generation(
         elif period_start and period_end and (starts_on > period_end or (ends_on and ends_on < period_start)):
             blockers.add('ownership_snapshot_invalid')
             _add_invalid(invalid_paths, participant_path)
+        elif required_snapshot_date and (starts_on > required_snapshot_date or (ends_on and ends_on < required_snapshot_date)):
+            blockers.add('ownership_snapshot_invalid')
+            _add_invalid(invalid_paths, participant_path)
         valid_participants += 1
 
     if total_percentage != Decimal('100.00'):
         blockers.add('ownership_snapshot_invalid')
         _add_invalid(invalid_paths, '$.ownership.participants')
-    return {'present': True, 'participants_count': valid_participants, 'percentage_total': str(total_percentage)}
+    return {
+        'present': True,
+        'as_of': as_of.isoformat() if as_of else '',
+        'required_as_of': required_snapshot_date.isoformat() if required_snapshot_date else '',
+        'participants_count': valid_participants,
+        'percentage_total': str(total_percentage),
+    }
 
 
 def _ownership_review_handoff_summary(

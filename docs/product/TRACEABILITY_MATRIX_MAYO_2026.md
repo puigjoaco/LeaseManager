@@ -386,6 +386,14 @@ hereda esa barrera porque revalida antes de inyectar. Asi AC2025/AT2026 no puede
 pasar a paquete controlado con socios que solo solapan el ano o con una fecha
 intermedia; sigue sin leer documentos reales, DB, SII, banco ni secretos.
 
+Nota 2026-06-20: `audit_annual_tax_controlled_package_readiness` y
+`apply_annual_tax_controlled_db_load` aplican la misma regla sobre
+`package.ownership`: el paquete controlado solo habilita generacion anual o
+escritura local si el snapshot patrimonial esta fechado al 31 de diciembre y
+sus participantes cubren esa fecha. Esto cierra la via manual/heredada del
+paquete normalizado, sin abrir DB real, SII, banco, secretos ni documentos
+privados.
+
 Nota 2026-06-19: `materialize_company_accounting_responsible_questions`
 materializa el handoff de preguntas concretas para Joaquin/revision
 responsable desde artefactos ya redactados: paquete de revision contable/renta,
