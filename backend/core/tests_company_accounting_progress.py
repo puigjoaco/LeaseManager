@@ -456,6 +456,126 @@ class CompanyAccountingProgressTests(TestCase):
         self.assertEqual(result['candidates'][0]['years'][0]['signals']['annual_processes'], 0)
         self.assertNotIn(empresa.rut, json.dumps(result))
 
+    def test_candidates_ignore_downstream_annual_artifacts_without_valid_process(self):
+        empresa = self._create_empresa()
+        config = self._activate_fiscal_config(empresa)
+        self._create_close(empresa, 1, fiscal_year=2025)
+        source_bundle = self._create_source_bundle(empresa)
+        rule_set, official_source = self._create_rule_set(config)
+        process = ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=2026,
+            estado=EstadoPreparacionTributaria.PENDING_DATA,
+            source_bundle=source_bundle,
+            resumen_anual={'source': 'company-accounting-progress-test'},
+        )
+        source_balance = BalanceComprobacion.objects.create(
+            empresa=empresa,
+            periodo='2025-12',
+            estado_snapshot=EstadoCierreMensual.APPROVED,
+            storage_ref='candidate-invalid-process-balance',
+            resumen={'cuadrado': True, 'source': 'candidate-invalid-process-test'},
+        )
+        AnnualTaxTrialBalance.objects.create(
+            empresa=empresa,
+            proceso_renta_anual=process,
+            source_bundle=source_bundle,
+            rule_set=rule_set,
+            official_source=official_source,
+            source_balance=source_balance,
+            anio_tributario=2026,
+            anio_comercial=2025,
+            periodo_cierre='2025-12',
+            source_ref='candidate-invalid-process-trial-balance',
+            responsible_ref='candidate-reviewer',
+            lines_total=1,
+            resumen_balance={'source': 'candidate-invalid-process-test'},
+            hash_balance='4' * 64,
+            estado=EstadoAnnualTaxTrialBalance.PREPARED,
+        )
+        for kind in (TipoAnnualTaxWorkbook.RLI, TipoAnnualTaxWorkbook.CPT):
+            AnnualTaxWorkbook.objects.create(
+                empresa=empresa,
+                proceso_renta_anual=process,
+                source_bundle=source_bundle,
+                rule_set=rule_set,
+                anio_tributario=2026,
+                anio_comercial=2025,
+                tipo=kind,
+                source_ref=f'candidate-invalid-process-{kind.lower()}',
+                responsible_ref='candidate-reviewer',
+                resumen_workbook={'source': 'candidate-invalid-process-test', 'tipo': kind},
+                hash_workbook='5' * 64,
+                estado=EstadoAnnualTaxWorkbook.PREPARED,
+            )
+        matrix = AnnualTaxArtifactMatrix.objects.create(
+            empresa=empresa,
+            proceso_renta_anual=process,
+            source_bundle=source_bundle,
+            rule_set=rule_set,
+            anio_tributario=2026,
+            anio_comercial=2025,
+            source_ref='candidate-invalid-process-matrix',
+            responsible_ref='candidate-reviewer',
+            items_total=2,
+            ddjj_items_total=1,
+            f22_items_total=1,
+            resumen_matriz={'source': 'candidate-invalid-process-test'},
+            hash_matriz='6' * 64,
+            estado=EstadoAnnualTaxArtifactMatrix.PREPARED,
+        )
+        dossier = AnnualTaxDossier.objects.create(
+            empresa=empresa,
+            proceso_renta_anual=process,
+            source_bundle=source_bundle,
+            rule_set=rule_set,
+            artifact_matrix=matrix,
+            anio_tributario=2026,
+            anio_comercial=2025,
+            source_ref='candidate-invalid-process-dossier',
+            responsible_ref='candidate-reviewer',
+            dossier_ref='candidate-invalid-process-dossier-ref',
+            monthly_facts_total=1,
+            workbooks_total=2,
+            artifact_matrix_items_total=2,
+            resumen_dossier={'source': 'candidate-invalid-process-test'},
+            hash_dossier='7' * 64,
+            estado=EstadoAnnualTaxDossier.PREPARED,
+        )
+        AnnualTaxExport.objects.create(
+            empresa=empresa,
+            proceso_renta_anual=process,
+            dossier=dossier,
+            source_bundle=source_bundle,
+            rule_set=rule_set,
+            artifact_matrix=matrix,
+            official_format_source=official_source,
+            anio_tributario=2026,
+            anio_comercial=2025,
+            source_ref='candidate-invalid-process-export',
+            responsible_ref='candidate-reviewer',
+            export_ref='candidate-invalid-process-export-ref',
+            target_items_total=2,
+            ddjj_items_total=1,
+            f22_items_total=1,
+            export_payload={'source': 'candidate-invalid-process-test'},
+            hash_export='8' * 64,
+            estado=EstadoAnnualTaxExport.PREPARED,
+        )
+
+        result = collect_company_accounting_candidates(empresa_ids=[empresa.id])
+        signals = result['candidates'][0]['years'][0]['signals']
+
+        self.assertEqual(signals['monthly_closes'], 1)
+        self.assertEqual(signals['monthly_balances'], 1)
+        self.assertEqual(signals['monthly_balances_squared'], 1)
+        self.assertEqual(signals['annual_processes'], 0)
+        self.assertEqual(signals['annual_trial_balance'], 0)
+        self.assertEqual(signals['rli_cpt_workbooks'], 0)
+        self.assertEqual(signals['annual_dossier'], 0)
+        self.assertEqual(signals['annual_export'], 0)
+        self.assertNotIn(empresa.rut, json.dumps(result))
+
     def test_candidates_surface_unsupported_fiscal_regime_without_hiding_signals(self):
         empresa = self._create_empresa()
         config = self._activate_unsupported_fiscal_config(empresa)

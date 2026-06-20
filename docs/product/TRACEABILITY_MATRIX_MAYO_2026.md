@@ -538,6 +538,12 @@ preparado o superior si esta enlazado a un `AnnualTaxSourceBundle` congelado.
 Un proceso preparado sin source bundle congelado conserva la brecha
 `company_accounting.annual_process_source_bundle_missing`; no desbloquea
 revision contable/renta ni cierre tributario final por si solo.
+Nota 2026-06-20: El selector `audit_company_accounting_candidates` aplica esa
+misma dependencia a los artefactos anuales downstream. `AnnualTaxTrialBalance`,
+workbooks RLI/CPT, `AnnualTaxDossier` y `AnnualTaxExport` solo suman senales si
+estan asociados a un `ProcesoRentaAnual` preparado o superior con
+`AnnualTaxSourceBundle` congelado. Artefactos sueltos o colgados de un proceso
+pendiente conservan sus senales mensuales, pero no inflan el ranking anual.
 
 Nota 2026-06-16: El mirror anual conserva esa marca al regenerar
 `MonthlyTaxFact` desde cierres aprobados. Si un mes no tiene

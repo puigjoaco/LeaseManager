@@ -338,22 +338,27 @@ def collect_company_accounting_candidates(*, empresa_ids: list[int] | None = Non
             bucket['signals']['f29_monthly'] = len(months)
 
     annual_process_counts: dict[tuple[int, int], int] = defaultdict(int)
+    valid_annual_process_ids: dict[int, tuple[int, int]] = {}
     for item in ProcesoRentaAnual.objects.filter(
         empresa_id__in=company_ids,
         estado__in=PREPARED_OR_BETTER_TAX_STATES,
         source_bundle__estado=EstadoAnnualTaxSourceBundle.FROZEN,
-    ).values('empresa_id', 'anio_tributario'):
-        annual_process_counts[(item['empresa_id'], item['anio_tributario'] - 1)] += 1
+    ).values('id', 'empresa_id', 'anio_tributario'):
+        key = (item['empresa_id'], item['anio_tributario'] - 1)
+        valid_annual_process_ids[item['id']] = key
+        annual_process_counts[key] += 1
     for (empresa_id, fiscal_year), count in annual_process_counts.items():
         if bucket := year_bucket(empresa_id, fiscal_year):
             bucket['signals']['annual_processes'] = count
 
+    valid_process_id_list = list(valid_annual_process_ids)
     annual_trial_balance_counts: dict[tuple[int, int], int] = defaultdict(int)
     for item in AnnualTaxTrialBalance.objects.filter(
         empresa_id__in=company_ids,
         estado=EstadoAnnualTaxTrialBalance.PREPARED,
-    ).values('empresa_id', 'anio_tributario'):
-        annual_trial_balance_counts[(item['empresa_id'], item['anio_tributario'] - 1)] += 1
+        proceso_renta_anual_id__in=valid_process_id_list,
+    ).values('proceso_renta_anual_id'):
+        annual_trial_balance_counts[valid_annual_process_ids[item['proceso_renta_anual_id']]] += 1
     for (empresa_id, fiscal_year), count in annual_trial_balance_counts.items():
         if bucket := year_bucket(empresa_id, fiscal_year):
             bucket['signals']['annual_trial_balance'] = count
@@ -363,8 +368,9 @@ def collect_company_accounting_candidates(*, empresa_ids: list[int] | None = Non
         empresa_id__in=company_ids,
         estado=EstadoAnnualTaxWorkbook.PREPARED,
         tipo__in=[TipoAnnualTaxWorkbook.RLI, TipoAnnualTaxWorkbook.CPT],
-    ).values('empresa_id', 'anio_tributario', 'tipo'):
-        workbook_types[(item['empresa_id'], item['anio_tributario'] - 1)].add(item['tipo'])
+        proceso_renta_anual_id__in=valid_process_id_list,
+    ).values('proceso_renta_anual_id', 'tipo'):
+        workbook_types[valid_annual_process_ids[item['proceso_renta_anual_id']]].add(item['tipo'])
     for (empresa_id, fiscal_year), types in workbook_types.items():
         if bucket := year_bucket(empresa_id, fiscal_year):
             bucket['signals']['rli_cpt_workbooks'] = len(types)
@@ -373,8 +379,9 @@ def collect_company_accounting_candidates(*, empresa_ids: list[int] | None = Non
     for item in AnnualTaxDossier.objects.filter(
         empresa_id__in=company_ids,
         estado=EstadoAnnualTaxDossier.PREPARED,
-    ).values('empresa_id', 'anio_tributario'):
-        annual_dossier_counts[(item['empresa_id'], item['anio_tributario'] - 1)] += 1
+        proceso_renta_anual_id__in=valid_process_id_list,
+    ).values('proceso_renta_anual_id'):
+        annual_dossier_counts[valid_annual_process_ids[item['proceso_renta_anual_id']]] += 1
     for (empresa_id, fiscal_year), count in annual_dossier_counts.items():
         if bucket := year_bucket(empresa_id, fiscal_year):
             bucket['signals']['annual_dossier'] = count
@@ -386,8 +393,9 @@ def collect_company_accounting_candidates(*, empresa_ids: list[int] | None = Non
         official_format=False,
         sii_submission=False,
         final_tax_calculation=False,
-    ).values('empresa_id', 'anio_tributario'):
-        annual_export_counts[(item['empresa_id'], item['anio_tributario'] - 1)] += 1
+        proceso_renta_anual_id__in=valid_process_id_list,
+    ).values('proceso_renta_anual_id'):
+        annual_export_counts[valid_annual_process_ids[item['proceso_renta_anual_id']]] += 1
     for (empresa_id, fiscal_year), count in annual_export_counts.items():
         if bucket := year_bucket(empresa_id, fiscal_year):
             bucket['signals']['annual_export'] = count

@@ -688,6 +688,11 @@ no habilita calculo tributario final, upload SII ni presentacion autonoma.
 El selector expone `selection_boundary` para indicar que solo ordena candidatos
 con senales internas, sin fuentes externas, sin gates externos y sin habilitar
 contabilidad autonoma.
+Los artefactos anuales downstream (`AnnualTaxTrialBalance`, workbooks RLI/CPT,
+`AnnualTaxDossier` y `AnnualTaxExport`) solo suman senal de candidato si
+pertenecen a un `ProcesoRentaAnual` preparado o superior con
+`AnnualTaxSourceBundle` congelado. Un balance anual, dossier o export suelto o
+colgado de un proceso pendiente no infla el ranking ni habilita revision.
 Para F29 mensual, el progreso anual cuenta tanto formularios preparados como
 meses con `MonthlyTaxFact` normalizado cuyo F29 esta `no_aplica` y
 `no_declaration=true`. Esto permite modelar periodos AC2024 registrados como
