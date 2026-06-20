@@ -178,6 +178,28 @@ class AnnualTaxOwnershipPatchWorkbenchTests(SimpleTestCase):
         self.assertNotIn('evidence-1', rendered_manifest)
         self.assertNotIn('responsible-decisions-ac2025-at2026-v1', rendered_manifest)
 
+    def test_workbench_derives_not_ready_from_inconsistent_responsible_answers_review(self):
+        review = self._responsible_answers_review()
+        review['summary']['ready_for_responsible_decision_handoff'] = True
+        review['summary']['missing_questions_total'] = 1
+        review['summary']['blocking_issues_total'] = 0
+        review['missing_question_keys'] = ['ownership.source-ref']
+        review['issues'] = []
+
+        result = build_annual_tax_ownership_patch_workbench(
+            template=self._template(),
+            responsible_answers_review=review,
+        )
+        responsible_summary = result['manifest']['responsible_answers_summary']
+
+        self.assertTrue(responsible_summary['reported_ready_for_responsible_decision_handoff'])
+        self.assertFalse(responsible_summary['ready_for_responsible_decision_handoff'])
+        self.assertEqual(responsible_summary['missing_questions_total'], 1)
+        self.assertGreaterEqual(responsible_summary['blocking_issues_total'], 1)
+        self.assertIn('responsible_answers.questions_unanswered', responsible_summary['issue_codes'])
+        self.assertFalse(result['manifest']['summary']['responsible_answers_ready'])
+        self.assertFalse(result['manifest']['decision']['responsible_answers_ready_for_patch_completion'])
+
     def test_workbench_marks_pending_responsible_answers_as_not_ready(self):
         result = build_annual_tax_ownership_patch_workbench(
             template=self._template(),
@@ -249,6 +271,37 @@ class AnnualTaxOwnershipPatchWorkbenchTests(SimpleTestCase):
             self.assertEqual(patch_draft['ownership']['participants'], [])
             self.assertNotIn('Socio Controlado Uno', rendered_summary)
             self.assertNotIn('11111111-1', rendered_summary)
+
+    def test_command_rejects_inconsistent_responsible_answers_review_when_ready_required(self):
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            template_path = temp_root / 'template.json'
+            responsible_answers_path = temp_root / 'responsible-answers-review.json'
+            output_dir = temp_root / 'workbench'
+            review = self._responsible_answers_review()
+            review['summary']['ready_for_responsible_decision_handoff'] = True
+            review['summary']['missing_questions_total'] = 1
+            review['summary']['blocking_issues_total'] = 0
+            review['missing_question_keys'] = ['ownership.source-ref']
+            review['issues'] = []
+            template_path.write_text(json.dumps(self._template()), encoding='utf-8')
+            responsible_answers_path.write_text(json.dumps(review), encoding='utf-8')
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'materialize_annual_tax_ownership_patch_workbench',
+                    template=str(template_path),
+                    responsible_answers_review=str(responsible_answers_path),
+                    output_dir=str(output_dir),
+                    require_responsible_answers_ready=True,
+                    stdout=StringIO(),
+                )
+
+            self.assertEqual(
+                str(error.exception),
+                'Respuestas responsables listas requeridas para materializar ownership patch workbench.',
+            )
+            self.assertFalse(output_dir.exists())
 
     def test_command_rejects_sensitive_responsible_ref_before_writing(self):
         with TemporaryDirectory() as temp_dir:

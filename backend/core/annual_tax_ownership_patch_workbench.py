@@ -165,10 +165,41 @@ def _responsible_answers_summary(
     issues = responsible_answers_review.get('issues') if isinstance(responsible_answers_review.get('issues'), list) else []
     decision_states = summary.get('decision_states') if isinstance(summary.get('decision_states'), dict) else {}
     categories = summary.get('categories') if isinstance(summary.get('categories'), dict) else {}
-    issue_codes = sorted(
+    issue_codes = {
         str(issue.get('code') or '').strip()
         for issue in issues
         if isinstance(issue, dict) and str(issue.get('code') or '').strip()
+    }
+    missing_question_keys = (
+        responsible_answers_review.get('missing_question_keys')
+        if isinstance(responsible_answers_review.get('missing_question_keys'), list)
+        else []
+    )
+    missing_questions_total = max(
+        _safe_int(summary.get('missing_questions_total')),
+        len(missing_question_keys),
+    )
+    if missing_questions_total:
+        issue_codes.add('responsible_answers.questions_unanswered')
+    questions_total = _safe_int(summary.get('questions_total'))
+    answers_total = _safe_int(summary.get('answers_total'))
+    if questions_total and answers_total < questions_total:
+        issue_codes.add('responsible_answers.answer_count_mismatch')
+    sorted_issue_codes = sorted(issue_codes)
+    blocking_issues_total = max(
+        _safe_int(summary.get('blocking_issues_total')),
+        sum(max(_safe_int(issue.get('count')), 1) for issue in issues if isinstance(issue, dict)),
+        missing_questions_total,
+        len(sorted_issue_codes),
+    )
+    reported_ready = bool(summary.get('ready_for_responsible_decision_handoff'))
+    effective_ready = (
+        reported_ready
+        and questions_total > 0
+        and answers_total >= questions_total
+        and missing_questions_total == 0
+        and blocking_issues_total == 0
+        and not sorted_issue_codes
     )
     fingerprint = {
         'schema_version': responsible_answers_review.get('schema_version'),
@@ -177,17 +208,16 @@ def _responsible_answers_summary(
         'tax_year': responsible_answers_review.get('tax_year'),
         'questions_packet_hash': responsible_answers_review.get('questions_packet_hash'),
         'summary': {
-            'questions_total': _safe_int(summary.get('questions_total')),
-            'answers_total': _safe_int(summary.get('answers_total')),
-            'missing_questions_total': _safe_int(summary.get('missing_questions_total')),
-            'blocking_issues_total': _safe_int(summary.get('blocking_issues_total')),
+            'questions_total': questions_total,
+            'answers_total': answers_total,
+            'missing_questions_total': missing_questions_total,
+            'blocking_issues_total': blocking_issues_total,
             'decision_states': dict(sorted(decision_states.items())),
             'categories': dict(sorted(categories.items())),
-            'ready_for_responsible_decision_handoff': bool(
-                summary.get('ready_for_responsible_decision_handoff')
-            ),
+            'reported_ready_for_responsible_decision_handoff': reported_ready,
+            'ready_for_responsible_decision_handoff': effective_ready,
         },
-        'issue_codes': issue_codes,
+        'issue_codes': sorted_issue_codes,
     }
     return {
         'present': True,
@@ -198,7 +228,10 @@ def _responsible_answers_summary(
         'blocking_issues_total': fingerprint['summary']['blocking_issues_total'],
         'decision_states': fingerprint['summary']['decision_states'],
         'categories': fingerprint['summary']['categories'],
-        'issue_codes': issue_codes,
+        'issue_codes': sorted_issue_codes,
+        'reported_ready_for_responsible_decision_handoff': fingerprint['summary'][
+            'reported_ready_for_responsible_decision_handoff'
+        ],
         'ready_for_responsible_decision_handoff': fingerprint['summary']['ready_for_responsible_decision_handoff'],
     }
 
