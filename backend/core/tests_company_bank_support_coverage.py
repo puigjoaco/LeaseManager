@@ -10,7 +10,7 @@ from django.test import TestCase
 from core.company_bank_support_coverage import audit_company_bank_support_coverage
 
 
-def _complete_manifest():
+def _complete_manifest(*, statement_strength='expected_complete'):
     operations = [
         {'operation_ref': f'leasing-op-{index:02d}', 'label_ref': f'bank-leasing-{index:02d}'}
         for index in range(1, 6)
@@ -56,7 +56,7 @@ def _complete_manifest():
             {
                 'confirmation_ref': 'bank-confirmation-redacted',
                 'source_ref': 'gmail-thread-redacted',
-                'statement_strength': 'expected_complete',
+                'statement_strength': statement_strength,
             }
         ],
     }
@@ -69,6 +69,7 @@ class CompanyBankSupportCoverageTests(TestCase):
         self.assertEqual(result['classification'], 'preparado')
         self.assertEqual(result['coverage_percent'], 100)
         self.assertTrue(result['ready_for_accounting_document_review'])
+        self.assertFalse(result['ready_for_formal_bank_support_review'])
         self.assertEqual(result['summary']['required_operations'], 5)
         self.assertEqual(result['summary']['operations_with_full_support'], 5)
         self.assertTrue(result['summary']['accepted_confirmation_present'])
@@ -86,6 +87,18 @@ class CompanyBankSupportCoverageTests(TestCase):
         self.assertTrue(result['boundary']['requires_responsible_review'])
         self.assertNotIn('://', json.dumps(result))
         self.assertNotIn('@', json.dumps(result))
+
+    def test_verified_complete_manifest_is_ready_for_formal_bank_support_review(self):
+        result = audit_company_bank_support_coverage(payload=_complete_manifest(statement_strength='verified_complete'))
+
+        self.assertEqual(result['classification'], 'preparado')
+        self.assertEqual(result['coverage_percent'], 100)
+        self.assertTrue(result['ready_for_accounting_document_review'])
+        self.assertTrue(result['ready_for_formal_bank_support_review'])
+        self.assertTrue(result['summary']['accepted_confirmation_present'])
+        self.assertTrue(result['summary']['strong_confirmation_present'])
+        self.assertEqual(result['issue_counts']['blocking'], 0)
+        self.assertEqual(result['issue_counts']['warning'], 0)
 
     def test_missing_invoice_bundle_blocks_affected_operations(self):
         manifest = _complete_manifest()

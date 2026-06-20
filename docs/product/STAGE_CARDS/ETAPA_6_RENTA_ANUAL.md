@@ -1261,6 +1261,12 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   operaciones no listadas y referencias sensibles. Esto impide declarar respaldo
   leasing completo sin evidencia revisada, pero no invalida la arquitectura
   anual ni impide seguir con trabajo seguro de revision/carga.
+  `expected_complete` habilita revision documental local con advertencia, pero
+  no habilita por si solo el paquete contable/renta productivo. La salida separa
+  `ready_for_accounting_document_review` de
+  `ready_for_formal_bank_support_review`; `build_company_accounting_review_package`
+  exige `verified_complete` para quedar `preparado` y mantiene `parcial` si falta
+  confirmacion formal Banco Chile/leasing.
 - `audit_company_document_intake` define el ingreso seguro de respaldos reales
   para renta anual: un JSON redactado lista lotes de origen, documentos,
   categorias, meses, formularios, operaciones bancarias y refs opacas. La salida
@@ -1289,11 +1295,12 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   empresa/ano con la cobertura bancaria/leasing redactada. El paquete queda
   `preparado` solo si la DB local/controlada tiene cierres, balances, F29,
   source bundle, dossier/export anual y el manifiesto bancario/leasing cubre
-  operaciones/categorias del mismo ano y declara `company_ref` coincidente con
-  la empresa auditada. Un manifiesto completo pero de otra empresa, o sin
-  `company_ref`, mantiene el paquete `parcial`. No lee adjuntos, correos ni
-  documentos reales, no abre banco ni SII y no declara contabilidad final:
-  solo permite pasar a revision productiva responsable con evidencia no
+  operaciones/categorias del mismo ano, declara `company_ref` coincidente con
+  la empresa auditada y trae confirmacion bancaria/leasing `verified_complete`.
+  Un manifiesto completo pero de otra empresa, sin `company_ref` o solo con
+  `expected_complete`, mantiene el paquete `parcial`. No lee adjuntos, correos
+  ni documentos reales, no abre banco ni SII y no declara contabilidad final:
+  solo permite pasar a revision productiva responsable con evidencia formal no
   sensible.
   Los comandos `audit_company_accounting_review_package` y
   `materialize_company_accounting_review_package` redactan errores de archivo:
