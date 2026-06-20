@@ -331,6 +331,77 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
             self.assertTrue(summary['ready_for_responsible_decision_handoff'])
             self.assertEqual(manifest['summary']['answers_total'], len(packet['questions']))
 
+    def test_command_materializes_answers_review_from_verified_handoff_packet(self):
+        packet = self._questions_packet()
+        template = build_company_accounting_responsible_answers_template(
+            questions_packet=packet,
+            next_action_ref='complete-ac2025-at2026-responsible-review',
+        )
+        answers = self._answers_payload(packet)
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            handoff_dir = temp_root / 'handoff-packet'
+            answers_path = temp_root / 'answers.json'
+            output_dir = temp_root / 'answers-review'
+            write_company_accounting_responsible_handoff_packet(
+                questions_packet=packet,
+                answers_template=template,
+                output_dir=handoff_dir,
+            )
+            answers_path.write_text(json.dumps(answers), encoding='utf-8')
+            stdout = StringIO()
+
+            call_command(
+                'materialize_company_accounting_responsible_answers',
+                handoff_packet_dir=str(handoff_dir),
+                answers=str(answers_path),
+                output_dir=str(output_dir),
+                fail_on_blocking=True,
+                stdout=stdout,
+            )
+
+            summary = json.loads(stdout.getvalue())
+            manifest = json.loads((output_dir / COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_MANIFEST).read_text())
+            self.assertEqual(summary['source_kind'], 'handoff_packet')
+            self.assertTrue(summary['handoff_packet_verified'])
+            self.assertTrue(summary['ready_for_responsible_decision_handoff'])
+            self.assertEqual(manifest['questions_packet_hash'], template['questions_packet_hash'])
+            self.assertEqual(manifest['summary']['answers_total'], len(packet['questions']))
+
+    def test_command_requires_exactly_one_questions_source(self):
+        packet = self._questions_packet()
+        answers = self._answers_payload(packet)
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            questions_path = temp_root / 'questions.json'
+            answers_path = temp_root / 'answers.json'
+            handoff_dir = temp_root / 'handoff-packet'
+            questions_path.write_text(json.dumps(packet), encoding='utf-8')
+            answers_path.write_text(json.dumps(answers), encoding='utf-8')
+
+            with self.assertRaises(CommandError) as missing_error:
+                call_command(
+                    'materialize_company_accounting_responsible_answers',
+                    answers=str(answers_path),
+                    output_dir=str(temp_root / 'answers-review-missing'),
+                    stdout=StringIO(),
+                )
+            self.assertEqual(
+                str(missing_error.exception),
+                'Debe informar exactamente una fuente de preguntas: --questions-packet o --handoff-packet-dir.',
+            )
+
+            with self.assertRaises(CommandError) as duplicated_error:
+                call_command(
+                    'materialize_company_accounting_responsible_answers',
+                    questions_packet=str(questions_path),
+                    handoff_packet_dir=str(handoff_dir),
+                    answers=str(answers_path),
+                    output_dir=str(temp_root / 'answers-review-duplicated'),
+                    stdout=StringIO(),
+                )
+            self.assertEqual(str(duplicated_error.exception), str(missing_error.exception))
+
     def test_command_allow_incomplete_keeps_missing_questions_blocking(self):
         packet = self._questions_packet()
         answers = self._answers_payload(packet)

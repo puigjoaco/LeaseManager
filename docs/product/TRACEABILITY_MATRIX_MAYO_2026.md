@@ -431,6 +431,13 @@ falla antes de escribir `company-accounting-responsible-answers-review.json`
 cuando la revision conserva blockers. La politica de salida se valida igual,
 pero el modo estricto no deja directorios ni manifests parciales que una
 reanudacion pueda confundir con handoff responsable listo.
+Nota 2026-06-20: `materialize_company_accounting_responsible_answers` acepta
+`--handoff-packet-dir` como fuente verificada de preguntas canonicas. El comando
+abre y verifica el `company-accounting-responsible-handoff-packet` antes de leer
+`company-accounting-responsible-questions.json`, mientras `--answers` sigue
+siendo un archivo externo de respuestas completadas. Esto evita que el operador
+dependa de rutas sueltas o edite las copias canonicas del paquete; no crea
+review listo sin respuestas responsables validadas.
 
 Nota 2026-06-20: `validate_company_accounting_responsible_answers` bloquea
 `company_ref` sensible o no canonico tanto en
