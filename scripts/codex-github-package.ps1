@@ -57,6 +57,56 @@ function Get-ExternalOutput([string]$file, [string[]]$arguments, [switch]$AllowF
     return ($output | Out-String).Trim()
 }
 
+function Test-CommandAvailable([string]$file) {
+    return $null -ne (Get-Command $file -ErrorAction SilentlyContinue)
+}
+
+function Get-GithubRepoSlugFromRemote() {
+    $remoteUrl = Get-ExternalOutput 'git' @('remote', 'get-url', $Remote)
+    if ($remoteUrl -match '^https://github\.com/([^/]+/[^/.]+)(?:\.git)?$') {
+        return $Matches[1]
+    }
+    if ($remoteUrl -match '^git@github\.com:([^/]+/[^/.]+)(?:\.git)?$') {
+        return $Matches[1]
+    }
+    throw "No se pudo resolver owner/repo desde remoto $Remote."
+}
+
+function Ensure-GithubApiToken() {
+    if ($env:GH_TOKEN) {
+        return $env:GH_TOKEN
+    }
+    if ($env:GITHUB_TOKEN) {
+        return $env:GITHUB_TOKEN
+    }
+
+    $credentialInput = "protocol=https`nhost=github.com`n`n"
+    $credential = $credentialInput | git credential fill
+    Assert-Condition ($LASTEXITCODE -eq 0) 'No se pudo consultar git credential manager para GitHub.'
+
+    $passwordLine = $credential | Where-Object { $_ -like 'password=*' } | Select-Object -First 1
+    Assert-Condition (-not [string]::IsNullOrWhiteSpace($passwordLine)) 'GitHub CLI no esta disponible y git credential manager no entrego token.'
+
+    return $passwordLine.Substring('password='.Length)
+}
+
+function Invoke-GithubApi([string]$method, [string]$path, $body = $null) {
+    $token = Ensure-GithubApiToken
+    $headers = @{
+        Authorization = "Bearer $token"
+        Accept = 'application/vnd.github+json'
+        'X-GitHub-Api-Version' = '2022-11-28'
+        'User-Agent' = 'codex-github-package'
+    }
+    $uri = "https://api.github.com/$path"
+    if ($null -eq $body) {
+        return Invoke-RestMethod -Method $method -Uri $uri -Headers $headers
+    }
+
+    $json = $body | ConvertTo-Json -Depth 10
+    return Invoke-RestMethod -Method $method -Uri $uri -Headers $headers -Body $json -ContentType 'application/json'
+}
+
 function Test-GitClean() {
     $status = Get-ExternalOutput 'git' @('status', '--porcelain')
     return [string]::IsNullOrWhiteSpace($status)
@@ -117,7 +167,7 @@ Validacion:
 }
 
 function Wait-PrChecks([int]$prNumber) {
-    $deadline = (Get-Date).AddMinutes(5)
+    $deadline = (Get-Date).AddMinutes(30)
     $checksJson = ''
 
     while ((Get-Date) -lt $deadline) {
@@ -140,17 +190,100 @@ function Wait-PrChecks([int]$prNumber) {
         Start-Sleep -Seconds 10
     }
 
-    throw "No aparecieron checks para PR #$prNumber despues de 5 minutos."
+    throw "No aparecieron checks para PR #$prNumber despues de 30 minutos."
 }
 
 function Get-GithubRepoSlug() {
+    if (-not (Test-CommandAvailable 'gh')) {
+        return Get-GithubRepoSlugFromRemote
+    }
     $repo = Get-ExternalOutput 'gh' @('repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner')
     Assert-Condition (-not [string]::IsNullOrWhiteSpace($repo)) 'No se pudo resolver owner/repo con gh.'
     return $repo
 }
 
+function Get-PrApi() {
+    $repo = Get-GithubRepoSlugFromRemote
+    $owner = $repo.Split('/')[0]
+    $head = [uri]::EscapeDataString("$owner`:$Branch")
+    $baseQuery = [uri]::EscapeDataString($Base)
+    $pulls = Invoke-GithubApi 'GET' "repos/$repo/pulls?state=open&head=$head&base=$baseQuery&per_page=1"
+    if (@($pulls).Count -eq 0) {
+        return $null
+    }
+
+    $pull = @($pulls)[0]
+    return [pscustomobject]@{
+        number = [int]$pull.number
+        url = [string]$pull.html_url
+        state = [string]$pull.state.ToUpperInvariant()
+        headSha = [string]$pull.head.sha
+    }
+}
+
+function New-PrApi() {
+    if ([string]::IsNullOrWhiteSpace($PrTitle)) {
+        $script:PrTitle = Get-ExternalOutput 'git' @('log', '-1', '--pretty=%s')
+    }
+
+    $repo = Get-GithubRepoSlugFromRemote
+    $body = @{
+        title = $PrTitle
+        head = $Branch
+        base = $Base
+        body = Resolve-PrBody
+        draft = [bool]$Draft
+    }
+    $pull = Invoke-GithubApi 'POST' "repos/$repo/pulls" $body
+    return [pscustomobject]@{
+        number = [int]$pull.number
+        url = [string]$pull.html_url
+        state = [string]$pull.state.ToUpperInvariant()
+        headSha = [string]$pull.head.sha
+    }
+}
+
+function Wait-PrChecksApi($pr) {
+    $deadline = (Get-Date).AddMinutes(30)
+    $repo = Get-GithubRepoSlugFromRemote
+    $headSha = $pr.headSha
+
+    while ((Get-Date) -lt $deadline) {
+        $runs = Invoke-GithubApi 'GET' "repos/$repo/commits/$headSha/check-runs?per_page=100"
+        $checkRuns = @($runs.check_runs)
+        if ($checkRuns.Count -gt 0) {
+            $failed = @($checkRuns | Where-Object {
+                $_.status -eq 'completed' -and
+                $_.conclusion -notin @('success', 'neutral', 'skipped')
+            })
+            if ($failed.Count -gt 0) {
+                $names = ($failed | ForEach-Object { "$($_.name):$($_.conclusion)" }) -join ', '
+                throw "Checks fallidos para PR #$($pr.number): $names"
+            }
+
+            $pending = @($checkRuns | Where-Object { $_.status -ne 'completed' })
+            if ($pending.Count -eq 0) {
+                Write-Host "Checks completados para PR #$($pr.number)."
+                return
+            }
+        }
+
+        Write-Host 'Checks aun no reportados o pendientes; esperando 10s...'
+        Start-Sleep -Seconds 10
+    }
+
+    throw "No se completaron checks para PR #$($pr.number) despues de 30 minutos."
+}
+
 function Invoke-PrMergeApi([int]$prNumber, [string]$headSha) {
     $repo = Get-GithubRepoSlug
+    if (-not (Test-CommandAvailable 'gh')) {
+        Invoke-GithubApi 'PUT' "repos/$repo/pulls/$prNumber/merge" @{
+            merge_method = $MergeStrategy
+            sha = $headSha
+        } | Out-Null
+        return
+    }
     Invoke-External 'gh' @(
         'api',
         '--method', 'PUT',
@@ -215,35 +348,51 @@ if ($DryRun) {
     exit 0
 }
 
-Ensure-GhToken
+$useGithubCli = Test-CommandAvailable 'gh'
+if ($useGithubCli) {
+    Ensure-GhToken
+}
 
-$pr = Get-Pr
-if ($null -eq $pr) {
-    Step 'Create PR'
-    if ([string]::IsNullOrWhiteSpace($PrTitle)) {
-        $PrTitle = Get-ExternalOutput 'git' @('log', '-1', '--pretty=%s')
-    }
-
-    $body = Resolve-PrBody
-    $args = @(
-        'pr', 'create',
-        '--base', $Base,
-        '--head', $Branch,
-        '--title', $PrTitle,
-        '--body', $body
-    )
-    if ($Draft) {
-        $args += '--draft'
-    }
-
-    $createdUrl = Get-ExternalOutput 'gh' $args
-    if (-not [string]::IsNullOrWhiteSpace($createdUrl)) {
-        Write-Host $createdUrl
-    }
+if ($useGithubCli) {
     $pr = Get-Pr
+    if ($null -eq $pr) {
+        Step 'Create PR'
+        if ([string]::IsNullOrWhiteSpace($PrTitle)) {
+            $PrTitle = Get-ExternalOutput 'git' @('log', '-1', '--pretty=%s')
+        }
+
+        $body = Resolve-PrBody
+        $args = @(
+            'pr', 'create',
+            '--base', $Base,
+            '--head', $Branch,
+            '--title', $PrTitle,
+            '--body', $body
+        )
+        if ($Draft) {
+            $args += '--draft'
+        }
+
+        $createdUrl = Get-ExternalOutput 'gh' $args
+        if (-not [string]::IsNullOrWhiteSpace($createdUrl)) {
+            Write-Host $createdUrl
+        }
+        $pr = Get-Pr
+    }
+    else {
+        Step "Use existing PR #$($pr.number)"
+    }
 }
 else {
-    Step "Use existing PR #$($pr.number)"
+    Write-Host 'GitHub CLI no esta disponible; usando GitHub REST API con token de entorno o Git Credential Manager.'
+    $pr = Get-PrApi
+    if ($null -eq $pr) {
+        Step 'Create PR'
+        $pr = New-PrApi
+    }
+    else {
+        Step "Use existing PR #$($pr.number)"
+    }
 }
 
 Assert-Condition ($null -ne $pr) 'No se pudo crear o resolver el PR.'
@@ -251,7 +400,12 @@ Write-Host "PR #$($pr.number): $($pr.url)"
 
 if ($WatchChecks -or $Merge) {
     Step 'Watch checks'
-    Wait-PrChecks $pr.number
+    if ($useGithubCli) {
+        Wait-PrChecks $pr.number
+    }
+    else {
+        Wait-PrChecksApi $pr
+    }
 }
 
 if ($Merge) {
