@@ -128,6 +128,24 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
         self.assertFalse(review['summary']['ready_for_responsible_decision_handoff'])
         self.assertIn('responsible_answers.decision_pending', issue_codes)
 
+    def test_top_level_next_action_ref_can_safely_apply_to_all_answers(self):
+        packet = self._questions_packet()
+        answers = self._answers_payload(packet)
+        answers['next_action_ref'] = 'shared-next-action-ac2025-at2026'
+        for answer in answers['answers']:
+            answer.pop('next_action_ref', None)
+
+        review = validate_company_accounting_responsible_answers(
+            questions_packet=packet,
+            answers_payload=answers,
+        )
+
+        self.assertTrue(review['summary']['ready_for_responsible_decision_handoff'])
+        self.assertEqual(review['summary']['blocking_issues_total'], 0)
+        self.assertTrue(
+            all(answer['next_action_ref'] == 'shared-next-action-ac2025-at2026' for answer in review['answers'])
+        )
+
     def test_builds_pending_answers_template_without_raw_text_or_sensitive_values(self):
         packet = self._questions_packet()
         template = build_company_accounting_responsible_answers_template(
@@ -148,9 +166,11 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
         self.assertEqual(template['template_schema_version'], 'company-accounting-responsible-answers-template.v1')
         self.assertEqual(template['template_summary']['answers_total'], len(packet['questions']))
         self.assertFalse(template['template_summary']['ready_for_responsible_decision_handoff'])
+        self.assertEqual(template['next_action_ref'], 'complete-responsible-review')
         self.assertTrue(all(answer['decision_state'] == 'pendiente' for answer in template['answers']))
         self.assertTrue(all(answer['responsible_ref'] == 'responsible-ref-pending' for answer in template['answers']))
         self.assertTrue(all(answer['evidence_ref'] == 'evidence-ref-pending' for answer in template['answers']))
+        self.assertTrue(all(answer['next_action_ref'] == 'complete-responsible-review' for answer in template['answers']))
         self.assertIn('responsible_answers.decision_pending', issue_codes)
         self.assertEqual(review['summary']['blocking_issues_total'], len(packet['questions']))
         self.assertNotIn('Socio Controlado Uno', rendered)

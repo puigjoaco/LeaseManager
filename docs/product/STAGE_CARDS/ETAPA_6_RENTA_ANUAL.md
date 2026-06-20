@@ -1311,7 +1311,10 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   bloquea `company_ref` sensible o no canonico en preguntas/respuestas,
   `evidence_ref` o `next_action_ref` sensibles en el nivel superior del payload,
   preguntas desconocidas, respuestas faltantes, duplicados, refs sensibles y
-  campos de texto libre en payload o respuesta. La salida solo puede quedar bajo
+  campos de texto libre en payload o respuesta. `next_action_ref` superior puede
+  operar como fallback no sensible para respuestas individuales, igual que los
+  refs superiores de responsable/decision/evidencia; el template rellenable lo
+  materializa para evitar duplicacion manual. La salida solo puede quedar bajo
   `local-evidence/` si esta dentro del repo, no guarda nombres, RUTs, rutas
   locales, adjuntos ni respuestas crudas, y conserva
   `ready_for_productive_accounting_review=false`, `final_tax_calculation=false`
