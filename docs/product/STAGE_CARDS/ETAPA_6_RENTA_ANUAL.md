@@ -208,6 +208,10 @@ pasar por `validate_annual_tax_ownership_patch` antes de inyectarse.
 El comando tambien redacta errores de archivo: si falta el template, falla la
 lectura JSON o no se puede escribir el workbench, la consola no devuelve rutas
 locales completas que puedan contener nombres, RUTs o carpetas privadas.
+El workbench tambien valida que `responsible_ref` y `approval_ref` del patch
+privado sean referencias no sensibles antes de escribir: rechaza RUTs, rutas
+locales, URLs, correos, secretos o texto libre, evitando que el tramo privado
+use refs contaminadas como base del handoff ownership.
 Tambien puede recibir `company-accounting-responsible-answers-review.json`
 redactado y reducirlo a resumen hasheado dentro del manifest: presente/listo,
 conteos, categorias, estados de decision e issue codes, sin copiar refs

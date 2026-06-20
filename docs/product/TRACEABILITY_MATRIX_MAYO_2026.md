@@ -440,6 +440,12 @@ continua fuera de Git y sigue requiriendo validacion antes de inyectar ownership
 Con `--require-responsible-answers-ready`, el comando falla antes de escribir
 si ese review falta o conserva blockers, dejando una frontera ejecutable para
 el tramo respuestas responsables completas -> workbench -> patch ownership.
+Nota 2026-06-20: `materialize_annual_tax_ownership_patch_workbench` y el
+builder del workbench validan ahora que `responsible_ref` y `approval_ref` sean
+refs no sensibles antes de escribir el patch privado. RUTs, rutas locales, URLs,
+correos, secretos o texto libre producen error generico y no crean workbench.
+Asi el puente respuestas responsables -> patch ownership mantiene la misma
+frontera de referencias seguras que el review de respuestas.
 
 Nota 2026-06-19: `audit_annual_tax_controlled_package_readiness` y
 `apply_annual_tax_controlled_db_load` verifican la consistencia del handoff

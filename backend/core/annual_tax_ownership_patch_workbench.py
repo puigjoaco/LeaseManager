@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,11 +13,15 @@ from core.company_accounting_responsible_answers import (
     COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_REVIEW_SCHEMA_VERSION,
 )
 from core.annual_tax_source_manifest import payload_hash
+from core.reference_validation import contains_sensitive_reference
 
 
 OWNERSHIP_PATCH_WORKBENCH_SCHEMA_VERSION = 'annual-tax-ownership-patch-workbench.v1'
 OWNERSHIP_PATCH_WORKBENCH_MANIFEST_FILENAME = 'ownership-patch-workbench.json'
 OWNERSHIP_PATCH_DRAFT_PRIVATE_FILENAME = 'ownership-patch-draft.private.json'
+CHILEAN_RUT_PATTERN = re.compile(r'\b\d{1,2}\.?\d{3}\.?\d{3}-[\dkK]\b')
+WINDOWS_ABSOLUTE_PATH_PATTERN = re.compile(r'(^|[\s"\'])([A-Za-z]:[\\/]|\\\\)')
+SAFE_REF_PATTERN = re.compile(r'^[A-Za-z0-9_.:-]+$')
 
 
 def _context_from_template(template: dict[str, Any]) -> tuple[str, int, int]:
@@ -108,6 +113,23 @@ def _safe_int(value: Any) -> int:
         return 0
 
 
+def _is_safe_ref(value: Any) -> bool:
+    text = str(value or '').strip()
+    return bool(text) and not (
+        contains_sensitive_reference(text)
+        or CHILEAN_RUT_PATTERN.search(text)
+        or WINDOWS_ABSOLUTE_PATH_PATTERN.search(text)
+        or not SAFE_REF_PATTERN.fullmatch(text)
+    )
+
+
+def _require_safe_ref(value: Any, *, field_name: str) -> str:
+    text = str(value or '').strip()
+    if not _is_safe_ref(text):
+        raise ValueError(f'{field_name} debe ser una referencia no sensible.')
+    return text
+
+
 def _responsible_answers_summary(
     responsible_answers_review: dict[str, Any] | None,
     *,
@@ -188,6 +210,8 @@ def _patch_draft(
     approval_ref: str,
 ) -> dict[str, Any]:
     company_ref, commercial_year, tax_year = _context_from_template(template)
+    safe_responsible_ref = _require_safe_ref(responsible_ref, field_name='responsible_ref')
+    safe_approval_ref = _require_safe_ref(approval_ref, field_name='approval_ref')
     ownership_template = deepcopy(template.get('ownership_patch_template'))
     if not isinstance(ownership_template, dict):
         ownership_template = {}
@@ -201,8 +225,8 @@ def _patch_draft(
         'company_ref': company_ref,
         'commercial_year': commercial_year,
         'tax_year': tax_year,
-        'responsible_ref': responsible_ref,
-        'approval_ref': approval_ref,
+        'responsible_ref': safe_responsible_ref,
+        'approval_ref': safe_approval_ref,
         'ownership': ownership_template,
     }
 

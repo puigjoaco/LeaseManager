@@ -143,6 +143,20 @@ class AnnualTaxOwnershipPatchWorkbenchTests(SimpleTestCase):
         self.assertNotIn('legal/Socio Controlado Uno/constitucion.pdf', rendered_manifest)
         self.assertNotIn('Socio Controlado Uno', rendered_manifest)
 
+    def test_workbench_rejects_sensitive_responsible_or_approval_refs(self):
+        with self.assertRaisesMessage(ValueError, 'responsible_ref'):
+            build_annual_tax_ownership_patch_workbench(
+                template=self._template(),
+                responsible_ref='responsable 11111111-1',
+                approval_ref='approval-ac2025-at2026',
+            )
+        with self.assertRaisesMessage(ValueError, 'approval_ref'):
+            build_annual_tax_ownership_patch_workbench(
+                template=self._template(),
+                responsible_ref='responsible-ac2025-at2026',
+                approval_ref='D:/Privado/Socio Controlado Uno.pdf',
+            )
+
     def test_workbench_summarizes_responsible_answers_review_without_copying_answer_refs(self):
         result = build_annual_tax_ownership_patch_workbench(
             template=self._template(),
@@ -235,6 +249,27 @@ class AnnualTaxOwnershipPatchWorkbenchTests(SimpleTestCase):
             self.assertEqual(patch_draft['ownership']['participants'], [])
             self.assertNotIn('Socio Controlado Uno', rendered_summary)
             self.assertNotIn('11111111-1', rendered_summary)
+
+    def test_command_rejects_sensitive_responsible_ref_before_writing(self):
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            template_path = temp_root / 'template.json'
+            output_dir = temp_root / 'workbench'
+            template_path.write_text(json.dumps(self._template()), encoding='utf-8')
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'materialize_annual_tax_ownership_patch_workbench',
+                    template=str(template_path),
+                    output_dir=str(output_dir),
+                    responsible_ref='responsable 11111111-1',
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertIn('responsible_ref debe ser una referencia no sensible', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+            self.assertFalse(output_dir.exists())
 
     def test_command_requires_ready_responsible_answers_before_writing_when_requested(self):
         with TemporaryDirectory() as temp_dir:
