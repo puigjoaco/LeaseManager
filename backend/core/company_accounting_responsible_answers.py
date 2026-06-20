@@ -239,11 +239,18 @@ def validate_company_accounting_responsible_answers(
     fallback_responsible_ref = str(answers_payload.get('responsible_ref') or '').strip()
     fallback_decision_ref = str(answers_payload.get('decision_ref') or '').strip()
     fallback_evidence_ref = str(answers_payload.get('evidence_ref') or '').strip()
+    fallback_next_action_ref = str(answers_payload.get('next_action_ref') or answers_payload.get('next_action') or '').strip()
     for field_name, field_value in (
         ('responsible_ref', fallback_responsible_ref),
         ('decision_ref', fallback_decision_ref),
     ):
         if not _is_safe_ref(field_value):
+            issues.append(_issue(f'responsible_answers.{field_name}_invalid'))
+    for field_name, field_value in (
+        ('evidence_ref', fallback_evidence_ref),
+        ('next_action_ref', fallback_next_action_ref),
+    ):
+        if field_value and not _is_safe_ref(field_value):
             issues.append(_issue(f'responsible_answers.{field_name}_invalid'))
 
     raw_answers = answers_payload.get('answers')

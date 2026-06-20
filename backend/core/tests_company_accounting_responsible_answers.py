@@ -219,6 +219,42 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
         self.assertNotIn('11111111-1', rendered)
         self.assertNotIn('D:/Privado', rendered)
 
+    def test_sensitive_top_level_evidence_ref_is_blocking_without_leaking_value(self):
+        packet = self._questions_packet()
+        answers = self._answers_payload(packet)
+        answers['evidence_ref'] = 'D:/Privado/Socio Controlado Uno 11111111-1/evidence.pdf'
+
+        review = validate_company_accounting_responsible_answers(
+            questions_packet=packet,
+            answers_payload=answers,
+        )
+        rendered = json.dumps(review, ensure_ascii=True)
+        issue_codes = {issue['code'] for issue in review['issues']}
+
+        self.assertFalse(review['summary']['ready_for_responsible_decision_handoff'])
+        self.assertIn('responsible_answers.evidence_ref_invalid', issue_codes)
+        self.assertNotIn('Socio Controlado Uno', rendered)
+        self.assertNotIn('11111111-1', rendered)
+        self.assertNotIn('D:/Privado', rendered)
+
+    def test_sensitive_top_level_next_action_ref_is_blocking_without_leaking_value(self):
+        packet = self._questions_packet()
+        answers = self._answers_payload(packet)
+        answers['next_action_ref'] = 'https://privado.example/accion/Socio-Controlado-Uno-11111111-1'
+
+        review = validate_company_accounting_responsible_answers(
+            questions_packet=packet,
+            answers_payload=answers,
+        )
+        rendered = json.dumps(review, ensure_ascii=True)
+        issue_codes = {issue['code'] for issue in review['issues']}
+
+        self.assertFalse(review['summary']['ready_for_responsible_decision_handoff'])
+        self.assertIn('responsible_answers.next_action_ref_invalid', issue_codes)
+        self.assertNotIn('Socio Controlado Uno', rendered)
+        self.assertNotIn('11111111-1', rendered)
+        self.assertNotIn('privado.example', rendered)
+
     def test_raw_answer_text_fields_are_blocking_and_not_persisted(self):
         packet = self._questions_packet()
         answers = self._answers_payload(packet)
