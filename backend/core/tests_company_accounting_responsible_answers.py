@@ -289,6 +289,66 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
             self.assertNotIn('11111111-1', rendered_error)
             self.assertNotIn('D:/Privado', rendered_error)
 
+    def test_command_missing_questions_path_does_not_echo_sensitive_path(self):
+        packet = self._questions_packet()
+        answers = self._answers_payload(packet)
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            sensitive_dir = temp_root / 'Socio Controlado Uno 11111111-1'
+            sensitive_dir.mkdir()
+            questions_path = sensitive_dir / 'missing-questions.json'
+            answers_path = temp_root / 'answers.json'
+            answers_path.write_text(json.dumps(answers), encoding='utf-8')
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'materialize_company_accounting_responsible_answers',
+                    questions_packet=str(questions_path),
+                    answers=str(answers_path),
+                    output_dir=str(temp_root / 'answers-review'),
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No existe questions_packet JSON o no es un archivo legible.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+            self.assertNotIn(str(sensitive_dir), rendered_error)
+
+    def test_command_read_error_does_not_echo_sensitive_answer_path(self):
+        packet = self._questions_packet()
+        answers = self._answers_payload(packet)
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            sensitive_dir = temp_root / 'Socio Controlado Uno 11111111-1'
+            sensitive_dir.mkdir()
+            questions_path = temp_root / 'questions.json'
+            answers_path = sensitive_dir / 'answers.json'
+            questions_path.write_text(json.dumps(packet), encoding='utf-8')
+            answers_path.write_text(json.dumps(answers), encoding='utf-8')
+            original_read_text = Path.read_text
+
+            def read_text_side_effect(self, *args, **kwargs):
+                if self == answers_path:
+                    raise OSError('D:/Privado/Socio Controlado Uno 11111111-1/answers.json')
+                return original_read_text(self, *args, **kwargs)
+
+            with patch.object(Path, 'read_text', autospec=True, side_effect=read_text_side_effect):
+                with self.assertRaises(CommandError) as error:
+                    call_command(
+                        'materialize_company_accounting_responsible_answers',
+                        questions_packet=str(questions_path),
+                        answers=str(answers_path),
+                        output_dir=str(temp_root / 'answers-review'),
+                        stdout=StringIO(),
+                    )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No se pudo leer answers JSON.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+            self.assertNotIn('D:/Privado', rendered_error)
+
     def test_template_command_rejects_repo_output_outside_local_evidence(self):
         packet = self._questions_packet()
         with TemporaryDirectory() as temp_dir:
@@ -333,3 +393,24 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
             self.assertNotIn('Socio Controlado Uno', rendered_error)
             self.assertNotIn('11111111-1', rendered_error)
             self.assertNotIn('D:/Privado', rendered_error)
+
+    def test_template_command_missing_questions_path_does_not_echo_sensitive_path(self):
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            sensitive_dir = temp_root / 'Socio Controlado Uno 11111111-1'
+            sensitive_dir.mkdir()
+            questions_path = sensitive_dir / 'missing-questions.json'
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'materialize_company_accounting_responsible_answers_template',
+                    questions_packet=str(questions_path),
+                    output_dir=str(temp_root / 'answers-template'),
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No existe questions_packet JSON o no es un archivo legible.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+            self.assertNotIn(str(sensitive_dir), rendered_error)

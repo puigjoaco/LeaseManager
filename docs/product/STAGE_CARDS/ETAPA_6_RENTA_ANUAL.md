@@ -1286,9 +1286,10 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   rutas locales, adjuntos ni respuestas crudas, y conserva
   `ready_for_productive_accounting_review=false`, `final_tax_calculation=false`
   y `sii_submission=false`.
-  El comando y el materializador de template redactan errores de escritura: si
-  no pueden persistir la revision o el template, la consola no devuelve rutas
-  locales completas que puedan contener nombres, RUTs o carpetas privadas.
+  El comando y el materializador de template redactan errores de
+  lectura/escritura: si faltan o fallan los JSON de entrada, o si no pueden
+  persistir la revision o el template, la consola no devuelve rutas locales
+  completas que puedan contener nombres, RUTs o carpetas privadas.
 - `materialize_company_accounting_responsible_answers_template` crea un
   `company-accounting-responsible-answers.template.json` rellenable desde el
   paquete de preguntas. El template copia solo claves, categorias, issue codes
