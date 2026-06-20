@@ -35,6 +35,27 @@ def _validate_output_path(output_path: Path) -> None:
         ) from error
 
 
+def _read_manifest(path: Path) -> dict:
+    if not path.exists() or not path.is_file():
+        raise CommandError('No existe manifest JSON o no es un archivo legible.')
+    try:
+        return load_manifest_json(path.read_text(encoding='utf-8'))
+    except json.JSONDecodeError as error:
+        raise CommandError(f'Manifest JSON invalido: line {error.lineno}, column {error.colno}.') from error
+    except OSError as error:
+        raise CommandError('No se pudo leer manifest JSON.') from error
+    except ValueError as error:
+        raise CommandError(f'Manifest invalido: {error}') from error
+
+
+def _write_plan(path: Path, *, rendered: str) -> None:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(rendered, encoding='utf-8')
+    except OSError as error:
+        raise CommandError('No se pudo escribir plan de carga controlada.') from error
+
+
 class Command(BaseCommand):
     help = (
         'Construye un plan read-only de carga controlada desde un manifiesto AC/AT; '
@@ -52,24 +73,18 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         manifest_path = _resolve_path(options['manifest'])
-        if not manifest_path.exists() or not manifest_path.is_file():
-            raise CommandError(f'No existe manifest JSON: {manifest_path}')
 
         output_path = None
         if options['output']:
             output_path = _resolve_path(options['output'])
             _validate_output_path(output_path)
 
-        try:
-            manifest = load_manifest_json(manifest_path.read_text(encoding='utf-8'))
-        except (OSError, ValueError, json.JSONDecodeError) as error:
-            raise CommandError(f'Manifest invalido: {error}') from error
+        manifest = _read_manifest(manifest_path)
 
         plan = build_annual_tax_controlled_load_plan(manifest=manifest)
         rendered = json.dumps(plan, indent=2, ensure_ascii=True)
         if output_path is not None:
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(rendered, encoding='utf-8')
+            _write_plan(output_path, rendered=rendered)
         else:
             self.stdout.write(rendered)
 
