@@ -58,6 +58,9 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         manifest_path = _resolve_path(options['manifest'])
+        if not manifest_path.exists() or not manifest_path.is_file():
+            raise CommandError('No existe manifest JSON o no es un archivo legible.')
+
         output_path = None
         if options['output']:
             output_path = _resolve_path(options['output'])
@@ -66,10 +69,10 @@ class Command(BaseCommand):
 
         try:
             manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
-        except OSError as error:
-            raise CommandError(f'No se pudo leer manifest={manifest_path}: {error}') from error
         except json.JSONDecodeError as error:
-            raise CommandError(f'Manifest JSON invalido={manifest_path}: {error}') from error
+            raise CommandError(f'Manifest JSON invalido: line {error.lineno}, column {error.colno}.') from error
+        except OSError as error:
+            raise CommandError('No se pudo leer manifest JSON.') from error
 
         try:
             empresa = Empresa.objects.get(pk=options['empresa_id'])
@@ -89,8 +92,11 @@ class Command(BaseCommand):
 
         rendered = json.dumps(result, indent=2, ensure_ascii=True, default=str)
         if output_path is not None:
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(rendered, encoding='utf-8')
+            try:
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text(rendered, encoding='utf-8')
+            except OSError as error:
+                raise CommandError('No se pudo escribir comparacion anual.') from error
         else:
             self.stdout.write(rendered)
 

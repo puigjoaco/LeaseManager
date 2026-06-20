@@ -3,6 +3,7 @@ from datetime import date
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
@@ -745,3 +746,90 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
                     output='docs/ac2024-expected-output-comparison.json',
                     stdout=StringIO(),
                 )
+
+    def test_command_missing_manifest_error_does_not_echo_sensitive_path(self):
+        empresa = self._create_empresa()
+
+        with TemporaryDirectory() as temp_dir:
+            missing_path = Path(temp_dir) / 'Socio Controlado Uno 11111111-1.json'
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'compare_annual_tax_expected_outputs',
+                    empresa_id=empresa.id,
+                    commercial_year=2024,
+                    tax_year=2025,
+                    manifest=str(missing_path),
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No existe manifest JSON o no es un archivo legible.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+
+    def test_command_read_error_does_not_echo_sensitive_path(self):
+        empresa = self._create_empresa()
+        manifest = self._manifest()
+
+        with TemporaryDirectory() as temp_dir:
+            manifest_path = Path(temp_dir) / 'Socio Controlado Uno 11111111-1.json'
+            manifest_path.write_text(json.dumps(manifest), encoding='utf-8')
+
+            with patch.object(
+                Path,
+                'read_text',
+                side_effect=OSError('D:/Privado/Socio Controlado Uno 11111111-1/manifest.json'),
+            ):
+                with self.assertRaises(CommandError) as error:
+                    call_command(
+                        'compare_annual_tax_expected_outputs',
+                        empresa_id=empresa.id,
+                        commercial_year=2024,
+                        tax_year=2025,
+                        manifest=str(manifest_path),
+                        stdout=StringIO(),
+                    )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No se pudo leer manifest JSON.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+            self.assertNotIn('D:/Privado', rendered_error)
+
+    def test_command_write_error_does_not_echo_sensitive_path(self):
+        empresa = self._create_empresa()
+        self._load_and_generate_annual_layer(empresa)
+
+        with TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            source_root = temp_path / 'source'
+            source_root.mkdir()
+            manifest = self._manifest()
+            self._write_expected_output_sources(source_root, manifest)
+            manifest_path = temp_path / 'manifest.json'
+            output_path = temp_path / 'Socio Controlado Uno 11111111-1' / 'comparison.json'
+            manifest_path.write_text(json.dumps(manifest, ensure_ascii=True), encoding='utf-8')
+
+            with patch.object(
+                Path,
+                'write_text',
+                side_effect=OSError('D:/Privado/Socio Controlado Uno 11111111-1/comparison.json'),
+            ):
+                with self.assertRaises(CommandError) as error:
+                    call_command(
+                        'compare_annual_tax_expected_outputs',
+                        empresa_id=empresa.id,
+                        commercial_year=2024,
+                        tax_year=2025,
+                        manifest=str(manifest_path),
+                        source_root=str(source_root),
+                        output=str(output_path),
+                        stdout=StringIO(),
+                    )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No se pudo escribir comparacion anual.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+            self.assertNotIn('D:/Privado', rendered_error)

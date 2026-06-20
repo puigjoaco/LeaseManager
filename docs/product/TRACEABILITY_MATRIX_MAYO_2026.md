@@ -494,6 +494,13 @@ balance anual, RLI/CPT, dossier y export, y
 revisable: Etapa 6 no se declara cerrada sin revision de warnings, bienes
 raices/comparacion semantica y validacion experta/oficial.
 
+Nota 2026-06-19: `run_annual_tax_controlled_mirror` y
+`compare_annual_tax_expected_outputs` redactan errores de archivo del borde
+mirror/comparacion. Si falla la escritura del run o comparacion, falta el
+manifest o falla su lectura, los CLIs responden sin rutas locales completas,
+nombres ni RUTs. Esto conserva el tramo writer -> espejo anual -> comparacion
+como evidencia local no sensible.
+
 Nota 2026-06-16: DJ1887/remuneraciones queda como boundary de fuente
 laboral-previsional para Etapa 6. Si el manifiesto AC/AT detecta DJ1887
 aceptada, `labor_previsional_source` pasa a requerido: falta de
