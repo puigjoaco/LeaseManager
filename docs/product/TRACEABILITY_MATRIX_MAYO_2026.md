@@ -426,6 +426,11 @@ Ese modo solo permite materializar una revision observada bajo `local-evidence/`
 no puede producir `ready_for_responsible_decision_handoff=true` mientras existan
 `missing_question_keys`. Asi el tramo respuestas responsables -> workbench
 ownership no puede avanzar con un review parcial confundido como listo.
+Nota 2026-06-20: `materialize_company_accounting_responsible_answers --fail-on-blocking`
+falla antes de escribir `company-accounting-responsible-answers-review.json`
+cuando la revision conserva blockers. La politica de salida se valida igual,
+pero el modo estricto no deja directorios ni manifests parciales que una
+reanudacion pueda confundir con handoff responsable listo.
 
 Nota 2026-06-19: `materialize_company_accounting_responsible_answers_template`
 genera el template rellenable `company-accounting-responsible-answers.template.json`
