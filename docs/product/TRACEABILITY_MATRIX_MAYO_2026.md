@@ -286,6 +286,14 @@ ordenan empresas/anos con senales locales, sin fuentes externas ni apertura de
 gates. `ready_for_company_accounting_review` significa paquete local preparado
 para revision responsable, no cierre contable, calculo de renta final ni
 presentacion SII.
+Nota 2026-06-20: `audit_company_accounting_progress` agrega
+`responsible_review_gate` para que el reporte no pueda confundirse con handoff
+responsable listo. Con fases locales incompletas queda
+`state=local_layers_incomplete` y `next_action_ref=complete_local_phase:<fase>`;
+con fases locales completas queda `state=responsible_review_required`,
+`review_manifest_required=true` y mantiene en falso handoff responsable,
+calculo tributario final y presentacion SII hasta que exista un review
+responsable externo/controlado.
 
 Nota 2026-06-16: El comparador de outputs esperados de Etapa 6 separa errores
 de extraccion diagnosticos de errores bloqueantes. Identidad y semantica

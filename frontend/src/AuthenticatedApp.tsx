@@ -1695,6 +1695,20 @@ type ReportingCompanyAccountingProgress = {
     allowed_next_action: string
     not_allowed_actions: string[]
   }
+  responsible_review_gate: {
+    state: string
+    local_layers_ready_for_review: boolean
+    review_manifest_required: boolean
+    ready_for_responsible_decision_handoff: boolean
+    ready_for_productive_accounting_review: boolean
+    ready_for_final_tax_calculation: boolean
+    ready_for_sii_submission: boolean
+    requires_responsible_review: boolean
+    requires_external_or_controlled_review_artifact: boolean
+    blocking_issue_code: string
+    next_action_ref: string
+    raw_paths_returned: boolean
+  }
   fiscal_config: {
     active: boolean
     regime_code: string

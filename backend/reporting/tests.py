@@ -1189,6 +1189,15 @@ class ReportingAPITests(APITestCase):
         self.assertFalse(response.data['review_boundary']['final_tax_calculation'])
         self.assertFalse(response.data['review_boundary']['sii_submission'])
         self.assertTrue(response.data['review_boundary']['requires_responsible_review'])
+        self.assertEqual(response.data['responsible_review_gate']['state'], 'local_layers_incomplete')
+        self.assertFalse(response.data['responsible_review_gate']['local_layers_ready_for_review'])
+        self.assertFalse(response.data['responsible_review_gate']['ready_for_responsible_decision_handoff'])
+        self.assertFalse(response.data['responsible_review_gate']['ready_for_final_tax_calculation'])
+        self.assertFalse(response.data['responsible_review_gate']['ready_for_sii_submission'])
+        self.assertEqual(
+            response.data['responsible_review_gate']['next_action_ref'],
+            'complete_local_phase:monthly_closes',
+        )
         self.assertEqual(response.data['next_blocking_phase'], 'monthly_closes')
         self.assertEqual(response.data['phases']['monthly_closes']['completed'], 1)
         self.assertEqual(response.data['phases']['monthly_balances_squared']['completed'], 1)
@@ -1198,6 +1207,13 @@ class ReportingAPITests(APITestCase):
         self.assertFalse(response.data['trazabilidad']['controles']['final_tax_calculation'])
         self.assertFalse(response.data['trazabilidad']['controles']['sii_submission'])
         self.assertTrue(response.data['trazabilidad']['controles']['requires_responsible_review'])
+        self.assertEqual(
+            response.data['trazabilidad']['controles']['responsible_review_gate_state'],
+            'local_layers_incomplete',
+        )
+        self.assertFalse(response.data['trazabilidad']['controles']['ready_for_responsible_decision_handoff'])
+        self.assertFalse(response.data['trazabilidad']['controles']['ready_for_final_tax_calculation'])
+        self.assertFalse(response.data['trazabilidad']['controles']['ready_for_sii_submission'])
         self.assertNotIn(empresa.rut, json.dumps(response.data))
 
     def test_company_accounting_candidates_endpoint_lists_scoped_signal_years_without_rut(self):
