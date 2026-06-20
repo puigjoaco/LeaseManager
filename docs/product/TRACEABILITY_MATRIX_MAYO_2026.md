@@ -443,6 +443,11 @@ Nota 2026-06-20: el mismo validador bloquea `evidence_ref` y
 `company-accounting-responsible-answers.v1`, aunque cada respuesta individual
 traiga refs seguros. Esos valores no se copian al review y el handoff queda
 observado hasta que todo el payload use referencias no sensibles.
+Nota 2026-06-20: `next_action_ref` superior tambien funciona como fallback
+seguro para respuestas individuales que no traen `next_action_ref` propio. El
+template de respuestas responsables lo expone en el nivel superior y lo replica
+en las respuestas pendientes. Refs sensibles siguen bloqueando el handoff y no
+se copian al review.
 
 Nota 2026-06-19: `materialize_company_accounting_responsible_answers_template`
 genera el template rellenable `company-accounting-responsible-answers.template.json`

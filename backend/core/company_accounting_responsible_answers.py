@@ -138,6 +138,7 @@ def _safe_answer_entry(
     fallback_responsible_ref: str,
     fallback_decision_ref: str,
     fallback_evidence_ref: str,
+    fallback_next_action_ref: str,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     issues = []
     raw_keys = sorted(set(answer.keys()) & RAW_TEXT_FIELDS)
@@ -154,7 +155,7 @@ def _safe_answer_entry(
     responsible_ref = answer.get('responsible_ref') or fallback_responsible_ref
     decision_ref = answer.get('decision_ref') or fallback_decision_ref
     evidence_ref = answer.get('evidence_ref') or fallback_evidence_ref
-    next_action_ref = answer.get('next_action_ref') or answer.get('next_action') or ''
+    next_action_ref = answer.get('next_action_ref') or answer.get('next_action') or fallback_next_action_ref
 
     if not _is_safe_ref(responsible_ref):
         issues.append(_issue('responsible_answers.responsible_ref_invalid'))
@@ -282,6 +283,7 @@ def validate_company_accounting_responsible_answers(
             fallback_responsible_ref=fallback_responsible_ref,
             fallback_decision_ref=fallback_decision_ref,
             fallback_evidence_ref=fallback_evidence_ref,
+            fallback_next_action_ref=fallback_next_action_ref,
         )
         answers.append(safe_answer)
         issues.extend(answer_issues)
@@ -396,6 +398,7 @@ def build_company_accounting_responsible_answers_template(
         'responsible_ref': fallback_responsible_ref,
         'decision_ref': fallback_decision_ref,
         'evidence_ref': fallback_evidence_ref,
+        'next_action_ref': fallback_next_action_ref,
         'questions_packet_hash': _canonical_hash(
             {
                 'schema_version': questions_packet.get('schema_version'),
@@ -426,6 +429,7 @@ def build_company_accounting_responsible_answers_template(
             'fiscal_year': template['fiscal_year'],
             'tax_year': template['tax_year'],
             'questions_packet_hash': template['questions_packet_hash'],
+            'next_action_ref': template['next_action_ref'],
             'answers': template['answers'],
             'template_summary': template['template_summary'],
             'boundary': template['boundary'],
