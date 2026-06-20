@@ -214,6 +214,17 @@ class AnnualTaxOwnershipPatchInjectorTests(SimpleTestCase):
                 patch=patch,
             )
 
+    def test_participant_not_active_on_snapshot_date_is_refused_before_injection(self):
+        patch = self._valid_patch()
+        patch['ownership']['participants'][1]['vigente_hasta'] = '2024-09-30'
+
+        with self.assertRaisesMessage(ValueError, 'Ownership patch no listo'):
+            inject_annual_tax_ownership_patch_into_controlled_package(
+                package_payload=self._complete_package(),
+                template=self._template(),
+                patch=patch,
+            )
+
     def test_existing_ownership_requires_explicit_replace(self):
         package = self._complete_package(include_ownership=True)
 

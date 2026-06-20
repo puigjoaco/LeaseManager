@@ -101,6 +101,9 @@ class AnnualTaxOwnershipPatchValidatorTests(SimpleTestCase):
         self.assertEqual(result['summary']['valid_participants_count'], 2)
         self.assertEqual(result['summary']['percentage_total'], '100.00')
         self.assertTrue(result['summary']['percentage_total_is_100'])
+        self.assertEqual(result['summary']['as_of'], '2024-12-31')
+        self.assertEqual(result['summary']['required_as_of'], '2024-12-31')
+        self.assertTrue(result['summary']['redacted_participants'][0]['covers_required_snapshot_date'])
         self.assertTrue(result['safety']['outputs_redacted'])
         self.assertFalse(result['safety']['stores_rut_values'])
         self.assertFalse(result['safety']['stores_person_names'])
@@ -127,6 +130,31 @@ class AnnualTaxOwnershipPatchValidatorTests(SimpleTestCase):
         self.assertFalse(result['summary']['percentage_total_is_100'])
         self.assertNotIn('https://secret.example/evidence', rendered)
         self.assertEqual(result['summary']['redacted_participants'][1]['evidence_ref_hash'], '')
+
+    def test_patch_requires_year_end_snapshot_date(self):
+        patch = self._valid_patch()
+        patch['ownership']['as_of'] = '2024-06-30'
+
+        result = validate_annual_tax_ownership_patch(template=self._template(), patch=patch)
+
+        self.assertFalse(result['ready_for_controlled_db_load'])
+        self.assertIn('ownership_patch_invalid', result['blockers'])
+        self.assertIn('$.ownership.as_of', result['invalid_paths'])
+        self.assertEqual(result['summary']['as_of'], '2024-06-30')
+        self.assertEqual(result['summary']['required_as_of'], '2024-12-31')
+
+    def test_patch_requires_participants_active_on_year_end_snapshot_date(self):
+        patch = self._valid_patch()
+        patch['ownership']['participants'][1]['vigente_hasta'] = '2024-09-30'
+
+        result = validate_annual_tax_ownership_patch(template=self._template(), patch=patch)
+
+        self.assertFalse(result['ready_for_controlled_db_load'])
+        self.assertIn('ownership_patch_invalid', result['blockers'])
+        self.assertIn('$.ownership.participants[1]', result['invalid_paths'])
+        self.assertEqual(result['summary']['valid_participants_count'], 1)
+        self.assertTrue(result['summary']['redacted_participants'][1]['overlaps_commercial_year'])
+        self.assertFalse(result['summary']['redacted_participants'][1]['covers_required_snapshot_date'])
 
     def test_command_outputs_redacted_validation_and_refuses_versioned_patch(self):
         with TemporaryDirectory() as temp_dir:

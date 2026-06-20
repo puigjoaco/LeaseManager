@@ -378,6 +378,14 @@ nombres, RUTs o carpetas privadas aparezcan en stdout/logs. No cambia el
 boundary: patch y outputs con PII siguen fuera de Git o bajo `local-evidence/`,
 sin DB real, SII real ni calculo final.
 
+Nota 2026-06-20: `validate_annual_tax_ownership_patch` ahora exige que el
+snapshot ownership del patch sea la foto de cierre del ano comercial:
+`ownership.as_of` debe coincidir con el 31 de diciembre y cada participante debe
+estar vigente en esa fecha. `inject_annual_tax_ownership_patch_into_controlled_package`
+hereda esa barrera porque revalida antes de inyectar. Asi AC2025/AT2026 no puede
+pasar a paquete controlado con socios que solo solapan el ano o con una fecha
+intermedia; sigue sin leer documentos reales, DB, SII, banco ni secretos.
+
 Nota 2026-06-19: `materialize_company_accounting_responsible_questions`
 materializa el handoff de preguntas concretas para Joaquin/revision
 responsable desde artefactos ya redactados: paquete de revision contable/renta,

@@ -157,7 +157,10 @@ revision/OCR y aprobacion responsable.
 ese template antes de inyectarlo al paquete controlado. El comando rechaza
 patches versionados fuera de `local-evidence/`, no escribe DB y emite solo un
 reporte redactado con hashes de referencias no sensibles, conteos, porcentaje
-total y rutas faltantes/invalidas. En la evidencia real AC2024/AT2025, el patch
+total, fecha requerida de snapshot y rutas faltantes/invalidas. Para el cierre
+anual, `ownership.as_of` debe ser exactamente el 31 de diciembre del ano
+comercial y cada participante debe cubrir esa fecha de vigencia; no basta con
+solapar algun tramo del ano. En la evidencia real AC2024/AT2025, el patch
 pendiente queda correctamente bloqueado por `$.ownership.participants` vacio:
 la arquitectura esta lista para recibir ownership controlado, pero no inventa
 socios, RUTs ni porcentajes desde F22/DDJJ, registros finales o inferencia.
