@@ -368,6 +368,102 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
             self.assertEqual(manifest['questions_packet_hash'], template['questions_packet_hash'])
             self.assertEqual(manifest['summary']['answers_total'], len(packet['questions']))
 
+    def test_audit_answers_draft_from_verified_handoff_packet_does_not_write_review(self):
+        packet = self._questions_packet()
+        template = build_company_accounting_responsible_answers_template(
+            questions_packet=packet,
+            next_action_ref='complete-ac2025-at2026-responsible-review',
+        )
+        answers = self._answers_payload(packet)
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            handoff_dir = temp_root / 'handoff-packet'
+            answers_path = temp_root / 'answers.json'
+            write_company_accounting_responsible_handoff_packet(
+                questions_packet=packet,
+                answers_template=template,
+                output_dir=handoff_dir,
+            )
+            answers_path.write_text(json.dumps(answers), encoding='utf-8')
+            stdout = StringIO()
+
+            call_command(
+                'audit_company_accounting_responsible_answers_draft',
+                handoff_packet_dir=str(handoff_dir),
+                answers=str(answers_path),
+                require_ready=True,
+                stdout=stdout,
+            )
+
+            summary = json.loads(stdout.getvalue())
+            self.assertEqual(summary['schema_version'], 'company-accounting-responsible-answers-draft-audit.v1')
+            self.assertEqual(summary['source_kind'], 'handoff_packet')
+            self.assertTrue(summary['handoff_packet_verified'])
+            self.assertTrue(summary['ready_for_responsible_decision_handoff'])
+            self.assertFalse(summary['writes_review_manifest'])
+            self.assertFalse((temp_root / COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_MANIFEST).exists())
+
+    def test_audit_answers_draft_require_ready_reports_blockers_without_writing_review(self):
+        packet = self._questions_packet()
+        answers = self._answers_payload(packet)
+        answers['answers'] = answers['answers'][:1]
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            questions_path = temp_root / 'questions.json'
+            answers_path = temp_root / 'answers.json'
+            questions_path.write_text(json.dumps(packet), encoding='utf-8')
+            answers_path.write_text(json.dumps(answers), encoding='utf-8')
+            stdout = StringIO()
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'audit_company_accounting_responsible_answers_draft',
+                    questions_packet=str(questions_path),
+                    answers=str(answers_path),
+                    allow_incomplete=True,
+                    require_ready=True,
+                    stdout=stdout,
+                )
+
+            summary = json.loads(stdout.getvalue())
+            self.assertEqual(str(error.exception), 'El borrador de respuestas responsables no esta listo para handoff.')
+            self.assertFalse(summary['ready_for_responsible_decision_handoff'])
+            self.assertFalse(summary['writes_review_manifest'])
+            self.assertIn('responsible_answers.questions_unanswered', summary['issue_codes'])
+            self.assertFalse((temp_root / COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_MANIFEST).exists())
+
+    def test_audit_answers_draft_requires_exactly_one_questions_source(self):
+        packet = self._questions_packet()
+        answers = self._answers_payload(packet)
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            questions_path = temp_root / 'questions.json'
+            answers_path = temp_root / 'answers.json'
+            handoff_dir = temp_root / 'handoff-packet'
+            questions_path.write_text(json.dumps(packet), encoding='utf-8')
+            answers_path.write_text(json.dumps(answers), encoding='utf-8')
+
+            with self.assertRaises(CommandError) as missing_error:
+                call_command(
+                    'audit_company_accounting_responsible_answers_draft',
+                    answers=str(answers_path),
+                    stdout=StringIO(),
+                )
+            self.assertEqual(
+                str(missing_error.exception),
+                'Debe informar exactamente una fuente de preguntas: --questions-packet o --handoff-packet-dir.',
+            )
+
+            with self.assertRaises(CommandError) as duplicated_error:
+                call_command(
+                    'audit_company_accounting_responsible_answers_draft',
+                    questions_packet=str(questions_path),
+                    handoff_packet_dir=str(handoff_dir),
+                    answers=str(answers_path),
+                    stdout=StringIO(),
+                )
+            self.assertEqual(str(duplicated_error.exception), str(missing_error.exception))
+
     def test_command_requires_exactly_one_questions_source(self):
         packet = self._questions_packet()
         answers = self._answers_payload(packet)

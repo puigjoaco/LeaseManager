@@ -1333,6 +1333,12 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   `company-accounting-responsible-answers-review.json` cuando la revision
   conserva blockers; asi el modo estricto no deja artefactos parciales que una
   reanudacion pueda confundir con un handoff listo.
+  `audit_company_accounting_responsible_answers_draft` valida el mismo borrador
+  en modo dry-run contra `--questions-packet` o `--handoff-packet-dir`: reporta
+  readiness, blockers e issue codes sin escribir
+  `company-accounting-responsible-answers-review.json`. Con `--require-ready`
+  falla si el borrador no queda listo, pero conserva la salida resumida para
+  corregirlo antes de materializar el review.
   Tambien acepta `--handoff-packet-dir` como fuente de preguntas canonicas:
   antes de leerlas verifica el `company-accounting-responsible-handoff-packet`
   completo y mantiene `--answers` como archivo externo de respuestas
