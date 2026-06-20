@@ -476,6 +476,16 @@ carpetas contaminadas, y queda solo como entrega para completar respuestas:
 `ready_for_responsible_decision_handoff=false`,
 `final_tax_calculation=false` y `sii_submission=false`.
 
+Nota 2026-06-20: `audit_company_accounting_responsible_handoff_preflight`
+queda consciente de handoff packets materializados. Cuando existen artefactos
+sueltos y copias canonicas dentro de un paquete verificable, el auditor conserva
+los candidatos fisicos en la salida, pero calcula readiness por hash semantico
+de preguntas y template. Asi las copias internas no generan
+`multiple_ready_question_packets` ni `multiple_ready_answer_templates`; solo
+reportan duplicados efectivos mientras el estado sigue
+`ready_for_responsible_answer_completion=true` y
+`ready_for_responsible_decision_handoff=false`.
+
 Nota 2026-06-19: `materialize_company_accounting_responsible_answers_template`
 genera el template rellenable `company-accounting-responsible-answers.template.json`
 desde el paquete de preguntas. El template conserva solo claves/categorias/codigos

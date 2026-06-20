@@ -900,6 +900,7 @@ def _read_manifest_candidates(*, root: Path, manifest_name: str, builder) -> tup
                     'company_ref': 'company-ref-invalid',
                     'fiscal_year': 0,
                     'tax_year': 0,
+                    'content_hash': '',
                     'issue_codes': ['responsible_handoff.manifest_read_failed'],
                     'raw_path_returned': False,
                 }
@@ -934,8 +935,24 @@ def _questions_discovery_candidate(*, payload: dict[str, Any], relative_path_ref
     sorted_issue_codes = sorted(issue_codes)
     effective_ready = schema_valid and company_ref_safe and questions_total > 0 and reported_ready and not sorted_issue_codes
     path_hash = _canonical_hash({'relative_path_ref': relative_path_ref})
+    content_hash = _canonical_hash(
+        {
+            'schema_version': payload.get('schema_version'),
+            'company_ref': payload.get('company_ref'),
+            'fiscal_year': payload.get('fiscal_year'),
+            'tax_year': payload.get('tax_year'),
+            'questions': sorted(
+                [question for question in questions if isinstance(question, dict)],
+                key=lambda item: str(item.get('key') or ''),
+            ),
+            'boundary': boundary,
+        }
+    )
+    package_hash = str(payload.get('package_hash') or '').strip()
     fingerprint = {
         'path_hash': path_hash,
+        'content_hash': content_hash,
+        'package_hash': package_hash if _is_safe_ref(package_hash) else '',
         'schema_valid': schema_valid,
         'company_ref': _safe_ref(company_ref_raw, fallback='company-ref-invalid'),
         'fiscal_year': _safe_int(payload.get('fiscal_year')),
@@ -949,6 +966,8 @@ def _questions_discovery_candidate(*, payload: dict[str, Any], relative_path_ref
     return {
         'candidate_hash': _canonical_hash(fingerprint),
         'path_hash': path_hash,
+        'content_hash': content_hash,
+        'package_hash': fingerprint['package_hash'],
         'manifest_file': COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST,
         'schema_valid': schema_valid,
         'company_ref': fingerprint['company_ref'],
@@ -1004,8 +1023,28 @@ def _template_discovery_candidate(*, payload: dict[str, Any], relative_path_ref:
         and not sorted_issue_codes
     )
     path_hash = _canonical_hash({'relative_path_ref': relative_path_ref})
+    content_hash = _canonical_hash(
+        {
+            'schema_version': payload.get('schema_version'),
+            'template_schema_version': payload.get('template_schema_version'),
+            'company_ref': payload.get('company_ref'),
+            'fiscal_year': payload.get('fiscal_year'),
+            'tax_year': payload.get('tax_year'),
+            'questions_packet_hash': payload.get('questions_packet_hash'),
+            'next_action_ref': payload.get('next_action_ref'),
+            'answers': sorted(
+                [answer for answer in answers if isinstance(answer, dict)],
+                key=lambda item: str(item.get('question_key') or ''),
+            ),
+            'template_summary': summary,
+            'boundary': boundary,
+        }
+    )
+    template_hash = str(payload.get('template_hash') or '').strip()
     fingerprint = {
         'path_hash': path_hash,
+        'content_hash': content_hash,
+        'template_hash': template_hash if _is_safe_ref(template_hash) else '',
         'schema_valid': schema_valid,
         'template_schema_valid': template_schema_valid,
         'company_ref': _safe_ref(company_ref_raw, fallback='company-ref-invalid'),
@@ -1020,6 +1059,8 @@ def _template_discovery_candidate(*, payload: dict[str, Any], relative_path_ref:
     return {
         'candidate_hash': _canonical_hash(fingerprint),
         'path_hash': path_hash,
+        'content_hash': content_hash,
+        'template_hash': fingerprint['template_hash'],
         'manifest_file': COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST,
         'schema_valid': schema_valid,
         'template_schema_valid': template_schema_valid,
@@ -1038,6 +1079,25 @@ def _template_discovery_candidate(*, payload: dict[str, Any], relative_path_ref:
     }
 
 
+def _unique_ready_candidates(
+    candidates: list[dict[str, Any]],
+    *,
+    ready_field: str,
+    preferred_hash_field: str,
+) -> list[dict[str, Any]]:
+    unique_candidates: dict[str, dict[str, Any]] = {}
+    for candidate in candidates:
+        if not candidate.get(ready_field):
+            continue
+        candidate_hash = str(candidate.get(preferred_hash_field) or '').strip()
+        if not candidate_hash:
+            candidate_hash = str(candidate.get('content_hash') or '').strip()
+        if not candidate_hash:
+            candidate_hash = str(candidate.get('candidate_hash') or '').strip()
+        unique_candidates.setdefault(candidate_hash, candidate)
+    return list(unique_candidates.values())
+
+
 def audit_company_accounting_responsible_handoff_preflight(*, search_root: Path) -> dict[str, Any]:
     root = Path(search_root).resolve()
     question_candidates, question_read_errors = _read_manifest_candidates(
@@ -1051,8 +1111,18 @@ def audit_company_accounting_responsible_handoff_preflight(*, search_root: Path)
         builder=_template_discovery_candidate,
     )
     review_audit = audit_company_accounting_responsible_answers_review_presence(search_root=root)
-    ready_questions = [candidate for candidate in question_candidates if candidate.get('ready_for_responsible_review')]
-    ready_templates = [candidate for candidate in template_candidates if candidate.get('ready_for_manual_completion')]
+    raw_ready_questions = [candidate for candidate in question_candidates if candidate.get('ready_for_responsible_review')]
+    raw_ready_templates = [candidate for candidate in template_candidates if candidate.get('ready_for_manual_completion')]
+    ready_questions = _unique_ready_candidates(
+        question_candidates,
+        ready_field='ready_for_responsible_review',
+        preferred_hash_field='package_hash',
+    )
+    ready_templates = _unique_ready_candidates(
+        template_candidates,
+        ready_field='ready_for_manual_completion',
+        preferred_hash_field='template_hash',
+    )
     review_ready = bool(review_audit['summary']['ready_for_responsible_decision_handoff'])
     issue_codes = set(review_audit['issue_codes'])
     if not question_candidates:
@@ -1092,8 +1162,10 @@ def audit_company_accounting_responsible_handoff_preflight(*, search_root: Path)
         'summary': {
             'questions_candidates_total': len(question_candidates),
             'ready_question_packets_total': len(ready_questions),
+            'duplicate_ready_question_packets_total': max(len(raw_ready_questions) - len(ready_questions), 0),
             'template_candidates_total': len(template_candidates),
             'ready_answer_templates_total': len(ready_templates),
+            'duplicate_ready_answer_templates_total': max(len(raw_ready_templates) - len(ready_templates), 0),
             'review_candidates_total': review_audit['summary']['candidates_total'],
             'ready_review_candidates_total': review_audit['summary']['ready_candidates_total'],
             'ready_for_responsible_answer_completion': ready_for_answer_completion,
