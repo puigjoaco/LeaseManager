@@ -111,8 +111,9 @@ def _validate_ownership_snapshot(ownership: Any, *, commercial_year: int) -> Non
         raise ValueError('ownership debe ser un objeto JSON cuando se informa.')
     _required_text(ownership, 'source_ref')
     as_of = _date(ownership.get('as_of'), field_name='ownership.as_of')
-    if as_of.year != commercial_year:
-        raise ValueError('ownership.as_of debe pertenecer al ano comercial del paquete.')
+    required_snapshot_date = date(commercial_year, 12, 31)
+    if as_of != required_snapshot_date:
+        raise ValueError('ownership.as_of debe ser el 31-12 del ano comercial del paquete.')
     participants = ownership.get('participants')
     if not isinstance(participants, list) or not participants:
         raise ValueError('ownership.participants debe contener socios vigentes.')
@@ -155,6 +156,8 @@ def _validate_ownership_snapshot(ownership: Any, *, commercial_year: int) -> Non
             raise ValueError('ownership.participants[].vigente_hasta no puede ser anterior a vigente_desde.')
         if starts_on > period_end or (ends_on and ends_on < period_start):
             raise ValueError('ownership.participants[] debe solaparse con el ano comercial del paquete.')
+        if starts_on > required_snapshot_date or (ends_on and ends_on < required_snapshot_date):
+            raise ValueError('ownership.participants[] debe estar vigente al 31-12 del ano comercial del paquete.')
         total_percentage += percentage
     if total_percentage != Decimal('100.00'):
         raise ValueError('ownership.participants debe sumar 100.00%.')

@@ -316,6 +316,30 @@ class AnnualTaxControlledPackageReadinessTests(SimpleTestCase):
         self.assertIn('$.ownership.participants[1].rut', result['annual_generation_invalid_paths'])
         self.assertIn('$.ownership.participants[1].vigente_hasta', result['annual_generation_invalid_paths'])
 
+    def test_ownership_snapshot_must_use_year_end_date(self):
+        package = self._complete_package()
+        package['ownership']['as_of'] = '2024-06-30'
+
+        result = audit_annual_tax_controlled_package_readiness(payload=package)
+
+        self.assertTrue(result['ready_for_db_writer'])
+        self.assertFalse(result['ready_for_annual_generation'])
+        self.assertIn('ownership_snapshot_invalid', result['annual_generation_blockers'])
+        self.assertIn('$.ownership.as_of', result['annual_generation_invalid_paths'])
+        self.assertEqual(result['summary']['ownership_snapshot']['as_of'], '2024-06-30')
+        self.assertEqual(result['summary']['ownership_snapshot']['required_as_of'], '2024-12-31')
+
+    def test_ownership_participants_must_cover_year_end_snapshot_date(self):
+        package = self._complete_package()
+        package['ownership']['participants'][1]['vigente_hasta'] = '2024-09-30'
+
+        result = audit_annual_tax_controlled_package_readiness(payload=package)
+
+        self.assertTrue(result['ready_for_db_writer'])
+        self.assertFalse(result['ready_for_annual_generation'])
+        self.assertIn('ownership_snapshot_invalid', result['annual_generation_blockers'])
+        self.assertIn('$.ownership.participants[1]', result['annual_generation_invalid_paths'])
+
     def test_no_declaration_f29_month_is_valid_without_borrador_ref(self):
         result = audit_annual_tax_controlled_package_readiness(
             payload=self._complete_package(f29_no_aplica_months={2, 12}),

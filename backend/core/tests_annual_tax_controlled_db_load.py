@@ -327,6 +327,38 @@ class AnnualTaxControlledDbLoadTests(TestCase):
         self.assertEqual(ParticipacionPatrimonial.objects.filter(empresa_owner=empresa).count(), 0)
         self.assertEqual(MonthlyTaxFact.objects.filter(empresa=empresa).count(), 0)
 
+    def test_apply_rejects_ownership_snapshot_not_at_year_end_without_writing(self):
+        empresa = self._create_empresa()
+        package = self._with_ownership(self._package())
+        package['ownership']['as_of'] = '2024-06-30'
+
+        with self.assertRaisesMessage(ValueError, '31-12'):
+            apply_annual_tax_controlled_db_load(
+                empresa=empresa,
+                package=package,
+                write_database=True,
+            )
+
+        self.assertEqual(Socio.objects.count(), 0)
+        self.assertEqual(ParticipacionPatrimonial.objects.filter(empresa_owner=empresa).count(), 0)
+        self.assertEqual(MonthlyTaxFact.objects.filter(empresa=empresa).count(), 0)
+
+    def test_apply_rejects_ownership_participant_not_active_at_year_end_without_writing(self):
+        empresa = self._create_empresa()
+        package = self._with_ownership(self._package())
+        package['ownership']['participants'][1]['vigente_hasta'] = '2024-09-30'
+
+        with self.assertRaisesMessage(ValueError, 'vigente al 31-12'):
+            apply_annual_tax_controlled_db_load(
+                empresa=empresa,
+                package=package,
+                write_database=True,
+            )
+
+        self.assertEqual(Socio.objects.count(), 0)
+        self.assertEqual(ParticipacionPatrimonial.objects.filter(empresa_owner=empresa).count(), 0)
+        self.assertEqual(MonthlyTaxFact.objects.filter(empresa=empresa).count(), 0)
+
     def test_apply_controlled_package_materializes_real_estate_snapshot(self):
         empresa = self._create_empresa()
         package = self._with_real_estate(self._with_ownership(self._package()))
