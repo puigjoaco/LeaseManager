@@ -432,6 +432,13 @@ cuando la revision conserva blockers. La politica de salida se valida igual,
 pero el modo estricto no deja directorios ni manifests parciales que una
 reanudacion pueda confundir con handoff responsable listo.
 
+Nota 2026-06-20: `validate_company_accounting_responsible_answers` bloquea
+`company_ref` sensible o no canonico tanto en
+`company-accounting-responsible-questions.json` como en
+`company-accounting-responsible-answers.v1`. Si el otro lado conserva un
+`company_ref` seguro se usa solo para trazabilidad; el valor sensible no se
+copia al review ni permite `ready_for_responsible_decision_handoff=true`.
+
 Nota 2026-06-19: `materialize_company_accounting_responsible_answers_template`
 genera el template rellenable `company-accounting-responsible-answers.template.json`
 desde el paquete de preguntas. El template conserva solo claves/categorias/codigos
