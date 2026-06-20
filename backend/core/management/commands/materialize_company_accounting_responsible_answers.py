@@ -126,6 +126,10 @@ class Command(BaseCommand):
             )
         )
         _validate_output_dir(output_dir)
+
+        if options['fail_on_blocking'] and review['summary']['blocking_issues_total']:
+            raise CommandError('La revision de respuestas responsables conserva issues bloqueantes.')
+
         try:
             written = write_company_accounting_responsible_answers_review(review=review, output_dir=output_dir)
         except ValueError as error:
@@ -151,6 +155,3 @@ class Command(BaseCommand):
             'sii_submission': False,
         }
         self.stdout.write(json.dumps(summary, indent=2, ensure_ascii=True, default=str))
-
-        if options['fail_on_blocking'] and review['summary']['blocking_issues_total']:
-            raise CommandError('La revision de respuestas responsables conserva issues bloqueantes.')

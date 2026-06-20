@@ -257,6 +257,35 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
             self.assertFalse(manifest['summary']['ready_for_responsible_decision_handoff'])
             self.assertIn('responsible_answers.questions_unanswered', issue_codes)
 
+    def test_command_fail_on_blocking_rejects_before_writing_review(self):
+        packet = self._questions_packet()
+        answers = self._answers_payload(packet)
+        answers['answers'] = answers['answers'][:1]
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            questions_path = temp_root / 'questions.json'
+            answers_path = temp_root / 'answers.json'
+            output_dir = temp_root / 'answers-review'
+            questions_path.write_text(json.dumps(packet), encoding='utf-8')
+            answers_path.write_text(json.dumps(answers), encoding='utf-8')
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'materialize_company_accounting_responsible_answers',
+                    questions_packet=str(questions_path),
+                    answers=str(answers_path),
+                    output_dir=str(output_dir),
+                    allow_incomplete=True,
+                    fail_on_blocking=True,
+                    stdout=StringIO(),
+                )
+
+            self.assertEqual(
+                str(error.exception),
+                'La revision de respuestas responsables conserva issues bloqueantes.',
+            )
+            self.assertFalse(output_dir.exists())
+
     def test_command_materializes_answers_template_with_safe_stdout(self):
         packet = self._questions_packet()
         with TemporaryDirectory() as temp_dir:

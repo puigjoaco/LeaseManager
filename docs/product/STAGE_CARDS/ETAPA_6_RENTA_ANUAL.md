@@ -1311,6 +1311,10 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   `responsible_answers.questions_unanswered`, `blocking_issues_total>0` y
   `ready_for_responsible_decision_handoff=false`; por tanto no puede alimentar
   el workbench ownership estricto como si estuviera lista.
+  Si se usa `--fail-on-blocking`, el comando falla antes de escribir
+  `company-accounting-responsible-answers-review.json` cuando la revision
+  conserva blockers; asi el modo estricto no deja artefactos parciales que una
+  reanudacion pueda confundir con un handoff listo.
   El comando y el materializador de template redactan errores de
   lectura/escritura: si faltan o fallan los JSON de entrada, o si no pueden
   persistir la revision o el template, la consola no devuelve rutas locales
