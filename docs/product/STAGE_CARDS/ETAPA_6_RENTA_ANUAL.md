@@ -1345,6 +1345,18 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   bloqueante en el validador de respuestas, por lo que el template no puede
   confundirse con aprobacion, revision productiva, calculo tributario final ni
   presentacion SII.
+- `materialize_company_accounting_responsible_handoff_packet` agrupa el paquete
+  de preguntas y el template rellenable en una carpeta local verificable con
+  manifest `company-accounting-responsible-handoff-packet.json`, copias
+  canonicas de `company-accounting-responsible-questions.json` y
+  `company-accounting-responsible-answers.template.json`, hashes y boundary no
+  autonomo. El verificador rechaza carpetas con archivos extra, JSON alterado,
+  templates que no correspondan a las preguntas o decisiones que no sigan
+  pendientes. El paquete queda listo para completar respuestas responsables,
+  pero mantiene `ready_for_responsible_decision_handoff=false`,
+  `ready_for_productive_accounting_review=false`,
+  `final_tax_calculation=false` y `sii_submission=false`; no crea review,
+  ownership final, contabilidad final ni presentacion SII.
 - `audit_company_accounting_responsible_answers_review_presence` audita si ya
   existe un `company-accounting-responsible-answers-review.json` listo bajo
   `local-evidence/`. El auditor no devuelve rutas crudas, solo hashes de

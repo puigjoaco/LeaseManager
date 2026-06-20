@@ -466,6 +466,16 @@ hay un paquete de preguntas y un template listos para completar 4 respuestas,
 pero no existe review responsable listo; por tanto el siguiente paso es
 respuesta responsable redactada, no ownership/writer ni presentacion SII.
 
+Nota 2026-06-20: `materialize_company_accounting_responsible_handoff_packet`
+materializa ese borde como paquete local verificable:
+`company-accounting-responsible-handoff-packet.json`, preguntas y template
+rellenable en una misma carpeta bajo `local-evidence/`. El paquete conserva
+hashes, conteos y boundary, rechaza desalineaciones entre preguntas/template o
+carpetas contaminadas, y queda solo como entrega para completar respuestas:
+`ready_for_responsible_answer_completion=true`,
+`ready_for_responsible_decision_handoff=false`,
+`final_tax_calculation=false` y `sii_submission=false`.
+
 Nota 2026-06-19: `materialize_company_accounting_responsible_answers_template`
 genera el template rellenable `company-accounting-responsible-answers.template.json`
 desde el paquete de preguntas. El template conserva solo claves/categorias/codigos
