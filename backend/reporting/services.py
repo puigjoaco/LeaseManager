@@ -1602,6 +1602,12 @@ def build_company_accounting_progress_report(empresa_id, fiscal_year, access: Sc
             'final_tax_calculation': payload['review_boundary']['final_tax_calculation'],
             'sii_submission': payload['review_boundary']['sii_submission'],
             'requires_responsible_review': payload['review_boundary']['requires_responsible_review'],
+            'responsible_review_gate_state': payload['responsible_review_gate']['state'],
+            'ready_for_responsible_decision_handoff': payload['responsible_review_gate'][
+                'ready_for_responsible_decision_handoff'
+            ],
+            'ready_for_final_tax_calculation': payload['responsible_review_gate']['ready_for_final_tax_calculation'],
+            'ready_for_sii_submission': payload['responsible_review_gate']['ready_for_sii_submission'],
         },
     )
     return payload

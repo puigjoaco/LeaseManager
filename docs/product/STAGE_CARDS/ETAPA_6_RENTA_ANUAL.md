@@ -678,6 +678,13 @@ El payload conserva `review_boundary`: incluso con progreso local completo,
 `requires_expert_or_official_validation=true`. La accion permitida es revision
 asistida por responsable; quedan fuera contabilidad autonoma, calculo
 tributario final sin revision y presentacion SII automatica.
+Ademas, `audit_company_accounting_progress` expone `responsible_review_gate`
+para separar capas locales listas de handoff responsable real. Si faltan fases
+locales, el gate queda `state=local_layers_incomplete` y apunta a
+`complete_local_phase:<fase>`. Si las fases locales estan completas, queda
+`state=responsible_review_required`, exige un artefacto externo/controlado de
+revision responsable y mantiene `ready_for_responsible_decision_handoff=false`,
+`ready_for_final_tax_calculation=false` y `ready_for_sii_submission=false`.
 El mismo diagnostico queda disponible en Reporting como
 `contabilidad/progreso-empresa/`, para que el avance de una empresa piloto se
 consulte con `empresa_id` y `fiscal_year` antes de iniciar afirmaciones de

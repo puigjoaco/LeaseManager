@@ -181,6 +181,34 @@ def _review_boundary() -> dict[str, Any]:
     }
 
 
+def _responsible_review_gate(phases: list[ProgressPhase]) -> dict[str, Any]:
+    next_blocking_phase = next((phase for phase in phases if not phase.ready), None)
+    local_layers_ready = next_blocking_phase is None
+    if local_layers_ready:
+        state = 'responsible_review_required'
+        next_action_ref = 'audit_or_materialize_responsible_answers'
+        blocking_issue_code = 'company_accounting.responsible_review_missing'
+    else:
+        state = 'local_layers_incomplete'
+        next_action_ref = f'complete_local_phase:{next_blocking_phase.key}'
+        blocking_issue_code = next_blocking_phase.blocking_issue_code
+
+    return {
+        'state': state,
+        'local_layers_ready_for_review': local_layers_ready,
+        'review_manifest_required': local_layers_ready,
+        'ready_for_responsible_decision_handoff': False,
+        'ready_for_productive_accounting_review': False,
+        'ready_for_final_tax_calculation': False,
+        'ready_for_sii_submission': False,
+        'requires_responsible_review': True,
+        'requires_external_or_controlled_review_artifact': local_layers_ready,
+        'blocking_issue_code': blocking_issue_code,
+        'next_action_ref': next_action_ref,
+        'raw_paths_returned': False,
+    }
+
+
 def _prepared_balance_months(empresa: Empresa, fiscal_year: int) -> tuple[set[int], set[int]]:
     approved = set()
     squared = set()
@@ -660,6 +688,7 @@ def collect_company_accounting_progress(*, empresa_id: int, fiscal_year: int) ->
         'progress_percent': _progress_percent(phases),
         'ready_for_company_accounting_review': all(phase.ready for phase in phases),
         'review_boundary': _review_boundary(),
+        'responsible_review_gate': _responsible_review_gate(phases),
         'fiscal_config': {
             'active': fiscal_config_active,
             'regime_code': fiscal_regime_code,

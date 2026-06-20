@@ -221,6 +221,15 @@ class CompanyAccountingProgressTests(TestCase):
         self.assertEqual(result['phases']['monthly_balances_squared']['completed'], 2)
         self.assertEqual(result['phases']['f29_monthly']['completed'], 1)
         self.assertIn('company_accounting.monthly_closes_missing', {issue['code'] for issue in result['issues']})
+        self.assertEqual(result['responsible_review_gate']['state'], 'local_layers_incomplete')
+        self.assertFalse(result['responsible_review_gate']['local_layers_ready_for_review'])
+        self.assertFalse(result['responsible_review_gate']['review_manifest_required'])
+        self.assertFalse(result['responsible_review_gate']['ready_for_responsible_decision_handoff'])
+        self.assertFalse(result['responsible_review_gate']['ready_for_final_tax_calculation'])
+        self.assertFalse(result['responsible_review_gate']['ready_for_sii_submission'])
+        self.assertEqual(result['responsible_review_gate']['blocking_issue_code'], 'company_accounting.monthly_closes_missing')
+        self.assertEqual(result['responsible_review_gate']['next_action_ref'], 'complete_local_phase:monthly_closes')
+        self.assertFalse(result['responsible_review_gate']['raw_paths_returned'])
         self.assertNotIn('://', json.dumps(result))
 
     def test_progress_counts_controlled_f29_no_declaration_month(self):
@@ -827,6 +836,24 @@ class CompanyAccountingProgressTests(TestCase):
         self.assertEqual(result['issues'], [])
         self.assertEqual(result['next_blocking_phase'], '')
         self.assertEqual(result['phases']['rli_cpt_workbooks']['completed'], 2)
+        self.assertEqual(result['responsible_review_gate']['state'], 'responsible_review_required')
+        self.assertTrue(result['responsible_review_gate']['local_layers_ready_for_review'])
+        self.assertTrue(result['responsible_review_gate']['review_manifest_required'])
+        self.assertFalse(result['responsible_review_gate']['ready_for_responsible_decision_handoff'])
+        self.assertFalse(result['responsible_review_gate']['ready_for_productive_accounting_review'])
+        self.assertFalse(result['responsible_review_gate']['ready_for_final_tax_calculation'])
+        self.assertFalse(result['responsible_review_gate']['ready_for_sii_submission'])
+        self.assertTrue(result['responsible_review_gate']['requires_responsible_review'])
+        self.assertTrue(result['responsible_review_gate']['requires_external_or_controlled_review_artifact'])
+        self.assertEqual(
+            result['responsible_review_gate']['blocking_issue_code'],
+            'company_accounting.responsible_review_missing',
+        )
+        self.assertEqual(
+            result['responsible_review_gate']['next_action_ref'],
+            'audit_or_materialize_responsible_answers',
+        )
+        self.assertFalse(result['responsible_review_gate']['raw_paths_returned'])
 
     def test_command_refuses_versioned_output_outside_local_evidence(self):
         empresa = self._create_empresa()

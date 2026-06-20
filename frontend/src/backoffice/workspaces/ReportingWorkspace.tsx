@@ -127,6 +127,20 @@ type ReportingCompanyProgressSummary = {
     allowed_next_action: string
     not_allowed_actions: string[]
   }
+  responsible_review_gate: {
+    state: string
+    local_layers_ready_for_review: boolean
+    review_manifest_required: boolean
+    ready_for_responsible_decision_handoff: boolean
+    ready_for_productive_accounting_review: boolean
+    ready_for_final_tax_calculation: boolean
+    ready_for_sii_submission: boolean
+    requires_responsible_review: boolean
+    requires_external_or_controlled_review_artifact: boolean
+    blocking_issue_code: string
+    next_action_ref: string
+    raw_paths_returned: boolean
+  }
   fiscal_config: {
     active: boolean
     regime_code: string
@@ -672,6 +686,9 @@ export function ReportingWorkspace({
             </div>
             <div className="list-stack">
               <div className="list-row"><span>Siguiente fase bloqueante</span><strong>{reportingCompanyProgressSummary.next_blocking_phase || 'Sin bloqueo'}</strong></div>
+              <div className="list-row"><span>Gate responsable</span><strong>{reportingCompanyProgressSummary.responsible_review_gate.state}</strong></div>
+              <div className="list-row"><span>Siguiente acción trazada</span><strong>{reportingCompanyProgressSummary.responsible_review_gate.next_action_ref}</strong></div>
+              <div className="list-row"><span>Handoff responsable</span><strong>{reportingCompanyProgressSummary.responsible_review_gate.ready_for_responsible_decision_handoff ? 'listo' : 'bloqueado'}</strong></div>
               <div className="list-row"><span>Acción permitida</span><strong>{reportingCompanyProgressSummary.review_boundary.allowed_next_action}</strong></div>
               <div className="list-row"><span>Contabilidad autónoma</span><strong>{reportingCompanyProgressSummary.review_boundary.autonomous_accounting ? 'habilitada' : 'bloqueada'}</strong></div>
               <div className="list-row"><span>Cálculo tributario final</span><strong>{reportingCompanyProgressSummary.review_boundary.final_tax_calculation ? 'habilitado' : 'bloqueado'}</strong></div>
