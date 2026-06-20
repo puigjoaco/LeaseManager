@@ -216,6 +216,7 @@ class AnnualTaxOwnershipPatchWorkbenchTests(SimpleTestCase):
                 template=str(template_path),
                 checklist=str(checklist_path),
                 responsible_answers_review=str(responsible_answers_path),
+                require_responsible_answers_ready=True,
                 output_dir=str(output_dir),
                 stdout=stdout,
             )
@@ -234,6 +235,58 @@ class AnnualTaxOwnershipPatchWorkbenchTests(SimpleTestCase):
             self.assertEqual(patch_draft['ownership']['participants'], [])
             self.assertNotIn('Socio Controlado Uno', rendered_summary)
             self.assertNotIn('11111111-1', rendered_summary)
+
+    def test_command_requires_ready_responsible_answers_before_writing_when_requested(self):
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            template_path = temp_root / 'template.json'
+            output_dir = temp_root / 'workbench'
+            template_path.write_text(json.dumps(self._template()), encoding='utf-8')
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'materialize_annual_tax_ownership_patch_workbench',
+                    template=str(template_path),
+                    output_dir=str(output_dir),
+                    require_responsible_answers_ready=True,
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(
+                rendered_error,
+                'Respuestas responsables listas requeridas para materializar ownership patch workbench.',
+            )
+            self.assertFalse(output_dir.exists())
+
+    def test_command_rejects_pending_responsible_answers_before_writing_when_requested(self):
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            template_path = temp_root / 'template.json'
+            responsible_answers_path = temp_root / 'responsible-answers-review.json'
+            output_dir = temp_root / 'workbench'
+            template_path.write_text(json.dumps(self._template()), encoding='utf-8')
+            responsible_answers_path.write_text(
+                json.dumps(self._responsible_answers_review(pending=True)),
+                encoding='utf-8',
+            )
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'materialize_annual_tax_ownership_patch_workbench',
+                    template=str(template_path),
+                    responsible_answers_review=str(responsible_answers_path),
+                    output_dir=str(output_dir),
+                    require_responsible_answers_ready=True,
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(
+                rendered_error,
+                'Respuestas responsables listas requeridas para materializar ownership patch workbench.',
+            )
+            self.assertFalse(output_dir.exists())
 
     def test_command_refuses_repo_output_outside_local_evidence(self):
         with TemporaryDirectory() as temp_dir:

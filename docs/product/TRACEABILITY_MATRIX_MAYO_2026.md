@@ -421,6 +421,9 @@ hasheado: presencia, readiness, conteos, categorias, estados e issue codes, sin
 copiar refs individuales ni respuestas crudas. Si las respuestas siguen
 pendientes, el manifest marca `responsible_answers_ready=false`; el patch privado
 continua fuera de Git y sigue requiriendo validacion antes de inyectar ownership.
+Con `--require-responsible-answers-ready`, el comando falla antes de escribir
+si ese review falta o conserva blockers, dejando una frontera ejecutable para
+el tramo respuestas responsables completas -> workbench -> patch ownership.
 
 Nota 2026-06-19: `audit_annual_tax_controlled_package_readiness` y
 `apply_annual_tax_controlled_db_load` verifican la consistencia del handoff

@@ -211,6 +211,10 @@ conteos, categorias, estados de decision e issue codes, sin copiar refs
 individuales ni respuestas crudas. Si las respuestas responsables siguen
 pendientes, el workbench conserva `responsible_answers_ready=false` para no
 confundir el borrador privado con revision completa.
+Con `--require-responsible-answers-ready`, el comando falla antes de escribir
+si falta ese review listo o conserva blockers; ese modo se usa cuando el flujo
+ya debe pasar desde respuestas responsables completadas hacia patch ownership
+controlado, sin crear borradores privados observados por accidente.
 `inject_annual_tax_ownership_patch_into_controlled_package` cierra ese puente:
 toma un paquete/template controlado, el template ownership y un patch local ya
 validado, reejecuta `validate_annual_tax_ownership_patch`, inyecta

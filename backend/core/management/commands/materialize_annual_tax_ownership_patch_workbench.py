@@ -107,6 +107,14 @@ class Command(BaseCommand):
             default='pending-approval',
             help='Ref no sensible por defecto para el patch privado.',
         )
+        parser.add_argument(
+            '--require-responsible-answers-ready',
+            action='store_true',
+            help=(
+                'Falla antes de escribir si el review de respuestas responsables '
+                'falta o conserva issues bloqueantes.'
+            ),
+        )
 
     def handle(self, *args, **options):
         template_path = _resolve_path(options['template'])
@@ -132,6 +140,12 @@ class Command(BaseCommand):
                 responsible_ref=options['responsible_ref'],
                 approval_ref=options['approval_ref'],
             )
+            if options['require_responsible_answers_ready']:
+                manifest = workbench['manifest']
+                if not manifest['summary']['responsible_answers_ready']:
+                    raise CommandError(
+                        'Respuestas responsables listas requeridas para materializar ownership patch workbench.'
+                    )
             written = write_annual_tax_ownership_patch_workbench(workbench=workbench, output_dir=output_dir)
         except ValueError as error:
             raise CommandError(f'No se pudo materializar ownership patch workbench: {error}') from error
