@@ -97,6 +97,23 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
         self.assertEqual(review['summary']['missing_questions_total'], len(packet['questions']) - 1)
         self.assertIn('responsible_answers.questions_unanswered', issue_codes)
 
+    def test_missing_answers_are_blocking_even_when_incomplete_allowed(self):
+        packet = self._questions_packet()
+        answers = self._answers_payload(packet)
+        answers['answers'] = answers['answers'][:1]
+
+        review = validate_company_accounting_responsible_answers(
+            questions_packet=packet,
+            answers_payload=answers,
+            require_complete=False,
+        )
+        issue_codes = {issue['code'] for issue in review['issues']}
+
+        self.assertFalse(review['summary']['ready_for_responsible_decision_handoff'])
+        self.assertEqual(review['summary']['missing_questions_total'], len(packet['questions']) - 1)
+        self.assertIn('responsible_answers.questions_unanswered', issue_codes)
+        self.assertEqual(review['summary']['blocking_issues_total'], len(packet['questions']) - 1)
+
     def test_pending_decisions_are_blocking(self):
         packet = self._questions_packet()
         answers = self._answers_payload(packet)
@@ -208,6 +225,37 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
             self.assertEqual(summary['answers_total'], len(packet['questions']))
             self.assertTrue(summary['ready_for_responsible_decision_handoff'])
             self.assertEqual(manifest['summary']['answers_total'], len(packet['questions']))
+
+    def test_command_allow_incomplete_keeps_missing_questions_blocking(self):
+        packet = self._questions_packet()
+        answers = self._answers_payload(packet)
+        answers['answers'] = answers['answers'][:1]
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            questions_path = temp_root / 'questions.json'
+            answers_path = temp_root / 'answers.json'
+            output_dir = temp_root / 'answers-review'
+            questions_path.write_text(json.dumps(packet), encoding='utf-8')
+            answers_path.write_text(json.dumps(answers), encoding='utf-8')
+            stdout = StringIO()
+
+            call_command(
+                'materialize_company_accounting_responsible_answers',
+                questions_packet=str(questions_path),
+                answers=str(answers_path),
+                output_dir=str(output_dir),
+                allow_incomplete=True,
+                stdout=stdout,
+            )
+
+            summary = json.loads(stdout.getvalue())
+            manifest = json.loads((output_dir / COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_MANIFEST).read_text())
+            issue_codes = {issue['code'] for issue in manifest['issues']}
+            self.assertFalse(summary['ready_for_responsible_decision_handoff'])
+            self.assertEqual(summary['missing_questions_total'], len(packet['questions']) - 1)
+            self.assertEqual(summary['blocking_issues_total'], len(packet['questions']) - 1)
+            self.assertFalse(manifest['summary']['ready_for_responsible_decision_handoff'])
+            self.assertIn('responsible_answers.questions_unanswered', issue_codes)
 
     def test_command_materializes_answers_template_with_safe_stdout(self):
         packet = self._questions_packet()

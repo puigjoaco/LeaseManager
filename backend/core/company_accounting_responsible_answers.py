@@ -263,14 +263,15 @@ def validate_company_accounting_responsible_answers(
         answers.append(safe_answer)
         issues.extend(answer_issues)
 
+    # `require_complete=False` preserves observed-review materialization, not readiness.
     missing_questions = sorted(set(questions.keys()) - answered_keys)
-    if require_complete and missing_questions:
+    if missing_questions:
         issues.append(_issue('responsible_answers.questions_unanswered', count=len(missing_questions)))
 
     issue_counter = Counter(issue['code'] for issue in issues if issue.get('severity') == 'blocking')
     state_counter = Counter(answer['decision_state'] for answer in answers)
     category_counter = Counter(answer['category'] for answer in answers)
-    ready = bool(questions) and not issue_counter and (not require_complete or not missing_questions)
+    ready = bool(questions) and not issue_counter and not missing_questions
 
     review = {
         'schema_version': COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_REVIEW_SCHEMA_VERSION,
