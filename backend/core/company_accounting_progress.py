@@ -367,13 +367,15 @@ def collect_company_accounting_candidates(*, empresa_ids: list[int] | None = Non
 
     annual_process_counts: dict[tuple[int, int], int] = defaultdict(int)
     valid_annual_process_ids: dict[int, tuple[int, int]] = {}
+    valid_annual_process_source_bundle_ids: dict[int, int] = {}
     for item in ProcesoRentaAnual.objects.filter(
         empresa_id__in=company_ids,
         estado__in=PREPARED_OR_BETTER_TAX_STATES,
         source_bundle__estado=EstadoAnnualTaxSourceBundle.FROZEN,
-    ).values('id', 'empresa_id', 'anio_tributario'):
+    ).values('id', 'empresa_id', 'anio_tributario', 'source_bundle_id'):
         key = (item['empresa_id'], item['anio_tributario'] - 1)
         valid_annual_process_ids[item['id']] = key
+        valid_annual_process_source_bundle_ids[item['id']] = item['source_bundle_id']
         annual_process_counts[key] += 1
     for (empresa_id, fiscal_year), count in annual_process_counts.items():
         if bucket := year_bucket(empresa_id, fiscal_year):
@@ -385,8 +387,11 @@ def collect_company_accounting_candidates(*, empresa_ids: list[int] | None = Non
         empresa_id__in=company_ids,
         estado=EstadoAnnualTaxTrialBalance.PREPARED,
         proceso_renta_anual_id__in=valid_process_id_list,
-    ).values('proceso_renta_anual_id'):
-        annual_trial_balance_counts[valid_annual_process_ids[item['proceso_renta_anual_id']]] += 1
+    ).values('proceso_renta_anual_id', 'source_bundle_id'):
+        process_id = item['proceso_renta_anual_id']
+        if item['source_bundle_id'] != valid_annual_process_source_bundle_ids.get(process_id):
+            continue
+        annual_trial_balance_counts[valid_annual_process_ids[process_id]] += 1
     for (empresa_id, fiscal_year), count in annual_trial_balance_counts.items():
         if bucket := year_bucket(empresa_id, fiscal_year):
             bucket['signals']['annual_trial_balance'] = count
@@ -397,8 +402,11 @@ def collect_company_accounting_candidates(*, empresa_ids: list[int] | None = Non
         estado=EstadoAnnualTaxWorkbook.PREPARED,
         tipo__in=[TipoAnnualTaxWorkbook.RLI, TipoAnnualTaxWorkbook.CPT],
         proceso_renta_anual_id__in=valid_process_id_list,
-    ).values('proceso_renta_anual_id', 'tipo'):
-        workbook_types[valid_annual_process_ids[item['proceso_renta_anual_id']]].add(item['tipo'])
+    ).values('proceso_renta_anual_id', 'source_bundle_id', 'tipo'):
+        process_id = item['proceso_renta_anual_id']
+        if item['source_bundle_id'] != valid_annual_process_source_bundle_ids.get(process_id):
+            continue
+        workbook_types[valid_annual_process_ids[process_id]].add(item['tipo'])
     for (empresa_id, fiscal_year), types in workbook_types.items():
         if bucket := year_bucket(empresa_id, fiscal_year):
             bucket['signals']['rli_cpt_workbooks'] = len(types)
@@ -408,8 +416,11 @@ def collect_company_accounting_candidates(*, empresa_ids: list[int] | None = Non
         empresa_id__in=company_ids,
         estado=EstadoAnnualTaxDossier.PREPARED,
         proceso_renta_anual_id__in=valid_process_id_list,
-    ).values('proceso_renta_anual_id'):
-        annual_dossier_counts[valid_annual_process_ids[item['proceso_renta_anual_id']]] += 1
+    ).values('proceso_renta_anual_id', 'source_bundle_id'):
+        process_id = item['proceso_renta_anual_id']
+        if item['source_bundle_id'] != valid_annual_process_source_bundle_ids.get(process_id):
+            continue
+        annual_dossier_counts[valid_annual_process_ids[process_id]] += 1
     for (empresa_id, fiscal_year), count in annual_dossier_counts.items():
         if bucket := year_bucket(empresa_id, fiscal_year):
             bucket['signals']['annual_dossier'] = count
@@ -422,8 +433,14 @@ def collect_company_accounting_candidates(*, empresa_ids: list[int] | None = Non
         sii_submission=False,
         final_tax_calculation=False,
         proceso_renta_anual_id__in=valid_process_id_list,
-    ).values('proceso_renta_anual_id'):
-        annual_export_counts[valid_annual_process_ids[item['proceso_renta_anual_id']]] += 1
+    ).values('proceso_renta_anual_id', 'source_bundle_id', 'dossier__source_bundle_id'):
+        process_id = item['proceso_renta_anual_id']
+        expected_source_bundle_id = valid_annual_process_source_bundle_ids.get(process_id)
+        if item['source_bundle_id'] != expected_source_bundle_id:
+            continue
+        if item['dossier__source_bundle_id'] != expected_source_bundle_id:
+            continue
+        annual_export_counts[valid_annual_process_ids[process_id]] += 1
     for (empresa_id, fiscal_year), count in annual_export_counts.items():
         if bucket := year_bucket(empresa_id, fiscal_year):
             bucket['signals']['annual_export'] = count
@@ -562,10 +579,12 @@ def collect_company_accounting_progress(*, empresa_id: int, fiscal_year: int) ->
         annual_dossier_ready = False
         annual_export_ready = False
     else:
+        annual_source_bundle_id = annual_process.source_bundle_id
         process_filter = {
             'empresa': empresa,
             'anio_tributario': tax_year,
             'proceso_renta_anual': annual_process,
+            'source_bundle_id': annual_source_bundle_id,
         }
         annual_trial_balance_ready = AnnualTaxTrialBalance.objects.filter(
             **process_filter,
@@ -590,6 +609,7 @@ def collect_company_accounting_progress(*, empresa_id: int, fiscal_year: int) ->
             official_format=False,
             sii_submission=False,
             final_tax_calculation=False,
+            dossier__source_bundle_id=annual_source_bundle_id,
         ).exists()
 
     phases = [

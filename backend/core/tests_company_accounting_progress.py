@@ -158,6 +158,17 @@ class CompanyAccountingProgressTests(TestCase):
             estado=EstadoAnnualTaxSourceBundle.FROZEN,
         )
 
+    def _create_mismatched_source_bundle(self, empresa):
+        return AnnualTaxSourceBundle.objects.create(
+            empresa=empresa,
+            anio_tributario=2026,
+            anio_comercial=2025,
+            source_label='company-accounting-progress-mismatched-source',
+            responsible_ref='company-accounting-progress-mismatched-owner',
+            resumen_fuentes={'source': 'company-accounting-progress-mismatch'},
+            estado=EstadoAnnualTaxSourceBundle.DRAFT,
+        )
+
     def _create_rule_set(self, config):
         source = AnnualTaxOfficialSource.objects.create(
             anio_tributario=2026,
@@ -585,6 +596,125 @@ class CompanyAccountingProgressTests(TestCase):
         self.assertEqual(signals['annual_export'], 0)
         self.assertNotIn(empresa.rut, json.dumps(result))
 
+    def test_candidates_ignore_downstream_annual_artifacts_with_mismatched_source_bundle(self):
+        empresa = self._create_empresa()
+        config = self._activate_fiscal_config(empresa)
+        self._create_close(empresa, 1, fiscal_year=2025)
+        source_bundle = self._create_source_bundle(empresa)
+        mismatched_source_bundle = self._create_mismatched_source_bundle(empresa)
+        rule_set, official_source = self._create_rule_set(config)
+        process = ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=2026,
+            estado=EstadoPreparacionTributaria.PREPARED,
+            source_bundle=source_bundle,
+            resumen_anual={'source': 'company-accounting-progress-test'},
+        )
+        source_balance = BalanceComprobacion.objects.create(
+            empresa=empresa,
+            periodo='2025-12',
+            estado_snapshot=EstadoCierreMensual.APPROVED,
+            storage_ref='candidate-mismatched-process-balance',
+            resumen={'cuadrado': True, 'source': 'candidate-mismatched-source-test'},
+        )
+        AnnualTaxTrialBalance.objects.create(
+            empresa=empresa,
+            proceso_renta_anual=process,
+            source_bundle=mismatched_source_bundle,
+            rule_set=rule_set,
+            official_source=official_source,
+            source_balance=source_balance,
+            anio_tributario=2026,
+            anio_comercial=2025,
+            periodo_cierre='2025-12',
+            source_ref='candidate-mismatched-trial-balance',
+            responsible_ref='candidate-reviewer',
+            lines_total=1,
+            resumen_balance={'source': 'candidate-mismatched-source-test'},
+            hash_balance='4' * 64,
+            estado=EstadoAnnualTaxTrialBalance.PREPARED,
+        )
+        for kind in (TipoAnnualTaxWorkbook.RLI, TipoAnnualTaxWorkbook.CPT):
+            AnnualTaxWorkbook.objects.create(
+                empresa=empresa,
+                proceso_renta_anual=process,
+                source_bundle=mismatched_source_bundle,
+                rule_set=rule_set,
+                anio_tributario=2026,
+                anio_comercial=2025,
+                tipo=kind,
+                source_ref=f'candidate-mismatched-{kind.lower()}',
+                responsible_ref='candidate-reviewer',
+                resumen_workbook={'source': 'candidate-mismatched-source-test', 'tipo': kind},
+                hash_workbook='5' * 64,
+                estado=EstadoAnnualTaxWorkbook.PREPARED,
+            )
+        matrix = AnnualTaxArtifactMatrix.objects.create(
+            empresa=empresa,
+            proceso_renta_anual=process,
+            source_bundle=mismatched_source_bundle,
+            rule_set=rule_set,
+            anio_tributario=2026,
+            anio_comercial=2025,
+            source_ref='candidate-mismatched-matrix',
+            responsible_ref='candidate-reviewer',
+            items_total=2,
+            ddjj_items_total=1,
+            f22_items_total=1,
+            resumen_matriz={'source': 'candidate-mismatched-source-test'},
+            hash_matriz='6' * 64,
+            estado=EstadoAnnualTaxArtifactMatrix.PREPARED,
+        )
+        dossier = AnnualTaxDossier.objects.create(
+            empresa=empresa,
+            proceso_renta_anual=process,
+            source_bundle=mismatched_source_bundle,
+            rule_set=rule_set,
+            artifact_matrix=matrix,
+            anio_tributario=2026,
+            anio_comercial=2025,
+            source_ref='candidate-mismatched-dossier',
+            responsible_ref='candidate-reviewer',
+            dossier_ref='candidate-mismatched-dossier-ref',
+            monthly_facts_total=1,
+            workbooks_total=2,
+            artifact_matrix_items_total=2,
+            resumen_dossier={'source': 'candidate-mismatched-source-test'},
+            hash_dossier='7' * 64,
+            estado=EstadoAnnualTaxDossier.PREPARED,
+        )
+        AnnualTaxExport.objects.create(
+            empresa=empresa,
+            proceso_renta_anual=process,
+            dossier=dossier,
+            source_bundle=mismatched_source_bundle,
+            rule_set=rule_set,
+            artifact_matrix=matrix,
+            official_format_source=official_source,
+            anio_tributario=2026,
+            anio_comercial=2025,
+            source_ref='candidate-mismatched-export',
+            responsible_ref='candidate-reviewer',
+            export_ref='candidate-mismatched-export-ref',
+            target_items_total=2,
+            ddjj_items_total=1,
+            f22_items_total=1,
+            export_payload={'source': 'candidate-mismatched-source-test'},
+            hash_export='8' * 64,
+            estado=EstadoAnnualTaxExport.PREPARED,
+        )
+
+        result = collect_company_accounting_candidates(empresa_ids=[empresa.id])
+        signals = result['candidates'][0]['years'][0]['signals']
+
+        self.assertEqual(signals['monthly_closes'], 1)
+        self.assertEqual(signals['annual_processes'], 1)
+        self.assertEqual(signals['annual_trial_balance'], 0)
+        self.assertEqual(signals['rli_cpt_workbooks'], 0)
+        self.assertEqual(signals['annual_dossier'], 0)
+        self.assertEqual(signals['annual_export'], 0)
+        self.assertNotIn(empresa.rut, json.dumps(result))
+
     def test_candidates_surface_unsupported_fiscal_regime_without_hiding_signals(self):
         empresa = self._create_empresa()
         config = self._activate_unsupported_fiscal_config(empresa)
@@ -854,6 +984,80 @@ class CompanyAccountingProgressTests(TestCase):
             'audit_or_materialize_responsible_answers',
         )
         self.assertFalse(result['responsible_review_gate']['raw_paths_returned'])
+
+    def test_progress_rejects_annual_artifact_with_mismatched_source_bundle(self):
+        empresa = self._create_empresa()
+        config = self._activate_fiscal_config(empresa)
+        f29_capability = self._create_f29_capability(empresa)
+
+        december_balance = None
+        for month in range(1, 13):
+            close = self._create_close(empresa, month)
+            balance = BalanceComprobacion.objects.create(
+                empresa=empresa,
+                periodo=f'2025-{month:02d}',
+                estado_snapshot=EstadoCierreMensual.APPROVED,
+                storage_ref=f'balance-progress-mismatched-{month}',
+                resumen={'cuadrado': True, 'source': 'company-accounting-progress-test'},
+            )
+            if month == 12:
+                december_balance = balance
+            F29PreparacionMensual.objects.create(
+                empresa=empresa,
+                capacidad_tributaria=f29_capability,
+                cierre_mensual=close,
+                anio=2025,
+                mes=month,
+                estado_preparacion=EstadoPreparacionTributaria.PREPARED,
+                resumen_formulario={'source': 'company-accounting-progress-test'},
+                borrador_ref=f'f29-progress-mismatched-{month}',
+                responsable_revision_ref='f29-progress-owner',
+            )
+
+        source_bundle = self._create_source_bundle(empresa)
+        mismatched_source_bundle = self._create_mismatched_source_bundle(empresa)
+        rule_set, official_source = self._create_rule_set(config)
+        process = ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=2026,
+            estado=EstadoPreparacionTributaria.PREPARED,
+            source_bundle=source_bundle,
+            fecha_preparacion=timezone.now(),
+            resumen_anual={'source': 'company-accounting-progress-test'},
+        )
+        AnnualTaxTrialBalance.objects.create(
+            empresa=empresa,
+            proceso_renta_anual=process,
+            source_bundle=mismatched_source_bundle,
+            rule_set=rule_set,
+            official_source=official_source,
+            source_balance=december_balance,
+            anio_tributario=2026,
+            anio_comercial=2025,
+            periodo_cierre='2025-12',
+            source_ref='trial-balance-progress-mismatched-source',
+            responsible_ref='trial-balance-progress-owner',
+            lines_total=1,
+            resumen_balance={'source': 'company-accounting-progress-test'},
+            hash_balance='4' * 64,
+            estado=EstadoAnnualTaxTrialBalance.PREPARED,
+        )
+
+        result = collect_company_accounting_progress(empresa_id=empresa.id, fiscal_year=2025)
+
+        self.assertEqual(result['classification'], 'parcial')
+        self.assertFalse(result['ready_for_company_accounting_review'])
+        self.assertTrue(result['phases']['annual_process']['ready'])
+        self.assertFalse(result['phases']['annual_trial_balance']['ready'])
+        self.assertEqual(result['phases']['annual_trial_balance']['completed'], 0)
+        self.assertEqual(result['next_blocking_phase'], 'annual_trial_balance')
+        self.assertIn('company_accounting.annual_trial_balance_missing', {issue['code'] for issue in result['issues']})
+        self.assertEqual(result['responsible_review_gate']['state'], 'local_layers_incomplete')
+        self.assertEqual(
+            result['responsible_review_gate']['next_action_ref'],
+            'complete_local_phase:annual_trial_balance',
+        )
+        self.assertNotIn(empresa.rut, json.dumps(result))
 
     def test_command_refuses_versioned_output_outside_local_evidence(self):
         empresa = self._create_empresa()
