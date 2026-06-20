@@ -4,8 +4,10 @@ from decimal import Decimal
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.test import TestCase
 
 from contabilidad.models import ConfiguracionFiscalEmpresa, EstadoPreparacionTributaria
@@ -435,3 +437,36 @@ class AnnualTaxControlledMirrorRunTests(TestCase):
         self.assertFalse(result['writes_database'])
         self.assertTrue(result['ready_for_generation'])
         self.assertEqual(stdout.getvalue(), '')
+
+    def test_command_write_error_does_not_echo_sensitive_path(self):
+        empresa = self._create_empresa()
+        self._load_monthly_package(empresa)
+
+        with TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / 'Socio Controlado Uno 11111111-1' / 'mirror-run.json'
+
+            with patch.object(
+                Path,
+                'write_text',
+                side_effect=OSError('D:/Privado/Socio Controlado Uno 11111111-1/mirror-run.json'),
+            ):
+                with self.assertRaises(CommandError) as error:
+                    call_command(
+                        'run_annual_tax_controlled_mirror',
+                        empresa_id=empresa.id,
+                        commercial_year=2024,
+                        tax_year=2025,
+                        source_label='inmobiliaria-puig-ac2024-controlled-writer',
+                        authorization_ref='user-authorized-local-source-review',
+                        responsible_ref='codex-local-review',
+                        fiscal_rule_ref='ac2024-tax-rule-review-pending',
+                        certificates_proof_ref='ac2024-certificates-proof-pending',
+                        output=str(output_path),
+                        stdout=StringIO(),
+                    )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No se pudo escribir resultado de run anual controlado.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+            self.assertNotIn('D:/Privado', rendered_error)

@@ -1169,6 +1169,12 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   folio y F22 con folio contra DDJJ/F22 preparados y layouts anuales preparados,
   sin guardar texto bruto ni folios crudos. No escribe DB, no lee SII real y no
   usa esos outputs como insumo de calculo.
+- Los comandos `run_annual_tax_controlled_mirror` y
+  `compare_annual_tax_expected_outputs` redactan errores de archivo en el borde
+  mirror/comparacion: escritura fallida del run o comparacion, manifest faltante
+  y lectura fallida de manifest no devuelven rutas locales completas con
+  nombres, RUTs ni carpetas privadas. Las salidas versionables siguen
+  restringidas a `local-evidence/`.
 - La normalizacion anual AC2024/AT2025 distingue lineas soporte y lineas
   comparables mediante `source_payload.expected_output_artifacts`. RLI/CPT se
   generan desde Libro Inventario y resultado contable, incluyendo mappings sobre

@@ -90,8 +90,11 @@ class Command(BaseCommand):
 
         rendered = json.dumps(result, indent=2, ensure_ascii=True, default=str)
         if output_path is not None:
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(rendered, encoding='utf-8')
+            try:
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text(rendered, encoding='utf-8')
+            except OSError as error:
+                raise CommandError('No se pudo escribir resultado de run anual controlado.') from error
         else:
             self.stdout.write(rendered)
 
