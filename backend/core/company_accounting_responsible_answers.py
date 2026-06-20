@@ -77,6 +77,14 @@ def _safe_ref(value: Any, *, fallback: str = 'ref-pending') -> str:
     return text if _is_safe_ref(text) else fallback
 
 
+def _first_safe_ref(*values: Any, fallback: str = 'ref-pending') -> str:
+    for value in values:
+        text = str(value or '').strip()
+        if _is_safe_ref(text):
+            return text
+    return fallback
+
+
 def _safe_int(value: Any) -> int:
     try:
         return int(value or 0)
@@ -203,15 +211,23 @@ def validate_company_accounting_responsible_answers(
     if raw_payload_keys:
         issues.append(_issue('responsible_answers.raw_text_field_not_allowed', count=len(raw_payload_keys)))
 
-    company_ref = _safe_ref(
-        answers_payload.get('company_ref') or questions_packet.get('company_ref'),
+    questions_company_ref = str(questions_packet.get('company_ref') or '').strip()
+    answers_company_ref = str(answers_payload.get('company_ref') or '').strip()
+    if questions_company_ref and not _is_safe_ref(questions_company_ref):
+        issues.append(_issue('responsible_answers.questions_company_ref_invalid'))
+    if answers_company_ref and not _is_safe_ref(answers_company_ref):
+        issues.append(_issue('responsible_answers.company_ref_invalid'))
+
+    company_ref = _first_safe_ref(
+        answers_company_ref,
+        questions_company_ref,
         fallback='company-ref-pending',
     )
     fiscal_year = _safe_int(answers_payload.get('fiscal_year') or questions_packet.get('fiscal_year'))
     tax_year = _safe_int(answers_payload.get('tax_year') or questions_packet.get('tax_year'))
 
-    if questions_packet.get('company_ref') and answers_payload.get('company_ref'):
-        if _safe_ref(questions_packet.get('company_ref')) != _safe_ref(answers_payload.get('company_ref')):
+    if questions_company_ref and answers_company_ref and _is_safe_ref(questions_company_ref) and _is_safe_ref(answers_company_ref):
+        if questions_company_ref != answers_company_ref:
             issues.append(_issue('responsible_answers.company_ref_mismatch'))
     if questions_packet.get('fiscal_year') and answers_payload.get('fiscal_year'):
         if _safe_int(questions_packet.get('fiscal_year')) != _safe_int(answers_payload.get('fiscal_year')):

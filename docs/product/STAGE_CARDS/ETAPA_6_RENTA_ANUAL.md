@@ -1303,10 +1303,11 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   responsables redactadas contra `company-accounting-responsible-questions.json`
   y materializa `company-accounting-responsible-answers-review.json`. El paquete
   exige refs no sensibles de responsable, decision, evidencia y siguiente accion,
-  bloquea preguntas desconocidas, respuestas faltantes, duplicados, refs
-  sensibles y campos de texto libre en payload o respuesta. La salida solo puede
-  quedar bajo `local-evidence/` si esta dentro del repo, no guarda nombres, RUTs,
-  rutas locales, adjuntos ni respuestas crudas, y conserva
+  bloquea `company_ref` sensible o no canonico en preguntas/respuestas,
+  preguntas desconocidas, respuestas faltantes, duplicados, refs sensibles y
+  campos de texto libre en payload o respuesta. La salida solo puede quedar bajo
+  `local-evidence/` si esta dentro del repo, no guarda nombres, RUTs, rutas
+  locales, adjuntos ni respuestas crudas, y conserva
   `ready_for_productive_accounting_review=false`, `final_tax_calculation=false`
   y `sii_submission=false`.
   Si se usa `--allow-incomplete`, el comando puede materializar una revision
