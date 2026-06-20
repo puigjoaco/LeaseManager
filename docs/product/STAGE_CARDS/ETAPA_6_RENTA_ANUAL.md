@@ -221,6 +221,11 @@ conteos, categorias, estados de decision e issue codes, sin copiar refs
 individuales ni respuestas crudas. Si las respuestas responsables siguen
 pendientes, el workbench conserva `responsible_answers_ready=false` para no
 confundir el borrador privado con revision completa.
+Los keys de resumen que vienen desde checklist o review responsable tambien
+se sanitizan antes de versionar el manifest: `blocking_item_keys`,
+`validation_blockers`, estados de decision, categorias e issue codes no pueden
+reflejar rutas locales, nombres, RUTs, URLs ni texto libre sensible; si llegan
+contaminados se reemplazan por marcadores `redacted-*`.
 La readiness efectiva no confia solo en el booleano declarado por el review:
 si hay `missing_question_keys`, `missing_questions_total>0`,
 `blocking_issues_total>0`, issue codes, o menos respuestas que preguntas, el

@@ -482,6 +482,12 @@ refs no sensibles antes de escribir el patch privado. RUTs, rutas locales, URLs,
 correos, secretos o texto libre producen error generico y no crean workbench.
 Asi el puente respuestas responsables -> patch ownership mantiene la misma
 frontera de referencias seguras que el review de respuestas.
+Nota 2026-06-20: el manifest del workbench sanitiza tambien keys de resumen
+recibidos desde checklist o review responsable. `blocking_item_keys`,
+`validation_blockers`, estados de decision, categorias e issue codes que lleguen
+con rutas, RUTs, nombres, URLs o texto libre sensible se reemplazan por
+marcadores `redacted-*`, preservando conteos y readiness sin reflejar valores
+privados.
 
 Nota 2026-06-19: `audit_annual_tax_controlled_package_readiness` y
 `apply_annual_tax_controlled_db_load` verifican la consistencia del handoff
