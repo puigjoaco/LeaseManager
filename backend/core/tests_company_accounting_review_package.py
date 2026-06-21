@@ -57,7 +57,7 @@ from sii.models import (
 )
 
 
-def _complete_bank_manifest(*, empresa=None, fiscal_year=2025, tax_year=2026):
+def _complete_bank_manifest(*, empresa=None, fiscal_year=2025, tax_year=2026, statement_strength='verified_complete'):
     operations = [
         {'operation_ref': f'leasing-op-{index:02d}', 'label_ref': f'bank-leasing-{index:02d}'}
         for index in range(1, 4)
@@ -100,13 +100,19 @@ def _complete_bank_manifest(*, empresa=None, fiscal_year=2025, tax_year=2026):
             {
                 'confirmation_ref': 'bank-confirmation-redacted',
                 'source_ref': 'gmail-thread-redacted',
-                'statement_strength': 'expected_complete',
+                'statement_strength': statement_strength,
             }
         ],
     }
 
 
-def _complete_document_intake_manifest(*, empresa, fiscal_year=2025, tax_year=2026):
+def _complete_document_intake_manifest(
+    *,
+    empresa,
+    fiscal_year=2025,
+    tax_year=2026,
+    statement_strength='verified_complete',
+):
     company_ref = canonical_company_review_ref(empresa.id)
     operations = [
         {'operation_ref': f'leasing-op-{index:02d}', 'label_ref': f'bank-leasing-{index:02d}'}
@@ -143,7 +149,7 @@ def _complete_document_intake_manifest(*, empresa, fiscal_year=2025, tax_year=20
                 'document_ref': 'bank-confirmation-redacted',
                 'batch_ref': 'gmail-thread-redacted',
                 'category': 'bank_confirmation',
-                'statement_strength': 'expected_complete',
+                'statement_strength': statement_strength,
             },
         ]
     )
@@ -158,7 +164,7 @@ def _complete_document_intake_manifest(*, empresa, fiscal_year=2025, tax_year=20
                 'source_kind': 'manual_review_packet',
                 'source_ref': 'manual-review-packet-redacted',
                 'declared_complete': True,
-                'statement_strength': 'expected_complete',
+                'statement_strength': statement_strength,
             }
         ],
         'required_bank_operations': operations,
@@ -418,6 +424,8 @@ class CompanyAccountingReviewPackageTests(TestCase):
         self.assertEqual(result['summary']['expected_company_ref'], canonical_company_review_ref(empresa.id))
         self.assertEqual(result['summary']['bank_support_company_ref'], canonical_company_review_ref(empresa.id))
         self.assertEqual(result['summary']['bank_support_coverage_percent'], 100)
+        self.assertTrue(result['summary']['ready_for_formal_bank_support_review'])
+        self.assertTrue(result['summary']['bank_support_strong_confirmation_present'])
         self.assertEqual(result['summary']['blocking_issues_total'], 0)
         self.assertEqual(result['issues'], [])
         self.assertIn('package_hash', result)
@@ -427,14 +435,38 @@ class CompanyAccountingReviewPackageTests(TestCase):
         self.assertFalse(result['boundary']['final_tax_calculation'])
         self.assertFalse(result['boundary']['sii_submission'])
         self.assertTrue(result['boundary']['requires_responsible_review'])
-        self.assertIn(
-            'company_accounting_review.company_bank_support.bank_confirmation_not_file_by_file_verified',
-            {warning['code'] for warning in result['warnings']},
-        )
+        self.assertEqual(result['warnings'], [])
         rendered = json.dumps(result)
         self.assertNotIn(empresa.rut, rendered)
         self.assertNotIn('://', rendered)
         self.assertNotIn('@', rendered)
+
+    def test_expected_bank_confirmation_keeps_package_partial_until_formal_confirmation(self):
+        empresa = self._create_empresa()
+        self._prepare_complete_accounting_layers(empresa)
+
+        result = build_company_accounting_review_package(
+            empresa_id=empresa.id,
+            fiscal_year=2025,
+            bank_support_payload=_complete_bank_manifest(
+                empresa=empresa,
+                statement_strength='expected_complete',
+            ),
+        )
+
+        self.assertEqual(result['classification'], 'parcial')
+        self.assertFalse(result['ready_for_productive_accounting_review'])
+        self.assertTrue(result['summary']['ready_for_accounting_document_review'])
+        self.assertFalse(result['summary']['ready_for_formal_bank_support_review'])
+        self.assertFalse(result['summary']['bank_support_strong_confirmation_present'])
+        self.assertIn(
+            'company_accounting_review.bank_support_formal_confirmation_missing',
+            {issue['code'] for issue in result['issues']},
+        )
+        self.assertIn(
+            'company_accounting_review.company_bank_support.bank_confirmation_not_file_by_file_verified',
+            {warning['code'] for warning in result['warnings']},
+        )
 
     def test_bank_support_year_mismatch_blocks_productive_review_even_when_inputs_are_ready(self):
         empresa = self._create_empresa()

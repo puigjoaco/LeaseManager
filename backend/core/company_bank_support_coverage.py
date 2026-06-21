@@ -338,6 +338,7 @@ def audit_company_bank_support_coverage(*, payload: dict[str, Any]) -> dict[str,
 
     blocking_issues = [issue for issue in issues if issue['severity'] == 'blocking']
     ready = bool(operations) and not blocking_issues
+    formal_ready = ready and strong_confirmation_present
     operations_with_full_support = sum(1 for item in operation_results if item['status'] == 'covered')
 
     return {
@@ -348,6 +349,7 @@ def audit_company_bank_support_coverage(*, payload: dict[str, Any]) -> dict[str,
         'classification': _classification(operations_total=len(operations), blocking_issues=blocking_issues),
         'coverage_percent': _coverage_percent(total_required_categories, total_covered_categories),
         'ready_for_accounting_document_review': ready,
+        'ready_for_formal_bank_support_review': formal_ready,
         'boundary': dict(COMPANY_BANK_SUPPORT_BOUNDARY),
         'summary': {
             'required_operations': len(operations),

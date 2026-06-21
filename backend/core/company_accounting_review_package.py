@@ -91,6 +91,7 @@ def build_company_accounting_review_package(
     expected_tax_year = fiscal_year + 1
     expected_company_ref = canonical_company_review_ref(empresa_id)
     bank_support_company_ref = bank_support.get('company_ref') or ''
+    ready_for_formal_bank_support_review = bool(bank_support.get('ready_for_formal_bank_support_review'))
 
     issues = []
     if not accounting_progress['ready_for_company_accounting_review']:
@@ -107,6 +108,13 @@ def build_company_accounting_review_package(
                 'company_accounting_review.bank_support_incomplete',
                 'La empresa/ano no tiene cobertura bancaria/leasing redactada lista para revision contable.',
                 count=bank_support['issue_counts']['blocking'],
+            )
+        )
+    elif not ready_for_formal_bank_support_review:
+        issues.append(
+            _issue(
+                'company_accounting_review.bank_support_formal_confirmation_missing',
+                'La empresa/ano tiene soporte bancario/leasing revisable, pero falta confirmacion formal verified_complete.',
             )
         )
     if bank_support.get('fiscal_year') != fiscal_year:
@@ -143,6 +151,7 @@ def build_company_accounting_review_package(
     ready = (
         accounting_progress['ready_for_company_accounting_review']
         and bank_support['ready_for_accounting_document_review']
+        and ready_for_formal_bank_support_review
         and not blocking_issues
     )
     warnings = [
@@ -164,6 +173,8 @@ def build_company_accounting_review_package(
         'bank_support_coverage_percent': bank_support['coverage_percent'],
         'ready_for_company_accounting_review': accounting_progress['ready_for_company_accounting_review'],
         'ready_for_accounting_document_review': bank_support['ready_for_accounting_document_review'],
+        'ready_for_formal_bank_support_review': ready_for_formal_bank_support_review,
+        'bank_support_strong_confirmation_present': bank_support['summary']['strong_confirmation_present'],
         'ready_for_productive_accounting_review': ready,
         'blocking_issues_total': len(blocking_issues),
         'warnings_total': len(warnings),

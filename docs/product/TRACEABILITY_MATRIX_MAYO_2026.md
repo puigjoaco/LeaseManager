@@ -198,6 +198,16 @@ a otra empresa, aunque la cobertura documental bancaria/leasing este completa.
 Esto mantiene la preparacion de Inmobiliaria Puig amarrada a evidencia de la
 misma empresa sin leer adjuntos reales, correos, banco, `.env` ni SII.
 
+Nota 2026-06-20: El paquete de revision contable/renta separa soporte
+bancario/leasing observado de soporte formal. `audit_company_bank_support_coverage`
+mantiene `expected_complete` como suficiente para
+`ready_for_accounting_document_review` con advertencia, pero expone
+`ready_for_formal_bank_support_review=false` hasta recibir `verified_complete`.
+`build_company_accounting_review_package` bloquea
+`ready_for_productive_accounting_review` con
+`bank_support_formal_confirmation_missing` cuando la cobertura esta revisable
+pero no formalmente confirmada.
+
 Nota 2026-06-18: Etapa 6/Reporting agrega
 `materialize_company_accounting_review_package` para escribir el paquete de
 revision contable/renta por empresa como carpeta local verificable con manifest
@@ -3587,6 +3597,12 @@ respaldo bancario/leasing redactado correspondan al mismo ano comercial/tributar
 antes de marcar `ready_for_productive_accounting_review=true`. La salida conserva
 hashes, issues y boundary no sensible; no lee documentos, correos, adjuntos,
 DB real, banco real ni SII, y no declara contabilidad final ni presentacion.
+
+Nota 2026-06-20: Ese paquete ahora exige confirmacion formal
+`verified_complete` para quedar `preparado`. Un manifiesto con cobertura completa
+y `expected_complete` conserva el intake/revision documental local, pero deja el
+paquete `parcial` hasta aportar certificado/cartola formal o confirmacion
+responsable equivalente no sensible.
 
 Nota 2026-06-17: PlataformaBase/CI ajusta Release Gate para remover el matcher
 generico `python` de `actions/setup-python` justo antes de acceptance. La suite
