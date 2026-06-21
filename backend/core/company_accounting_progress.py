@@ -14,6 +14,7 @@ from contabilidad.models import (
     EstadoRegistro,
 )
 from core.annual_tax_source_manifest import payload_hash
+from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
 from patrimonio.models import Empresa
 from sii.models import (
     AnnualTaxDossier,
@@ -471,6 +472,18 @@ def _is_controlled_f29_no_declaration(resumen_hecho: Any) -> bool:
     )
 
 
+def _f29_preparation_has_reviewable_payload(item: dict[str, Any]) -> bool:
+    resumen = item.get('resumen_formulario')
+    return (
+        item.get('mes') in MONTHS
+        and isinstance(resumen, dict)
+        and bool(resumen)
+        and not contains_sensitive_reference(resumen, include_sensitive_keys=True)
+        and is_non_sensitive_reference(item.get('borrador_ref'))
+        and is_non_sensitive_reference(item.get('responsable_revision_ref'))
+    )
+
+
 def _controlled_f29_no_declaration_months(empresa: Empresa, fiscal_year: int) -> set[int]:
     months = set()
     facts = MonthlyTaxFact.objects.filter(
@@ -580,7 +593,16 @@ def collect_company_accounting_candidates(*, empresa_ids: list[int] | None = Non
     for item in F29PreparacionMensual.objects.filter(
         empresa_id__in=company_ids,
         estado_preparacion__in=PREPARED_OR_BETTER_TAX_STATES,
-    ).values('empresa_id', 'anio', 'mes'):
+    ).values(
+        'empresa_id',
+        'anio',
+        'mes',
+        'resumen_formulario',
+        'borrador_ref',
+        'responsable_revision_ref',
+    ):
+        if not _f29_preparation_has_reviewable_payload(item):
+            continue
         f29_months[(item['empresa_id'], item['anio'])].add(item['mes'])
     for item in MonthlyTaxFact.objects.filter(empresa_id__in=company_ids).values(
         'empresa_id',
@@ -849,13 +871,20 @@ def collect_company_accounting_progress(*, empresa_id: int, fiscal_year: int) ->
 
     approved_balance_months, squared_balance_months = _prepared_balance_months(empresa, fiscal_year)
 
-    prepared_f29_months = set(
-        F29PreparacionMensual.objects.filter(
+    prepared_f29_months = {
+        item['mes']
+        for item in F29PreparacionMensual.objects.filter(
             empresa=empresa,
             anio=fiscal_year,
             estado_preparacion__in=PREPARED_OR_BETTER_TAX_STATES,
-        ).values_list('mes', flat=True)
-    )
+        ).values(
+            'mes',
+            'resumen_formulario',
+            'borrador_ref',
+            'responsable_revision_ref',
+        )
+        if _f29_preparation_has_reviewable_payload(item)
+    }
     prepared_f29_months.update(_controlled_f29_no_declaration_months(empresa, fiscal_year))
 
     annual_process_candidate = (

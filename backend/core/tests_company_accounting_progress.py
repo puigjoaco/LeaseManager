@@ -465,6 +465,55 @@ class CompanyAccountingProgressTests(TestCase):
         self.assertEqual(result['phases']['f29_monthly']['missing'], [3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
         self.assertNotIn(empresa.rut, json.dumps(result))
 
+    def test_progress_ignores_f29_preparation_without_reviewable_payload(self):
+        empresa = self._create_empresa()
+        self._activate_fiscal_config(empresa)
+        f29_capability = self._create_f29_capability(empresa)
+
+        incomplete_close = self._create_close(empresa, 1)
+        F29PreparacionMensual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=f29_capability,
+            cierre_mensual=incomplete_close,
+            anio=2025,
+            mes=1,
+            estado_preparacion=EstadoPreparacionTributaria.PREPARED,
+            resumen_formulario={'source': 'company-accounting-progress-test'},
+            borrador_ref='',
+            responsable_revision_ref='',
+        )
+        sensitive_close = self._create_close(empresa, 2)
+        F29PreparacionMensual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=f29_capability,
+            cierre_mensual=sensitive_close,
+            anio=2025,
+            mes=2,
+            estado_preparacion=EstadoPreparacionTributaria.PREPARED,
+            resumen_formulario={'source': 'https://sii.example.test/f29?token=secret'},
+            borrador_ref='f29-progress-sensitive-draft',
+            responsable_revision_ref='f29-progress-owner',
+        )
+        reviewable_close = self._create_close(empresa, 3)
+        F29PreparacionMensual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=f29_capability,
+            cierre_mensual=reviewable_close,
+            anio=2025,
+            mes=3,
+            estado_preparacion=EstadoPreparacionTributaria.PREPARED,
+            resumen_formulario={'source': 'company-accounting-progress-test'},
+            borrador_ref='f29-progress-reviewable-draft',
+            responsable_revision_ref='f29-progress-owner',
+        )
+        self._create_no_declaration_monthly_tax_fact(empresa, 4)
+
+        result = collect_company_accounting_progress(empresa_id=empresa.id, fiscal_year=2025)
+
+        self.assertEqual(result['phases']['f29_monthly']['completed'], 2)
+        self.assertEqual(result['phases']['f29_monthly']['missing'], [1, 2, 5, 6, 7, 8, 9, 10, 11, 12])
+        self.assertNotIn('token=secret', json.dumps(result))
+
     def test_unsupported_fiscal_regime_blocks_company_progress_review(self):
         empresa = self._create_empresa()
         config = self._activate_unsupported_fiscal_config(empresa)
@@ -683,6 +732,56 @@ class CompanyAccountingProgressTests(TestCase):
 
         self.assertEqual(result['summary']['candidate_companies'], 1)
         self.assertEqual(result['candidates'][0]['years'][0]['signals']['f29_monthly'], 1)
+        self.assertNotIn(empresa.rut, json.dumps(result))
+
+    def test_candidates_ignore_f29_preparation_without_reviewable_payload(self):
+        empresa = self._create_empresa()
+        self._activate_fiscal_config(empresa)
+        f29_capability = self._create_f29_capability(empresa)
+
+        incomplete_close = self._create_close(empresa, 1)
+        F29PreparacionMensual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=f29_capability,
+            cierre_mensual=incomplete_close,
+            anio=2025,
+            mes=1,
+            estado_preparacion=EstadoPreparacionTributaria.PREPARED,
+            resumen_formulario={'source': 'candidate-f29-test'},
+            borrador_ref='',
+            responsable_revision_ref='',
+        )
+        sensitive_close = self._create_close(empresa, 2)
+        F29PreparacionMensual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=f29_capability,
+            cierre_mensual=sensitive_close,
+            anio=2025,
+            mes=2,
+            estado_preparacion=EstadoPreparacionTributaria.PREPARED,
+            resumen_formulario={'source': 'https://sii.example.test/f29?token=secret'},
+            borrador_ref='candidate-f29-sensitive-draft',
+            responsable_revision_ref='candidate-reviewer',
+        )
+        reviewable_close = self._create_close(empresa, 3)
+        F29PreparacionMensual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=f29_capability,
+            cierre_mensual=reviewable_close,
+            anio=2025,
+            mes=3,
+            estado_preparacion=EstadoPreparacionTributaria.PREPARED,
+            resumen_formulario={'source': 'candidate-f29-test'},
+            borrador_ref='candidate-f29-reviewable-draft',
+            responsable_revision_ref='candidate-reviewer',
+        )
+        self._create_no_declaration_monthly_tax_fact(empresa, 4)
+
+        result = collect_company_accounting_candidates(empresa_ids=[empresa.id])
+
+        self.assertEqual(result['summary']['candidate_companies'], 1)
+        self.assertEqual(result['candidates'][0]['years'][0]['signals']['f29_monthly'], 2)
+        self.assertNotIn('token=secret', json.dumps(result))
         self.assertNotIn(empresa.rut, json.dumps(result))
 
     def test_candidates_ignore_annual_process_without_frozen_source_bundle(self):

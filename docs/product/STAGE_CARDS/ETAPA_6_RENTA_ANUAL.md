@@ -777,12 +777,19 @@ DDJJ/F22 coherentes y boundary seguro (`official_format=false`,
 `sii_submission=false`, `final_tax_calculation=false`). Un export preparado sin
 ese paquete queda como fase faltante o senal cero y no dispara handoff
 responsable.
-Para F29 mensual, el progreso anual cuenta tanto formularios preparados como
-meses con `MonthlyTaxFact` normalizado cuyo F29 esta `no_aplica` y
-`no_declaration=true`. Esto permite modelar periodos AC2024 registrados como
-sin declaracion sin convertirlos en F29 ficticios ni tratarlos como brecha de
-fuente. En Inmobiliaria Puig AC2024/AT2025, esa distincion desplaza el bloqueo
-de progreso desde F29 hacia la capa anual (`ProcesoRentaAnual`).
+Para F29 mensual, el progreso anual cuenta formularios preparados solo cuando
+son paquete local revisable: mes valido, `resumen_formulario` no vacio y sin
+referencias sensibles, `borrador_ref` no sensible y
+`responsable_revision_ref` no sensible. Un `F29PreparacionMensual` preparado
+sin payload revisable, sin refs o con valores sensibles queda como fase
+faltante o senal cero; no adelanta el ranking ni
+`ready_for_company_accounting_review`.
+El progreso tambien cuenta meses con `MonthlyTaxFact` normalizado cuyo F29 esta
+`no_aplica` y `no_declaration=true`. Esto permite modelar periodos AC2024
+registrados como sin declaracion sin convertirlos en F29 ficticios ni tratarlos
+como brecha de fuente. En Inmobiliaria Puig AC2024/AT2025, esa distincion
+desplaza el bloqueo de progreso desde F29 hacia la capa anual
+(`ProcesoRentaAnual`).
 La senal `annual_process` solo cuenta si el `ProcesoRentaAnual` preparado o
 superior esta enlazado a un `AnnualTaxSourceBundle` congelado. Un proceso anual
 sin source bundle congelado se reporta como
