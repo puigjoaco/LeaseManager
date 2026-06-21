@@ -102,6 +102,7 @@ class Command(BaseCommand):
             'answers_total': review['summary']['answers_total'],
             'missing_questions_total': review['summary']['missing_questions_total'],
             'blocking_issues_total': review['summary']['blocking_issues_total'],
+            'readiness_sources_total': review['summary'].get('readiness_sources_total', 0),
             'issue_codes': issue_codes,
             'ready_for_responsible_decision_handoff': review['summary']['ready_for_responsible_decision_handoff'],
             'ready_for_productive_accounting_review': False,

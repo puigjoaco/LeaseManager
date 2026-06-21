@@ -53,6 +53,25 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
             tax_year=2026,
         )
 
+    def _questions_packet_with_readiness_source(self) -> dict:
+        packet = self._questions_packet()
+        packet['source_summaries'] = [
+            {
+                'label': 'company_review_package',
+                'schema_version': 'company-accounting-review-package.v1',
+                'classification': 'parcial',
+                'ready_flags': {
+                    'ready_for_formal_bank_support_review': False,
+                    'document_intake_ready_for_productive_review': False,
+                    'document_intake_ready_for_formal_bank_support_manifest': True,
+                    'D:/Privado/Socio Controlado Uno 11111111-1': True,
+                },
+                'issues_total': 2,
+                'source_hash': 'a' * 64,
+            }
+        ]
+        return packet
+
     def _answers_payload(self, packet: dict) -> dict:
         return {
             'schema_version': COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_SCHEMA_VERSION,
@@ -91,6 +110,26 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
         self.assertEqual(review['summary']['blocking_issues_total'], 0)
         self.assertTrue(all(not answer['raw_text_stored'] for answer in review['answers']))
         self.assertNotIn('answer_text', rendered)
+
+    def test_validates_complete_answers_preserving_question_readiness_sources(self):
+        packet = self._questions_packet_with_readiness_source()
+        review = validate_company_accounting_responsible_answers(
+            questions_packet=packet,
+            answers_payload=self._answers_payload(packet),
+        )
+        rendered = json.dumps(review, ensure_ascii=True)
+        source_summary = review['question_source_summaries'][0]
+        ready_flags = source_summary['ready_flags']
+
+        self.assertTrue(review['summary']['ready_for_responsible_decision_handoff'])
+        self.assertEqual(review['summary']['readiness_sources_total'], 1)
+        self.assertFalse(ready_flags['ready_for_formal_bank_support_review'])
+        self.assertFalse(ready_flags['document_intake_ready_for_productive_review'])
+        self.assertTrue(ready_flags['document_intake_ready_for_formal_bank_support_manifest'])
+        self.assertNotIn('D:/Privado/Socio Controlado Uno 11111111-1', ready_flags)
+        self.assertNotIn('Socio Controlado Uno', rendered)
+        self.assertNotIn('11111111-1', rendered)
+        self.assertNotIn('D:/Privado', rendered)
 
     def test_missing_answers_are_blocking_when_complete_required(self):
         packet = self._questions_packet()
@@ -332,7 +371,7 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
             self.assertEqual(manifest['summary']['answers_total'], len(packet['questions']))
 
     def test_command_materializes_answers_review_from_verified_handoff_packet(self):
-        packet = self._questions_packet()
+        packet = self._questions_packet_with_readiness_source()
         template = build_company_accounting_responsible_answers_template(
             questions_packet=packet,
             next_action_ref='complete-ac2025-at2026-responsible-review',
@@ -362,14 +401,23 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
 
             summary = json.loads(stdout.getvalue())
             manifest = json.loads((output_dir / COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_MANIFEST).read_text())
+            rendered = json.dumps(manifest, ensure_ascii=True)
             self.assertEqual(summary['source_kind'], 'handoff_packet')
             self.assertTrue(summary['handoff_packet_verified'])
             self.assertTrue(summary['ready_for_responsible_decision_handoff'])
+            self.assertEqual(summary['readiness_sources_total'], 1)
             self.assertEqual(manifest['questions_packet_hash'], template['questions_packet_hash'])
             self.assertEqual(manifest['summary']['answers_total'], len(packet['questions']))
+            self.assertEqual(manifest['summary']['readiness_sources_total'], 1)
+            self.assertFalse(
+                manifest['question_source_summaries'][0]['ready_flags']['ready_for_formal_bank_support_review']
+            )
+            self.assertNotIn('Socio Controlado Uno', rendered)
+            self.assertNotIn('11111111-1', rendered)
+            self.assertNotIn('D:/Privado', rendered)
 
     def test_audit_answers_draft_from_verified_handoff_packet_does_not_write_review(self):
-        packet = self._questions_packet()
+        packet = self._questions_packet_with_readiness_source()
         template = build_company_accounting_responsible_answers_template(
             questions_packet=packet,
             next_action_ref='complete-ac2025-at2026-responsible-review',
@@ -400,6 +448,7 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
             self.assertEqual(summary['source_kind'], 'handoff_packet')
             self.assertTrue(summary['handoff_packet_verified'])
             self.assertTrue(summary['ready_for_responsible_decision_handoff'])
+            self.assertEqual(summary['readiness_sources_total'], 1)
             self.assertFalse(summary['writes_review_manifest'])
             self.assertFalse((temp_root / COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_MANIFEST).exists())
 
@@ -781,7 +830,7 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
             self.assertFalse(summary['search']['raw_paths_returned'])
 
     def test_review_presence_audit_finds_ready_review_without_returning_path(self):
-        packet = self._questions_packet()
+        packet = self._questions_packet_with_readiness_source()
         review = validate_company_accounting_responsible_answers(
             questions_packet=packet,
             answers_payload=self._answers_payload(packet),
@@ -806,6 +855,12 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
             self.assertTrue(audit['summary']['ready_for_responsible_decision_handoff'])
             self.assertTrue(audit['candidates'][0]['ready_for_responsible_decision_handoff'])
             self.assertTrue(audit['candidates'][0]['path_hash'])
+            self.assertEqual(audit['candidates'][0]['readiness_sources_total'], 1)
+            self.assertFalse(
+                audit['candidates'][0]['question_source_summaries'][0]['ready_flags'][
+                    'ready_for_formal_bank_support_review'
+                ]
+            )
             self.assertNotIn('Socio Controlado Uno', rendered)
             self.assertNotIn('11111111-1', rendered)
             self.assertNotIn(str(sensitive_dir), rendered)

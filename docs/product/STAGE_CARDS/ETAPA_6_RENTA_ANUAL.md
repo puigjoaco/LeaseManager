@@ -1359,7 +1359,10 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   `local-evidence/` si esta dentro del repo, no guarda nombres, RUTs, rutas
   locales, adjuntos ni respuestas crudas, y conserva
   `ready_for_productive_accounting_review=false`, `final_tax_calculation=false`
-  y `sii_submission=false`.
+  y `sii_submission=false`. El review conserva
+  `question_source_summaries` sanitizados y `readiness_sources_total` desde el
+  paquete de preguntas/handoff, para que la revision responsable no pierda el
+  contexto de blockers formales de soporte bancario o intake documental.
   Si se usa `--allow-incomplete`, el comando puede materializar una revision
   observada para trazabilidad, pero las preguntas faltantes siguen generando
   `responsible_answers.questions_unanswered`, `blocking_issues_total>0` y
@@ -1371,7 +1374,7 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   reanudacion pueda confundir con un handoff listo.
   `audit_company_accounting_responsible_answers_draft` valida el mismo borrador
   en modo dry-run contra `--questions-packet` o `--handoff-packet-dir`: reporta
-  readiness, blockers e issue codes sin escribir
+  readiness, blockers, `readiness_sources_total` e issue codes sin escribir
   `company-accounting-responsible-answers-review.json`. Con `--require-ready`
   falla si el borrador no queda listo, pero conserva la salida resumida para
   corregirlo antes de materializar el review.
@@ -1416,7 +1419,9 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   review faltante, review observado, multiples reviews listos y exactamente un
   handoff listo. Esto reemplaza la inspeccion manual del filesystem para no
   usar el chat como evidencia ni confundir plantillas/checklists con un review
-  responsable listo.
+  responsable listo. Los candidatos de review preservan
+  `question_source_summaries` sanitizados y `readiness_sources_total`, sin rutas
+  crudas ni valores sensibles.
 - `audit_company_accounting_responsible_handoff_preflight` consolida ese borde
   de reanudacion: escanea bajo `local-evidence/` los manifests de preguntas
   responsables, template de respuestas y review responsable; devuelve solo

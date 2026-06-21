@@ -316,6 +316,7 @@ def validate_company_accounting_responsible_answers(
     state_counter = Counter(answer['decision_state'] for answer in answers)
     category_counter = Counter(answer['category'] for answer in answers)
     ready = bool(questions) and not issue_counter and not missing_questions
+    source_summaries = _questions_source_summaries(questions_packet)
 
     review = {
         'schema_version': COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_REVIEW_SCHEMA_VERSION,
@@ -338,6 +339,7 @@ def validate_company_accounting_responsible_answers(
             'answers_total': len(answers),
             'missing_questions_total': len(missing_questions),
             'blocking_issues_total': sum(issue_counter.values()),
+            'readiness_sources_total': len(source_summaries),
             'decision_states': dict(sorted(state_counter.items())),
             'categories': dict(sorted(category_counter.items())),
             'ready_for_responsible_decision_handoff': ready,
@@ -345,6 +347,7 @@ def validate_company_accounting_responsible_answers(
             'final_tax_calculation': False,
             'sii_submission': False,
         },
+        'question_source_summaries': source_summaries,
         'missing_question_keys': missing_questions,
         'answers': sorted(answers, key=lambda item: item['question_key']),
         'issues': [
@@ -361,6 +364,7 @@ def validate_company_accounting_responsible_answers(
             'tax_year': review['tax_year'],
             'questions_packet_hash': review['questions_packet_hash'],
             'summary': review['summary'],
+            'question_source_summaries': review['question_source_summaries'],
             'missing_question_keys': review['missing_question_keys'],
             'answers': review['answers'],
             'issues': review['issues'],
@@ -747,6 +751,9 @@ def _review_discovery_candidate(*, payload: dict[str, Any], relative_path_ref: s
     summary = payload.get('summary') if isinstance(payload.get('summary'), dict) else {}
     issues = payload.get('issues') if isinstance(payload.get('issues'), list) else []
     answers = payload.get('answers') if isinstance(payload.get('answers'), list) else []
+    source_summaries = _questions_source_summaries(
+        {'source_summaries': payload.get('question_source_summaries') or payload.get('source_summaries')}
+    )
     missing_question_keys = (
         payload.get('missing_question_keys') if isinstance(payload.get('missing_question_keys'), list) else []
     )
@@ -805,6 +812,8 @@ def _review_discovery_candidate(*, payload: dict[str, Any], relative_path_ref: s
         'answers_total': answers_total,
         'missing_questions_total': missing_questions_total,
         'blocking_issues_total': blocking_issues_total,
+        'readiness_sources_total': len(source_summaries),
+        'question_source_summaries': source_summaries,
         'issue_codes': sorted_issue_codes,
         'reported_ready_for_responsible_decision_handoff': reported_ready,
         'ready_for_responsible_decision_handoff': effective_ready,
@@ -821,6 +830,8 @@ def _review_discovery_candidate(*, payload: dict[str, Any], relative_path_ref: s
         'answers_total': answers_total,
         'missing_questions_total': missing_questions_total,
         'blocking_issues_total': blocking_issues_total,
+        'readiness_sources_total': len(source_summaries),
+        'question_source_summaries': source_summaries,
         'issue_codes': sorted_issue_codes,
         'reported_ready_for_responsible_decision_handoff': reported_ready,
         'ready_for_responsible_decision_handoff': effective_ready,
