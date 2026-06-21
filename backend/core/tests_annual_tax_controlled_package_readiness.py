@@ -283,6 +283,42 @@ class AnnualTaxControlledPackageReadinessTests(SimpleTestCase):
         self.assertNotIn('ownership_review_redacted_patch_hash_missing', result['warnings'])
         self.assertTrue(result['summary']['ownership_review_handoff']['redacted_patch_hash_present'])
 
+    def test_ownership_review_handoff_preserves_sanitized_readiness_sources(self):
+        package = self._complete_package()
+        package['ownership_review'] = self._ownership_review_handoff(ready=True)
+        package['ownership_review']['redacted_patch_hash'] = 'c' * 64
+        package['ownership_review']['question_source_summaries'] = [
+            {
+                'label': 'D:/Privado/Socio Controlado Uno 11111111-1/banco',
+                'schema_version': 'company-bank-support-coverage-manifest.v1',
+                'classification': 'blocking',
+                'ready_flags': {
+                    'ready_for_formal_bank_support_review': False,
+                    'document_intake_ready_for_productive_review': False,
+                    'document_intake_ready_for_formal_bank_support_manifest': True,
+                    'D:/Privado/Socio Controlado Uno 11111111-1': True,
+                },
+                'issues_total': 2,
+                'source_hash': 'd' * 64,
+            }
+        ]
+
+        result = audit_annual_tax_controlled_package_readiness(payload=package)
+        handoff = result['summary']['ownership_review_handoff']
+        source_summary = handoff['question_source_summaries'][0]
+        rendered_handoff = json.dumps(handoff, ensure_ascii=True)
+
+        self.assertTrue(result['ready_for_annual_generation'])
+        self.assertEqual(handoff['readiness_sources_total'], 1)
+        self.assertEqual(source_summary['label'], 'source')
+        self.assertFalse(source_summary['ready_flags']['ready_for_formal_bank_support_review'])
+        self.assertFalse(source_summary['ready_flags']['document_intake_ready_for_productive_review'])
+        self.assertTrue(source_summary['ready_flags']['document_intake_ready_for_formal_bank_support_manifest'])
+        self.assertNotIn('D:/Privado/Socio Controlado Uno 11111111-1', source_summary['ready_flags'])
+        self.assertNotIn('Socio Controlado Uno', rendered_handoff)
+        self.assertNotIn('11111111-1', rendered_handoff)
+        self.assertNotIn('D:/Privado', rendered_handoff)
+
     def test_ownership_review_handoff_mismatch_blocks_annual_generation(self):
         package = self._complete_package()
         package['ownership_review'] = self._ownership_review_handoff(ready=True)

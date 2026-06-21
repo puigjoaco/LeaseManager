@@ -252,6 +252,13 @@ nombres y RUTs, el comando exige `--output`, nunca imprime el paquete completo
 por stdout y rechaza `--patch` o `--output` dentro del repo fuera de
 `local-evidence/`. No escribe DB, no calcula renta final, no abre SII y no
 reemplaza la revision responsable de ownership.
+Tambien acepta `--workbench-manifest` para tomar el
+`ownership-patch-workbench.json` redactado como fuente de continuidad: valida
+que corresponda a la misma empresa/AC/AT y conserva en `ownership_review` solo
+`question_source_summaries` sanitizados y `readiness_sources_total`. El
+readiness del paquete controlado expone esos summaries sin rutas, nombres, RUTs
+ni PII, manteniendo visible si el ownership viene de un flujo todavia separado
+por soporte bancario formal o intake documental observado.
 Los comandos `validate_annual_tax_ownership_patch` e
 `inject_annual_tax_ownership_patch_into_controlled_package` mantienen errores
 de lectura/escritura redactados: si un template, patch, package u output falla,
