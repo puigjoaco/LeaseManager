@@ -754,6 +754,10 @@ Los artefactos anuales downstream (`AnnualTaxTrialBalance`, workbooks RLI/CPT,
 pertenecen a un `ProcesoRentaAnual` preparado o superior con
 `AnnualTaxSourceBundle` congelado. Un balance anual, dossier o export suelto o
 colgado de un proceso pendiente no infla el ranking ni habilita revision.
+Para `AnnualTaxTrialBalance`, el progreso exige lineas activas materializadas:
+`lines_total` debe ser positivo y coincidir con el conteo de
+`AnnualTaxTrialBalanceLine` activas. Un header preparado sin detalle queda como
+fase faltante o senal cero y no adelanta `ready_for_company_accounting_review`.
 Para `AnnualTaxExport`, el progreso exige ademas un paquete local
 materializable: `export_file_package_manifest`, version
 `annual-tax-export-file-package-v1`, hash SHA-256 del manifiesto, conteos

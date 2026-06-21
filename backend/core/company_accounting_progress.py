@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 import re
 from typing import Any
@@ -11,6 +11,7 @@ from contabilidad.models import (
     ConfiguracionFiscalEmpresa,
     EstadoCierreMensual,
     EstadoPreparacionTributaria,
+    EstadoRegistro,
 )
 from core.annual_tax_source_manifest import payload_hash
 from patrimonio.models import Empresa
@@ -18,6 +19,7 @@ from sii.models import (
     AnnualTaxDossier,
     AnnualTaxExport,
     AnnualTaxTrialBalance,
+    AnnualTaxTrialBalanceLine,
     AnnualTaxWorkbook,
     EstadoAnnualTaxDossier,
     EstadoAnnualTaxExport,
@@ -279,6 +281,16 @@ def _annual_export_has_ready_local_package(
     )
 
 
+def _annual_trial_balance_has_materialized_lines(*, lines_total: Any, active_lines_total: int) -> bool:
+    declared_lines_total = _int_or_none(lines_total)
+    return (
+        declared_lines_total is not None
+        and declared_lines_total > 0
+        and active_lines_total > 0
+        and declared_lines_total == active_lines_total
+    )
+
+
 def _progress_percent(phases: list[ProgressPhase]) -> int:
     expected = sum(phase.expected for phase in phases)
     if expected <= 0:
@@ -495,16 +507,30 @@ def collect_company_accounting_candidates(*, empresa_ids: list[int] | None = Non
             bucket['signals']['annual_processes'] = count
 
     valid_process_id_list = list(valid_annual_process_ids)
-    annual_trial_balance_counts: dict[tuple[int, int], int] = defaultdict(int)
+    annual_trial_balance_candidates = []
     for item in AnnualTaxTrialBalance.objects.filter(
         empresa_id__in=company_ids,
         estado=EstadoAnnualTaxTrialBalance.PREPARED,
         proceso_renta_anual_id__in=valid_process_id_list,
-    ).values('proceso_renta_anual_id', 'source_bundle_id'):
+    ).values('id', 'proceso_renta_anual_id', 'source_bundle_id', 'lines_total'):
         process_id = item['proceso_renta_anual_id']
         if item['source_bundle_id'] != valid_annual_process_source_bundle_ids.get(process_id):
             continue
-        annual_trial_balance_counts[valid_annual_process_ids[process_id]] += 1
+        annual_trial_balance_candidates.append(item)
+    active_trial_balance_line_counts = Counter(
+        AnnualTaxTrialBalanceLine.objects.filter(
+            trial_balance_id__in=[item['id'] for item in annual_trial_balance_candidates],
+            estado=EstadoRegistro.ACTIVE,
+        ).values_list('trial_balance_id', flat=True)
+    )
+    annual_trial_balance_counts: dict[tuple[int, int], int] = defaultdict(int)
+    for item in annual_trial_balance_candidates:
+        if not _annual_trial_balance_has_materialized_lines(
+            lines_total=item['lines_total'],
+            active_lines_total=active_trial_balance_line_counts[item['id']],
+        ):
+            continue
+        annual_trial_balance_counts[valid_annual_process_ids[item['proceso_renta_anual_id']]] += 1
     for (empresa_id, fiscal_year), count in annual_trial_balance_counts.items():
         if bucket := year_bucket(empresa_id, fiscal_year):
             bucket['signals']['annual_trial_balance'] = count
@@ -720,10 +746,23 @@ def collect_company_accounting_progress(*, empresa_id: int, fiscal_year: int) ->
             'proceso_renta_anual': annual_process,
             'source_bundle_id': annual_source_bundle_id,
         }
-        annual_trial_balance_ready = AnnualTaxTrialBalance.objects.filter(
+        annual_trial_balance_candidates = list(AnnualTaxTrialBalance.objects.filter(
             **process_filter,
             estado=EstadoAnnualTaxTrialBalance.PREPARED,
-        ).exists()
+        ).values('id', 'lines_total'))
+        active_trial_balance_line_counts = Counter(
+            AnnualTaxTrialBalanceLine.objects.filter(
+                trial_balance_id__in=[item['id'] for item in annual_trial_balance_candidates],
+                estado=EstadoRegistro.ACTIVE,
+            ).values_list('trial_balance_id', flat=True)
+        )
+        annual_trial_balance_ready = any(
+            _annual_trial_balance_has_materialized_lines(
+                lines_total=item['lines_total'],
+                active_lines_total=active_trial_balance_line_counts[item['id']],
+            )
+            for item in annual_trial_balance_candidates
+        )
 
         prepared_workbook_types = set(
             AnnualTaxWorkbook.objects.filter(
