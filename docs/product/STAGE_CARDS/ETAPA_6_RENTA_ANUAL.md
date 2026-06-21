@@ -1338,6 +1338,10 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   codigos/flags/contexto. Si la salida queda dentro del repo debe estar bajo
   `local-evidence/`. No lee documentos reales, no abre banco/SII, no escribe DB
   y no declara contabilidad final, calculo tributario final ni presentacion SII.
+  Sus `source_summaries.ready_flags` conservan flags booleanos tanto del nivel
+  raiz como de `summary`, incluyendo `ready_for_formal_bank_support_review` y
+  `document_intake_ready_for_productive_review`, para que el handoff responsable
+  no pierda blockers formales ya detectados por el paquete contable/renta.
   El comando redacta errores de lectura/escritura: si no puede leer una fuente
   JSON o persistir el paquete, la consola no devuelve rutas locales completas
   que puedan contener nombres, RUTs o carpetas privadas.
