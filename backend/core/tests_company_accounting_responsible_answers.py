@@ -914,6 +914,46 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
         self.assertNotIn('answer_text', rendered)
         self.assertNotIn('D:\\', rendered)
 
+    def test_handoff_packet_preserves_question_readiness_source_summaries(self):
+        packet = self._questions_packet()
+        packet['source_summaries'] = [
+            {
+                'label': 'company_review_package',
+                'schema_version': 'company-accounting-review-package.v1',
+                'classification': 'parcial',
+                'ready_flags': {
+                    'ready_for_formal_bank_support_review': False,
+                    'document_intake_ready_for_productive_review': False,
+                    'document_intake_ready_for_formal_bank_support_manifest': True,
+                    'D:/Privado/Socio Controlado Uno 11111111-1': True,
+                },
+                'issues_total': 2,
+                'source_hash': 'a' * 64,
+            }
+        ]
+        template = build_company_accounting_responsible_answers_template(
+            questions_packet=packet,
+            next_action_ref='complete-ac2025-at2026-responsible-review',
+        )
+
+        manifest = build_company_accounting_responsible_handoff_packet(
+            questions_packet=packet,
+            answers_template=template,
+        )
+        rendered = json.dumps(manifest, ensure_ascii=True)
+        source_summary = manifest['artifacts']['questions_packet']['source_summaries'][0]
+        ready_flags = source_summary['ready_flags']
+
+        self.assertEqual(manifest['summary']['readiness_sources_total'], 1)
+        self.assertEqual(manifest['artifacts']['questions_packet']['readiness_sources_total'], 1)
+        self.assertFalse(ready_flags['ready_for_formal_bank_support_review'])
+        self.assertFalse(ready_flags['document_intake_ready_for_productive_review'])
+        self.assertTrue(ready_flags['document_intake_ready_for_formal_bank_support_manifest'])
+        self.assertNotIn('D:/Privado/Socio Controlado Uno 11111111-1', ready_flags)
+        self.assertNotIn('Socio Controlado Uno', rendered)
+        self.assertNotIn('11111111-1', rendered)
+        self.assertNotIn('D:/Privado', rendered)
+
     def test_handoff_packet_rejects_inconsistent_template(self):
         packet = self._questions_packet()
         template = build_company_accounting_responsible_answers_template(questions_packet=packet)
@@ -971,6 +1011,11 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
             self.assertFalse(summary['ready_for_responsible_decision_handoff'])
             self.assertFalse(summary['raw_paths_returned'])
             self.assertEqual(verification['summary']['questions_total'], len(packet['questions']))
+            self.assertEqual(summary['readiness_sources_total'], len(packet['source_summaries']))
+            self.assertEqual(
+                len(verification['question_source_summaries']),
+                len(packet['source_summaries']),
+            )
             self.assertEqual(
                 written_files,
                 sorted(
@@ -1055,6 +1100,14 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
             self.assertIn('responsible_answers.review_missing', audit['issue_codes'])
             self.assertTrue(audit['questions']['candidates'][0]['path_hash'])
             self.assertTrue(audit['answer_templates']['candidates'][0]['path_hash'])
+            self.assertEqual(
+                audit['questions']['candidates'][0]['readiness_sources_total'],
+                len(packet['source_summaries']),
+            )
+            self.assertEqual(
+                len(audit['questions']['candidates'][0]['source_summaries']),
+                len(packet['source_summaries']),
+            )
             self.assertNotIn('Socio Controlado Uno', rendered)
             self.assertNotIn('11111111-1', rendered)
             self.assertNotIn(str(sensitive_dir), rendered)
