@@ -477,6 +477,39 @@ def write_company_accounting_responsible_answers_template(
     }
 
 
+def _safe_ready_flags(raw_flags: Any) -> dict[str, bool]:
+    if not isinstance(raw_flags, dict):
+        return {}
+    flags: dict[str, bool] = {}
+    for key, value in raw_flags.items():
+        key_text = str(key or '').strip()
+        if _is_safe_ref(key_text) and isinstance(value, bool):
+            flags[key_text] = value
+    return {key: flags[key] for key in sorted(flags)}
+
+
+def _questions_source_summaries(questions_packet: dict[str, Any]) -> list[dict[str, Any]]:
+    raw_summaries = questions_packet.get('source_summaries')
+    if not isinstance(raw_summaries, list):
+        return []
+
+    summaries: list[dict[str, Any]] = []
+    for raw_summary in raw_summaries:
+        if not isinstance(raw_summary, dict):
+            continue
+        summaries.append(
+            {
+                'label': _safe_ref(raw_summary.get('label'), fallback='source'),
+                'schema_version': _safe_ref(raw_summary.get('schema_version'), fallback='schema-version-pending'),
+                'classification': _safe_ref(raw_summary.get('classification'), fallback='classification-pending'),
+                'ready_flags': _safe_ready_flags(raw_summary.get('ready_flags')),
+                'issues_total': _safe_int(raw_summary.get('issues_total')),
+                'source_hash': _safe_ref(raw_summary.get('source_hash'), fallback='source-hash-pending'),
+            }
+        )
+    return sorted(summaries, key=lambda item: (item['label'], item['source_hash']))
+
+
 def _handoff_packet_fingerprint(manifest: dict[str, Any]) -> dict[str, Any]:
     return {
         'schema_version': manifest.get('schema_version'),
@@ -538,6 +571,7 @@ def build_company_accounting_responsible_handoff_packet(
         raise ValueError('answers_template no puede declarar calculo tributario final ni presentacion SII.')
 
     questions_summary = questions_packet.get('summary') if isinstance(questions_packet.get('summary'), dict) else {}
+    source_summaries = _questions_source_summaries(questions_packet)
     manifest = {
         'schema_version': COMPANY_ACCOUNTING_RESPONSIBLE_HANDOFF_PACKET_SCHEMA_VERSION,
         'generated_at': datetime.now(timezone.utc).isoformat(),
@@ -555,6 +589,8 @@ def build_company_accounting_responsible_handoff_packet(
                 'schema_version': questions_packet.get('schema_version'),
                 'questions_total': questions_total,
                 'categories_total': _safe_int(questions_summary.get('categories_total')),
+                'source_summaries': source_summaries,
+                'readiness_sources_total': len(source_summaries),
                 'payload_hash': _canonical_hash(questions_packet),
                 'package_hash': questions_packet.get('package_hash') or _canonical_hash(questions_packet),
             },
@@ -572,6 +608,7 @@ def build_company_accounting_responsible_handoff_packet(
             'questions_total': questions_total,
             'answers_total': answers_total,
             'pending_answers_total': pending_answers_total,
+            'readiness_sources_total': len(source_summaries),
             'ready_for_responsible_answer_completion': True,
             'ready_for_responsible_decision_handoff': False,
             'ready_for_productive_accounting_review': False,
@@ -684,6 +721,7 @@ def verify_company_accounting_responsible_handoff_packet(*, package_dir: Path) -
         'tax_year': manifest['tax_year'],
         'package_hash': manifest['package_hash'],
         'summary': manifest['summary'],
+        'question_source_summaries': manifest['artifacts']['questions_packet'].get('source_summaries') or [],
         'issue_codes': manifest['issue_codes'],
         'raw_paths_returned': False,
     }
@@ -920,6 +958,7 @@ def _questions_discovery_candidate(*, payload: dict[str, Any], relative_path_ref
     reported_questions_total = _safe_int(summary.get('questions_total'))
     questions_total = len(questions)
     categories_total = _safe_int(summary.get('categories_total'))
+    source_summaries = _questions_source_summaries(payload)
     reported_ready = bool(summary.get('ready_for_responsible_review'))
     issue_codes = set()
     if not schema_valid:
@@ -945,6 +984,7 @@ def _questions_discovery_candidate(*, payload: dict[str, Any], relative_path_ref
                 [question for question in questions if isinstance(question, dict)],
                 key=lambda item: str(item.get('key') or ''),
             ),
+            'source_summaries': source_summaries,
             'boundary': boundary,
         }
     )
@@ -959,6 +999,8 @@ def _questions_discovery_candidate(*, payload: dict[str, Any], relative_path_ref
         'tax_year': _safe_int(payload.get('tax_year')),
         'questions_total': questions_total,
         'categories_total': categories_total,
+        'readiness_sources_total': len(source_summaries),
+        'source_summaries': source_summaries,
         'reported_ready_for_responsible_review': reported_ready,
         'ready_for_responsible_review': effective_ready,
         'issue_codes': sorted_issue_codes,
@@ -975,6 +1017,8 @@ def _questions_discovery_candidate(*, payload: dict[str, Any], relative_path_ref
         'tax_year': fingerprint['tax_year'],
         'questions_total': questions_total,
         'categories_total': categories_total,
+        'readiness_sources_total': len(source_summaries),
+        'source_summaries': source_summaries,
         'reported_ready_for_responsible_review': reported_ready,
         'ready_for_responsible_review': effective_ready,
         'issue_codes': sorted_issue_codes,

@@ -251,6 +251,14 @@ revision contable/renta transporta hacia el handoff responsable
 `document_intake_ready_for_productive_review`, manteniendo trazable si el
 bloqueo es soporte formal Banco Chile/leasing o intake documental no productivo.
 
+Nota 2026-06-20: `materialize_company_accounting_responsible_handoff_packet`,
+su verificador y `audit_company_accounting_responsible_handoff_preflight`
+preservan esos `source_summaries` sanitizados dentro del paquete verificable y
+de los candidatos de preflight. El handoff ahora expone
+`readiness_sources_total` y flags seguras de origen sin rutas, nombres, RUTs ni
+PII, evitando que al pasar de preguntas a carpeta verificable se pierda si el
+bloqueo pendiente es soporte bancario formal o intake documental productivo.
+
 Nota 2026-06-18: Etapa 6/Renta Anual separa el codigo de certificacion F22 del
 candidato local. `build_annual_tax_f22_fixed_width_export_candidate()` ahora
 requiere fuente no sensible, responsable revisor y estado de revision para los

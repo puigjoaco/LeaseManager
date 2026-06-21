@@ -137,6 +137,7 @@ class Command(BaseCommand):
             'questions_total': verification['summary']['questions_total'],
             'answers_total': verification['summary']['answers_total'],
             'pending_answers_total': verification['summary']['pending_answers_total'],
+            'readiness_sources_total': verification['summary'].get('readiness_sources_total', 0),
             'ready_for_responsible_answer_completion': verification['summary'][
                 'ready_for_responsible_answer_completion'
             ],

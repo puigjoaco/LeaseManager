@@ -1404,7 +1404,11 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   pero mantiene `ready_for_responsible_decision_handoff=false`,
   `ready_for_productive_accounting_review=false`,
   `final_tax_calculation=false` y `sii_submission=false`; no crea review,
-  ownership final, contabilidad final ni presentacion SII.
+  ownership final, contabilidad final ni presentacion SII. El manifest conserva
+  los `source_summaries` sanitizados del paquete de preguntas y el total de
+  fuentes de readiness, incluyendo flags seguras como soporte bancario formal e
+  intake documental productivo, para que el handoff no pierda el contexto del
+  bloqueo al pasar a paquete verificable.
 - `audit_company_accounting_responsible_answers_review_presence` audita si ya
   existe un `company-accounting-responsible-answers-review.json` listo bajo
   `local-evidence/`. El auditor no devuelve rutas crudas, solo hashes de
@@ -1424,7 +1428,9 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   un handoff packet materializado que contiene copias canonicas de las mismas
   preguntas/template, el preflight cuenta los duplicados fisicos pero deduplica
   readiness por hash semantico; esas copias no bloquean falsamente como
-  multiples handoffs distintos.
+  multiples handoffs distintos. Los candidatos de preguntas tambien exponen
+  `readiness_sources_total` y `source_summaries` sanitizados, sin rutas crudas ni
+  valores sensibles, para distinguir avance local de blockers formales.
 - Reporting expone `POST /api/v1/reporting/contabilidad/paquete-revision-empresa/`
   para construir ese mismo paquete desde una superficie operativa con scope de
   empresa. El body debe incluir `empresa_id`, `fiscal_year` y
