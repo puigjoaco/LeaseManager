@@ -17,7 +17,7 @@ from core.management.commands.materialize_company_document_intake import _safe_p
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 
 
-def _complete_manifest():
+def _complete_manifest(*, statement_strength='verified_complete'):
     operations = [
         {'operation_ref': f'leasing-op-{index:02d}', 'label_ref': f'banco-chile-leasing-{index:02d}'}
         for index in range(1, 3)
@@ -56,7 +56,7 @@ def _complete_manifest():
                 'document_ref': 'banco-chile-confirmation',
                 'batch_ref': 'banco-chile-thread-redacted',
                 'category': 'bank_confirmation',
-                'statement_strength': 'verified_complete',
+                'statement_strength': statement_strength,
             },
             {
                 'document_ref': 'rcv-2025-controlled',
@@ -115,11 +115,14 @@ class CompanyDocumentIntakeTests(SimpleTestCase):
         self.assertEqual(result['classification'], 'preparado')
         self.assertTrue(result['ready_for_document_intake_review'])
         self.assertTrue(result['ready_for_bank_support_manifest'])
+        self.assertTrue(result['ready_for_formal_bank_support_manifest'])
         self.assertTrue(result['ready_for_source_manifest_reconciliation'])
         self.assertTrue(result['ready_for_productive_document_review'])
+        self.assertTrue(result['summary']['ready_for_formal_bank_support_manifest'])
         self.assertEqual(result['summary']['company_ref'], 'company-1')
         self.assertEqual(result['bank_support_coverage']['classification'], 'preparado')
         self.assertEqual(result['bank_support_coverage']['coverage_percent'], 100)
+        self.assertTrue(result['bank_support_coverage']['ready_for_formal_bank_support_review'])
         self.assertEqual(result['bank_support_manifest_draft']['schema_version'], 'company-bank-support-coverage-manifest.v1')
         self.assertEqual(result['annual_source_bridge']['target_source_manifest_schema_version'], 'annual-tax-source-manifest.v1')
         self.assertFalse(result['annual_source_bridge']['can_replace_read_only_source_scan'])
@@ -132,6 +135,29 @@ class CompanyDocumentIntakeTests(SimpleTestCase):
         rendered = json.dumps(result)
         self.assertNotIn('://', rendered)
         self.assertNotIn('@', rendered)
+
+    def test_expected_complete_bank_confirmation_does_not_enable_productive_review(self):
+        result = audit_company_document_intake(
+            payload=_complete_manifest(statement_strength='expected_complete')
+        )
+
+        warning_codes = {
+            warning['code']
+            for warning in result['warnings']
+        }
+
+        self.assertEqual(result['classification'], 'preparado')
+        self.assertTrue(result['ready_for_document_intake_review'])
+        self.assertTrue(result['ready_for_bank_support_manifest'])
+        self.assertFalse(result['ready_for_formal_bank_support_manifest'])
+        self.assertTrue(result['ready_for_source_manifest_reconciliation'])
+        self.assertFalse(result['ready_for_productive_document_review'])
+        self.assertTrue(result['bank_support_coverage']['ready_for_accounting_document_review'])
+        self.assertFalse(result['bank_support_coverage']['ready_for_formal_bank_support_review'])
+        self.assertIn(
+            'company_document_intake.company_bank_support.bank_confirmation_not_file_by_file_verified',
+            warning_codes,
+        )
 
     def test_sensitive_intake_blocks_without_leaking_values(self):
         manifest = _complete_manifest()
@@ -269,8 +295,11 @@ class CompanyDocumentIntakeTests(SimpleTestCase):
             self.assertEqual(disk_verification['annual_source_bridge']['schema_version'], 'annual-tax-source-intake-bridge.v1')
             self.assertTrue(result['ready_for_document_intake_review'])
             self.assertTrue(result['ready_for_bank_support_manifest'])
+            self.assertTrue(result['ready_for_formal_bank_support_manifest'])
             self.assertTrue(result['ready_for_source_manifest_reconciliation'])
             self.assertTrue(result['ready_for_productive_document_review'])
+            self.assertTrue(verification['ready_for_formal_bank_support_manifest'])
+            self.assertTrue(disk_verification['ready_for_formal_bank_support_manifest'])
             self.assertEqual(result['company_ref'], 'company-1')
             self.assertEqual(result['fiscal_year'], 2025)
             self.assertEqual(result['tax_year'], 2026)

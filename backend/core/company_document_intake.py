@@ -775,8 +775,12 @@ def audit_company_document_intake(*, payload: dict[str, Any]) -> dict[str, Any]:
 
     ready_for_document_intake_review = bool(documents) and not intake_blocking_issues
     ready_for_bank_support_manifest = bank_support_required and bank_support['ready_for_accounting_document_review']
+    ready_for_formal_bank_support_manifest = (
+        bank_support_required and bank_support['ready_for_formal_bank_support_review']
+    )
     ready_for_productive_document_review = ready_for_document_intake_review and (
-        (not bank_support_required or ready_for_bank_support_manifest) and (bank_support_required or annual_source_present)
+        (not bank_support_required or ready_for_formal_bank_support_manifest)
+        and (bank_support_required or annual_source_present)
     )
 
     safe_documents = [
@@ -800,6 +804,7 @@ def audit_company_document_intake(*, payload: dict[str, Any]) -> dict[str, Any]:
         'annual_source_documents_total': len(annual_bridge['document_refs']),
         'ready_for_document_intake_review': ready_for_document_intake_review,
         'ready_for_bank_support_manifest': ready_for_bank_support_manifest,
+        'ready_for_formal_bank_support_manifest': ready_for_formal_bank_support_manifest,
         'ready_for_source_manifest_reconciliation': annual_bridge['ready_for_source_manifest_reconciliation'],
         'ready_for_productive_document_review': ready_for_productive_document_review,
     }
@@ -825,6 +830,7 @@ def audit_company_document_intake(*, payload: dict[str, Any]) -> dict[str, Any]:
         'classification': _classification(documents_total=len(documents), blocking_issues=intake_blocking_issues),
         'ready_for_document_intake_review': ready_for_document_intake_review,
         'ready_for_bank_support_manifest': ready_for_bank_support_manifest,
+        'ready_for_formal_bank_support_manifest': ready_for_formal_bank_support_manifest,
         'ready_for_source_manifest_reconciliation': annual_bridge['ready_for_source_manifest_reconciliation'],
         'ready_for_productive_document_review': ready_for_productive_document_review,
         'summary': summary,
@@ -868,6 +874,14 @@ def audit_company_document_intake(*, payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _package_manifest_for(audit_result: dict[str, Any]) -> dict[str, Any]:
+    ready_for_formal_bank_support_manifest = audit_result.get(
+        'ready_for_formal_bank_support_manifest',
+        bool(
+            (audit_result.get('bank_support_coverage') or {}).get(
+                'ready_for_formal_bank_support_review'
+            )
+        ),
+    )
     files = [
         {
             'file': DOCUMENT_INTAKE_AUDIT_FILE,
@@ -894,6 +908,7 @@ def _package_manifest_for(audit_result: dict[str, Any]) -> dict[str, Any]:
         'classification': audit_result['classification'],
         'ready_for_document_intake_review': audit_result['ready_for_document_intake_review'],
         'ready_for_bank_support_manifest': audit_result['ready_for_bank_support_manifest'],
+        'ready_for_formal_bank_support_manifest': ready_for_formal_bank_support_manifest,
         'ready_for_source_manifest_reconciliation': audit_result['ready_for_source_manifest_reconciliation'],
         'ready_for_productive_document_review': audit_result['ready_for_productive_document_review'],
         'summary': audit_result['summary'],
@@ -1005,6 +1020,7 @@ def verify_company_document_intake_package(
         'classification': manifest['classification'],
         'ready_for_document_intake_review': manifest['ready_for_document_intake_review'],
         'ready_for_bank_support_manifest': manifest['ready_for_bank_support_manifest'],
+        'ready_for_formal_bank_support_manifest': manifest['ready_for_formal_bank_support_manifest'],
         'ready_for_source_manifest_reconciliation': manifest['ready_for_source_manifest_reconciliation'],
         'ready_for_productive_document_review': manifest['ready_for_productive_document_review'],
         'summary': manifest['summary'],
@@ -1083,6 +1099,7 @@ def verify_company_document_intake_package_from_disk(*, package_dir: Any) -> dic
         'classification': manifest['classification'],
         'ready_for_document_intake_review': manifest['ready_for_document_intake_review'],
         'ready_for_bank_support_manifest': manifest['ready_for_bank_support_manifest'],
+        'ready_for_formal_bank_support_manifest': manifest['ready_for_formal_bank_support_manifest'],
         'ready_for_source_manifest_reconciliation': manifest['ready_for_source_manifest_reconciliation'],
         'ready_for_productive_document_review': manifest['ready_for_productive_document_review'],
         'summary': manifest['summary'],
