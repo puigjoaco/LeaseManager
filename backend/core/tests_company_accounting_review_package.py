@@ -40,8 +40,10 @@ from sii.models import (
     AnnualTaxTrialBalance,
     AnnualTaxTrialBalanceLine,
     AnnualTaxWorkbook,
+    AnnualTaxWorkbookLine,
     CapacidadSII,
     CapacidadTributariaSII,
+    DestinoMapeoTributarioAnual,
     EstadoAnnualTaxArtifactMatrix,
     EstadoAnnualTaxDossier,
     EstadoAnnualTaxExport,
@@ -55,6 +57,7 @@ from sii.models import (
     F29PreparacionMensual,
     MonthlyTaxFact,
     ProcesoRentaAnual,
+    TaxCodeMapping,
     TaxYearRuleSet,
     TipoAnnualTaxWorkbook,
     TipoAnnualTaxOfficialSource,
@@ -360,6 +363,38 @@ class CompanyAccountingReviewPackageTests(TestCase):
             estado=EstadoRegistro.ACTIVE,
         )
 
+    def _create_workbook_line(self, workbook):
+        destino = (
+            DestinoMapeoTributarioAnual.RLI
+            if workbook.tipo == TipoAnnualTaxWorkbook.RLI
+            else DestinoMapeoTributarioAnual.CPT
+        )
+        mapping, _ = TaxCodeMapping.objects.get_or_create(
+            rule_set=workbook.rule_set,
+            destino=destino,
+            codigo_interno=f'{workbook.tipo.lower()}.lease.controlled',
+            codigo_destino=f'{workbook.tipo}-CONTROLLED-001',
+            defaults={
+                'formula_ref': f'{workbook.tipo.lower()}-formula-controlled',
+                'evidencia_ref': f'{workbook.tipo.lower()}-evidence-controlled',
+                'official_source': workbook.rule_set.official_source,
+                'metadata': {'source': 'company-accounting-review-package-test'},
+            },
+        )
+        return AnnualTaxWorkbookLine.objects.create(
+            workbook=workbook,
+            mapping=mapping,
+            codigo_interno=mapping.codigo_interno,
+            codigo_destino=mapping.codigo_destino,
+            origen='company-accounting-review-package-test',
+            monto_clp='1000.00',
+            formula_ref=f'{workbook.tipo.lower()}-line-formula-controlled',
+            evidencia_ref=f'{workbook.tipo.lower()}-line-evidence-controlled',
+            source_payload={'source': 'company-accounting-review-package-test', 'workbook_id': workbook.id},
+            hash_linea='e' * 64,
+            estado=EstadoRegistro.ACTIVE,
+        )
+
     def _prepare_complete_accounting_layers(self, empresa):
         config = self._activate_fiscal_config(empresa)
         f29_capability = self._create_f29_capability(empresa)
@@ -433,7 +468,7 @@ class CompanyAccountingReviewPackageTests(TestCase):
         )
         self._create_trial_balance_line(trial_balance)
         for kind in (TipoAnnualTaxWorkbook.RLI, TipoAnnualTaxWorkbook.CPT):
-            AnnualTaxWorkbook.objects.create(
+            workbook = AnnualTaxWorkbook.objects.create(
                 empresa=empresa,
                 proceso_renta_anual=process,
                 source_bundle=source_bundle,
@@ -447,6 +482,7 @@ class CompanyAccountingReviewPackageTests(TestCase):
                 hash_workbook='5' * 64,
                 estado=EstadoAnnualTaxWorkbook.PREPARED,
             )
+            self._create_workbook_line(workbook)
         matrix = AnnualTaxArtifactMatrix.objects.create(
             empresa=empresa,
             proceso_renta_anual=process,

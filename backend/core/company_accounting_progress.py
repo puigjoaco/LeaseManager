@@ -21,6 +21,7 @@ from sii.models import (
     AnnualTaxTrialBalance,
     AnnualTaxTrialBalanceLine,
     AnnualTaxWorkbook,
+    AnnualTaxWorkbookLine,
     EstadoAnnualTaxDossier,
     EstadoAnnualTaxExport,
     EstadoAnnualTaxSourceBundle,
@@ -291,6 +292,10 @@ def _annual_trial_balance_has_materialized_lines(*, lines_total: Any, active_lin
     )
 
 
+def _annual_workbook_has_materialized_lines(*, active_lines_total: int) -> bool:
+    return active_lines_total > 0
+
+
 def _progress_percent(phases: list[ProgressPhase]) -> int:
     expected = sum(phase.expected for phase in phases)
     if expected <= 0:
@@ -535,16 +540,30 @@ def collect_company_accounting_candidates(*, empresa_ids: list[int] | None = Non
         if bucket := year_bucket(empresa_id, fiscal_year):
             bucket['signals']['annual_trial_balance'] = count
 
-    workbook_types: dict[tuple[int, int], set[str]] = defaultdict(set)
+    workbook_candidates = []
     for item in AnnualTaxWorkbook.objects.filter(
         empresa_id__in=company_ids,
         estado=EstadoAnnualTaxWorkbook.PREPARED,
         tipo__in=[TipoAnnualTaxWorkbook.RLI, TipoAnnualTaxWorkbook.CPT],
         proceso_renta_anual_id__in=valid_process_id_list,
-    ).values('proceso_renta_anual_id', 'source_bundle_id', 'tipo'):
+    ).values('id', 'proceso_renta_anual_id', 'source_bundle_id', 'tipo'):
         process_id = item['proceso_renta_anual_id']
         if item['source_bundle_id'] != valid_annual_process_source_bundle_ids.get(process_id):
             continue
+        workbook_candidates.append(item)
+    active_workbook_line_counts = Counter(
+        AnnualTaxWorkbookLine.objects.filter(
+            workbook_id__in=[item['id'] for item in workbook_candidates],
+            estado=EstadoRegistro.ACTIVE,
+        ).values_list('workbook_id', flat=True)
+    )
+    workbook_types: dict[tuple[int, int], set[str]] = defaultdict(set)
+    for item in workbook_candidates:
+        if not _annual_workbook_has_materialized_lines(
+            active_lines_total=active_workbook_line_counts[item['id']],
+        ):
+            continue
+        process_id = item['proceso_renta_anual_id']
         workbook_types[valid_annual_process_ids[process_id]].add(item['tipo'])
     for (empresa_id, fiscal_year), types in workbook_types.items():
         if bucket := year_bucket(empresa_id, fiscal_year):
@@ -764,13 +783,26 @@ def collect_company_accounting_progress(*, empresa_id: int, fiscal_year: int) ->
             for item in annual_trial_balance_candidates
         )
 
-        prepared_workbook_types = set(
+        workbook_candidates = list(
             AnnualTaxWorkbook.objects.filter(
                 **process_filter,
                 estado=EstadoAnnualTaxWorkbook.PREPARED,
                 tipo__in=[TipoAnnualTaxWorkbook.RLI, TipoAnnualTaxWorkbook.CPT],
-            ).values_list('tipo', flat=True)
+            ).values('id', 'tipo')
         )
+        active_workbook_line_counts = Counter(
+            AnnualTaxWorkbookLine.objects.filter(
+                workbook_id__in=[item['id'] for item in workbook_candidates],
+                estado=EstadoRegistro.ACTIVE,
+            ).values_list('workbook_id', flat=True)
+        )
+        prepared_workbook_types = {
+            item['tipo']
+            for item in workbook_candidates
+            if _annual_workbook_has_materialized_lines(
+                active_lines_total=active_workbook_line_counts[item['id']],
+            )
+        }
 
         annual_dossier_ready = AnnualTaxDossier.objects.filter(
             **process_filter,
