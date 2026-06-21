@@ -44,6 +44,7 @@ from sii.models import (
     CapacidadSII,
     CapacidadTributariaSII,
     DestinoMapeoTributarioAnual,
+    EstadoAnnualTaxArtifactReview,
     EstadoAnnualTaxArtifactMatrix,
     EstadoAnnualTaxDossier,
     EstadoAnnualTaxExport,
@@ -395,6 +396,74 @@ class CompanyAccountingReviewPackageTests(TestCase):
             estado=EstadoRegistro.ACTIVE,
         )
 
+    def _prepare_reviewable_dossier(self, *, process, source_bundle, rule_set, matrix, dossier):
+        summary = {
+            'source': 'company-accounting-review-package-test',
+            'empresa_id': process.empresa_id,
+            'proceso_renta_anual_id': process.id,
+            'source_bundle_id': source_bundle.id,
+            'rule_set_id': rule_set.id,
+            'artifact_matrix_id': matrix.id,
+            'anio_tributario': process.anio_tributario,
+            'anio_comercial': process.anio_tributario - 1,
+            'source_bundle_hash': source_bundle.hash_fuentes,
+            'rule_set_hash': rule_set.hash_normativo,
+            'artifact_matrix_hash': matrix.hash_matriz,
+            'monthly_facts_total': dossier.monthly_facts_total,
+            'workbooks_total': dossier.workbooks_total,
+            'enterprise_registers_total': dossier.enterprise_registers_total,
+            'real_estate_sections_total': dossier.real_estate_sections_total,
+            'artifact_matrix_items_total': dossier.artifact_matrix_items_total,
+            'matrix_items_total': dossier.artifact_matrix_items_total,
+            'ddjj_items_total': matrix.ddjj_items_total,
+            'f22_items_total': matrix.f22_items_total,
+            'warnings_total': dossier.warnings_total,
+            'warnings_reviewed_total': 0,
+            'warnings_pending_review_total': 0,
+            'review_state': EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW,
+            'review_state_counts': {
+                EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW: dossier.artifact_matrix_items_total,
+            },
+            'item_refs': [],
+            'official_format': False,
+            'sii_submission': False,
+            'final_tax_calculation': False,
+        }
+        dossier_hash = payload_hash(summary)
+        AnnualTaxDossier.objects.filter(pk=dossier.pk).update(
+            review_state=EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW,
+            resumen_dossier=summary,
+            hash_dossier=dossier_hash,
+        )
+        dossier.review_state = EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW
+        dossier.resumen_dossier = summary
+        dossier.hash_dossier = dossier_hash
+        annual_tax_dossiers = {
+            'total': 1,
+            'ids': [str(dossier.id)],
+            'by_id': {
+                str(dossier.id): {
+                    'id': dossier.id,
+                    'hash_dossier': dossier_hash,
+                    'artifact_matrix_id': matrix.id,
+                    'artifact_matrix_hash': matrix.hash_matriz,
+                    'review_state': EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW,
+                    'monthly_facts_total': dossier.monthly_facts_total,
+                    'workbooks_total': dossier.workbooks_total,
+                    'enterprise_registers_total': dossier.enterprise_registers_total,
+                    'real_estate_sections_total': dossier.real_estate_sections_total,
+                    'artifact_matrix_items_total': dossier.artifact_matrix_items_total,
+                    'warnings_total': dossier.warnings_total,
+                    'source_bundle_id': source_bundle.id,
+                    'rule_set_id': rule_set.id,
+                },
+            },
+        }
+        process_summary = process.resumen_anual if isinstance(process.resumen_anual, dict) else {}
+        process_summary = {**process_summary, 'annual_tax_dossiers': annual_tax_dossiers}
+        ProcesoRentaAnual.objects.filter(pk=process.pk).update(resumen_anual=process_summary)
+        process.resumen_anual = process_summary
+
     def _prepare_complete_accounting_layers(self, empresa):
         config = self._activate_fiscal_config(empresa)
         f29_capability = self._create_f29_capability(empresa)
@@ -516,6 +585,13 @@ class CompanyAccountingReviewPackageTests(TestCase):
             resumen_dossier={'source': 'company-accounting-review-package-test'},
             hash_dossier='7' * 64,
             estado=EstadoAnnualTaxDossier.PREPARED,
+        )
+        self._prepare_reviewable_dossier(
+            process=process,
+            source_bundle=source_bundle,
+            rule_set=rule_set,
+            matrix=matrix,
+            dossier=dossier,
         )
         export_payload = self._export_package_payload()
         AnnualTaxExport.objects.create(

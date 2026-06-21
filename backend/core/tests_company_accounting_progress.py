@@ -35,6 +35,7 @@ from sii.models import (
     CapacidadSII,
     CapacidadTributariaSII,
     DestinoMapeoTributarioAnual,
+    EstadoAnnualTaxArtifactReview,
     EstadoAnnualTaxArtifactMatrix,
     EstadoAnnualTaxDossier,
     EstadoAnnualTaxExport,
@@ -323,6 +324,74 @@ class CompanyAccountingProgressTests(TestCase):
             'export_file_package_hash': payload_hash(package_manifest),
         }
 
+    def _prepare_reviewable_dossier(self, *, process, source_bundle, rule_set, matrix, dossier):
+        summary = {
+            'source': 'company-accounting-progress-test',
+            'empresa_id': process.empresa_id,
+            'proceso_renta_anual_id': process.id,
+            'source_bundle_id': source_bundle.id,
+            'rule_set_id': rule_set.id,
+            'artifact_matrix_id': matrix.id,
+            'anio_tributario': process.anio_tributario,
+            'anio_comercial': process.anio_tributario - 1,
+            'source_bundle_hash': source_bundle.hash_fuentes,
+            'rule_set_hash': rule_set.hash_normativo,
+            'artifact_matrix_hash': matrix.hash_matriz,
+            'monthly_facts_total': dossier.monthly_facts_total,
+            'workbooks_total': dossier.workbooks_total,
+            'enterprise_registers_total': dossier.enterprise_registers_total,
+            'real_estate_sections_total': dossier.real_estate_sections_total,
+            'artifact_matrix_items_total': dossier.artifact_matrix_items_total,
+            'matrix_items_total': dossier.artifact_matrix_items_total,
+            'ddjj_items_total': matrix.ddjj_items_total,
+            'f22_items_total': matrix.f22_items_total,
+            'warnings_total': dossier.warnings_total,
+            'warnings_reviewed_total': 0,
+            'warnings_pending_review_total': 0,
+            'review_state': EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW,
+            'review_state_counts': {
+                EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW: dossier.artifact_matrix_items_total,
+            },
+            'item_refs': [],
+            'official_format': False,
+            'sii_submission': False,
+            'final_tax_calculation': False,
+        }
+        dossier_hash = payload_hash(summary)
+        AnnualTaxDossier.objects.filter(pk=dossier.pk).update(
+            review_state=EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW,
+            resumen_dossier=summary,
+            hash_dossier=dossier_hash,
+        )
+        dossier.review_state = EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW
+        dossier.resumen_dossier = summary
+        dossier.hash_dossier = dossier_hash
+        annual_tax_dossiers = {
+            'total': 1,
+            'ids': [str(dossier.id)],
+            'by_id': {
+                str(dossier.id): {
+                    'id': dossier.id,
+                    'hash_dossier': dossier_hash,
+                    'artifact_matrix_id': matrix.id,
+                    'artifact_matrix_hash': matrix.hash_matriz,
+                    'review_state': EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW,
+                    'monthly_facts_total': dossier.monthly_facts_total,
+                    'workbooks_total': dossier.workbooks_total,
+                    'enterprise_registers_total': dossier.enterprise_registers_total,
+                    'real_estate_sections_total': dossier.real_estate_sections_total,
+                    'artifact_matrix_items_total': dossier.artifact_matrix_items_total,
+                    'warnings_total': dossier.warnings_total,
+                    'source_bundle_id': source_bundle.id,
+                    'rule_set_id': rule_set.id,
+                },
+            },
+        }
+        process_summary = process.resumen_anual if isinstance(process.resumen_anual, dict) else {}
+        process_summary = {**process_summary, 'annual_tax_dossiers': annual_tax_dossiers}
+        ProcesoRentaAnual.objects.filter(pk=process.pk).update(resumen_anual=process_summary)
+        process.resumen_anual = process_summary
+
     def test_partial_progress_reports_next_missing_phase_without_external_sources(self):
         empresa = self._create_empresa()
         self._activate_fiscal_config(empresa)
@@ -555,11 +624,25 @@ class CompanyAccountingProgressTests(TestCase):
         missing_package_result = collect_company_accounting_candidates(empresa_ids=[empresa.id, empresa_sin_senales.id])
         self.assertEqual(missing_package_result['candidates'][0]['years'][0]['signals']['annual_trial_balance'], 0)
         self.assertEqual(missing_package_result['candidates'][0]['years'][0]['signals']['rli_cpt_workbooks'], 0)
+        self.assertEqual(missing_package_result['candidates'][0]['years'][0]['signals']['annual_dossier'], 0)
         self.assertEqual(missing_package_result['candidates'][0]['years'][0]['signals']['annual_export'], 0)
 
         self._create_trial_balance_line(trial_balance)
         for workbook in workbooks:
             self._create_workbook_line(workbook)
+        missing_dossier_result = collect_company_accounting_candidates(empresa_ids=[empresa.id, empresa_sin_senales.id])
+        self.assertEqual(missing_dossier_result['candidates'][0]['years'][0]['signals']['annual_trial_balance'], 1)
+        self.assertEqual(missing_dossier_result['candidates'][0]['years'][0]['signals']['rli_cpt_workbooks'], 2)
+        self.assertEqual(missing_dossier_result['candidates'][0]['years'][0]['signals']['annual_dossier'], 0)
+        self.assertEqual(missing_dossier_result['candidates'][0]['years'][0]['signals']['annual_export'], 0)
+
+        self._prepare_reviewable_dossier(
+            process=process,
+            source_bundle=source_bundle,
+            rule_set=rule_set,
+            matrix=matrix,
+            dossier=dossier,
+        )
         export_payload = self._export_package_payload()
         AnnualTaxExport.objects.filter(pk=export.pk).update(
             export_payload=export_payload,
@@ -1120,11 +1203,30 @@ class CompanyAccountingProgressTests(TestCase):
         self.assertFalse(missing_package_result['ready_for_company_accounting_review'])
         self.assertTrue(missing_package_result['phases']['annual_trial_balance']['ready'])
         self.assertTrue(missing_package_result['phases']['rli_cpt_workbooks']['ready'])
+        self.assertFalse(missing_package_result['phases']['annual_dossier']['ready'])
         self.assertFalse(missing_package_result['phases']['annual_export']['ready'])
-        self.assertEqual(missing_package_result['next_blocking_phase'], 'annual_export')
+        self.assertEqual(missing_package_result['next_blocking_phase'], 'annual_dossier')
+        self.assertIn(
+            'company_accounting.annual_dossier_missing',
+            {issue['code'] for issue in missing_package_result['issues']},
+        )
+
+        self._prepare_reviewable_dossier(
+            process=process,
+            source_bundle=source_bundle,
+            rule_set=rule_set,
+            matrix=matrix,
+            dossier=dossier,
+        )
+        missing_export_result = collect_company_accounting_progress(empresa_id=empresa.id, fiscal_year=2025)
+        self.assertEqual(missing_export_result['classification'], 'parcial')
+        self.assertFalse(missing_export_result['ready_for_company_accounting_review'])
+        self.assertTrue(missing_export_result['phases']['annual_dossier']['ready'])
+        self.assertFalse(missing_export_result['phases']['annual_export']['ready'])
+        self.assertEqual(missing_export_result['next_blocking_phase'], 'annual_export')
         self.assertIn(
             'company_accounting.annual_export_missing',
-            {issue['code'] for issue in missing_package_result['issues']},
+            {issue['code'] for issue in missing_export_result['issues']},
         )
 
         malformed_export_payload = self._export_package_payload()

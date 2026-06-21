@@ -22,6 +22,7 @@ from sii.models import (
     AnnualTaxTrialBalanceLine,
     AnnualTaxWorkbook,
     AnnualTaxWorkbookLine,
+    EstadoAnnualTaxArtifactReview,
     EstadoAnnualTaxDossier,
     EstadoAnnualTaxExport,
     EstadoAnnualTaxSourceBundle,
@@ -294,6 +295,104 @@ def _annual_trial_balance_has_materialized_lines(*, lines_total: Any, active_lin
 
 def _annual_workbook_has_materialized_lines(*, active_lines_total: int) -> bool:
     return active_lines_total > 0
+
+
+def _annual_dossier_has_reviewable_summary(item: dict[str, Any]) -> bool:
+    resumen = item.get('resumen_dossier')
+    if not isinstance(resumen, dict) or not resumen:
+        return False
+    if not _has_text(item.get('responsible_ref')) or not _has_text(item.get('dossier_ref')):
+        return False
+    if item.get('review_state') != EstadoAnnualTaxArtifactReview.READY_FOR_REVIEW:
+        return False
+    if resumen.get('review_state') != item.get('review_state'):
+        return False
+
+    hash_dossier = item.get('hash_dossier')
+    if not _is_sha256(hash_dossier) or hash_dossier != payload_hash(resumen):
+        return False
+    if not _is_sha256(resumen.get('artifact_matrix_hash')):
+        return False
+    if (
+        resumen.get('official_format') not in (False, None)
+        or resumen.get('sii_submission') not in (False, None)
+        or bool(resumen.get('sii_submission_attempted'))
+        or resumen.get('final_tax_calculation') not in (False, None)
+    ):
+        return False
+    if _int_or_none(resumen.get('warnings_pending_review_total')) != 0:
+        return False
+
+    required_positive_totals = {
+        'monthly_facts_total': 1,
+        'workbooks_total': 2,
+        'artifact_matrix_items_total': 1,
+    }
+    for field, minimum in required_positive_totals.items():
+        value = _int_or_none(item.get(field))
+        if value is None or value < minimum:
+            return False
+
+    expected_summary_fields = (
+        'empresa_id',
+        'proceso_renta_anual_id',
+        'source_bundle_id',
+        'rule_set_id',
+        'artifact_matrix_id',
+        'anio_tributario',
+        'anio_comercial',
+        'monthly_facts_total',
+        'workbooks_total',
+        'enterprise_registers_total',
+        'real_estate_sections_total',
+        'artifact_matrix_items_total',
+        'warnings_total',
+    )
+    for field in expected_summary_fields:
+        if _int_or_none(resumen.get(field)) != _int_or_none(item.get(field)):
+            return False
+
+    process_summary = item.get('proceso_renta_anual__resumen_anual')
+    if not isinstance(process_summary, dict):
+        return False
+    dossier_summary = process_summary.get('annual_tax_dossiers')
+    if not isinstance(dossier_summary, dict):
+        return False
+    dossier_id = item.get('id')
+    dossier_id_text = str(dossier_id)
+    summary_ids = {str(value) for value in (dossier_summary.get('ids') or [])}
+    if _int_or_none(dossier_summary.get('total')) != 1 or summary_ids != {dossier_id_text}:
+        return False
+
+    by_id = dossier_summary.get('by_id')
+    if not isinstance(by_id, dict):
+        return False
+    item_summary = by_id.get(dossier_id_text)
+    if not isinstance(item_summary, dict):
+        return False
+    if (
+        _int_or_none(item_summary.get('id')) != _int_or_none(dossier_id)
+        or item_summary.get('hash_dossier') != hash_dossier
+        or _int_or_none(item_summary.get('artifact_matrix_id')) != _int_or_none(item.get('artifact_matrix_id'))
+        or item_summary.get('artifact_matrix_hash') != resumen.get('artifact_matrix_hash')
+        or item_summary.get('review_state') != item.get('review_state')
+    ):
+        return False
+
+    for field in (
+        'source_bundle_id',
+        'rule_set_id',
+        'monthly_facts_total',
+        'workbooks_total',
+        'enterprise_registers_total',
+        'real_estate_sections_total',
+        'artifact_matrix_items_total',
+        'warnings_total',
+    ):
+        if _int_or_none(item_summary.get(field)) != _int_or_none(item.get(field)):
+            return False
+
+    return True
 
 
 def _progress_percent(phases: list[ProgressPhase]) -> int:
@@ -574,9 +673,32 @@ def collect_company_accounting_candidates(*, empresa_ids: list[int] | None = Non
         empresa_id__in=company_ids,
         estado=EstadoAnnualTaxDossier.PREPARED,
         proceso_renta_anual_id__in=valid_process_id_list,
-    ).values('proceso_renta_anual_id', 'source_bundle_id'):
+    ).values(
+        'id',
+        'empresa_id',
+        'proceso_renta_anual_id',
+        'proceso_renta_anual__resumen_anual',
+        'source_bundle_id',
+        'rule_set_id',
+        'artifact_matrix_id',
+        'anio_tributario',
+        'anio_comercial',
+        'responsible_ref',
+        'dossier_ref',
+        'review_state',
+        'monthly_facts_total',
+        'workbooks_total',
+        'enterprise_registers_total',
+        'real_estate_sections_total',
+        'artifact_matrix_items_total',
+        'warnings_total',
+        'resumen_dossier',
+        'hash_dossier',
+    ):
         process_id = item['proceso_renta_anual_id']
         if item['source_bundle_id'] != valid_annual_process_source_bundle_ids.get(process_id):
+            continue
+        if not _annual_dossier_has_reviewable_summary(item):
             continue
         annual_dossier_counts[valid_annual_process_ids[process_id]] += 1
     for (empresa_id, fiscal_year), count in annual_dossier_counts.items():
@@ -804,10 +926,34 @@ def collect_company_accounting_progress(*, empresa_id: int, fiscal_year: int) ->
             )
         }
 
-        annual_dossier_ready = AnnualTaxDossier.objects.filter(
-            **process_filter,
-            estado=EstadoAnnualTaxDossier.PREPARED,
-        ).exists()
+        annual_dossier_ready = any(
+            _annual_dossier_has_reviewable_summary(dossier)
+            for dossier in AnnualTaxDossier.objects.filter(
+                **process_filter,
+                estado=EstadoAnnualTaxDossier.PREPARED,
+            ).values(
+                'id',
+                'empresa_id',
+                'proceso_renta_anual_id',
+                'proceso_renta_anual__resumen_anual',
+                'source_bundle_id',
+                'rule_set_id',
+                'artifact_matrix_id',
+                'anio_tributario',
+                'anio_comercial',
+                'responsible_ref',
+                'dossier_ref',
+                'review_state',
+                'monthly_facts_total',
+                'workbooks_total',
+                'enterprise_registers_total',
+                'real_estate_sections_total',
+                'artifact_matrix_items_total',
+                'warnings_total',
+                'resumen_dossier',
+                'hash_dossier',
+            )
+        )
         annual_export_ready = any(
             _annual_export_has_ready_local_package(
                 export_payload=export['export_payload'],
