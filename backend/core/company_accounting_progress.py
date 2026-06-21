@@ -298,6 +298,53 @@ def _annual_workbook_has_materialized_lines(*, active_lines_total: int) -> bool:
     return active_lines_total > 0
 
 
+def _annual_summary_has_traceable_monthly_input(summary: dict[str, Any]) -> bool:
+    obligations = summary.get('obligaciones')
+    if isinstance(obligations, list) and bool(obligations):
+        return True
+    monthly_facts = summary.get('annual_tax_monthly_facts')
+    if not isinstance(monthly_facts, dict):
+        return False
+    try:
+        fact_months = sorted({int(month) for month in monthly_facts.get('months') or []})
+        fact_total = int(monthly_facts.get('total') or 0)
+    except (TypeError, ValueError):
+        return False
+    return fact_months == list(MONTHS) and fact_total == len(MONTHS)
+
+
+def _annual_process_has_traceable_summary(item: dict[str, Any]) -> bool:
+    summary = item.get('resumen_anual')
+    if not isinstance(summary, dict) or not summary:
+        return False
+    if contains_sensitive_reference(summary, include_sensitive_keys=True):
+        return False
+    fiscal_year = _int_or_none(summary.get('fiscal_year'))
+    tax_year = _int_or_none(item.get('anio_tributario'))
+    if fiscal_year is None or tax_year is None or fiscal_year != tax_year - 1:
+        return False
+    if not _annual_summary_has_traceable_monthly_input(summary):
+        return False
+
+    bundle_summary = summary.get('annual_tax_source_bundle')
+    if not isinstance(bundle_summary, dict):
+        return False
+    if (
+        _int_or_none(bundle_summary.get('id')) != _int_or_none(item.get('source_bundle_id'))
+        or bundle_summary.get('hash_fuentes') != item.get('source_bundle__hash_fuentes')
+        or _int_or_none(bundle_summary.get('anio_comercial')) != fiscal_year
+    ):
+        return False
+    if not _is_sha256(bundle_summary.get('hash_fuentes')):
+        return False
+    if not is_non_sensitive_reference(bundle_summary.get('source_label')):
+        return False
+    source_kind = str(bundle_summary.get('source_kind') or '').strip()
+    if source_kind not in {'fixture', 'snapshot_controlado', 'real_autorizado', 'local'}:
+        return False
+    return True
+
+
 def _annual_dossier_has_reviewable_summary(item: dict[str, Any]) -> bool:
     resumen = item.get('resumen_dossier')
     if not isinstance(resumen, dict) or not resumen:
@@ -623,7 +670,16 @@ def collect_company_accounting_candidates(*, empresa_ids: list[int] | None = Non
         empresa_id__in=company_ids,
         estado__in=PREPARED_OR_BETTER_TAX_STATES,
         source_bundle__estado=EstadoAnnualTaxSourceBundle.FROZEN,
-    ).values('id', 'empresa_id', 'anio_tributario', 'source_bundle_id'):
+    ).values(
+        'id',
+        'empresa_id',
+        'anio_tributario',
+        'resumen_anual',
+        'source_bundle_id',
+        'source_bundle__hash_fuentes',
+    ):
+        if not _annual_process_has_traceable_summary(item):
+            continue
         key = (item['empresa_id'], item['anio_tributario'] - 1)
         valid_annual_process_ids[item['id']] = key
         valid_annual_process_source_bundle_ids[item['id']] = item['source_bundle_id']
@@ -902,7 +958,16 @@ def collect_company_accounting_progress(*, empresa_id: int, fiscal_year: int) ->
         and annual_process_candidate.source_bundle_id is not None
         and annual_process_candidate.source_bundle.estado == EstadoAnnualTaxSourceBundle.FROZEN
     )
-    annual_process = annual_process_candidate if annual_process_has_frozen_bundle else None
+    annual_process_has_traceable_summary = (
+        annual_process_has_frozen_bundle
+        and _annual_process_has_traceable_summary({
+            'anio_tributario': annual_process_candidate.anio_tributario,
+            'resumen_anual': annual_process_candidate.resumen_anual,
+            'source_bundle_id': annual_process_candidate.source_bundle_id,
+            'source_bundle__hash_fuentes': annual_process_candidate.source_bundle.hash_fuentes,
+        })
+    )
+    annual_process = annual_process_candidate if annual_process_has_traceable_summary else None
     if annual_process is None:
         annual_trial_balance_ready = False
         prepared_workbook_types = set()
@@ -1044,18 +1109,30 @@ def collect_company_accounting_progress(*, empresa_id: int, fiscal_year: int) ->
         _single_phase(
             key='annual_process',
             label='Proceso de renta anual trazable preparado',
-            exists=annual_process_has_frozen_bundle,
+            exists=annual_process_has_traceable_summary,
             blocking_issue_code=(
-                'company_accounting.annual_process_source_bundle_missing'
-                if annual_process_candidate is not None
-                else 'company_accounting.annual_process_missing'
+                'company_accounting.annual_process_missing'
+                if annual_process_candidate is None
+                else (
+                    'company_accounting.annual_process_source_bundle_missing'
+                    if not annual_process_has_frozen_bundle
+                    else 'company_accounting.annual_process_summary_missing'
+                )
             ),
             message=(
-                'ProcesoRentaAnual preparado requiere AnnualTaxSourceBundle congelado para ser trazable.'
-                if annual_process_candidate is not None
-                else 'Falta ProcesoRentaAnual preparado o superior para el AT correspondiente.'
+                'Falta ProcesoRentaAnual preparado o superior para el AT correspondiente.'
+                if annual_process_candidate is None
+                else (
+                    'ProcesoRentaAnual preparado requiere AnnualTaxSourceBundle congelado para ser trazable.'
+                    if not annual_process_has_frozen_bundle
+                    else 'ProcesoRentaAnual preparado requiere resumen_anual trazable, no sensible y coherente con AnnualTaxSourceBundle.'
+                )
             ),
-            missing_label='source_bundle_congelado' if annual_process_candidate is not None else 'required',
+            missing_label=(
+                'required'
+                if annual_process_candidate is None
+                else ('source_bundle_congelado' if not annual_process_has_frozen_bundle else 'resumen_anual_trazable')
+            ),
         ),
         _single_phase(
             key='annual_trial_balance',

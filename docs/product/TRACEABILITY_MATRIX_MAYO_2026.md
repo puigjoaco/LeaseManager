@@ -100,6 +100,14 @@ preparacion F29 incompleta o sensible queda como fase faltante o senal cero,
 mientras `MonthlyTaxFact` F29 `no_aplica` + `no_declaration=true` sigue
 representando una no-declaracion controlada.
 
+Nota 2026-06-21: Etapa 6/Renta Anual alinea el medidor de progreso de empresa
+con el gate de proceso anual trazable. `collect_company_accounting_progress` y
+`collect_company_accounting_candidates` solo cuentan `ProcesoRentaAnual`
+preparado si, ademas del `AnnualTaxSourceBundle` congelado, conserva
+`resumen_anual` no sensible con `fiscal_year` coherente, insumo mensual
+trazable y metadata del bundle coincidente por id/hash/ano comercial. Una
+cabecera anual preparada sin ese resumen queda como fase faltante o senal cero.
+
 Nota 2026-06-17: Etapa 6/Renta Anual avanza desde manifiesto de archivos hacia
 paquete local materializable. `AnnualTaxExport` conserva
 `export_file_package_manifest` y `export_file_package_hash`; los servicios
