@@ -1421,8 +1421,10 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   para construir ese mismo paquete desde una superficie operativa con scope de
   empresa. El body debe incluir `empresa_id`, `fiscal_year` y
   `bank_support_manifest` como objeto JSON ya redactado; la API no acepta rutas
-  de archivos ni lee adjuntos, correos o documentos reales. La respuesta
-  conserva hashes, issues, trazabilidad y flags `autonomous_accounting=false`,
+  de archivos, `document_intake_package_dir` ni paquetes locales declarados por
+  cliente; esos paquetes se verifican solo por CLI en disco. La API no lee
+  adjuntos, correos o documentos reales. La respuesta conserva hashes, issues,
+  trazabilidad y flags `autonomous_accounting=false`,
   `final_tax_calculation=false`, `sii_submission=false` y
   `requires_responsible_review=true`.
 - El backoffice de Reporting incorpora el panel "Paquete de revisión" para
