@@ -74,6 +74,14 @@ ese conteo. Un header de balance anual sin detalle queda como fase faltante o
 senal cero, evitando que ranking o `ready_for_company_accounting_review`
 avancen antes de tener balance tributario revisable.
 
+Nota 2026-06-21: Etapa 6/Renta Anual alinea el medidor de progreso de empresa
+con el gate de workbooks RLI/CPT. `collect_company_accounting_progress` y
+`collect_company_accounting_candidates` solo cuentan `AnnualTaxWorkbook`
+preparado si cada workbook RLI/CPT tiene al menos una
+`AnnualTaxWorkbookLine` activa. Un workbook preparado sin lineas queda como
+fase faltante o senal cero, evitando que el ranking o
+`ready_for_company_accounting_review` avancen antes de tener RLI/CPT revisables.
+
 Nota 2026-06-17: Etapa 6/Renta Anual avanza desde manifiesto de archivos hacia
 paquete local materializable. `AnnualTaxExport` conserva
 `export_file_package_manifest` y `export_file_package_hash`; los servicios

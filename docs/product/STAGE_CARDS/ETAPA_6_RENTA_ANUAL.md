@@ -758,6 +758,10 @@ Para `AnnualTaxTrialBalance`, el progreso exige lineas activas materializadas:
 `lines_total` debe ser positivo y coincidir con el conteo de
 `AnnualTaxTrialBalanceLine` activas. Un header preparado sin detalle queda como
 fase faltante o senal cero y no adelanta `ready_for_company_accounting_review`.
+Para workbooks RLI/CPT, el progreso exige `AnnualTaxWorkbookLine` activas por
+workbook preparado. Un workbook `PREPARED` sin lineas es solo cabecera
+operativa: queda como fase faltante o senal cero y no adelanta revision
+responsable.
 Para `AnnualTaxExport`, el progreso exige ademas un paquete local
 materializable: `export_file_package_manifest`, version
 `annual-tax-export-file-package-v1`, hash SHA-256 del manifiesto, conteos

@@ -31,8 +31,10 @@ from sii.models import (
     AnnualTaxTrialBalance,
     AnnualTaxTrialBalanceLine,
     AnnualTaxWorkbook,
+    AnnualTaxWorkbookLine,
     CapacidadSII,
     CapacidadTributariaSII,
+    DestinoMapeoTributarioAnual,
     EstadoAnnualTaxArtifactMatrix,
     EstadoAnnualTaxDossier,
     EstadoAnnualTaxExport,
@@ -46,6 +48,7 @@ from sii.models import (
     F29PreparacionMensual,
     MonthlyTaxFact,
     ProcesoRentaAnual,
+    TaxCodeMapping,
     TaxYearRuleSet,
     TipoAnnualTaxArtifactTarget,
     TipoAnnualTaxWorkbook,
@@ -225,6 +228,38 @@ class CompanyAccountingProgressTests(TestCase):
             evidencia_ref='trial-balance-line-evidence-controlled',
             source_payload={'source': 'company-accounting-progress-test', 'trial_balance_id': trial_balance.id},
             hash_linea='d' * 64,
+            estado=EstadoRegistro.ACTIVE,
+        )
+
+    def _create_workbook_line(self, workbook):
+        destino = (
+            DestinoMapeoTributarioAnual.RLI
+            if workbook.tipo == TipoAnnualTaxWorkbook.RLI
+            else DestinoMapeoTributarioAnual.CPT
+        )
+        mapping, _ = TaxCodeMapping.objects.get_or_create(
+            rule_set=workbook.rule_set,
+            destino=destino,
+            codigo_interno=f'{workbook.tipo.lower()}.lease.controlled',
+            codigo_destino=f'{workbook.tipo}-CONTROLLED-001',
+            defaults={
+                'formula_ref': f'{workbook.tipo.lower()}-formula-controlled',
+                'evidencia_ref': f'{workbook.tipo.lower()}-evidence-controlled',
+                'official_source': workbook.rule_set.official_source,
+                'metadata': {'source': 'company-accounting-progress-test'},
+            },
+        )
+        return AnnualTaxWorkbookLine.objects.create(
+            workbook=workbook,
+            mapping=mapping,
+            codigo_interno=mapping.codigo_interno,
+            codigo_destino=mapping.codigo_destino,
+            origen='company-accounting-progress-test',
+            monto_clp='1000.00',
+            formula_ref=f'{workbook.tipo.lower()}-line-formula-controlled',
+            evidencia_ref=f'{workbook.tipo.lower()}-line-evidence-controlled',
+            source_payload={'source': 'company-accounting-progress-test', 'workbook_id': workbook.id},
+            hash_linea='e' * 64,
             estado=EstadoRegistro.ACTIVE,
         )
 
@@ -446,8 +481,9 @@ class CompanyAccountingProgressTests(TestCase):
             hash_balance='9' * 64,
             estado=EstadoAnnualTaxTrialBalance.PREPARED,
         )
+        workbooks = []
         for kind in (TipoAnnualTaxWorkbook.RLI, TipoAnnualTaxWorkbook.CPT):
-            AnnualTaxWorkbook.objects.create(
+            workbooks.append(AnnualTaxWorkbook.objects.create(
                 empresa=empresa,
                 proceso_renta_anual=process,
                 source_bundle=source_bundle,
@@ -460,7 +496,7 @@ class CompanyAccountingProgressTests(TestCase):
                 resumen_workbook={'source': 'candidate-test', 'tipo': kind},
                 hash_workbook='a' * 64,
                 estado=EstadoAnnualTaxWorkbook.PREPARED,
-            )
+            ))
         matrix = AnnualTaxArtifactMatrix.objects.create(
             empresa=empresa,
             proceso_renta_anual=process,
@@ -518,9 +554,12 @@ class CompanyAccountingProgressTests(TestCase):
 
         missing_package_result = collect_company_accounting_candidates(empresa_ids=[empresa.id, empresa_sin_senales.id])
         self.assertEqual(missing_package_result['candidates'][0]['years'][0]['signals']['annual_trial_balance'], 0)
+        self.assertEqual(missing_package_result['candidates'][0]['years'][0]['signals']['rli_cpt_workbooks'], 0)
         self.assertEqual(missing_package_result['candidates'][0]['years'][0]['signals']['annual_export'], 0)
 
         self._create_trial_balance_line(trial_balance)
+        for workbook in workbooks:
+            self._create_workbook_line(workbook)
         export_payload = self._export_package_payload()
         AnnualTaxExport.objects.filter(pk=export.pk).update(
             export_payload=export_payload,
@@ -981,8 +1020,9 @@ class CompanyAccountingProgressTests(TestCase):
             hash_balance='4' * 64,
             estado=EstadoAnnualTaxTrialBalance.PREPARED,
         )
+        workbooks = []
         for kind in (TipoAnnualTaxWorkbook.RLI, TipoAnnualTaxWorkbook.CPT):
-            AnnualTaxWorkbook.objects.create(
+            workbooks.append(AnnualTaxWorkbook.objects.create(
                 empresa=empresa,
                 proceso_renta_anual=process,
                 source_bundle=source_bundle,
@@ -995,7 +1035,7 @@ class CompanyAccountingProgressTests(TestCase):
                 resumen_workbook={'source': 'company-accounting-progress-test', 'tipo': kind},
                 hash_workbook='5' * 64,
                 estado=EstadoAnnualTaxWorkbook.PREPARED,
-            )
+            ))
         matrix = AnnualTaxArtifactMatrix.objects.create(
             empresa=empresa,
             proceso_renta_anual=process,
@@ -1062,10 +1102,24 @@ class CompanyAccountingProgressTests(TestCase):
         )
 
         self._create_trial_balance_line(trial_balance)
+        missing_workbook_lines_result = collect_company_accounting_progress(empresa_id=empresa.id, fiscal_year=2025)
+        self.assertEqual(missing_workbook_lines_result['classification'], 'parcial')
+        self.assertFalse(missing_workbook_lines_result['ready_for_company_accounting_review'])
+        self.assertTrue(missing_workbook_lines_result['phases']['annual_trial_balance']['ready'])
+        self.assertFalse(missing_workbook_lines_result['phases']['rli_cpt_workbooks']['ready'])
+        self.assertEqual(missing_workbook_lines_result['next_blocking_phase'], 'rli_cpt_workbooks')
+        self.assertIn(
+            'company_accounting.rli_cpt_workbooks_missing',
+            {issue['code'] for issue in missing_workbook_lines_result['issues']},
+        )
+
+        for workbook in workbooks:
+            self._create_workbook_line(workbook)
         missing_package_result = collect_company_accounting_progress(empresa_id=empresa.id, fiscal_year=2025)
         self.assertEqual(missing_package_result['classification'], 'parcial')
         self.assertFalse(missing_package_result['ready_for_company_accounting_review'])
         self.assertTrue(missing_package_result['phases']['annual_trial_balance']['ready'])
+        self.assertTrue(missing_package_result['phases']['rli_cpt_workbooks']['ready'])
         self.assertFalse(missing_package_result['phases']['annual_export']['ready'])
         self.assertEqual(missing_package_result['next_blocking_phase'], 'annual_export')
         self.assertIn(
