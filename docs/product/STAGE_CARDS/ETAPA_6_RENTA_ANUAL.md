@@ -221,6 +221,13 @@ conteos, categorias, estados de decision e issue codes, sin copiar refs
 individuales ni respuestas crudas. Si las respuestas responsables siguen
 pendientes, el workbench conserva `responsible_answers_ready=false` para no
 confundir el borrador privado con revision completa.
+Ese resumen preserva `question_source_summaries` sanitizados y
+`responsible_answers_readiness_sources_total`, incluyendo flags seguras como
+`ready_for_formal_bank_support_review`,
+`document_intake_ready_for_productive_review` y
+`document_intake_ready_for_formal_bank_support_manifest`, de modo que el tramo
+de patch ownership no borra si el bloqueo venia de soporte bancario formal o
+intake documental observado.
 Los keys de resumen que vienen desde checklist o review responsable tambien
 se sanitizan antes de versionar el manifest: `blocking_item_keys`,
 `validation_blockers`, estados de decision, categorias e issue codes no pueden

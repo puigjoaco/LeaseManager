@@ -162,6 +162,47 @@ def _safe_summary_refs(values: Any, *, fallback: str) -> list[str]:
     return sorted(safe_refs)
 
 
+def _safe_ready_flags(raw_flags: Any) -> dict[str, bool]:
+    if not isinstance(raw_flags, dict):
+        return {}
+    flags: dict[str, bool] = {}
+    for raw_key, raw_value in raw_flags.items():
+        key = str(raw_key or '').strip()
+        if _is_safe_ref(key) and isinstance(raw_value, bool):
+            flags[key] = raw_value
+    return {key: flags[key] for key in sorted(flags)}
+
+
+def _question_source_summaries(responsible_answers_review: dict[str, Any]) -> list[dict[str, Any]]:
+    raw_summaries = responsible_answers_review.get('question_source_summaries')
+    if not isinstance(raw_summaries, list):
+        raw_summaries = responsible_answers_review.get('source_summaries')
+    if not isinstance(raw_summaries, list):
+        return []
+
+    summaries: list[dict[str, Any]] = []
+    for raw_summary in raw_summaries:
+        if not isinstance(raw_summary, dict):
+            continue
+        summaries.append(
+            {
+                'label': _safe_summary_ref(raw_summary.get('label'), fallback='source'),
+                'schema_version': _safe_summary_ref(
+                    raw_summary.get('schema_version'),
+                    fallback='schema-version-pending',
+                ),
+                'classification': _safe_summary_ref(
+                    raw_summary.get('classification'),
+                    fallback='classification-pending',
+                ),
+                'ready_flags': _safe_ready_flags(raw_summary.get('ready_flags')),
+                'issues_total': _safe_int(raw_summary.get('issues_total')),
+                'source_hash': _safe_summary_ref(raw_summary.get('source_hash'), fallback='source-hash-pending'),
+            }
+        )
+    return sorted(summaries, key=lambda item: (item['label'], item['source_hash']))
+
+
 def _responsible_answers_summary(
     responsible_answers_review: dict[str, Any] | None,
     *,
@@ -178,6 +219,8 @@ def _responsible_answers_summary(
             'decision_states': {},
             'categories': {},
             'issue_codes': [],
+            'readiness_sources_total': 0,
+            'question_source_summaries': [],
             'ready_for_responsible_decision_handoff': False,
         }
     if responsible_answers_review.get('schema_version') != COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_REVIEW_SCHEMA_VERSION:
@@ -197,6 +240,7 @@ def _responsible_answers_summary(
     issues = responsible_answers_review.get('issues') if isinstance(responsible_answers_review.get('issues'), list) else []
     decision_states = _safe_summary_counts(summary.get('decision_states'), fallback='redacted-decision-state')
     categories = _safe_summary_counts(summary.get('categories'), fallback='redacted-category')
+    question_source_summaries = _question_source_summaries(responsible_answers_review)
     issue_codes = {
         _safe_summary_ref(issue.get('code'), fallback='redacted-issue-code')
         for issue in issues
@@ -246,9 +290,11 @@ def _responsible_answers_summary(
             'blocking_issues_total': blocking_issues_total,
             'decision_states': decision_states,
             'categories': categories,
+            'readiness_sources_total': len(question_source_summaries),
             'reported_ready_for_responsible_decision_handoff': reported_ready,
             'ready_for_responsible_decision_handoff': effective_ready,
         },
+        'question_source_summaries': question_source_summaries,
         'issue_codes': sorted_issue_codes,
     }
     return {
@@ -261,6 +307,8 @@ def _responsible_answers_summary(
         'decision_states': fingerprint['summary']['decision_states'],
         'categories': fingerprint['summary']['categories'],
         'issue_codes': sorted_issue_codes,
+        'readiness_sources_total': fingerprint['summary']['readiness_sources_total'],
+        'question_source_summaries': fingerprint['question_source_summaries'],
         'reported_ready_for_responsible_decision_handoff': fingerprint['summary'][
             'reported_ready_for_responsible_decision_handoff'
         ],
@@ -395,6 +443,7 @@ def build_annual_tax_ownership_patch_workbench(
             'responsible_answers_present': responsible_answers_summary['present'],
             'responsible_answers_ready': responsible_answers_summary['ready_for_responsible_decision_handoff'],
             'responsible_answers_blocking_issues_total': responsible_answers_summary['blocking_issues_total'],
+            'responsible_answers_readiness_sources_total': responsible_answers_summary['readiness_sources_total'],
             'patch_participants_count': len(patch_draft['ownership'].get('participants') or []),
             'questions_total': len(questions),
             'private_questions_total': sum(1 for item in questions if item['store_only_in_private_patch']),
