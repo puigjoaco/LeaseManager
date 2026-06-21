@@ -28,6 +28,16 @@ workbooks RLI/CPT, dossier y export local solo si usan el mismo
 preparados heredados desde otra fuente quedan como fase faltante o senal cero;
 no habilitan review responsable, calculo tributario final ni presentacion SII.
 
+Nota 2026-06-21: Etapa 6/Renta Anual cierra el bypass del mirror anual
+controlado. `run_annual_tax_controlled_mirror` ahora exige snapshot ownership
+vigente al 31-12 del ano comercial antes de declarar `ready_for_generation` o
+escribir ProcesoRentaAnual/DDJJ/F22; reporta `ownership_snapshot` sanitizado y
+bloquea con `ownership_snapshot_missing`, `ownership_snapshot_incomplete` o
+`ownership_snapshot_duplicate_participants`. Esto alinea el mirror con
+`audit_annual_tax_controlled_package_readiness`: 12 `MonthlyTaxFact`
+normalizados no reemplazan la fuente societaria controlada ni habilitan
+calculo tributario final o presentacion SII.
+
 Nota 2026-06-17: Etapa 6/Renta Anual avanza desde manifiesto de archivos hacia
 paquete local materializable. `AnnualTaxExport` conserva
 `export_file_package_manifest` y `export_file_package_hash`; los servicios

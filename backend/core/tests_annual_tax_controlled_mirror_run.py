@@ -200,21 +200,28 @@ class AnnualTaxControlledMirrorRunTests(TestCase):
             'certificates_proof_ref': 'ac2024-certificates-proof-pending',
         }
 
-    def test_controlled_mirror_dry_run_does_not_generate_annual_records(self):
+    def test_controlled_mirror_blocks_generation_without_ownership_snapshot(self):
         empresa = self._create_empresa()
         self._load_monthly_package(empresa)
 
         result = run_annual_tax_controlled_mirror(**self._mirror_kwargs(empresa))
 
         self.assertFalse(result['writes_database'])
-        self.assertTrue(result['ready_for_generation'])
+        self.assertFalse(result['ready_for_generation'])
         self.assertFalse(result['generated'])
         self.assertEqual(result['monthly_tax_fact_months'], list(range(1, 13)))
+        self.assertEqual(result['ownership_snapshot']['as_of'], '2024-12-31')
+        self.assertFalse(result['ownership_snapshot']['present'])
+        self.assertFalse(result['ownership_snapshot']['complete'])
+        self.assertEqual(result['ownership_snapshot']['participants_total'], 0)
+        self.assertEqual(result['ownership_snapshot']['percentage_total'], '0.00')
+        self.assertEqual(result['ownership_snapshot']['blocking_issue_code'], 'ownership_snapshot_missing')
+        self.assertEqual(result['blockers'], ['ownership_snapshot_missing'])
         self.assertEqual(ProcesoRentaAnual.objects.count(), 0)
 
     def test_controlled_mirror_generates_annual_layer_with_no_declaration_month(self):
         empresa = self._create_empresa()
-        self._load_monthly_package(empresa)
+        self._load_monthly_package(empresa, package=self._with_ownership(self._package()))
 
         result = run_annual_tax_controlled_mirror(
             **self._mirror_kwargs(empresa),
@@ -222,8 +229,12 @@ class AnnualTaxControlledMirrorRunTests(TestCase):
         )
 
         self.assertTrue(result['writes_database'])
+        self.assertTrue(result['ready_for_generation'])
         self.assertTrue(result['generated'])
         self.assertEqual(result['blockers'], [])
+        self.assertTrue(result['ownership_snapshot']['complete'])
+        self.assertEqual(result['ownership_snapshot']['participants_total'], 2)
+        self.assertEqual(result['ownership_snapshot']['percentage_total'], '100.00')
         self.assertEqual(ProcesoRentaAnual.objects.count(), 1)
         self.assertEqual(DDJJPreparacionAnual.objects.count(), 1)
         self.assertEqual(F22PreparacionAnual.objects.count(), 1)
@@ -388,7 +399,7 @@ class AnnualTaxControlledMirrorRunTests(TestCase):
                 'evidencia_ref': 'libro-inventario-2024-controlled',
             },
         ]
-        self._load_monthly_package(empresa, package=package)
+        self._load_monthly_package(empresa, package=self._with_ownership(package))
 
         run_annual_tax_controlled_mirror(
             **self._mirror_kwargs(empresa),
@@ -414,7 +425,7 @@ class AnnualTaxControlledMirrorRunTests(TestCase):
 
     def test_command_dry_run_writes_output_only_under_local_evidence(self):
         empresa = self._create_empresa()
-        self._load_monthly_package(empresa)
+        self._load_monthly_package(empresa, package=self._with_ownership(self._package()))
         with TemporaryDirectory() as temp_dir:
             output_path = Path(temp_dir) / 'mirror-run.json'
             stdout = StringIO()
@@ -437,6 +448,29 @@ class AnnualTaxControlledMirrorRunTests(TestCase):
         self.assertFalse(result['writes_database'])
         self.assertTrue(result['ready_for_generation'])
         self.assertEqual(stdout.getvalue(), '')
+
+    def test_command_fail_on_blocking_stops_without_ownership_snapshot(self):
+        empresa = self._create_empresa()
+        self._load_monthly_package(empresa)
+
+        with self.assertRaises(CommandError) as error:
+            call_command(
+                'run_annual_tax_controlled_mirror',
+                empresa_id=empresa.id,
+                commercial_year=2024,
+                tax_year=2025,
+                source_label='inmobiliaria-puig-ac2024-controlled-writer',
+                authorization_ref='user-authorized-local-source-review',
+                responsible_ref='codex-local-review',
+                fiscal_rule_ref='ac2024-tax-rule-review-pending',
+                certificates_proof_ref='ac2024-certificates-proof-pending',
+                fail_on_blocking=True,
+                stdout=StringIO(),
+            )
+
+        rendered_error = str(error.exception)
+        self.assertIn('ownership_snapshot_missing', rendered_error)
+        self.assertNotIn(empresa.rut, rendered_error)
 
     def test_command_write_error_does_not_echo_sensitive_path(self):
         empresa = self._create_empresa()

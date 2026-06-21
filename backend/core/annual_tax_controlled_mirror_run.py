@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import hashlib
+from datetime import date
 from decimal import Decimal
 from typing import Any
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Sum
 from django.utils import timezone
 
 from contabilidad.models import (
@@ -99,6 +101,45 @@ def _normalized_monthly_facts(empresa, commercial_year: int) -> list[MonthlyTaxF
 
 def _monthly_fact_months(empresa, commercial_year: int) -> list[int]:
     return sorted({fact.mes for fact in _normalized_monthly_facts(empresa, commercial_year)})
+
+
+def _ownership_snapshot_summary(empresa, commercial_year: int) -> dict[str, Any]:
+    as_of = date(commercial_year, 12, 31)
+    participations = empresa.participaciones_vigentes_en(as_of)
+    participants_total = participations.count()
+    percentage_total = participations.aggregate(total=Sum('porcentaje'))['total'] or Decimal('0.00')
+    percentage_total = Decimal(percentage_total).quantize(Decimal('0.01'))
+
+    seen = set()
+    has_duplicate_participants = False
+    for item in participations.values('participante_socio_id', 'participante_empresa_id'):
+        participant_key = (
+            ('socio', item['participante_socio_id'])
+            if item['participante_socio_id']
+            else ('empresa', item['participante_empresa_id'])
+        )
+        if participant_key in seen:
+            has_duplicate_participants = True
+            break
+        seen.add(participant_key)
+
+    blocking_issue_code = ''
+    if participants_total <= 0:
+        blocking_issue_code = 'ownership_snapshot_missing'
+    elif percentage_total != Decimal('100.00'):
+        blocking_issue_code = 'ownership_snapshot_incomplete'
+    elif has_duplicate_participants:
+        blocking_issue_code = 'ownership_snapshot_duplicate_participants'
+
+    return {
+        'as_of': as_of.isoformat(),
+        'present': participants_total > 0,
+        'participants_total': participants_total,
+        'percentage_total': str(percentage_total),
+        'complete': not blocking_issue_code,
+        'has_duplicate_participants': has_duplicate_participants,
+        'blocking_issue_code': blocking_issue_code,
+    }
 
 
 def _ensure_capability(empresa, capability_key: str, *, ref_prefix: str, fiscal_rule_ref: str) -> CapacidadTributariaSII:
@@ -648,6 +689,9 @@ def run_annual_tax_controlled_mirror(
     blockers = []
     if fact_months != list(range(1, 13)):
         blockers.append('monthly_tax_facts_incomplete_12_months')
+    ownership_snapshot = _ownership_snapshot_summary(empresa, commercial_year)
+    if not ownership_snapshot['complete']:
+        blockers.append(ownership_snapshot['blocking_issue_code'])
 
     selected_ddjj_codes = tuple(
         str(code).strip()
@@ -664,6 +708,7 @@ def run_annual_tax_controlled_mirror(
         'source_label': refs['source_label'],
         'monthly_tax_fact_months': fact_months,
         'monthly_tax_facts_total': len(facts),
+        'ownership_snapshot': ownership_snapshot,
         'ddjj_codes': list(selected_ddjj_codes),
         'blockers': list(blockers),
         'ready_for_generation': not blockers,
