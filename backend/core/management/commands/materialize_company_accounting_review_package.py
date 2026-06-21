@@ -161,6 +161,9 @@ class Command(BaseCommand):
             'bank_support_company_ref': verification['summary']['bank_support_company_ref'],
             'accounting_progress_percent': verification['summary']['accounting_progress_percent'],
             'bank_support_coverage_percent': verification['summary']['bank_support_coverage_percent'],
+            'ready_for_formal_bank_support_review': verification['summary'][
+                'ready_for_formal_bank_support_review'
+            ],
             'issues_total': verification['issues_total'],
             'warnings_total': verification['warnings_total'],
             'source_kind': 'document_intake_package' if intake_package else 'bank_support_manifest',
@@ -184,5 +187,7 @@ class Command(BaseCommand):
                 'Paquete de revision contable/renta incompleto: '
                 f'classification={result["classification"]}, '
                 f'accounting_progress={result["accounting_progress_percent"]}, '
-                f'bank_support={result["bank_support_coverage_percent"]}.'
+                f'bank_support={result["bank_support_coverage_percent"]}, '
+                f'formal_bank_support_ready={result["ready_for_formal_bank_support_review"]}, '
+                f'document_intake_ready={result["document_intake_ready_for_productive_review"]}.'
             )
