@@ -74,11 +74,40 @@ def _classification(*, ready: bool, bank_support_ready: bool, has_accounting_dat
     return 'parcial'
 
 
+def _document_intake_source_summary(document_intake_package: dict[str, Any] | None) -> dict[str, Any]:
+    if document_intake_package is None:
+        return {
+            'source_kind': 'bank_support_manifest',
+            'package_hash': '',
+            'ready_for_document_intake_review': None,
+            'ready_for_bank_support_manifest': None,
+            'ready_for_formal_bank_support_manifest': None,
+            'ready_for_productive_document_review': None,
+        }
+    return {
+        'source_kind': 'document_intake_package',
+        'package_hash': str(document_intake_package.get('package_hash') or ''),
+        'ready_for_document_intake_review': bool(
+            document_intake_package.get('ready_for_document_intake_review')
+        ),
+        'ready_for_bank_support_manifest': bool(
+            document_intake_package.get('ready_for_bank_support_manifest')
+        ),
+        'ready_for_formal_bank_support_manifest': bool(
+            document_intake_package.get('ready_for_formal_bank_support_manifest')
+        ),
+        'ready_for_productive_document_review': bool(
+            document_intake_package.get('ready_for_productive_document_review')
+        ),
+    }
+
+
 def build_company_accounting_review_package(
     *,
     empresa_id: int,
     fiscal_year: int,
     bank_support_payload: dict[str, Any],
+    document_intake_package: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if not isinstance(bank_support_payload, dict):
         raise ValueError('bank_support_payload debe ser un objeto JSON.')
@@ -92,8 +121,20 @@ def build_company_accounting_review_package(
     expected_company_ref = canonical_company_review_ref(empresa_id)
     bank_support_company_ref = bank_support.get('company_ref') or ''
     ready_for_formal_bank_support_review = bool(bank_support.get('ready_for_formal_bank_support_review'))
+    document_intake_source = _document_intake_source_summary(document_intake_package)
+    document_intake_source_ready = (
+        document_intake_package is None
+        or document_intake_source['ready_for_productive_document_review'] is True
+    )
 
     issues = []
+    if not document_intake_source_ready:
+        issues.append(
+            _issue(
+                'company_accounting_review.document_intake_not_productive_ready',
+                'El paquete de intake documental verificado aun no esta listo para revision productiva responsable.',
+            )
+        )
     if not accounting_progress['ready_for_company_accounting_review']:
         issues.append(
             _issue(
@@ -152,6 +193,7 @@ def build_company_accounting_review_package(
         accounting_progress['ready_for_company_accounting_review']
         and bank_support['ready_for_accounting_document_review']
         and ready_for_formal_bank_support_review
+        and document_intake_source_ready
         and not blocking_issues
     )
     warnings = [
@@ -171,6 +213,14 @@ def build_company_accounting_review_package(
         'accounting_progress_percent': accounting_progress['progress_percent'],
         'bank_support_classification': bank_support['classification'],
         'bank_support_coverage_percent': bank_support['coverage_percent'],
+        'document_intake_source_kind': document_intake_source['source_kind'],
+        'document_intake_package_hash': document_intake_source['package_hash'],
+        'document_intake_ready_for_productive_review': document_intake_source[
+            'ready_for_productive_document_review'
+        ],
+        'document_intake_ready_for_formal_bank_support_manifest': document_intake_source[
+            'ready_for_formal_bank_support_manifest'
+        ],
         'ready_for_company_accounting_review': accounting_progress['ready_for_company_accounting_review'],
         'ready_for_accounting_document_review': bank_support['ready_for_accounting_document_review'],
         'ready_for_formal_bank_support_review': ready_for_formal_bank_support_review,
@@ -182,6 +232,7 @@ def build_company_accounting_review_package(
     evidence = {
         'accounting_progress_hash': _canonical_hash(accounting_progress),
         'bank_support_hash': _canonical_hash(bank_support),
+        'document_intake_package_hash': document_intake_source['package_hash'],
     }
     package = {
         'schema_version': COMPANY_ACCOUNTING_REVIEW_PACKAGE_VERSION,
@@ -211,12 +262,14 @@ def write_company_accounting_review_package(
     empresa_id: int,
     fiscal_year: int,
     bank_support_payload: dict[str, Any],
+    document_intake_package: dict[str, Any] | None = None,
     output_dir,
 ) -> dict[str, Any]:
     package = build_company_accounting_review_package(
         empresa_id=empresa_id,
         fiscal_year=fiscal_year,
         bank_support_payload=bank_support_payload,
+        document_intake_package=document_intake_package,
     )
     target_dir = _prepare_clean_output_dir(output_dir)
     manifest_path = target_dir / COMPANY_ACCOUNTING_REVIEW_PACKAGE_MANIFEST
@@ -236,6 +289,7 @@ def verify_company_accounting_review_package(
     empresa_id: int,
     fiscal_year: int,
     bank_support_payload: dict[str, Any],
+    document_intake_package: dict[str, Any] | None = None,
     package_dir,
 ) -> dict[str, Any]:
     from pathlib import Path
@@ -244,6 +298,7 @@ def verify_company_accounting_review_package(
         empresa_id=empresa_id,
         fiscal_year=fiscal_year,
         bank_support_payload=bank_support_payload,
+        document_intake_package=document_intake_package,
     )
     target_dir = Path(package_dir)
     if not target_dir.exists() or not target_dir.is_dir():

@@ -112,6 +112,7 @@ def _complete_document_intake_manifest(
     fiscal_year=2025,
     tax_year=2026,
     statement_strength='verified_complete',
+    source_kind='manual_review_packet',
 ):
     company_ref = canonical_company_review_ref(empresa.id)
     operations = [
@@ -161,7 +162,7 @@ def _complete_document_intake_manifest(
         'source_batches': [
             {
                 'batch_ref': 'gmail-thread-redacted',
-                'source_kind': 'manual_review_packet',
+                'source_kind': source_kind,
                 'source_ref': 'manual-review-packet-redacted',
                 'declared_complete': True,
                 'statement_strength': statement_strength,
@@ -424,6 +425,9 @@ class CompanyAccountingReviewPackageTests(TestCase):
         self.assertEqual(result['summary']['expected_company_ref'], canonical_company_review_ref(empresa.id))
         self.assertEqual(result['summary']['bank_support_company_ref'], canonical_company_review_ref(empresa.id))
         self.assertEqual(result['summary']['bank_support_coverage_percent'], 100)
+        self.assertEqual(result['summary']['document_intake_source_kind'], 'bank_support_manifest')
+        self.assertEqual(result['summary']['document_intake_package_hash'], '')
+        self.assertIsNone(result['summary']['document_intake_ready_for_productive_review'])
         self.assertTrue(result['summary']['ready_for_formal_bank_support_review'])
         self.assertTrue(result['summary']['bank_support_strong_confirmation_present'])
         self.assertEqual(result['summary']['blocking_issues_total'], 0)
@@ -763,6 +767,8 @@ class CompanyAccountingReviewPackageTests(TestCase):
             self.assertTrue(result['materialized'])
             self.assertEqual(result['source_kind'], 'document_intake_package')
             self.assertEqual(result['document_intake_package_hash'], intake_package['package_hash'])
+            self.assertTrue(result['document_intake_ready_for_productive_review'])
+            self.assertTrue(result['document_intake_ready_for_formal_bank_support_manifest'])
             self.assertEqual(result['classification'], 'preparado')
             self.assertTrue(result['ready_for_productive_accounting_review'])
             self.assertEqual(result['bank_support_company_ref'], canonical_company_review_ref(empresa.id))
@@ -771,6 +777,52 @@ class CompanyAccountingReviewPackageTests(TestCase):
             self.assertFalse(result['final_tax_calculation'])
             self.assertFalse(result['sii_submission'])
             self.assertTrue((output_dir / result['manifest_file']).is_file())
+
+    def test_document_intake_package_not_ready_blocks_accounting_review_package(self):
+        empresa = self._create_empresa()
+        self._prepare_complete_accounting_layers(empresa)
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            intake_dir = Path(temp_dir) / 'company-document-intake-package'
+            output_dir = Path(temp_dir) / 'company-accounting-review-package'
+            intake_manifest = _complete_document_intake_manifest(
+                empresa=empresa,
+                source_kind='unsupported_source_kind',
+            )
+            intake_package = write_company_document_intake_package(
+                payload=intake_manifest,
+                output_dir=intake_dir,
+            )
+            stdout = StringIO()
+
+            call_command(
+                'materialize_company_accounting_review_package',
+                empresa_id=empresa.id,
+                fiscal_year=2025,
+                document_intake_package_dir=str(intake_dir),
+                output_dir=str(output_dir),
+                stdout=stdout,
+            )
+
+            result = json.loads(stdout.getvalue())
+            manifest = json.loads((output_dir / result['manifest_file']).read_text(encoding='utf-8'))
+            issue_codes = {issue['code'] for issue in manifest['issues']}
+
+            self.assertEqual(result['source_kind'], 'document_intake_package')
+            self.assertEqual(result['document_intake_package_hash'], intake_package['package_hash'])
+            self.assertFalse(result['document_intake_ready_for_productive_review'])
+            self.assertTrue(result['document_intake_ready_for_formal_bank_support_manifest'])
+            self.assertEqual(result['classification'], 'parcial')
+            self.assertFalse(result['ready_for_productive_accounting_review'])
+            self.assertEqual(manifest['summary']['document_intake_source_kind'], 'document_intake_package')
+            self.assertEqual(manifest['summary']['document_intake_package_hash'], intake_package['package_hash'])
+            self.assertFalse(manifest['summary']['document_intake_ready_for_productive_review'])
+            self.assertIn(
+                'company_accounting_review.document_intake_not_productive_ready',
+                issue_codes,
+            )
 
     def test_materialize_company_accounting_review_package_rejects_nonempty_output_dir(self):
         empresa = self._create_empresa()

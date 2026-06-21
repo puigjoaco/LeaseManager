@@ -1293,7 +1293,11 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   anual, y rechaza tamper sin necesitar el manifest original. Con
   `--document-intake-package-dir`, `materialize_company_accounting_review_package`
   toma el `company-bank-support-coverage-manifest.json` desde ese paquete ya
-  verificado y mantiene el handoff como evidencia portable.
+  verificado, conserva el hash/readiness del intake completo y bloquea el
+  paquete contable/renta si el intake aun no esta
+  `ready_for_productive_document_review`, aunque el manifiesto bancario derivado
+  sea formalmente completo. Esto mantiene el handoff como evidencia portable y
+  evita saltarse blockers del intake documental.
 - `build_company_accounting_review_package` y el comando
   `audit_company_accounting_review_package` unen el avance contable/renta por
   empresa/ano con la cobertura bancaria/leasing redactada. El paquete queda
