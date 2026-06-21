@@ -195,6 +195,25 @@ class AnnualTaxControlledDbLoadTests(TestCase):
         }
         return package
 
+    def _with_ownership_review_sources(self, package):
+        package['ownership_review']['readiness_sources_total'] = 1
+        package['ownership_review']['question_source_summaries'] = [
+            {
+                'label': 'D:/Privado/Socio Controlado Uno 11111111-1/banco',
+                'schema_version': 'company-bank-support-coverage-manifest.v1',
+                'classification': 'blocking',
+                'ready_flags': {
+                    'ready_for_formal_bank_support_review': False,
+                    'document_intake_ready_for_productive_review': False,
+                    'document_intake_ready_for_formal_bank_support_manifest': True,
+                    'D:/Privado/Socio Controlado Uno 11111111-1': True,
+                },
+                'issues_total': 2,
+                'source_hash': 'd' * 64,
+            }
+        ]
+        return package
+
     def test_apply_controlled_package_materializes_monthly_accounting_and_tax_facts(self):
         empresa = self._create_empresa()
 
@@ -278,6 +297,35 @@ class AnnualTaxControlledDbLoadTests(TestCase):
         self.assertTrue(result['ready_for_annual_generation'])
         self.assertEqual(result['ownership_snapshot']['participants_loaded'], 2)
         self.assertEqual(MonthlyTaxFact.objects.filter(empresa=empresa).count(), 12)
+
+    def test_apply_exposes_sanitized_ownership_review_handoff_sources(self):
+        empresa = self._create_empresa()
+        package = self._with_ownership_review_sources(
+            self._with_ready_ownership_review(self._with_ownership(self._package()))
+        )
+
+        result = apply_annual_tax_controlled_db_load(
+            empresa=empresa,
+            package=package,
+            write_database=True,
+        )
+        handoff = result['ownership_review_handoff']
+        source_summary = handoff['question_source_summaries'][0]
+        rendered_result = json.dumps(result, ensure_ascii=True, default=str)
+
+        self.assertTrue(result['ready_for_annual_generation'])
+        self.assertTrue(handoff['present'])
+        self.assertTrue(handoff['ready_for_controlled_db_load'])
+        self.assertFalse(handoff['replaces_ownership_snapshot'])
+        self.assertEqual(handoff['readiness_sources_total'], 1)
+        self.assertEqual(source_summary['label'], 'source')
+        self.assertFalse(source_summary['ready_flags']['ready_for_formal_bank_support_review'])
+        self.assertFalse(source_summary['ready_flags']['document_intake_ready_for_productive_review'])
+        self.assertTrue(source_summary['ready_flags']['document_intake_ready_for_formal_bank_support_manifest'])
+        self.assertNotIn('D:/Privado/Socio Controlado Uno 11111111-1', source_summary['ready_flags'])
+        self.assertNotIn('Socio Controlado Uno', rendered_result)
+        self.assertNotIn('11111111-1', rendered_result)
+        self.assertNotIn('D:/Privado', rendered_result)
 
     def test_apply_rejects_ready_ownership_handoff_without_patch_hash_before_writing(self):
         empresa = self._create_empresa()
@@ -537,6 +585,39 @@ class AnnualTaxControlledDbLoadTests(TestCase):
         self.assertFalse(result['writes_database'])
         self.assertEqual(result['months_validated'], [1])
         self.assertEqual(CierreMensualContable.objects.filter(empresa=empresa).count(), 0)
+
+    def test_command_exposes_sanitized_ownership_review_handoff_sources(self):
+        empresa = self._create_empresa()
+        with TemporaryDirectory() as temp_dir:
+            package_path = Path(temp_dir) / 'controlled-load.json'
+            package_path.write_text(
+                json.dumps(
+                    self._with_ownership_review_sources(
+                        self._with_ready_ownership_review(self._with_ownership(self._package()))
+                    )
+                ),
+                encoding='utf-8',
+            )
+            stdout = StringIO()
+
+            call_command(
+                'apply_annual_tax_controlled_db_load',
+                package=str(package_path),
+                empresa_id=empresa.id,
+                stdout=stdout,
+            )
+
+        rendered_stdout = stdout.getvalue()
+        result = json.loads(rendered_stdout)
+        handoff = result['ownership_review_handoff']
+
+        self.assertFalse(result['writes_database'])
+        self.assertTrue(handoff['present'])
+        self.assertEqual(handoff['readiness_sources_total'], 1)
+        self.assertEqual(handoff['question_source_summaries'][0]['label'], 'source')
+        self.assertNotIn('Socio Controlado Uno', rendered_stdout)
+        self.assertNotIn('11111111-1', rendered_stdout)
+        self.assertNotIn('D:/Privado', rendered_stdout)
 
     def test_apply_skips_f29_object_for_controlled_no_declaration_month(self):
         empresa = self._create_empresa()

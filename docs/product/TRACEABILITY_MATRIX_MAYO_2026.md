@@ -285,6 +285,12 @@ los expone en `summary.ownership_review_handoff`. Asi la inyeccion de ownership
 validado no borra la procedencia de readiness parcial ni filtra rutas, nombres,
 RUTs o PII hacia summaries versionables.
 
+Nota 2026-06-21: `apply_annual_tax_controlled_db_load` y el comando homonimo
+devuelven ahora `ownership_review_handoff` sanitizado en su resultado, con
+`readiness_sources_total`, `question_source_summaries` y flags seguras desde
+`package.ownership_review`. Asi la carga DB local/controlada conserva la causa
+de readiness parcial sin persistir ni exponer rutas, nombres, RUTs o PII.
+
 Nota 2026-06-18: Etapa 6/Renta Anual separa el codigo de certificacion F22 del
 candidato local. `build_annual_tax_f22_fixed_width_export_candidate()` ahora
 requiere fuente no sensible, responsable revisor y estado de revision para los
