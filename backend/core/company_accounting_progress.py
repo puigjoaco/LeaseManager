@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
+import re
 from typing import Any
 
 from contabilidad.models import (
@@ -11,6 +12,7 @@ from contabilidad.models import (
     EstadoCierreMensual,
     EstadoPreparacionTributaria,
 )
+from core.annual_tax_source_manifest import payload_hash
 from patrimonio.models import Empresa
 from sii.models import (
     AnnualTaxDossier,
@@ -26,11 +28,13 @@ from sii.models import (
     MonthlyTaxFact,
     ProcesoRentaAnual,
     SII_AUTOMATED_REGIME_CODE,
+    TipoAnnualTaxArtifactTarget,
     TipoAnnualTaxWorkbook,
 )
 
 
 MONTHS = tuple(range(1, 13))
+SHA256_PATTERN = re.compile(r'^[0-9a-f]{64}$')
 PREPARED_OR_BETTER_TAX_STATES = {
     EstadoPreparacionTributaria.PREPARED,
     EstadoPreparacionTributaria.APPROVED,
@@ -99,6 +103,21 @@ def _period(year: int, month: int) -> str:
     return f'{year:04d}-{month:02d}'
 
 
+def _has_text(value: Any) -> bool:
+    return bool(str(value or '').strip())
+
+
+def _is_sha256(value: Any) -> bool:
+    return bool(SHA256_PATTERN.match(str(value or '').strip()))
+
+
+def _int_or_none(value: Any) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _year_from_period(value: Any) -> int | None:
     try:
         year = int(str(value)[:4])
@@ -164,6 +183,100 @@ def _classification(phases: list[ProgressPhase]) -> str:
     if all(phase.completed == 0 for phase in phases):
         return 'sin_datos'
     return 'parcial'
+
+
+def _annual_export_has_ready_local_package(
+    *,
+    export_payload: Any,
+    target_items_total: int,
+    ddjj_items_total: int,
+    f22_items_total: int,
+    official_format: bool,
+    sii_submission: bool,
+    final_tax_calculation: bool,
+) -> bool:
+    if official_format or sii_submission or final_tax_calculation:
+        return False
+    if not isinstance(export_payload, dict):
+        return False
+    if (
+        export_payload.get('official_format') not in (False, None)
+        or export_payload.get('sii_submission') not in (False, None)
+        or bool(export_payload.get('sii_submission_attempted'))
+        or export_payload.get('final_tax_calculation') not in (False, None)
+    ):
+        return False
+
+    package_manifest = export_payload.get('export_file_package_manifest')
+    if not isinstance(package_manifest, list):
+        return False
+    if export_payload.get('export_file_package_version') != 'annual-tax-export-file-package-v1':
+        return False
+    package_files_total = _int_or_none(export_payload.get('export_file_package_files_total'))
+    ddjj_package_files_total = _int_or_none(export_payload.get('ddjj_export_package_files_total'))
+    f22_package_files_total = _int_or_none(export_payload.get('f22_export_package_files_total'))
+    if target_items_total <= 0 or f22_items_total <= 0:
+        return False
+    if package_files_total != target_items_total:
+        return False
+    if ddjj_package_files_total != ddjj_items_total:
+        return False
+    if f22_package_files_total != f22_items_total:
+        return False
+
+    package_hash = export_payload.get('export_file_package_hash')
+    if not _is_sha256(package_hash) or package_hash != payload_hash(package_manifest):
+        return False
+
+    package_counts = {TipoAnnualTaxArtifactTarget.DDJJ: 0, TipoAnnualTaxArtifactTarget.F22: 0}
+    seen_file_names = set()
+    for entry in package_manifest:
+        if not isinstance(entry, dict):
+            return False
+        target_kind = entry.get('target_kind')
+        if target_kind not in package_counts:
+            return False
+        package_counts[target_kind] += 1
+        file_name = str(entry.get('file_name') or '').strip()
+        if file_name in seen_file_names:
+            return False
+        seen_file_names.add(file_name)
+        try:
+            payload_size = int(entry.get('payload_size_bytes') or 0)
+            manifest_size = int(entry.get('manifest_payload_size_bytes') or 0)
+        except (TypeError, ValueError):
+            return False
+        if (
+            entry.get('package_entry_version') != 'annual-tax-export-file-package-manifest-v1'
+            or not _has_text(entry.get('artifact_matrix_item_id'))
+            or not _has_text(entry.get('target_code'))
+            or not file_name.lower().endswith('.json')
+            or '/' in file_name
+            or '\\' in file_name
+            or entry.get('content_type') != 'application/json'
+            or entry.get('encoding') != 'utf-8'
+            or entry.get('schema_ref') != 'annual-tax-export-file-payload-v1'
+            or entry.get('delivery_kind') != 'local_controlled_export_package'
+            or entry.get('materialized_from') != 'annual-tax-export-file-payload-v1'
+            or entry.get('canonical_json') != 'sort_keys_ascii_compact'
+            or not _is_sha256(entry.get('payload_hash'))
+            or not _is_sha256(entry.get('manifest_payload_hash'))
+            or entry.get('payload_hash') != entry.get('manifest_payload_hash')
+            or payload_size <= 0
+            or payload_size != manifest_size
+            or entry.get('requires_official_format_gate') is not True
+            or entry.get('requires_explicit_submission_authorization') is not True
+            or entry.get('official_format') not in (False, None)
+            or entry.get('sii_submission') not in (False, None)
+            or entry.get('final_tax_calculation') not in (False, None)
+        ):
+            return False
+
+    return (
+        len(package_manifest) == target_items_total
+        and package_counts[TipoAnnualTaxArtifactTarget.DDJJ] == ddjj_items_total
+        and package_counts[TipoAnnualTaxArtifactTarget.F22] == f22_items_total
+    )
 
 
 def _progress_percent(phases: list[ProgressPhase]) -> int:
@@ -433,12 +546,33 @@ def collect_company_accounting_candidates(*, empresa_ids: list[int] | None = Non
         sii_submission=False,
         final_tax_calculation=False,
         proceso_renta_anual_id__in=valid_process_id_list,
-    ).values('proceso_renta_anual_id', 'source_bundle_id', 'dossier__source_bundle_id'):
+    ).values(
+        'proceso_renta_anual_id',
+        'source_bundle_id',
+        'dossier__source_bundle_id',
+        'export_payload',
+        'target_items_total',
+        'ddjj_items_total',
+        'f22_items_total',
+        'official_format',
+        'sii_submission',
+        'final_tax_calculation',
+    ):
         process_id = item['proceso_renta_anual_id']
         expected_source_bundle_id = valid_annual_process_source_bundle_ids.get(process_id)
         if item['source_bundle_id'] != expected_source_bundle_id:
             continue
         if item['dossier__source_bundle_id'] != expected_source_bundle_id:
+            continue
+        if not _annual_export_has_ready_local_package(
+            export_payload=item['export_payload'],
+            target_items_total=int(item['target_items_total'] or 0),
+            ddjj_items_total=int(item['ddjj_items_total'] or 0),
+            f22_items_total=int(item['f22_items_total'] or 0),
+            official_format=bool(item['official_format']),
+            sii_submission=bool(item['sii_submission']),
+            final_tax_calculation=bool(item['final_tax_calculation']),
+        ):
             continue
         annual_export_counts[valid_annual_process_ids[process_id]] += 1
     for (empresa_id, fiscal_year), count in annual_export_counts.items():
@@ -603,14 +737,33 @@ def collect_company_accounting_progress(*, empresa_id: int, fiscal_year: int) ->
             **process_filter,
             estado=EstadoAnnualTaxDossier.PREPARED,
         ).exists()
-        annual_export_ready = AnnualTaxExport.objects.filter(
-            **process_filter,
-            estado=EstadoAnnualTaxExport.PREPARED,
-            official_format=False,
-            sii_submission=False,
-            final_tax_calculation=False,
-            dossier__source_bundle_id=annual_source_bundle_id,
-        ).exists()
+        annual_export_ready = any(
+            _annual_export_has_ready_local_package(
+                export_payload=export['export_payload'],
+                target_items_total=int(export['target_items_total'] or 0),
+                ddjj_items_total=int(export['ddjj_items_total'] or 0),
+                f22_items_total=int(export['f22_items_total'] or 0),
+                official_format=bool(export['official_format']),
+                sii_submission=bool(export['sii_submission']),
+                final_tax_calculation=bool(export['final_tax_calculation']),
+            )
+            for export in AnnualTaxExport.objects.filter(
+                **process_filter,
+                estado=EstadoAnnualTaxExport.PREPARED,
+                official_format=False,
+                sii_submission=False,
+                final_tax_calculation=False,
+                dossier__source_bundle_id=annual_source_bundle_id,
+            ).values(
+                'export_payload',
+                'target_items_total',
+                'ddjj_items_total',
+                'f22_items_total',
+                'official_format',
+                'sii_submission',
+                'final_tax_calculation',
+            )
+        )
 
     phases = [
         fiscal_config_phase,

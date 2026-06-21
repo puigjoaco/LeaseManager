@@ -754,6 +754,13 @@ Los artefactos anuales downstream (`AnnualTaxTrialBalance`, workbooks RLI/CPT,
 pertenecen a un `ProcesoRentaAnual` preparado o superior con
 `AnnualTaxSourceBundle` congelado. Un balance anual, dossier o export suelto o
 colgado de un proceso pendiente no infla el ranking ni habilita revision.
+Para `AnnualTaxExport`, el progreso exige ademas un paquete local
+materializable: `export_file_package_manifest`, version
+`annual-tax-export-file-package-v1`, hash SHA-256 del manifiesto, conteos
+DDJJ/F22 coherentes y boundary seguro (`official_format=false`,
+`sii_submission=false`, `final_tax_calculation=false`). Un export preparado sin
+ese paquete queda como fase faltante o senal cero y no dispara handoff
+responsable.
 Para F29 mensual, el progreso anual cuenta tanto formularios preparados como
 meses con `MonthlyTaxFact` normalizado cuyo F29 esta `no_aplica` y
 `no_declaration=true`. Esto permite modelar periodos AC2024 registrados como

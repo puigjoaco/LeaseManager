@@ -54,6 +54,7 @@ from sii.models import (
     TaxYearRuleSet,
     TipoAnnualTaxWorkbook,
     TipoAnnualTaxOfficialSource,
+    TipoAnnualTaxArtifactTarget,
 )
 
 
@@ -267,6 +268,66 @@ class CompanyAccountingReviewPackageTests(TestCase):
         )
         return rule_set, source
 
+    def _export_package_payload(self):
+        package_manifest = [
+            {
+                'package_entry_version': 'annual-tax-export-file-package-manifest-v1',
+                'artifact_matrix_item_id': '1',
+                'target_kind': TipoAnnualTaxArtifactTarget.DDJJ,
+                'target_code': '1887',
+                'file_name': 'ddjj-1887.json',
+                'content_type': 'application/json',
+                'encoding': 'utf-8',
+                'schema_ref': 'annual-tax-export-file-payload-v1',
+                'delivery_kind': 'local_controlled_export_package',
+                'materialized_from': 'annual-tax-export-file-payload-v1',
+                'canonical_json': 'sort_keys_ascii_compact',
+                'payload_hash': 'a' * 64,
+                'manifest_payload_hash': 'a' * 64,
+                'payload_size_bytes': 10,
+                'manifest_payload_size_bytes': 10,
+                'requires_official_format_gate': True,
+                'requires_explicit_submission_authorization': True,
+                'official_format': False,
+                'sii_submission': False,
+                'final_tax_calculation': False,
+            },
+            {
+                'package_entry_version': 'annual-tax-export-file-package-manifest-v1',
+                'artifact_matrix_item_id': '2',
+                'target_kind': TipoAnnualTaxArtifactTarget.F22,
+                'target_code': 'F22',
+                'file_name': 'f22.json',
+                'content_type': 'application/json',
+                'encoding': 'utf-8',
+                'schema_ref': 'annual-tax-export-file-payload-v1',
+                'delivery_kind': 'local_controlled_export_package',
+                'materialized_from': 'annual-tax-export-file-payload-v1',
+                'canonical_json': 'sort_keys_ascii_compact',
+                'payload_hash': 'b' * 64,
+                'manifest_payload_hash': 'b' * 64,
+                'payload_size_bytes': 20,
+                'manifest_payload_size_bytes': 20,
+                'requires_official_format_gate': True,
+                'requires_explicit_submission_authorization': True,
+                'official_format': False,
+                'sii_submission': False,
+                'final_tax_calculation': False,
+            },
+        ]
+        return {
+            'source': 'company-accounting-review-package-test',
+            'official_format': False,
+            'sii_submission': False,
+            'final_tax_calculation': False,
+            'export_file_package_manifest': package_manifest,
+            'export_file_package_version': 'annual-tax-export-file-package-v1',
+            'export_file_package_files_total': 2,
+            'ddjj_export_package_files_total': 1,
+            'f22_export_package_files_total': 1,
+            'export_file_package_hash': payload_hash(package_manifest),
+        }
+
     def _prepare_complete_accounting_layers(self, empresa):
         config = self._activate_fiscal_config(empresa)
         f29_capability = self._create_f29_capability(empresa)
@@ -387,6 +448,7 @@ class CompanyAccountingReviewPackageTests(TestCase):
             hash_dossier='7' * 64,
             estado=EstadoAnnualTaxDossier.PREPARED,
         )
+        export_payload = self._export_package_payload()
         AnnualTaxExport.objects.create(
             empresa=empresa,
             proceso_renta_anual=process,
@@ -403,8 +465,8 @@ class CompanyAccountingReviewPackageTests(TestCase):
             target_items_total=2,
             ddjj_items_total=1,
             f22_items_total=1,
-            export_payload={'source': 'company-accounting-review-package-test'},
-            hash_export='8' * 64,
+            export_payload=export_payload,
+            hash_export=payload_hash(export_payload),
             estado=EstadoAnnualTaxExport.PREPARED,
         )
 
