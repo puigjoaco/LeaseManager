@@ -66,6 +66,14 @@ preparado sin paquete queda como fase faltante o senal cero, evitando que el
 ranking o `ready_for_company_accounting_review` adelanten revision responsable
 sin evidencia local verificable.
 
+Nota 2026-06-21: Etapa 6/Renta Anual alinea el medidor de progreso de empresa
+con el gate de balance anual. `collect_company_accounting_progress` y
+`collect_company_accounting_candidates` solo cuentan `AnnualTaxTrialBalance`
+preparado si tiene lineas activas materializadas y `lines_total` coincide con
+ese conteo. Un header de balance anual sin detalle queda como fase faltante o
+senal cero, evitando que ranking o `ready_for_company_accounting_review`
+avancen antes de tener balance tributario revisable.
+
 Nota 2026-06-17: Etapa 6/Renta Anual avanza desde manifiesto de archivos hacia
 paquete local materializable. `AnnualTaxExport` conserva
 `export_file_package_manifest` y `export_file_package_hash`; los servicios

@@ -11,8 +11,11 @@ from contabilidad.models import (
     BalanceComprobacion,
     CierreMensualContable,
     ConfiguracionFiscalEmpresa,
+    CuentaContable,
     EstadoCierreMensual,
     EstadoPreparacionTributaria,
+    EstadoRegistro,
+    NaturalezaCuenta,
     RegimenTributarioEmpresa,
 )
 from contabilidad.services import ensure_default_regime
@@ -26,6 +29,7 @@ from sii.models import (
     AnnualTaxOfficialSource,
     AnnualTaxSourceBundle,
     AnnualTaxTrialBalance,
+    AnnualTaxTrialBalanceLine,
     AnnualTaxWorkbook,
     CapacidadSII,
     CapacidadTributariaSII,
@@ -195,6 +199,34 @@ class CompanyAccountingProgressTests(TestCase):
             metadata={'source': 'company-accounting-progress-test'},
         )
         return rule_set, source
+
+    def _create_trial_balance_line(self, trial_balance):
+        account, _ = CuentaContable.objects.get_or_create(
+            empresa=trial_balance.empresa,
+            plan_cuentas_version='company-progress-test',
+            codigo=f'4100-{trial_balance.id}',
+            defaults={
+                'nombre': f'Ingresos {trial_balance.id}',
+                'naturaleza': NaturalezaCuenta.CREDIT,
+                'nivel': 1,
+                'estado': EstadoRegistro.ACTIVE,
+            },
+        )
+        return AnnualTaxTrialBalanceLine.objects.create(
+            trial_balance=trial_balance,
+            cuenta_contable=account,
+            codigo_cuenta=account.codigo,
+            nombre_cuenta=account.nombre,
+            clasificador_dj1847='RLI-LEASE-REVENUE',
+            sumas_haber_clp='1000.00',
+            saldo_acreedor_clp='1000.00',
+            resultado_ganancia_clp='1000.00',
+            formula_ref='trial-balance-line-formula-controlled',
+            evidencia_ref='trial-balance-line-evidence-controlled',
+            source_payload={'source': 'company-accounting-progress-test', 'trial_balance_id': trial_balance.id},
+            hash_linea='d' * 64,
+            estado=EstadoRegistro.ACTIVE,
+        )
 
     def _export_package_payload(self):
         package_manifest = [
@@ -397,7 +429,7 @@ class CompanyAccountingProgressTests(TestCase):
             fecha_preparacion=timezone.now(),
             resumen_anual={'source': 'candidate-test'},
         )
-        AnnualTaxTrialBalance.objects.create(
+        trial_balance = AnnualTaxTrialBalance.objects.create(
             empresa=empresa,
             proceso_renta_anual=process,
             source_bundle=source_bundle,
@@ -485,8 +517,10 @@ class CompanyAccountingProgressTests(TestCase):
         )
 
         missing_package_result = collect_company_accounting_candidates(empresa_ids=[empresa.id, empresa_sin_senales.id])
+        self.assertEqual(missing_package_result['candidates'][0]['years'][0]['signals']['annual_trial_balance'], 0)
         self.assertEqual(missing_package_result['candidates'][0]['years'][0]['signals']['annual_export'], 0)
 
+        self._create_trial_balance_line(trial_balance)
         export_payload = self._export_package_payload()
         AnnualTaxExport.objects.filter(pk=export.pk).update(
             export_payload=export_payload,
@@ -930,7 +964,7 @@ class CompanyAccountingProgressTests(TestCase):
             fecha_preparacion=timezone.now(),
             resumen_anual={'source': 'company-accounting-progress-test'},
         )
-        AnnualTaxTrialBalance.objects.create(
+        trial_balance = AnnualTaxTrialBalance.objects.create(
             empresa=empresa,
             proceso_renta_anual=process,
             source_bundle=source_bundle,
@@ -1017,9 +1051,21 @@ class CompanyAccountingProgressTests(TestCase):
             estado=EstadoAnnualTaxExport.PREPARED,
         )
 
+        missing_lines_result = collect_company_accounting_progress(empresa_id=empresa.id, fiscal_year=2025)
+        self.assertEqual(missing_lines_result['classification'], 'parcial')
+        self.assertFalse(missing_lines_result['ready_for_company_accounting_review'])
+        self.assertFalse(missing_lines_result['phases']['annual_trial_balance']['ready'])
+        self.assertEqual(missing_lines_result['next_blocking_phase'], 'annual_trial_balance')
+        self.assertIn(
+            'company_accounting.annual_trial_balance_missing',
+            {issue['code'] for issue in missing_lines_result['issues']},
+        )
+
+        self._create_trial_balance_line(trial_balance)
         missing_package_result = collect_company_accounting_progress(empresa_id=empresa.id, fiscal_year=2025)
         self.assertEqual(missing_package_result['classification'], 'parcial')
         self.assertFalse(missing_package_result['ready_for_company_accounting_review'])
+        self.assertTrue(missing_package_result['phases']['annual_trial_balance']['ready'])
         self.assertFalse(missing_package_result['phases']['annual_export']['ready'])
         self.assertEqual(missing_package_result['next_blocking_phase'], 'annual_export')
         self.assertIn(

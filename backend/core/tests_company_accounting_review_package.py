@@ -15,8 +15,11 @@ from contabilidad.models import (
     BalanceComprobacion,
     CierreMensualContable,
     ConfiguracionFiscalEmpresa,
+    CuentaContable,
     EstadoCierreMensual,
     EstadoPreparacionTributaria,
+    EstadoRegistro,
+    NaturalezaCuenta,
 )
 from contabilidad.services import ensure_default_regime
 from core.annual_tax_source_manifest import payload_hash
@@ -35,6 +38,7 @@ from sii.models import (
     AnnualTaxOfficialSource,
     AnnualTaxSourceBundle,
     AnnualTaxTrialBalance,
+    AnnualTaxTrialBalanceLine,
     AnnualTaxWorkbook,
     CapacidadSII,
     CapacidadTributariaSII,
@@ -328,6 +332,34 @@ class CompanyAccountingReviewPackageTests(TestCase):
             'export_file_package_hash': payload_hash(package_manifest),
         }
 
+    def _create_trial_balance_line(self, trial_balance):
+        account, _ = CuentaContable.objects.get_or_create(
+            empresa=trial_balance.empresa,
+            plan_cuentas_version='company-review-package-test',
+            codigo=f'4100-{trial_balance.id}',
+            defaults={
+                'nombre': f'Ingresos {trial_balance.id}',
+                'naturaleza': NaturalezaCuenta.CREDIT,
+                'nivel': 1,
+                'estado': EstadoRegistro.ACTIVE,
+            },
+        )
+        return AnnualTaxTrialBalanceLine.objects.create(
+            trial_balance=trial_balance,
+            cuenta_contable=account,
+            codigo_cuenta=account.codigo,
+            nombre_cuenta=account.nombre,
+            clasificador_dj1847='RLI-LEASE-REVENUE',
+            sumas_haber_clp='1000.00',
+            saldo_acreedor_clp='1000.00',
+            resultado_ganancia_clp='1000.00',
+            formula_ref='trial-balance-line-formula-controlled',
+            evidencia_ref='trial-balance-line-evidence-controlled',
+            source_payload={'source': 'company-accounting-review-package-test', 'trial_balance_id': trial_balance.id},
+            hash_linea='d' * 64,
+            estado=EstadoRegistro.ACTIVE,
+        )
+
     def _prepare_complete_accounting_layers(self, empresa):
         config = self._activate_fiscal_config(empresa)
         f29_capability = self._create_f29_capability(empresa)
@@ -382,7 +414,7 @@ class CompanyAccountingReviewPackageTests(TestCase):
             fecha_preparacion=timezone.now(),
             resumen_anual={'source': 'company-accounting-review-package-test'},
         )
-        AnnualTaxTrialBalance.objects.create(
+        trial_balance = AnnualTaxTrialBalance.objects.create(
             empresa=empresa,
             proceso_renta_anual=process,
             source_bundle=source_bundle,
@@ -399,6 +431,7 @@ class CompanyAccountingReviewPackageTests(TestCase):
             hash_balance='4' * 64,
             estado=EstadoAnnualTaxTrialBalance.PREPARED,
         )
+        self._create_trial_balance_line(trial_balance)
         for kind in (TipoAnnualTaxWorkbook.RLI, TipoAnnualTaxWorkbook.CPT):
             AnnualTaxWorkbook.objects.create(
                 empresa=empresa,
