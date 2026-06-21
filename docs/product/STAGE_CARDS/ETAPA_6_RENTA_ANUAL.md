@@ -349,6 +349,16 @@ ownership suficiente para materializar `Propiedad`; en la corrida real actual,
 ese es el prerequisito que falta antes de despejar
 `stage6.real_estate_item_missing`. Esto no convierte el expediente en
 presentacion SII real ni calculo tributario final.
+El mirror anual replica el mismo gate en la capa DB local/controlada: 12
+`MonthlyTaxFact` normalizados no bastan para `ready_for_generation` si la
+empresa no tiene snapshot ownership vigente al 31-12 del ano comercial, con
+participantes que sumen 100% y sin duplicados. `run_annual_tax_controlled_mirror`
+devuelve `ownership_snapshot` sanitizado con fecha, conteos, porcentaje total y
+codigo de bloqueo, sin nombres ni RUTs; ante `ownership_snapshot_missing`,
+`ownership_snapshot_incomplete` o `ownership_snapshot_duplicate_participants`
+no escribe ProcesoRentaAnual, DDJJ, F22 ni artefactos anuales. Esto evita
+saltar el readiness del paquete controlado cuando alguien llama directo al
+mirror.
 `audit_annual_tax_mirror_proof` es el gate local de conclusion para esta prueba
 espejo: combina readiness de fuente/manifiesto, arquitectura espejo, comparador
 de outputs esperados, readiness Etapa 6 y boundary de seguridad. Debe quedar
