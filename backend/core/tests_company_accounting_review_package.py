@@ -64,6 +64,7 @@ from sii.models import (
     TipoAnnualTaxOfficialSource,
     TipoAnnualTaxArtifactTarget,
 )
+from sii.services import summarize_annual_tax_exports
 
 
 def _complete_bank_manifest(*, empresa=None, fiscal_year=2025, tax_year=2026, statement_strength='verified_complete'):
@@ -487,6 +488,13 @@ class CompanyAccountingReviewPackageTests(TestCase):
         ProcesoRentaAnual.objects.filter(pk=process.pk).update(resumen_anual=process_summary)
         process.resumen_anual = process_summary
 
+    def _prepare_reviewable_export(self, *, process, export):
+        export.refresh_from_db()
+        process_summary = process.resumen_anual if isinstance(process.resumen_anual, dict) else {}
+        process_summary = {**process_summary, 'annual_tax_exports': summarize_annual_tax_exports(process)}
+        ProcesoRentaAnual.objects.filter(pk=process.pk).update(resumen_anual=process_summary)
+        process.resumen_anual = process_summary
+
     def _prepare_complete_accounting_layers(self, empresa):
         config = self._activate_fiscal_config(empresa)
         f29_capability = self._create_f29_capability(empresa)
@@ -617,7 +625,7 @@ class CompanyAccountingReviewPackageTests(TestCase):
             dossier=dossier,
         )
         export_payload = self._export_package_payload()
-        AnnualTaxExport.objects.create(
+        export = AnnualTaxExport.objects.create(
             empresa=empresa,
             proceso_renta_anual=process,
             dossier=dossier,
@@ -637,6 +645,7 @@ class CompanyAccountingReviewPackageTests(TestCase):
             hash_export=payload_hash(export_payload),
             estado=EstadoAnnualTaxExport.PREPARED,
         )
+        self._prepare_reviewable_export(process=process, export=export)
 
     def test_complete_accounting_and_bank_support_are_ready_for_responsible_review_only(self):
         empresa = self._create_empresa()

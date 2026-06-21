@@ -55,6 +55,7 @@ from sii.models import (
     TipoAnnualTaxWorkbook,
     TipoAnnualTaxOfficialSource,
 )
+from sii.services import summarize_annual_tax_exports
 
 
 class CompanyAccountingProgressTests(TestCase):
@@ -415,6 +416,13 @@ class CompanyAccountingProgressTests(TestCase):
         ProcesoRentaAnual.objects.filter(pk=process.pk).update(resumen_anual=process_summary)
         process.resumen_anual = process_summary
 
+    def _prepare_reviewable_export(self, *, process, export):
+        export.refresh_from_db()
+        process_summary = process.resumen_anual if isinstance(process.resumen_anual, dict) else {}
+        process_summary = {**process_summary, 'annual_tax_exports': summarize_annual_tax_exports(process)}
+        ProcesoRentaAnual.objects.filter(pk=process.pk).update(resumen_anual=process_summary)
+        process.resumen_anual = process_summary
+
     def test_partial_progress_reports_next_missing_phase_without_external_sources(self):
         empresa = self._create_empresa()
         self._activate_fiscal_config(empresa)
@@ -720,6 +728,18 @@ class CompanyAccountingProgressTests(TestCase):
             export_payload=export_payload,
             hash_export=payload_hash(export_payload),
         )
+        missing_export_summary_result = collect_company_accounting_candidates(
+            empresa_ids=[empresa.id, empresa_sin_senales.id]
+        )
+        self.assertEqual(
+            missing_export_summary_result['candidates'][0]['years'][0]['signals']['annual_dossier'],
+            1,
+        )
+        self.assertEqual(
+            missing_export_summary_result['candidates'][0]['years'][0]['signals']['annual_export'],
+            0,
+        )
+        self._prepare_reviewable_export(process=process, export=export)
 
         result = collect_company_accounting_candidates(empresa_ids=[empresa.id, empresa_sin_senales.id])
 
@@ -1411,6 +1431,11 @@ class CompanyAccountingProgressTests(TestCase):
             export_payload=export_payload,
             hash_export=payload_hash(export_payload),
         )
+        missing_export_summary_result = collect_company_accounting_progress(empresa_id=empresa.id, fiscal_year=2025)
+        self.assertEqual(missing_export_summary_result['classification'], 'parcial')
+        self.assertFalse(missing_export_summary_result['phases']['annual_export']['ready'])
+        self.assertEqual(missing_export_summary_result['next_blocking_phase'], 'annual_export')
+        self._prepare_reviewable_export(process=process, export=export)
 
         result = collect_company_accounting_progress(empresa_id=empresa.id, fiscal_year=2025)
 
