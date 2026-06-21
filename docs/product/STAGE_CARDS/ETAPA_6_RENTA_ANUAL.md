@@ -313,6 +313,12 @@ el readiness exige `redacted_patch_hash` del patch validado y que
 writer DB aplica la misma consistencia antes de abrir transaccion, evitando que
 un handoff privado desalineado o sin hash de validacion cargue socios o hechos
 mensuales.
+El resultado de `apply_annual_tax_controlled_db_load` y del comando homonimo
+tambien conserva un `ownership_review_handoff` redactado: expone
+`readiness_sources_total`, `question_source_summaries` sanitizados y flags
+seguras heredadas del paquete controlado, sin nombres, RUTs, rutas ni PII. Asi
+la carga local/controlada no borra si el writer viene de un flujo aun separado
+por soporte bancario formal o intake documental observado.
 `build_annual_tax_controlled_values_draft` completa ese paquete desde fuentes
 AC2024 permitidas y read-only: Libro Diario, Libro Mayor, Libro Inventario, F29,
 libros de remuneraciones y soporte de bienes raices. La corrida real de

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal, InvalidOperation
+import re
 from typing import Any
 
 from django.core.exceptions import ValidationError
@@ -36,6 +37,9 @@ from sii.models import (
 
 CONTROLLED_DB_LOAD_SCHEMA_VERSION = 'annual-tax-controlled-db-load.v1'
 CONTROLLED_OWNERSHIP_REVIEW_HANDOFF_SCHEMA_VERSION = 'annual-tax-ownership-review-handoff.v1'
+CHILEAN_RUT_PATTERN = re.compile(r'\b\d{1,2}\.?\d{3}\.?\d{3}-[\dkK]\b')
+WINDOWS_ABSOLUTE_PATH_PATTERN = re.compile(r'(^|[\s"\'])([A-Za-z]:[\\/]|\\\\)')
+SAFE_REF_PATTERN = re.compile(r'^[A-Za-z0-9_.:-]+$')
 
 FORBIDDEN_EXPECTED_OUTPUT_KEYS = {
     'expected_outputs',
@@ -85,6 +89,107 @@ def _validated_rut(value: Any, *, field_name: str) -> str:
         return validate_rut(str(value or '').strip())
     except ValidationError as error:
         raise ValueError(f'{field_name} debe ser un RUT valido.') from error
+
+
+def _safe_int(value: Any) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _safe_bool(value: Any) -> bool:
+    return value is True
+
+
+def _is_safe_ref(value: Any) -> bool:
+    text = str(value or '').strip()
+    return bool(text) and not (
+        contains_sensitive_reference(text)
+        or CHILEAN_RUT_PATTERN.search(text)
+        or WINDOWS_ABSOLUTE_PATH_PATTERN.search(text)
+        or not SAFE_REF_PATTERN.fullmatch(text)
+    )
+
+
+def _safe_summary_ref(value: Any, *, fallback: str) -> str:
+    text = str(value or '').strip()
+    return text if _is_safe_ref(text) else fallback
+
+
+def _safe_ready_flags(raw_flags: Any) -> dict[str, bool]:
+    if not isinstance(raw_flags, dict):
+        return {}
+    flags: dict[str, bool] = {}
+    for raw_key, raw_value in raw_flags.items():
+        key = str(raw_key or '').strip()
+        if _is_safe_ref(key) and isinstance(raw_value, bool):
+            flags[key] = raw_value
+    return {key: flags[key] for key in sorted(flags)}
+
+
+def _question_source_summaries(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    raw_summaries = payload.get('question_source_summaries')
+    if not isinstance(raw_summaries, list):
+        raw_summaries = payload.get('source_summaries')
+    if not isinstance(raw_summaries, list):
+        return []
+
+    summaries: list[dict[str, Any]] = []
+    for raw_summary in raw_summaries:
+        if not isinstance(raw_summary, dict):
+            continue
+        summaries.append(
+            {
+                'label': _safe_summary_ref(raw_summary.get('label'), fallback='source'),
+                'schema_version': _safe_summary_ref(
+                    raw_summary.get('schema_version'),
+                    fallback='schema-version-pending',
+                ),
+                'classification': _safe_summary_ref(
+                    raw_summary.get('classification'),
+                    fallback='classification-pending',
+                ),
+                'ready_flags': _safe_ready_flags(raw_summary.get('ready_flags')),
+                'issues_total': _safe_int(raw_summary.get('issues_total')),
+                'source_hash': _safe_summary_ref(raw_summary.get('source_hash'), fallback='source-hash-pending'),
+            }
+        )
+    return sorted(summaries, key=lambda item: (item['label'], item['source_hash']))
+
+
+def _ownership_review_handoff_summary(package: dict[str, Any]) -> dict[str, Any]:
+    review = package.get('ownership_review')
+    if not isinstance(review, dict):
+        return {
+            'present': False,
+            'validation_present': False,
+            'ready_for_controlled_db_load': False,
+            'readiness_sources_total': 0,
+            'question_source_summaries': [],
+        }
+
+    source_summaries = _question_source_summaries(review)
+    return {
+        'present': True,
+        'schema_version': _safe_summary_ref(review.get('schema_version'), fallback='schema-version-pending'),
+        'validation_present': _safe_bool(review.get('validation_present')),
+        'redacted_patch_hash_present': bool(str(review.get('redacted_patch_hash') or '').strip()),
+        'participants_count': _safe_int(review.get('participants_count')),
+        'percentage_total': str(
+            _decimal(review.get('percentage_total'), field_name='ownership_review.percentage_total')
+        ),
+        'blocking_items_total': _safe_int(review.get('blocking_items_total')),
+        'ready_for_manual_review': _safe_bool(review.get('ready_for_manual_review')),
+        'ready_for_controlled_db_load': _safe_bool(review.get('ready_for_controlled_db_load')),
+        'can_inject_ownership_into_controlled_package': _safe_bool(
+            review.get('can_inject_ownership_into_controlled_package')
+        ),
+        'readiness_sources_total': len(source_summaries),
+        'question_source_summaries': source_summaries,
+        'next_action': _safe_summary_ref(review.get('next_action'), fallback='next-action-pending'),
+        'replaces_ownership_snapshot': False,
+    }
 
 
 def _forbidden_expected_output_paths(value: Any, path: str = '$') -> list[str]:
@@ -789,6 +894,7 @@ def apply_annual_tax_controlled_db_load(*, empresa, package: dict[str, Any], wri
         'complete_12_months': complete_12_months,
         'expected_outputs_used_as_inputs': False,
         'ownership_snapshot': ownership_summary,
+        'ownership_review_handoff': _ownership_review_handoff_summary(package),
         'real_estate_snapshot': real_estate_summary,
         'labor_previsional_source': labor_previsional_summary,
         'created_updated': counts,
