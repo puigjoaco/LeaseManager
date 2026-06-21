@@ -183,6 +183,24 @@ class CompanyAccountingReviewPackageView(APIView):
         empresa_id = request.data.get('empresa_id')
         fiscal_year = request.data.get('fiscal_year')
         bank_support_manifest = request.data.get('bank_support_manifest')
+        unsupported_document_intake_fields = (
+            'document_intake_package_dir',
+            'document_intake_package_path',
+            'document_intake_package',
+        )
+        unsupported_fields = [
+            field for field in unsupported_document_intake_fields if field in request.data
+        ]
+        if unsupported_fields:
+            raise ValidationError(
+                {
+                    field: (
+                        'La API de Reporting no acepta rutas ni paquetes locales de intake documental. '
+                        'Use bank_support_manifest como JSON redactado; los paquetes locales se verifican solo por CLI.'
+                    )
+                    for field in unsupported_fields
+                }
+            )
         if empresa_id in (None, ''):
             raise ValidationError({'empresa_id': 'Este parametro es obligatorio.'})
         if fiscal_year in (None, ''):

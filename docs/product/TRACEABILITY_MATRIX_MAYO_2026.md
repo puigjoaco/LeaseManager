@@ -178,8 +178,12 @@ empresa y ano mediante
 backoffice "Paquete de revisión". La API aplica scope de empresa, exige
 `bank_support_manifest` como JSON redactado y reutiliza
 `build_company_accounting_review_package` para cruzar avance contable/renta con
-cobertura bancaria/leasing sin leer archivos reales, `.env`, banco ni SII. La
-salida conserva hashes, issues, trazabilidad y boundary no autonomo:
+cobertura bancaria/leasing sin leer archivos reales, `.env`, banco ni SII.
+Tambien rechaza explicitamente rutas o paquetes locales de intake documental
+enviados por HTTP (`document_intake_package_dir`,
+`document_intake_package_path`, `document_intake_package`): ese handoff queda
+reservado a comandos CLI que verifican el paquete en disco. La salida conserva
+hashes, issues, trazabilidad y boundary no autonomo:
 `autonomous_accounting=false`, `final_tax_calculation=false`,
 `sii_submission=false` y revision responsable obligatoria.
 

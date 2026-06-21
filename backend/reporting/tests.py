@@ -1309,6 +1309,33 @@ class ReportingAPITests(APITestCase):
         self.assertIn('bank_support_hash', response.data['evidence'])
         self.assertNotIn(empresa.rut, json.dumps(response.data))
 
+    def test_company_accounting_review_package_endpoint_rejects_document_intake_local_sources(self):
+        _, empresa, _, _, _, _ = self._create_context('REVIEWINTAKEAPI')
+        self._activate_fiscal_config(empresa)
+        manifest = self._complete_bank_support_manifest(empresa)
+        sensitive_path = r'D:\Clientes\InmobiliariaPuig\BancoChile\cartola-2025.pdf'
+
+        response = self.client.post(
+            reverse('reporting-company-accounting-review-package'),
+            {
+                'empresa_id': empresa.id,
+                'fiscal_year': 2026,
+                'bank_support_manifest': manifest,
+                'document_intake_package_dir': sensitive_path,
+                'document_intake_package': {'package_hash': 'fake-client-side-package'},
+            },
+            format='json',
+        )
+
+        rendered = json.dumps(response.data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('document_intake_package_dir', response.data)
+        self.assertIn('document_intake_package', response.data)
+        self.assertNotIn('InmobiliariaPuig', rendered)
+        self.assertNotIn('BancoChile', rendered)
+        self.assertNotIn('cartola-2025.pdf', rendered)
+        self.assertNotIn('fake-client-side-package', rendered)
+
     def test_company_accounting_review_package_endpoint_blocks_manifest_for_other_company(self):
         _, empresa_a, _, _, _, _ = self._create_context('REVIEWPKGA')
         _, empresa_b, _, _, _, _ = self._create_context('REVIEWPKGB')
