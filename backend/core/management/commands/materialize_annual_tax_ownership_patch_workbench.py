@@ -166,6 +166,9 @@ class Command(BaseCommand):
             'rendered_candidates_total': manifest['summary']['rendered_candidates_total'],
             'responsible_answers_present': manifest['summary']['responsible_answers_present'],
             'responsible_answers_ready': manifest['summary']['responsible_answers_ready'],
+            'responsible_answers_readiness_sources_total': manifest['summary'][
+                'responsible_answers_readiness_sources_total'
+            ],
             'questions_total': manifest['summary']['questions_total'],
             'private_questions_total': manifest['summary']['private_questions_total'],
             'writes_database': False,

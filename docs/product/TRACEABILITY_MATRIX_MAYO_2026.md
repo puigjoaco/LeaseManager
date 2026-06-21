@@ -269,6 +269,15 @@ el discovery de reviews devuelve esa informacion sin rutas, nombres, RUTs ni
 PII. Asi completar respuestas responsables no borra el motivo formal que aun
 separa preparacion local de revision/productividad.
 
+Nota 2026-06-21: `materialize_annual_tax_ownership_patch_workbench` y
+`build_annual_tax_ownership_patch_workbench` propagan esos
+`question_source_summaries` sanitizados hacia
+`responsible_answers_summary` y exponen
+`responsible_answers_readiness_sources_total` en el manifest/stdout. El
+workbench ownership mantiene las flags seguras de soporte bancario formal e
+intake documental sin copiar rutas, nombres, RUTs ni PII, evitando que el paso
+desde review responsable a patch privado borre la causa de readiness parcial.
+
 Nota 2026-06-18: Etapa 6/Renta Anual separa el codigo de certificacion F22 del
 candidato local. `build_annual_tax_f22_fixed_width_export_candidate()` ahora
 requiere fuente no sensible, responsable revisor y estado de revision para los

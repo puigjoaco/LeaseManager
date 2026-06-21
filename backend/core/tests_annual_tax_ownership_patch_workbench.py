@@ -178,6 +178,45 @@ class AnnualTaxOwnershipPatchWorkbenchTests(SimpleTestCase):
         self.assertNotIn('evidence-1', rendered_manifest)
         self.assertNotIn('responsible-decisions-ac2025-at2026-v1', rendered_manifest)
 
+    def test_workbench_preserves_responsible_answers_readiness_source_summaries(self):
+        review = self._responsible_answers_review()
+        review['question_source_summaries'] = [
+            {
+                'label': 'D:/Privado/Socio Controlado Uno 11111111-1/banco',
+                'schema_version': 'company-bank-support-coverage-manifest.v1',
+                'classification': 'blocking',
+                'ready_flags': {
+                    'ready_for_formal_bank_support_review': False,
+                    'document_intake_ready_for_productive_review': False,
+                    'document_intake_ready_for_formal_bank_support_manifest': True,
+                    'D:/Privado/Socio Controlado Uno 11111111-1': True,
+                },
+                'issues_total': 2,
+                'source_hash': 'd' * 64,
+            }
+        ]
+        review['summary']['readiness_sources_total'] = 1
+
+        result = build_annual_tax_ownership_patch_workbench(
+            template=self._template(),
+            responsible_answers_review=review,
+        )
+        manifest = result['manifest']
+        responsible_summary = manifest['responsible_answers_summary']
+        source_summary = responsible_summary['question_source_summaries'][0]
+        rendered_manifest = json.dumps(manifest, ensure_ascii=True)
+
+        self.assertEqual(manifest['summary']['responsible_answers_readiness_sources_total'], 1)
+        self.assertEqual(responsible_summary['readiness_sources_total'], 1)
+        self.assertEqual(source_summary['label'], 'source')
+        self.assertFalse(source_summary['ready_flags']['ready_for_formal_bank_support_review'])
+        self.assertFalse(source_summary['ready_flags']['document_intake_ready_for_productive_review'])
+        self.assertTrue(source_summary['ready_flags']['document_intake_ready_for_formal_bank_support_manifest'])
+        self.assertNotIn('D:/Privado/Socio Controlado Uno 11111111-1', source_summary['ready_flags'])
+        self.assertNotIn('Socio Controlado Uno', rendered_manifest)
+        self.assertNotIn('11111111-1', rendered_manifest)
+        self.assertNotIn('D:/Privado', rendered_manifest)
+
     def test_workbench_derives_not_ready_from_inconsistent_responsible_answers_review(self):
         review = self._responsible_answers_review()
         review['summary']['ready_for_responsible_decision_handoff'] = True
@@ -304,7 +343,10 @@ class AnnualTaxOwnershipPatchWorkbenchTests(SimpleTestCase):
             self.assertEqual(summary['private_patch_draft_file'], OWNERSHIP_PATCH_DRAFT_PRIVATE_FILENAME)
             self.assertTrue(summary['responsible_answers_present'])
             self.assertTrue(summary['responsible_answers_ready'])
+            self.assertEqual(summary['responsible_answers_readiness_sources_total'], 2)
             self.assertEqual(manifest['summary']['rendered_candidates_total'], 10)
+            self.assertEqual(manifest['summary']['responsible_answers_readiness_sources_total'], 2)
+            self.assertEqual(manifest['responsible_answers_summary']['readiness_sources_total'], 2)
             self.assertTrue(manifest['responsible_answers_summary']['ready_for_responsible_decision_handoff'])
             self.assertEqual(patch_draft['ownership']['participants'], [])
             self.assertNotIn('Socio Controlado Uno', rendered_summary)
