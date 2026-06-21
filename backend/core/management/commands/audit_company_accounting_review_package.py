@@ -6,6 +6,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db.utils import OperationalError, ProgrammingError
 
 from core.company_accounting_review_package import build_company_accounting_review_package
+from core.company_document_intake import verify_company_document_intake_package_from_disk
 from patrimonio.models import Empresa
 
 
@@ -45,8 +46,16 @@ class Command(BaseCommand):
         parser.add_argument('--fiscal-year', type=int, required=True, help='Ano comercial a auditar.')
         parser.add_argument(
             '--bank-support-manifest',
-            required=True,
+            default='',
             help='JSON redactado company-bank-support-coverage-manifest.v1.',
+        )
+        parser.add_argument(
+            '--document-intake-package-dir',
+            default='',
+            help=(
+                'Directorio materializado por materialize_company_document_intake. '
+                'Si se usa, el manifiesto bancario/leasing se toma del paquete verificado.'
+            ),
         )
         parser.add_argument('--output', default='', help='Ruta opcional para escribir JSON de paquete.')
         parser.add_argument(
@@ -56,29 +65,43 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        manifest_path = _resolve_path(options['bank_support_manifest'])
-        if not manifest_path.exists() or not manifest_path.is_file():
-            raise CommandError('No existe manifest JSON o no es un archivo legible.')
+        if bool(options['bank_support_manifest']) == bool(options['document_intake_package_dir']):
+            raise CommandError(
+                'Debe indicar exactamente una fuente: --bank-support-manifest o --document-intake-package-dir.'
+            )
 
         output_path = None
         if options['output']:
             output_path = _resolve_path(options['output'])
             _validate_output_path(output_path)
 
-        try:
-            bank_support_payload = json.loads(manifest_path.read_text(encoding='utf-8'))
-        except json.JSONDecodeError as error:
-            raise CommandError(f'Manifest JSON invalido: line {error.lineno}, column {error.colno}.') from error
-        except OSError as error:
-            raise CommandError('No se pudo leer manifest JSON.') from error
-        if not isinstance(bank_support_payload, dict):
-            raise CommandError('Manifest invalido: la raiz debe ser un objeto JSON.')
+        intake_package = None
+        if options['document_intake_package_dir']:
+            intake_dir = _resolve_path(options['document_intake_package_dir'])
+            try:
+                intake_package = verify_company_document_intake_package_from_disk(package_dir=intake_dir)
+            except ValueError as error:
+                raise CommandError(f'Paquete de intake documental invalido: {error}') from error
+            bank_support_payload = intake_package['bank_support_manifest']
+        else:
+            manifest_path = _resolve_path(options['bank_support_manifest'])
+            if not manifest_path.exists() or not manifest_path.is_file():
+                raise CommandError('No existe manifest JSON o no es un archivo legible.')
+            try:
+                bank_support_payload = json.loads(manifest_path.read_text(encoding='utf-8'))
+            except json.JSONDecodeError as error:
+                raise CommandError(f'Manifest JSON invalido: line {error.lineno}, column {error.colno}.') from error
+            except OSError as error:
+                raise CommandError('No se pudo leer manifest JSON.') from error
+            if not isinstance(bank_support_payload, dict):
+                raise CommandError('Manifest invalido: la raiz debe ser un objeto JSON.')
 
         try:
             result = build_company_accounting_review_package(
                 empresa_id=options['empresa_id'],
                 fiscal_year=options['fiscal_year'],
                 bank_support_payload=bank_support_payload,
+                document_intake_package=intake_package,
             )
         except Empresa.DoesNotExist as error:
             raise CommandError(f'No existe Empresa con id={options["empresa_id"]}.') from error
@@ -104,5 +127,6 @@ class Command(BaseCommand):
                 'Paquete de revision contable/renta incompleto: '
                 f'classification={result["classification"]}, '
                 f'accounting={result["summary"]["accounting_progress_classification"]}, '
-                f'bank_support={result["summary"]["bank_support_classification"]}.'
+                f'bank_support={result["summary"]["bank_support_classification"]}, '
+                f'document_intake_ready={result["summary"]["document_intake_ready_for_productive_review"]}.'
             )

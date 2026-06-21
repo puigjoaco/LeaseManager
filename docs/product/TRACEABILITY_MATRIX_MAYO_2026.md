@@ -3539,13 +3539,16 @@ Nota 2026-06-20: Ese intake ya no promueve soporte bancario/leasing
 `ready_for_productive_document_review=true` cuando hay banco/leasing requerido.
 
 Nota 2026-06-20: El handoff desde intake documental hacia paquete contable/renta
-preserva esa readiness. Cuando `materialize_company_accounting_review_package`
-recibe `--document-intake-package-dir`, `build_company_accounting_review_package`
+preserva esa readiness. Cuando `audit_company_accounting_review_package` o
+`materialize_company_accounting_review_package` reciben
+`--document-intake-package-dir`, `build_company_accounting_review_package`
 incluye `document_intake_source_kind`, `document_intake_package_hash`,
 `document_intake_ready_for_productive_review` y
 `document_intake_ready_for_formal_bank_support_manifest`; si el intake verificado
 no esta listo para revision productiva, bloquea el paquete con
-`company_accounting_review.document_intake_not_productive_ready`.
+`company_accounting_review.document_intake_not_productive_ready`. El auditor
+dry-run exige exactamente una fuente y permite revisar el handoff sin escribir
+el paquete materializado.
 
 Nota 2026-06-18: Contabilidad/Renta agrega
 `materialize_company_document_intake` para escribir el intake documental

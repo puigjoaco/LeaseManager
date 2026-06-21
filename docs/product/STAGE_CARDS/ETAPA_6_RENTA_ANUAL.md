@@ -1291,10 +1291,11 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
 - El verificador de intake desde disco valida tambien JSON canonico, hashes de
   cada archivo, alineacion entre auditoria, manifiesto bancario/leasing y puente
   anual, y rechaza tamper sin necesitar el manifest original. Con
-  `--document-intake-package-dir`, `materialize_company_accounting_review_package`
-  toma el `company-bank-support-coverage-manifest.json` desde ese paquete ya
-  verificado, conserva el hash/readiness del intake completo y bloquea el
-  paquete contable/renta si el intake aun no esta
+  `--document-intake-package-dir`, `audit_company_accounting_review_package` y
+  `materialize_company_accounting_review_package` toman el
+  `company-bank-support-coverage-manifest.json` desde ese paquete ya verificado,
+  conservan el hash/readiness del intake completo y bloquean el paquete
+  contable/renta si el intake aun no esta
   `ready_for_productive_document_review`, aunque el manifiesto bancario derivado
   sea formalmente completo. Esto mantiene el handoff como evidencia portable y
   evita saltarse blockers del intake documental.
