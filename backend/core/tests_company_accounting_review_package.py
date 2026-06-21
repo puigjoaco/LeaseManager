@@ -575,6 +575,97 @@ class CompanyAccountingReviewPackageTests(TestCase):
                     stdout=StringIO(),
                 )
 
+    def test_audit_command_accepts_verified_document_intake_package(self):
+        empresa = self._create_empresa()
+        self._prepare_complete_accounting_layers(empresa)
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            intake_dir = Path(temp_dir) / 'company-document-intake-package'
+            intake_manifest = _complete_document_intake_manifest(empresa=empresa)
+            intake_package = write_company_document_intake_package(
+                payload=intake_manifest,
+                output_dir=intake_dir,
+            )
+            stdout = StringIO()
+
+            call_command(
+                'audit_company_accounting_review_package',
+                empresa_id=empresa.id,
+                fiscal_year=2025,
+                document_intake_package_dir=str(intake_dir),
+                stdout=stdout,
+            )
+
+            result = json.loads(stdout.getvalue())
+
+            self.assertEqual(result['classification'], 'preparado')
+            self.assertTrue(result['ready_for_productive_accounting_review'])
+            self.assertEqual(result['summary']['document_intake_source_kind'], 'document_intake_package')
+            self.assertEqual(result['summary']['document_intake_package_hash'], intake_package['package_hash'])
+            self.assertTrue(result['summary']['document_intake_ready_for_productive_review'])
+            self.assertTrue(result['summary']['document_intake_ready_for_formal_bank_support_manifest'])
+
+    def test_audit_command_document_intake_not_ready_blocks_review_package(self):
+        empresa = self._create_empresa()
+        self._prepare_complete_accounting_layers(empresa)
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            intake_dir = Path(temp_dir) / 'company-document-intake-package'
+            intake_manifest = _complete_document_intake_manifest(
+                empresa=empresa,
+                source_kind='unsupported_source_kind',
+            )
+            intake_package = write_company_document_intake_package(
+                payload=intake_manifest,
+                output_dir=intake_dir,
+            )
+            stdout = StringIO()
+
+            call_command(
+                'audit_company_accounting_review_package',
+                empresa_id=empresa.id,
+                fiscal_year=2025,
+                document_intake_package_dir=str(intake_dir),
+                stdout=stdout,
+            )
+
+            result = json.loads(stdout.getvalue())
+
+            self.assertEqual(result['classification'], 'parcial')
+            self.assertFalse(result['ready_for_productive_accounting_review'])
+            self.assertEqual(result['summary']['document_intake_source_kind'], 'document_intake_package')
+            self.assertEqual(result['summary']['document_intake_package_hash'], intake_package['package_hash'])
+            self.assertFalse(result['summary']['document_intake_ready_for_productive_review'])
+            self.assertIn(
+                'company_accounting_review.document_intake_not_productive_ready',
+                {issue['code'] for issue in result['issues']},
+            )
+
+            with self.assertRaisesMessage(CommandError, 'document_intake_ready=False'):
+                call_command(
+                    'audit_company_accounting_review_package',
+                    empresa_id=empresa.id,
+                    fiscal_year=2025,
+                    document_intake_package_dir=str(intake_dir),
+                    fail_on_incomplete=True,
+                    stdout=StringIO(),
+                )
+
+    def test_audit_command_requires_exactly_one_review_source(self):
+        empresa = self._create_empresa()
+
+        with self.assertRaisesMessage(CommandError, 'exactamente una fuente'):
+            call_command(
+                'audit_company_accounting_review_package',
+                empresa_id=empresa.id,
+                fiscal_year=2025,
+                stdout=StringIO(),
+            )
+
     def test_command_redacts_sensitive_bank_manifest_values(self):
         empresa = self._create_empresa()
         manifest = _complete_bank_manifest(empresa=empresa)
