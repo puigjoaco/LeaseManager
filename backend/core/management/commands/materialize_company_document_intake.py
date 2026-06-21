@@ -110,6 +110,7 @@ class Command(BaseCommand):
             'classification': verification['classification'],
             'ready_for_document_intake_review': verification['ready_for_document_intake_review'],
             'ready_for_bank_support_manifest': verification['ready_for_bank_support_manifest'],
+            'ready_for_formal_bank_support_manifest': verification['ready_for_formal_bank_support_manifest'],
             'ready_for_source_manifest_reconciliation': verification['ready_for_source_manifest_reconciliation'],
             'ready_for_productive_document_review': verification['ready_for_productive_document_review'],
             'output_dir': str(output_dir),
@@ -144,5 +145,6 @@ class Command(BaseCommand):
                 f'classification={result["classification"]}, '
                 f'documents={result["documents_total"]}, '
                 f'blocking_issues={result["blocking_issues_total"]}, '
+                f'formal_bank_ready={result["ready_for_formal_bank_support_manifest"]}, '
                 f'bank_support_blocking={result["bank_support_blocking_issues_total"]}.'
             )

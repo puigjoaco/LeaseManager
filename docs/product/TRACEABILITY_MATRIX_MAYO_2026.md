@@ -208,6 +208,14 @@ mantiene `expected_complete` como suficiente para
 `bank_support_formal_confirmation_missing` cuando la cobertura esta revisable
 pero no formalmente confirmada.
 
+Nota 2026-06-20: El intake documental queda alineado con esa separacion formal.
+`audit_company_document_intake` mantiene `ready_for_bank_support_manifest=true`
+para soporte bancario/leasing `expected_complete`, pero agrega
+`ready_for_formal_bank_support_manifest=false` y deja
+`ready_for_productive_document_review=false` hasta que la confirmacion derivada
+sea `verified_complete`. El paquete materializado y los verificadores desde
+disco preservan esa senal, sin leer adjuntos, correos, banco, SII ni `.env`.
+
 Nota 2026-06-18: Etapa 6/Reporting agrega
 `materialize_company_accounting_review_package` para escribir el paquete de
 revision contable/renta por empresa como carpeta local verificable con manifest
@@ -3523,6 +3531,12 @@ puente hacia `annual-tax-source-manifest.v1` sin leer adjuntos, correos, banco,
 SII ni documentos reales desde el comando. Es la capa que permite pasar de
 "tenemos documentos" a cobertura medible para contabilidad/renta, sin declarar
 contabilidad final, calculo tributario final ni presentacion.
+
+Nota 2026-06-20: Ese intake ya no promueve soporte bancario/leasing
+`expected_complete` a revision productiva. La salida conserva
+`ready_for_bank_support_manifest` para revision local del manifest, pero exige
+`ready_for_formal_bank_support_manifest=true` antes de marcar
+`ready_for_productive_document_review=true` cuando hay banco/leasing requerido.
 
 Nota 2026-06-18: Contabilidad/Renta agrega
 `materialize_company_document_intake` para escribir el intake documental

@@ -1275,7 +1275,11 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   read-only de fuente externa para hashes de archivo. No usa outputs esperados
   como inputs, no lee adjuntos, no abre correos, banco ni SII, y conserva
   `autonomous_accounting=false`, `final_tax_calculation=false` y
-  `sii_submission=false`.
+  `sii_submission=false`. Cuando hay banco/leasing requerido, el intake separa
+  `ready_for_bank_support_manifest` de
+  `ready_for_formal_bank_support_manifest`: `expected_complete` permite revisar
+  el manifest local con advertencia, pero solo `verified_complete` habilita
+  `ready_for_productive_document_review`.
 - `materialize_company_document_intake` escribe ese intake en una carpeta local
   verificable con `company-document-intake-package.json`,
   `company-document-intake-audit.json`,

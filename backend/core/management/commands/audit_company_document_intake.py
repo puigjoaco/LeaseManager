@@ -77,5 +77,6 @@ class Command(BaseCommand):
                 'Intake documental contable/renta incompleto: '
                 f'classification={result["classification"]}, '
                 f'bank_ready={result["ready_for_bank_support_manifest"]}, '
+                f'formal_bank_ready={result["ready_for_formal_bank_support_manifest"]}, '
                 f'annual_bridge_ready={result["ready_for_source_manifest_reconciliation"]}.'
             )
