@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 import json
+import re
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -22,6 +23,9 @@ from patrimonio.validators import validate_rut
 
 CONTROLLED_PACKAGE_READINESS_SCHEMA_VERSION = 'annual-tax-controlled-package-readiness.v1'
 MONTHS = tuple(range(1, 13))
+CHILEAN_RUT_PATTERN = re.compile(r'\b\d{1,2}\.?\d{3}\.?\d{3}-[\dkK]\b')
+WINDOWS_ABSOLUTE_PATH_PATTERN = re.compile(r'(^|[\s"\'])([A-Za-z]:[\\/]|\\\\)')
+SAFE_REF_PATTERN = re.compile(r'^[A-Za-z0-9_.:-]+$')
 
 PACKAGE_REFERENCE_FIELDS = (
     'company_ref',
@@ -82,6 +86,58 @@ def _normalized_rut(value: Any) -> str | None:
 
 def _non_sensitive_text(value: Any) -> bool:
     return is_non_sensitive_reference(value)
+
+
+def _safe_summary_ref(value: Any, *, fallback: str) -> str:
+    text = str(value or '').strip()
+    safe = bool(text) and not (
+        contains_sensitive_reference(text)
+        or CHILEAN_RUT_PATTERN.search(text)
+        or WINDOWS_ABSOLUTE_PATH_PATTERN.search(text)
+        or not SAFE_REF_PATTERN.fullmatch(text)
+    )
+    return text if safe else fallback
+
+
+def _safe_ready_flags(raw_flags: Any) -> dict[str, bool]:
+    if not isinstance(raw_flags, dict):
+        return {}
+    flags: dict[str, bool] = {}
+    for raw_key, raw_value in raw_flags.items():
+        key = str(raw_key or '').strip()
+        if _safe_summary_ref(key, fallback='') and isinstance(raw_value, bool):
+            flags[key] = raw_value
+    return {key: flags[key] for key in sorted(flags)}
+
+
+def _question_source_summaries(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    raw_summaries = payload.get('question_source_summaries')
+    if not isinstance(raw_summaries, list):
+        raw_summaries = payload.get('source_summaries')
+    if not isinstance(raw_summaries, list):
+        return []
+
+    summaries: list[dict[str, Any]] = []
+    for raw_summary in raw_summaries:
+        if not isinstance(raw_summary, dict):
+            continue
+        summaries.append(
+            {
+                'label': _safe_summary_ref(raw_summary.get('label'), fallback='source'),
+                'schema_version': _safe_summary_ref(
+                    raw_summary.get('schema_version'),
+                    fallback='schema-version-pending',
+                ),
+                'classification': _safe_summary_ref(
+                    raw_summary.get('classification'),
+                    fallback='classification-pending',
+                ),
+                'ready_flags': _safe_ready_flags(raw_summary.get('ready_flags')),
+                'issues_total': _int_value(raw_summary.get('issues_total')),
+                'source_hash': _safe_summary_ref(raw_summary.get('source_hash'), fallback='source-hash-pending'),
+            }
+        )
+    return sorted(summaries, key=lambda item: (item['label'], item['source_hash']))
 
 
 def _completed_reference(value: Any) -> bool:
@@ -299,6 +355,7 @@ def _ownership_review_handoff_summary(
             annual_generation_blockers.add('ownership_review_handoff_mismatch')
             _add_invalid(annual_generation_invalid_paths, '$.ownership_review.percentage_total')
 
+    question_source_summaries = _question_source_summaries(review)
     return {
         'present': True,
         'valid': valid,
@@ -315,6 +372,8 @@ def _ownership_review_handoff_summary(
         'can_inject_ownership_into_controlled_package': bool(
             review.get('can_inject_ownership_into_controlled_package')
         ),
+        'readiness_sources_total': len(question_source_summaries),
+        'question_source_summaries': question_source_summaries,
         'next_action': str(review.get('next_action') or ''),
         'replaces_ownership_snapshot': False,
     }

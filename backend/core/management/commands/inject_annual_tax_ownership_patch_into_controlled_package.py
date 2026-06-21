@@ -86,6 +86,11 @@ class Command(BaseCommand):
             help='Ruta obligatoria para escribir el paquete resultante; contiene nombres/RUTs.',
         )
         parser.add_argument(
+            '--workbench-manifest',
+            default='',
+            help='ownership-patch-workbench.json opcional para conservar summaries de readiness sanitizados.',
+        )
+        parser.add_argument(
             '--replace-existing',
             action='store_true',
             help='Permite reemplazar package.ownership existente solo con decision controlada.',
@@ -111,12 +116,16 @@ class Command(BaseCommand):
         package_payload = _read_json(package_path, label='package')
         template = _read_json(template_path, label='template')
         patch = _read_json(patch_path, label='patch')
+        ownership_workbench = None
+        if options.get('workbench_manifest'):
+            ownership_workbench = _read_json(_resolve_path(options['workbench_manifest']), label='workbench_manifest')
 
         try:
             result = inject_annual_tax_ownership_patch_into_controlled_package(
                 package_payload=package_payload,
                 template=template,
                 patch=patch,
+                ownership_workbench=ownership_workbench,
                 replace_existing=bool(options['replace_existing']),
             )
         except ValueError as error:
@@ -132,6 +141,9 @@ class Command(BaseCommand):
             'output_written': True,
             'ownership_injected': True,
             'participants_count': result['summary']['participants_count'],
+            'ownership_review_readiness_sources_total': result['summary'][
+                'ownership_review_readiness_sources_total'
+            ],
             'ready_for_db_writer': result['summary']['ready_for_db_writer'],
             'ready_for_annual_generation': result['summary']['ready_for_annual_generation'],
             'annual_generation_blockers': result['summary']['annual_generation_blockers'],

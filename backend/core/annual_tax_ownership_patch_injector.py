@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any
@@ -14,9 +15,14 @@ from core.annual_tax_ownership_patch_validator import (
     OWNERSHIP_CONTROLLED_PATCH_SCHEMA_VERSION,
     validate_annual_tax_ownership_patch,
 )
+from core.annual_tax_ownership_patch_workbench import OWNERSHIP_PATCH_WORKBENCH_SCHEMA_VERSION
+from core.reference_validation import contains_sensitive_reference
 
 
 OWNERSHIP_PATCH_INJECTION_SCHEMA_VERSION = 'annual-tax-ownership-patch-injection.v1'
+CHILEAN_RUT_PATTERN = re.compile(r'\b\d{1,2}\.?\d{3}\.?\d{3}-[\dkK]\b')
+WINDOWS_ABSOLUTE_PATH_PATTERN = re.compile(r'(^|[\s"\'])([A-Za-z]:[\\/]|\\\\)')
+SAFE_REF_PATTERN = re.compile(r'^[A-Za-z0-9_.:-]+$')
 
 
 def _extract_package(payload: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None, str]:
@@ -48,12 +54,99 @@ def _context_matches(*, package: dict[str, Any], validation: dict[str, Any]) -> 
             raise ValueError(f'El patch ownership validado no coincide con package.{field_name}.')
 
 
+def _safe_int(value: Any) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _is_safe_ref(value: Any) -> bool:
+    text = str(value or '').strip()
+    return bool(text) and not (
+        contains_sensitive_reference(text)
+        or CHILEAN_RUT_PATTERN.search(text)
+        or WINDOWS_ABSOLUTE_PATH_PATTERN.search(text)
+        or not SAFE_REF_PATTERN.fullmatch(text)
+    )
+
+
+def _safe_summary_ref(value: Any, *, fallback: str) -> str:
+    text = str(value or '').strip()
+    return text if _is_safe_ref(text) else fallback
+
+
+def _safe_ready_flags(raw_flags: Any) -> dict[str, bool]:
+    if not isinstance(raw_flags, dict):
+        return {}
+    flags: dict[str, bool] = {}
+    for raw_key, raw_value in raw_flags.items():
+        key = str(raw_key or '').strip()
+        if _is_safe_ref(key) and isinstance(raw_value, bool):
+            flags[key] = raw_value
+    return {key: flags[key] for key in sorted(flags)}
+
+
+def _question_source_summaries(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    raw_summaries = payload.get('question_source_summaries')
+    if not isinstance(raw_summaries, list):
+        raw_summaries = payload.get('source_summaries')
+    if not isinstance(raw_summaries, list):
+        return []
+
+    summaries: list[dict[str, Any]] = []
+    for raw_summary in raw_summaries:
+        if not isinstance(raw_summary, dict):
+            continue
+        summaries.append(
+            {
+                'label': _safe_summary_ref(raw_summary.get('label'), fallback='source'),
+                'schema_version': _safe_summary_ref(
+                    raw_summary.get('schema_version'),
+                    fallback='schema-version-pending',
+                ),
+                'classification': _safe_summary_ref(
+                    raw_summary.get('classification'),
+                    fallback='classification-pending',
+                ),
+                'ready_flags': _safe_ready_flags(raw_summary.get('ready_flags')),
+                'issues_total': _safe_int(raw_summary.get('issues_total')),
+                'source_hash': _safe_summary_ref(raw_summary.get('source_hash'), fallback='source-hash-pending'),
+            }
+        )
+    return sorted(summaries, key=lambda item: (item['label'], item['source_hash']))
+
+
+def _workbench_question_source_summaries(
+    ownership_workbench: dict[str, Any] | None,
+    *,
+    validation: dict[str, Any],
+) -> list[dict[str, Any]]:
+    if ownership_workbench is None:
+        return []
+    if not isinstance(ownership_workbench, dict):
+        raise ValueError('ownership_workbench debe ser un objeto JSON.')
+    if ownership_workbench.get('schema_version') != OWNERSHIP_PATCH_WORKBENCH_SCHEMA_VERSION:
+        raise ValueError(f'ownership_workbench.schema_version debe ser {OWNERSHIP_PATCH_WORKBENCH_SCHEMA_VERSION}.')
+    for field_name in ('company_ref', 'commercial_year', 'tax_year'):
+        if str(ownership_workbench.get(field_name) or '') != str(validation.get(field_name) or ''):
+            raise ValueError(f'ownership_workbench.{field_name} no coincide con el patch validado.')
+    responsible_answers_summary = ownership_workbench.get('responsible_answers_summary')
+    if not isinstance(responsible_answers_summary, dict):
+        return []
+    return _question_source_summaries(responsible_answers_summary)
+
+
 def _updated_ownership_review(
     *,
     existing_review: Any,
     validation: dict[str, Any],
+    ownership_workbench: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     review = deepcopy(existing_review) if isinstance(existing_review, dict) else {}
+    source_summaries = _workbench_question_source_summaries(ownership_workbench, validation=validation)
+    if not source_summaries:
+        source_summaries = _question_source_summaries(review)
     review.update(
         {
             'schema_version': CONTROLLED_OWNERSHIP_REVIEW_HANDOFF_SCHEMA_VERSION,
@@ -73,6 +166,8 @@ def _updated_ownership_review(
             'stores_rut_values': False,
             'auto_generates_ownership': False,
             'redacted_patch_hash': validation.get('redacted_patch_hash', ''),
+            'readiness_sources_total': len(source_summaries),
+            'question_source_summaries': source_summaries,
         }
     )
     return review
@@ -83,6 +178,7 @@ def inject_annual_tax_ownership_patch_into_controlled_package(
     package_payload: dict[str, Any],
     template: dict[str, Any],
     patch: dict[str, Any],
+    ownership_workbench: dict[str, Any] | None = None,
     replace_existing: bool = False,
 ) -> dict[str, Any]:
     if not isinstance(package_payload, dict):
@@ -106,6 +202,7 @@ def inject_annual_tax_ownership_patch_into_controlled_package(
     package['ownership_review'] = _updated_ownership_review(
         existing_review=package.get('ownership_review'),
         validation=validation,
+        ownership_workbench=ownership_workbench,
     )
 
     readiness_payload: dict[str, Any] = deepcopy(package)
@@ -144,6 +241,9 @@ def inject_annual_tax_ownership_patch_into_controlled_package(
         'summary': {
             'ownership_injected': True,
             'participants_count': int((validation.get('summary') or {}).get('participants_count') or 0),
+            'ownership_review_readiness_sources_total': int(
+                package['ownership_review'].get('readiness_sources_total') or 0
+            ),
             'ready_for_db_writer': bool(readiness.get('ready_for_db_writer')),
             'ready_for_annual_generation': bool(readiness.get('ready_for_annual_generation')),
             'annual_generation_blockers': list(readiness.get('annual_generation_blockers') or []),

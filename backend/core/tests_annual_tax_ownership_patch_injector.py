@@ -14,6 +14,7 @@ from core.annual_tax_ownership_patch_injector import (
     inject_annual_tax_ownership_patch_into_controlled_package,
 )
 from core.annual_tax_ownership_patch_validator import OWNERSHIP_CONTROLLED_PATCH_SCHEMA_VERSION
+from core.annual_tax_ownership_patch_workbench import OWNERSHIP_PATCH_WORKBENCH_SCHEMA_VERSION
 from core.annual_tax_ownership_snapshot_template import OWNERSHIP_SNAPSHOT_TEMPLATE_SCHEMA_VERSION
 
 
@@ -115,6 +116,32 @@ class AnnualTaxOwnershipPatchInjectorTests(SimpleTestCase):
             'auto_generates_ownership': False,
         }
 
+    def _workbench_manifest(self) -> dict:
+        return {
+            'schema_version': OWNERSHIP_PATCH_WORKBENCH_SCHEMA_VERSION,
+            'company_ref': 'inmobiliaria-puig',
+            'commercial_year': 2024,
+            'tax_year': 2025,
+            'responsible_answers_summary': {
+                'readiness_sources_total': 1,
+                'question_source_summaries': [
+                    {
+                        'label': 'D:/Privado/Socio Controlado Uno 11111111-1/banco',
+                        'schema_version': 'company-bank-support-coverage-manifest.v1',
+                        'classification': 'blocking',
+                        'ready_flags': {
+                            'ready_for_formal_bank_support_review': False,
+                            'document_intake_ready_for_productive_review': False,
+                            'document_intake_ready_for_formal_bank_support_manifest': True,
+                            'D:/Privado/Socio Controlado Uno 11111111-1': True,
+                        },
+                        'issues_total': 2,
+                        'source_hash': 'd' * 64,
+                    }
+                ],
+            },
+        }
+
     def _complete_package(self, *, include_ownership=False) -> dict:
         package = {
             'schema_version': CONTROLLED_DB_LOAD_SCHEMA_VERSION,
@@ -203,6 +230,50 @@ class AnnualTaxOwnershipPatchInjectorTests(SimpleTestCase):
         self.assertNotIn('Socio Controlado Uno', rendered_validation)
         self.assertNotIn('11111111-1', rendered_validation)
 
+    def test_injection_preserves_workbench_readiness_sources_in_ownership_review(self):
+        result = inject_annual_tax_ownership_patch_into_controlled_package(
+            package_payload=self._complete_package(),
+            template=self._template(),
+            patch=self._valid_patch(),
+            ownership_workbench=self._workbench_manifest(),
+        )
+        ownership_review = result['package']['ownership_review']
+        source_summary = ownership_review['question_source_summaries'][0]
+        readiness_handoff = result['readiness']['summary']['ownership_review_handoff']
+        rendered_review = json.dumps(ownership_review, ensure_ascii=True)
+        rendered_readiness = json.dumps(readiness_handoff, ensure_ascii=True)
+
+        self.assertEqual(result['summary']['ownership_review_readiness_sources_total'], 1)
+        self.assertEqual(ownership_review['readiness_sources_total'], 1)
+        self.assertEqual(source_summary['label'], 'source')
+        self.assertFalse(source_summary['ready_flags']['ready_for_formal_bank_support_review'])
+        self.assertFalse(source_summary['ready_flags']['document_intake_ready_for_productive_review'])
+        self.assertTrue(source_summary['ready_flags']['document_intake_ready_for_formal_bank_support_manifest'])
+        self.assertNotIn('D:/Privado/Socio Controlado Uno 11111111-1', source_summary['ready_flags'])
+        self.assertEqual(readiness_handoff['readiness_sources_total'], 1)
+        self.assertEqual(
+            readiness_handoff['question_source_summaries'][0]['ready_flags'],
+            source_summary['ready_flags'],
+        )
+        self.assertNotIn('Socio Controlado Uno', rendered_review)
+        self.assertNotIn('11111111-1', rendered_review)
+        self.assertNotIn('D:/Privado', rendered_review)
+        self.assertNotIn('Socio Controlado Uno', rendered_readiness)
+        self.assertNotIn('11111111-1', rendered_readiness)
+        self.assertNotIn('D:/Privado', rendered_readiness)
+
+    def test_injection_rejects_workbench_context_mismatch(self):
+        workbench = self._workbench_manifest()
+        workbench['tax_year'] = 2026
+
+        with self.assertRaisesMessage(ValueError, 'ownership_workbench.tax_year'):
+            inject_annual_tax_ownership_patch_into_controlled_package(
+                package_payload=self._complete_package(),
+                template=self._template(),
+                patch=self._valid_patch(),
+                ownership_workbench=workbench,
+            )
+
     def test_invalid_patch_is_refused_before_injection(self):
         patch = self._valid_patch()
         patch['ownership']['participants'][1]['percentage'] = '39.00'
@@ -251,10 +322,12 @@ class AnnualTaxOwnershipPatchInjectorTests(SimpleTestCase):
             package_path = temp_root / 'package.json'
             template_path = temp_root / 'template.json'
             patch_path = temp_root / 'patch.json'
+            workbench_path = temp_root / 'workbench.json'
             output_path = temp_root / 'ownership-injected-package.json'
             package_path.write_text(json.dumps(self._complete_package()), encoding='utf-8')
             template_path.write_text(json.dumps(self._template()), encoding='utf-8')
             patch_path.write_text(json.dumps(self._valid_patch()), encoding='utf-8')
+            workbench_path.write_text(json.dumps(self._workbench_manifest()), encoding='utf-8')
             stdout = StringIO()
 
             call_command(
@@ -262,6 +335,7 @@ class AnnualTaxOwnershipPatchInjectorTests(SimpleTestCase):
                 package=str(package_path),
                 template=str(template_path),
                 patch=str(patch_path),
+                workbench_manifest=str(workbench_path),
                 output=str(output_path),
                 stdout=stdout,
             )
@@ -271,9 +345,12 @@ class AnnualTaxOwnershipPatchInjectorTests(SimpleTestCase):
             result = json.loads(output_path.read_text(encoding='utf-8'))
             self.assertTrue(summary['ownership_injected'])
             self.assertTrue(summary['ready_for_annual_generation'])
+            self.assertEqual(summary['ownership_review_readiness_sources_total'], 1)
+            self.assertEqual(result['package']['ownership_review']['readiness_sources_total'], 1)
             self.assertTrue(result['package']['ownership']['participants'][0]['name'])
             self.assertNotIn('Socio Controlado Uno', rendered_summary)
             self.assertNotIn('11111111-1', rendered_summary)
+            self.assertNotIn('D:/Privado', rendered_summary)
 
     def test_command_refuses_versioned_patch_and_output_outside_local_evidence(self):
         with TemporaryDirectory() as temp_dir:

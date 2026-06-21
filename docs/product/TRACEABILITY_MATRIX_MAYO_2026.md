@@ -278,6 +278,13 @@ workbench ownership mantiene las flags seguras de soporte bancario formal e
 intake documental sin copiar rutas, nombres, RUTs ni PII, evitando que el paso
 desde review responsable a patch privado borre la causa de readiness parcial.
 
+Nota 2026-06-21: `inject_annual_tax_ownership_patch_into_controlled_package`
+acepta ahora `--workbench-manifest` y conserva esos summaries sanitizados dentro
+de `package.ownership_review`; `audit_annual_tax_controlled_package_readiness`
+los expone en `summary.ownership_review_handoff`. Asi la inyeccion de ownership
+validado no borra la procedencia de readiness parcial ni filtra rutas, nombres,
+RUTs o PII hacia summaries versionables.
+
 Nota 2026-06-18: Etapa 6/Renta Anual separa el codigo de certificacion F22 del
 candidato local. `build_annual_tax_f22_fixed_width_export_candidate()` ahora
 requiere fuente no sensible, responsable revisor y estado de revision para los
