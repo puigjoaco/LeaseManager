@@ -113,6 +113,32 @@ class CompanyAccountingResponsibleQuestionsTests(SimpleTestCase):
             [source['source_hash'] for source in changed_packet['source_summaries']],
         )
 
+    def test_review_package_source_summary_preserves_nested_readiness_flags(self):
+        review_package = self._company_review_package()
+        review_package['summary'].update(
+            {
+                'ready_for_accounting_document_review': True,
+                'ready_for_formal_bank_support_review': False,
+                'document_intake_ready_for_productive_review': False,
+                'document_intake_ready_for_formal_bank_support_manifest': True,
+            }
+        )
+
+        packet = build_company_accounting_responsible_questions(
+            source_payloads={'company_review_package': review_package},
+            company_ref='company-1',
+            fiscal_year=2025,
+            tax_year=2026,
+        )
+
+        source_summary = packet['source_summaries'][0]
+        ready_flags = source_summary['ready_flags']
+        self.assertFalse(ready_flags['ready_for_productive_accounting_review'])
+        self.assertTrue(ready_flags['ready_for_accounting_document_review'])
+        self.assertFalse(ready_flags['ready_for_formal_bank_support_review'])
+        self.assertFalse(ready_flags['document_intake_ready_for_productive_review'])
+        self.assertTrue(ready_flags['document_intake_ready_for_formal_bank_support_manifest'])
+
     def test_command_materializes_questions_packet_with_redacted_stdout(self):
         with TemporaryDirectory() as temp_dir:
             temp_root = Path(temp_dir)

@@ -243,6 +243,14 @@ contable/bancaria local de 100% no oculta que falta confirmacion formal Banco
 Chile/leasing o que el intake documental verificado aun no esta listo para
 revision productiva.
 
+Nota 2026-06-20: `materialize_company_accounting_responsible_questions` conserva
+en `source_summaries.ready_flags` los flags booleanos de readiness que vengan
+del nivel raiz o de `summary` de cada fuente. En particular, el paquete de
+revision contable/renta transporta hacia el handoff responsable
+`ready_for_formal_bank_support_review` y
+`document_intake_ready_for_productive_review`, manteniendo trazable si el
+bloqueo es soporte formal Banco Chile/leasing o intake documental no productivo.
+
 Nota 2026-06-18: Etapa 6/Renta Anual separa el codigo de certificacion F22 del
 candidato local. `build_annual_tax_f22_fixed_width_export_candidate()` ahora
 requiere fuente no sensible, responsable revisor y estado de revision para los

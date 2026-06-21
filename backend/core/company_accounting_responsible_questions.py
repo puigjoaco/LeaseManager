@@ -86,6 +86,16 @@ def _context_value(payload: dict[str, Any], *keys: str) -> Any:
     return ''
 
 
+def _ready_flags_from_payload(payload: dict[str, Any]) -> dict[str, bool]:
+    flags: dict[str, bool] = {}
+    summary = payload.get('summary') if isinstance(payload.get('summary'), dict) else {}
+    for source in (summary, payload):
+        for key, value in source.items():
+            if (key.startswith('ready_for_') or '_ready_for_' in key) and isinstance(value, bool):
+                flags[key] = value
+    return {key: flags[key] for key in sorted(flags)}
+
+
 def _source_summary(*, label: str, payload: dict[str, Any]) -> dict[str, Any]:
     issues = _issues_from_payload(payload)
     return {
@@ -95,11 +105,7 @@ def _source_summary(*, label: str, payload: dict[str, Any]) -> dict[str, Any]:
         'company_ref_present': bool(_context_value(payload, 'company_ref', 'expected_company_ref')),
         'fiscal_year': _context_value(payload, 'fiscal_year', 'commercial_year'),
         'tax_year': _context_value(payload, 'tax_year'),
-        'ready_flags': {
-            key: bool(payload.get(key))
-            for key in sorted(payload.keys())
-            if key.startswith('ready_for_') and isinstance(payload.get(key), bool)
-        },
+        'ready_flags': _ready_flags_from_payload(payload),
         'issues_total': len(issues),
         'source_hash': _canonical_hash(_safe_source_fingerprint_payload(payload)),
     }
@@ -112,11 +118,7 @@ def _safe_source_fingerprint_payload(payload: dict[str, Any]) -> dict[str, Any]:
         'company_ref_present': bool(_context_value(payload, 'company_ref', 'expected_company_ref')),
         'fiscal_year': _context_value(payload, 'fiscal_year', 'commercial_year'),
         'tax_year': _context_value(payload, 'tax_year'),
-        'ready_flags': {
-            key: bool(payload.get(key))
-            for key in sorted(payload.keys())
-            if key.startswith('ready_for_') and isinstance(payload.get(key), bool)
-        },
+        'ready_flags': _ready_flags_from_payload(payload),
         'safe_issue_codes': [
             {
                 'code': _safe_issue_code(issue['code']),
