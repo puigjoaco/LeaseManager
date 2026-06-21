@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from core.annual_tax_controlled_mirror_run import CONTROLLED_MIRROR_RUN_SCHEMA_VERSION
 from core.annual_tax_expected_output_comparator import compare_annual_tax_expected_outputs
 from core.annual_tax_ownership_patch_validator import OWNERSHIP_PATCH_VALIDATION_SCHEMA_VERSION
 from core.annual_tax_ownership_review_checklist import OWNERSHIP_REVIEW_CHECKLIST_SCHEMA_VERSION
@@ -99,6 +100,107 @@ def _comparison_closes_value_equality_gap(comparison: dict[str, Any]) -> bool:
     )
 
 
+def _safe_int(value: Any) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _sanitized_ownership_snapshot(snapshot: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(snapshot, dict):
+        return {
+            'present': False,
+            'complete': False,
+            'blocking_issue_code': 'ownership_snapshot_missing',
+        }
+    return {
+        'as_of': str(snapshot.get('as_of') or ''),
+        'present': bool(snapshot.get('present')),
+        'participants_total': _safe_int(snapshot.get('participants_total')),
+        'percentage_total': str(snapshot.get('percentage_total') or '0.00'),
+        'complete': bool(snapshot.get('complete')),
+        'has_duplicate_participants': bool(snapshot.get('has_duplicate_participants')),
+        'blocking_issue_code': str(snapshot.get('blocking_issue_code') or ''),
+    }
+
+
+def _mirror_run_summary(
+    *,
+    mirror_run: dict[str, Any] | None,
+    empresa,
+    commercial_year: int,
+    tax_year: int,
+    source_label: str,
+) -> dict[str, Any]:
+    if not isinstance(mirror_run, dict):
+        return {
+            'present': False,
+            'complete': False,
+            'blockers': ['evidence_missing'],
+            'ownership_snapshot': _sanitized_ownership_snapshot(None),
+        }
+
+    blockers = []
+    if mirror_run.get('schema_version') != CONTROLLED_MIRROR_RUN_SCHEMA_VERSION:
+        blockers.append('schema_invalid')
+    if _safe_int(mirror_run.get('empresa_id')) != empresa.id:
+        blockers.append('empresa_mismatch')
+    if _safe_int(mirror_run.get('commercial_year')) != commercial_year:
+        blockers.append('commercial_year_mismatch')
+    if _safe_int(mirror_run.get('tax_year')) != tax_year:
+        blockers.append('tax_year_mismatch')
+    if str(mirror_run.get('source_label') or '') != source_label:
+        blockers.append('source_label_mismatch')
+
+    monthly_months = mirror_run.get('monthly_tax_fact_months')
+    if monthly_months != list(range(1, 13)):
+        blockers.append('monthly_tax_facts_incomplete_12_months')
+    if _safe_int(mirror_run.get('monthly_tax_facts_total')) != 12:
+        blockers.append('monthly_tax_facts_total_invalid')
+
+    ownership_snapshot = _sanitized_ownership_snapshot(
+        mirror_run.get('ownership_snapshot') if isinstance(mirror_run.get('ownership_snapshot'), dict) else None
+    )
+    if not ownership_snapshot['complete']:
+        blockers.append(ownership_snapshot['blocking_issue_code'] or 'ownership_snapshot_incomplete')
+
+    if mirror_run.get('ready_for_generation') is not True:
+        blockers.append('not_ready_for_generation')
+    if mirror_run.get('writes_database') is not True:
+        blockers.append('database_write_not_confirmed')
+    if mirror_run.get('generated') is not True:
+        blockers.append('not_generated')
+    if _safe_int(mirror_run.get('process_id')) <= 0:
+        blockers.append('process_id_missing')
+
+    safety = mirror_run.get('safety') if isinstance(mirror_run.get('safety'), dict) else {}
+    if (
+        safety.get('uses_real_sii') is not False
+        or safety.get('uses_external_auth') is not False
+        or safety.get('uses_expected_outputs_as_inputs') is not False
+        or safety.get('final_tax_calculation') is not False
+    ):
+        blockers.append('safety_boundary_failed')
+
+    mirror_blockers = [str(code) for code in mirror_run.get('blockers') or [] if str(code or '').strip()]
+    blockers.extend(mirror_blockers)
+
+    return {
+        'present': True,
+        'schema_version': str(mirror_run.get('schema_version') or ''),
+        'complete': not blockers,
+        'ready_for_generation': bool(mirror_run.get('ready_for_generation')),
+        'writes_database': bool(mirror_run.get('writes_database')),
+        'generated': bool(mirror_run.get('generated')),
+        'monthly_tax_facts_total': _safe_int(mirror_run.get('monthly_tax_facts_total')),
+        'monthly_tax_fact_months': monthly_months if isinstance(monthly_months, list) else [],
+        'process_id_present': _safe_int(mirror_run.get('process_id')) > 0,
+        'ownership_snapshot': ownership_snapshot,
+        'blockers': sorted(set(blockers)),
+    }
+
+
 def _effective_source_ready(
     *,
     manifest: dict[str, Any],
@@ -162,6 +264,7 @@ def audit_annual_tax_mirror_proof(
     authorization_ref: str,
     source_kind: str,
     ownership_evidence: dict[str, Any] | None = None,
+    mirror_run: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     comparison = compare_annual_tax_expected_outputs(
         empresa=empresa,
@@ -201,6 +304,14 @@ def audit_annual_tax_mirror_proof(
     )
     stage6_ready = bool(readiness['ready_for_stage6_renta_anual'])
     safety_ok = _safety_ok(manifest=manifest, comparison=comparison)
+    mirror_run_summary = _mirror_run_summary(
+        mirror_run=mirror_run,
+        empresa=empresa,
+        commercial_year=commercial_year,
+        tax_year=tax_year,
+        source_label=source_label,
+    )
+    mirror_run_ready = bool(mirror_run_summary['complete'])
 
     blockers = []
     if not manifest_closed_books_pilot_ready:
@@ -227,8 +338,11 @@ def audit_annual_tax_mirror_proof(
             blockers.append(code if code.startswith('stage6.') else f'stage6.{code}')
     if not safety_ok:
         blockers.append('mirror_proof_safety_boundary_failed')
+    if not mirror_run_ready:
+        blockers.append('mirror_run_evidence_not_confirmed')
+        blockers.extend(f'mirror_run.{code}' for code in mirror_run_summary['blockers'])
 
-    ready_for_architecture_proof = comparison_ready and stage6_ready and safety_ok
+    ready_for_architecture_proof = comparison_ready and stage6_ready and safety_ok and mirror_run_ready
     ready_for_objective_completion = (
         effective_source_ready and effective_architecture_ready and ready_for_architecture_proof
     )
@@ -253,6 +367,7 @@ def audit_annual_tax_mirror_proof(
             'comparison_closes_expected_output_value_equality': comparison_closes_value_equality_gap,
             'comparison_ready_for_mirror_conclusion': comparison_ready,
             'stage6_ready_for_renta_anual': stage6_ready,
+            'mirror_run_evidence_confirmed': mirror_run_ready,
             'safety_boundary_ok': safety_ok,
         },
         'summary': {
@@ -274,6 +389,7 @@ def audit_annual_tax_mirror_proof(
             'issue_counts': readiness['issue_counts'],
             'issue_codes': [issue['code'] for issue in readiness['issues']],
         },
+        'mirror_run_summary': mirror_run_summary,
         'safety': {
             'writes_database': False,
             'uses_sii_real': False,

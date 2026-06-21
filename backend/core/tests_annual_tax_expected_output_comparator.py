@@ -116,6 +116,21 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
             'approval_ref': 'joaquin-controlled-ac2024-proof',
             'expected_outputs_used_as_inputs': False,
             'months': months,
+            'ownership': {
+                'source_ref': 'ownership-ac2024-controlled',
+                'as_of': '2024-12-31',
+                'participants': [
+                    {
+                        'participant_ref': 'participant-controlled-one',
+                        'rut': '11111111-1',
+                        'name': 'Participante controlado',
+                        'percentage': '100.00',
+                        'vigente_desde': '2024-01-01',
+                        'vigente_hasta': '',
+                        'evidence_ref': 'ownership-evidence-controlled-one',
+                    }
+                ],
+            },
         }
 
     def _expected_relative_path(self, category: str, artifact_key: str) -> str:

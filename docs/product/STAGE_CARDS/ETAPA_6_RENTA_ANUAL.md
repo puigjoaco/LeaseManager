@@ -361,12 +361,22 @@ saltar el readiness del paquete controlado cuando alguien llama directo al
 mirror.
 `audit_annual_tax_mirror_proof` es el gate local de conclusion para esta prueba
 espejo: combina readiness de fuente/manifiesto, arquitectura espejo, comparador
-de outputs esperados, readiness Etapa 6 y boundary de seguridad. Debe quedar
-`parcial` si cualquier artefacto requiere revision responsable o si falta
-fuente/gate externo, aunque los componentes tecnicos existan. Su salida permite
-distinguir avance preparado, prueba arquitectonica, bloqueo externo y cierre
-real, sin usar SII real, credenciales, `.env`, EDIG ejecutable ni outputs
-finales como input.
+de outputs esperados, readiness Etapa 6, evidencia del run mirror y boundary de
+seguridad. Debe quedar `parcial` si cualquier artefacto requiere revision
+responsable, si falta fuente/gate externo o si no hay evidencia redactada de la
+corrida `run_annual_tax_controlled_mirror` que genero la capa anual, aunque los
+componentes tecnicos existan. Su salida permite distinguir avance preparado,
+prueba arquitectonica, bloqueo externo y cierre real, sin usar SII real,
+credenciales, `.env`, EDIG ejecutable ni outputs finales como input.
+El proof puede recibir `--mirror-run` con la salida JSON de
+`run_annual_tax_controlled_mirror`: valida schema, empresa, AC/AT, source,
+12 `MonthlyTaxFact`, `writes_database=true`, `generated=true`, process id,
+ownership snapshot completo y seguridad. Si falta, corresponde a otra corrida,
+trae blockers o reporta `ownership_snapshot_missing`,
+`ownership_snapshot_incomplete` o `ownership_snapshot_duplicate_participants`,
+`ready_for_architecture_proof` queda falso aun si existen artefactos heredados
+en DB. La salida solo conserva `mirror_run_summary` sanitizado, sin nombres,
+RUTs ni payloads crudos.
 Cuando el manifiesto historico todavia marca `ownership_source_missing`, el
 proof puede recibir evidencia posterior redactada de ownership mediante
 `--ownership-evidence`: salida de `validate_annual_tax_ownership_patch` o de
@@ -381,10 +391,10 @@ no reemplaza la validacion experta.
 `scripts/run-stage6-mirror-proof-gate.ps1` es la entrada operativa canonica al
 gate espejo: valida refs no sensibles, rechaza outputs/manifiestos dentro del
 repo fuera de `local-evidence/`, bloquea migraciones contra `real_autorizado` y
-acepta `-OwnershipEvidencePath` solo como JSON bajo una ruta permitida. Usa
-`--fail-on-incomplete` solo cuando se quiere exigir completitud probada. El
-comando Django queda como motor; el wrapper es el camino seguro para runs
-manuales o evidenciales.
+acepta `-OwnershipEvidencePath` y `-MirrorRunPath` solo como JSON bajo una ruta
+permitida. Usa `--fail-on-incomplete` solo cuando se quiere exigir completitud
+probada. El comando Django queda como motor; el wrapper es el camino seguro
+para runs manuales o evidenciales.
 `compare_annual_tax_expected_outputs` distingue errores de extraccion
 diagnosticos de errores bloqueantes para identidad, semantica documental y
 valores esperados. Los errores siguen registrados en `extraction_errors`, pero
@@ -1074,8 +1084,10 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   AC2024/AT2025 desde un manifiesto controlado y salida bajo `local-evidence/`.
   El wrapper rechaza referencias sensibles, manifiestos/versionado fuera de
   evidencia local, `source-root` versionado fuera de evidencia local y
-  `-RunMigrations` con `real_autorizado`. Su resultado puede quedar parcial sin
-  cerrar renta cuando hay revision responsable pendiente.
+  `-RunMigrations` con `real_autorizado`; tambien acepta `-MirrorRunPath` para
+  enlazar el proof con la corrida del mirror que genero la capa anual. Su
+  resultado puede quedar parcial sin cerrar renta cuando falta evidencia de run
+  o hay revision responsable pendiente.
 - El mapeo anual automatizable debe declarar explicitamente su fuente: dato
   LeaseManager, cierre, ledger, F29/PPM, certificado, regla AT, DDJJ o decision
   responsable. Ningun codigo F22/DDJJ queda automatizado solo por inferencia de
@@ -1252,10 +1264,10 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   restringidas a `local-evidence/`.
 - `audit_annual_tax_mirror_proof` aplica el mismo boundary de privacidad sobre
   el proof final del espejo anual: manifest faltante o ilegible, source-root
-  ausente, ownership evidence faltante o ilegible y escritura fallida del
-  reporte responden con errores genericos sin rutas locales completas, nombres
-  ni RUTs. El comando sigue sin leer SII real ni convertir la prueba espejo en
-  cierre tributario final.
+  ausente, ownership evidence faltante o ilegible, mirror run faltante o
+  ilegible y escritura fallida del reporte responden con errores genericos sin
+  rutas locales completas, nombres ni RUTs. El comando sigue sin leer SII real
+  ni convertir la prueba espejo en cierre tributario final.
 - La normalizacion anual AC2024/AT2025 distingue lineas soporte y lineas
   comparables mediante `source_payload.expected_output_artifacts`. RLI/CPT se
   generan desde Libro Inventario y resultado contable, incluyendo mappings sobre
@@ -1278,11 +1290,11 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   validado y 6 bienes raices; writer local con 12 `MonthlyTaxFact`, ownership y
   bienes raices cargados; mirror anual con las 12 DDJJ esperadas, F22, balance,
   RLI/CPT, RAI/SAC/retiros/dividendos, matriz, dossier, export y checklist; y
-  `scripts/run-stage6-mirror-proof-gate.ps1 -FailOnIncomplete` termina
-  `classification=resuelto_confirmado`, `ready_for_architecture_proof=true` y
-  `ready_for_objective_completion=true`. Esto confirma la arquitectura para el
-  objetivo espejo de Inmobiliaria Puig AC2024/AT2025, sin abrir SII real ni
-  declarar renta final presentada.
+  `scripts/run-stage6-mirror-proof-gate.ps1 -MirrorRunPath <mirror-run.json>
+  -FailOnIncomplete` termina `classification=resuelto_confirmado`,
+  `ready_for_architecture_proof=true` y `ready_for_objective_completion=true`.
+  Esto confirma la arquitectura para el objetivo espejo de Inmobiliaria Puig
+  AC2024/AT2025, sin abrir SII real ni declarar renta final presentada.
 - La evidencia bancaria/leasing que alimenta contabilidad y renta no se trata
   como "correo recibido = respaldo cuadrado". Debe pasar por un manifiesto
   redactado y `audit_company_bank_support_coverage`, que confirma cobertura por

@@ -13,6 +13,8 @@ param(
 
     [string]$OwnershipEvidencePath = '',
 
+    [string]$MirrorRunPath = '',
+
     [string]$SourceRoot = '',
 
     [ValidateSet('local', 'fixture', 'demo', 'snapshot_controlado', 'real_autorizado')]
@@ -129,6 +131,10 @@ $resolvedOwnershipEvidence = ''
 if (-not [string]::IsNullOrWhiteSpace($OwnershipEvidencePath)) {
     $resolvedOwnershipEvidence = Resolve-FullPath $OwnershipEvidencePath
 }
+$resolvedMirrorRun = ''
+if (-not [string]::IsNullOrWhiteSpace($MirrorRunPath)) {
+    $resolvedMirrorRun = Resolve-FullPath $MirrorRunPath
+}
 $resolvedSourceRoot = ''
 if (-not [string]::IsNullOrWhiteSpace($SourceRoot)) {
     $resolvedSourceRoot = Resolve-FullPath $SourceRoot
@@ -157,6 +163,9 @@ if (Test-PathInsideDirectory $resolvedManifest $repoRoot) {
 if (-not [string]::IsNullOrWhiteSpace($resolvedOwnershipEvidence) -and (Test-PathInsideDirectory $resolvedOwnershipEvidence $repoRoot)) {
     Assert-Condition (Test-PathInsideDirectory $resolvedOwnershipEvidence $localEvidenceRoot) 'Si ownership evidence queda dentro del repo, debe estar bajo local-evidence/ para no versionar evidencia societaria.'
 }
+if (-not [string]::IsNullOrWhiteSpace($resolvedMirrorRun) -and (Test-PathInsideDirectory $resolvedMirrorRun $repoRoot)) {
+    Assert-Condition (Test-PathInsideDirectory $resolvedMirrorRun $localEvidenceRoot) 'Si mirror run queda dentro del repo, debe estar bajo local-evidence/ para no versionar evidencia contable o tributaria.'
+}
 if (-not [string]::IsNullOrWhiteSpace($resolvedSourceRoot) -and (Test-PathInsideDirectory $resolvedSourceRoot $repoRoot)) {
     Assert-Condition (Test-PathInsideDirectory $resolvedSourceRoot $localEvidenceRoot) 'Si source-root queda dentro del repo, debe estar bajo local-evidence/ para no leer outputs versionados como evidencia.'
 }
@@ -164,6 +173,9 @@ if (-not [string]::IsNullOrWhiteSpace($resolvedSourceRoot) -and (Test-PathInside
 Assert-Condition (Test-Path -LiteralPath $resolvedManifest -PathType Leaf) "No existe manifest JSON: $resolvedManifest"
 if (-not [string]::IsNullOrWhiteSpace($resolvedOwnershipEvidence)) {
     Assert-Condition (Test-Path -LiteralPath $resolvedOwnershipEvidence -PathType Leaf) "No existe ownership evidence JSON: $resolvedOwnershipEvidence"
+}
+if (-not [string]::IsNullOrWhiteSpace($resolvedMirrorRun)) {
+    Assert-Condition (Test-Path -LiteralPath $resolvedMirrorRun -PathType Leaf) "No existe mirror run JSON: $resolvedMirrorRun"
 }
 if (-not [string]::IsNullOrWhiteSpace($resolvedSourceRoot)) {
     Assert-Condition (Test-Path -LiteralPath $resolvedSourceRoot -PathType Container) "No existe source-root: $resolvedSourceRoot"
@@ -220,6 +232,9 @@ try {
     if (-not [string]::IsNullOrWhiteSpace($resolvedOwnershipEvidence)) {
         $auditArgs += @('--ownership-evidence', $resolvedOwnershipEvidence)
     }
+    if (-not [string]::IsNullOrWhiteSpace($resolvedMirrorRun)) {
+        $auditArgs += @('--mirror-run', $resolvedMirrorRun)
+    }
     if ($FailOnIncomplete) {
         $auditArgs += '--fail-on-incomplete'
     }
@@ -246,6 +261,7 @@ Assert-Condition ($audit.checks.PSObject.Properties.Name -contains 'source_docum
 Assert-Condition ($audit.checks.PSObject.Properties.Name -contains 'architecture_complete_for_mirror_run') 'El JSON debe exponer architecture_complete_for_mirror_run.'
 Assert-Condition ($audit.checks.PSObject.Properties.Name -contains 'comparison_ready_for_mirror_conclusion') 'El JSON debe exponer comparison_ready_for_mirror_conclusion.'
 Assert-Condition ($audit.checks.PSObject.Properties.Name -contains 'stage6_ready_for_renta_anual') 'El JSON debe exponer stage6_ready_for_renta_anual.'
+Assert-Condition ($audit.checks.PSObject.Properties.Name -contains 'mirror_run_evidence_confirmed') 'El JSON debe exponer mirror_run_evidence_confirmed.'
 Assert-Condition ($audit.checks.PSObject.Properties.Name -contains 'safety_boundary_ok') 'El JSON debe exponer safety_boundary_ok.'
 Assert-Condition ($audit.summary.PSObject.Properties.Name -contains 'ready_for_objective_completion') 'El JSON debe exponer ready_for_objective_completion.'
 Assert-Condition ($audit.summary.PSObject.Properties.Name -contains 'classification') 'El JSON debe exponer classification.'
