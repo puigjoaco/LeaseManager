@@ -91,6 +91,15 @@ sin formato oficial/presentacion SII/calculo final y reflejo coincidente en
 `ProcesoRentaAnual.resumen_anual.annual_tax_dossiers`. Un dossier cabecera o
 desanclado queda como fase faltante o senal cero.
 
+Nota 2026-06-21: Etapa 6/Renta Anual alinea el medidor de progreso de empresa
+con el gate de F29 mensual revisable. `collect_company_accounting_progress` y
+`collect_company_accounting_candidates` solo cuentan `F29PreparacionMensual`
+preparado si conserva mes valido, `resumen_formulario` no vacio y no sensible,
+`borrador_ref` no sensible y `responsable_revision_ref` no sensible. Una
+preparacion F29 incompleta o sensible queda como fase faltante o senal cero,
+mientras `MonthlyTaxFact` F29 `no_aplica` + `no_declaration=true` sigue
+representando una no-declaracion controlada.
+
 Nota 2026-06-17: Etapa 6/Renta Anual avanza desde manifiesto de archivos hacia
 paquete local materializable. `AnnualTaxExport` conserva
 `export_file_package_manifest` y `export_file_package_hash`; los servicios
