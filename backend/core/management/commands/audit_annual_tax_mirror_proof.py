@@ -70,6 +70,14 @@ class Command(BaseCommand):
                 'build_annual_tax_ownership_review_checklist para confirmar ownership sin PII.'
             ),
         )
+        parser.add_argument(
+            '--mirror-run',
+            default='',
+            help=(
+                'JSON redactado de run_annual_tax_controlled_mirror para confirmar que la capa anual '
+                'se genero con ownership completo y sin blockers.'
+            ),
+        )
         parser.add_argument('--output', default='', help='Ruta opcional para escribir JSON de auditoria.')
         parser.add_argument(
             '--fail-on-incomplete',
@@ -109,6 +117,19 @@ class Command(BaseCommand):
                 ) from error
             except OSError as error:
                 raise CommandError('No se pudo leer ownership evidence JSON.') from error
+        mirror_run = None
+        if options['mirror_run']:
+            mirror_run_path = _resolve_path(options['mirror_run'])
+            if not mirror_run_path.exists() or not mirror_run_path.is_file():
+                raise CommandError('No existe mirror run JSON o no es un archivo legible.')
+            try:
+                mirror_run = json.loads(mirror_run_path.read_text(encoding='utf-8'))
+            except json.JSONDecodeError as error:
+                raise CommandError(
+                    f'Mirror run JSON invalido: line {error.lineno}, column {error.colno}.'
+                ) from error
+            except OSError as error:
+                raise CommandError('No se pudo leer mirror run JSON.') from error
 
         try:
             empresa = Empresa.objects.get(pk=options['empresa_id'])
@@ -130,6 +151,7 @@ class Command(BaseCommand):
             authorization_ref=options['authorization_ref'],
             source_kind=options['source_kind'],
             ownership_evidence=ownership_evidence,
+            mirror_run=mirror_run,
         )
 
         rendered = json.dumps(result, indent=2, ensure_ascii=True, default=str)

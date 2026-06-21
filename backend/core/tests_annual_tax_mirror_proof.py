@@ -259,7 +259,7 @@ class AnnualTaxMirrorProofTests(TestCase):
             package=self._package(),
             write_database=True,
         )
-        run_annual_tax_controlled_mirror(
+        self._last_mirror_run = run_annual_tax_controlled_mirror(
             empresa=empresa,
             commercial_year=2024,
             tax_year=2025,
@@ -271,6 +271,7 @@ class AnnualTaxMirrorProofTests(TestCase):
             ddjj_codes=EXPECTED_DDJJ_FORMS,
             write_database=True,
         )
+        return self._last_mirror_run
 
     def _review_generated_artifacts(self, empresa):
         process = ProcesoRentaAnual.objects.get(empresa=empresa, anio_tributario=2025)
@@ -301,7 +302,7 @@ class AnnualTaxMirrorProofTests(TestCase):
         }
 
     def _proof_kwargs(self, empresa, manifest, source_root):
-        return {
+        kwargs = {
             'empresa': empresa,
             'commercial_year': 2024,
             'tax_year': 2025,
@@ -316,6 +317,9 @@ class AnnualTaxMirrorProofTests(TestCase):
             'authorization_ref': 'user-authorized-local-source-review',
             'source_kind': 'snapshot_controlado',
         }
+        if hasattr(self, '_last_mirror_run'):
+            kwargs['mirror_run'] = self._last_mirror_run
+        return kwargs
 
     def test_mirror_proof_combines_source_comparison_stage6_and_safety_without_false_completion(self):
         empresa = self._create_empresa()
@@ -420,16 +424,84 @@ class AnnualTaxMirrorProofTests(TestCase):
         self.assertTrue(result['checks']['comparison_closes_expected_output_value_equality'])
         self.assertFalse(result['checks']['manifest_architecture_complete_for_mirror_run'])
         self.assertTrue(result['checks']['architecture_complete_for_mirror_run'])
+        self.assertTrue(result['checks']['mirror_run_evidence_confirmed'])
+        self.assertTrue(result['summary']['ready_for_architecture_proof'])
         self.assertNotIn('source_documentation_not_confirmed', result['summary']['blockers'])
         self.assertNotIn('source.ownership_source_missing', result['summary']['blockers'])
         self.assertNotIn('architecture.expected_output_value_equality_completion', result['summary']['blockers'])
+        self.assertNotIn('mirror_run_evidence_not_confirmed', result['summary']['blockers'])
         self.assertFalse(result['safety']['uses_expected_outputs_as_inputs'])
         self.assertTrue(result['safety']['expected_outputs_used_as_comparison_only'])
         self.assertFalse(result['safety']['final_tax_calculation'])
 
-    def test_command_writes_proof_and_refuses_versioned_output(self):
+    def test_mirror_proof_requires_mirror_run_evidence_for_architecture_proof(self):
         empresa = self._create_empresa()
         self._load_and_generate_annual_layer(empresa)
+        self._review_generated_artifacts(empresa)
+
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            manifest = self._manifest(ready=False, closed_books_pilot_ready=True)
+            self._write_expected_output_sources(source_root, manifest)
+            kwargs = self._proof_kwargs(empresa, manifest, source_root)
+            kwargs['mirror_run'] = None
+            result = audit_annual_tax_mirror_proof(
+                **kwargs,
+                ownership_evidence=self._ownership_validation_evidence(),
+            )
+
+        self.assertTrue(result['checks']['source_documentation_confirmed'])
+        self.assertTrue(result['checks']['comparison_ready_for_mirror_conclusion'])
+        self.assertTrue(result['checks']['stage6_ready_for_renta_anual'])
+        self.assertFalse(result['checks']['mirror_run_evidence_confirmed'])
+        self.assertFalse(result['summary']['ready_for_architecture_proof'])
+        self.assertFalse(result['summary']['ready_for_objective_completion'])
+        self.assertIn('mirror_run_evidence_not_confirmed', result['summary']['blockers'])
+        self.assertIn('mirror_run.evidence_missing', result['summary']['blockers'])
+
+    def test_mirror_proof_rejects_blocked_mirror_run_even_if_db_has_old_artifacts(self):
+        empresa = self._create_empresa()
+        mirror_run = self._load_and_generate_annual_layer(empresa)
+        self._review_generated_artifacts(empresa)
+        blocked_mirror_run = {
+            **mirror_run,
+            'ready_for_generation': False,
+            'generated': False,
+            'process_id': 0,
+            'blockers': ['ownership_snapshot_missing'],
+            'ownership_snapshot': {
+                'as_of': '2024-12-31',
+                'present': False,
+                'participants_total': 0,
+                'percentage_total': '0.00',
+                'complete': False,
+                'has_duplicate_participants': False,
+                'blocking_issue_code': 'ownership_snapshot_missing',
+            },
+        }
+
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            manifest = self._manifest(ready=False, closed_books_pilot_ready=True)
+            self._write_expected_output_sources(source_root, manifest)
+            kwargs = self._proof_kwargs(empresa, manifest, source_root)
+            kwargs['mirror_run'] = blocked_mirror_run
+            result = audit_annual_tax_mirror_proof(
+                **kwargs,
+                ownership_evidence=self._ownership_validation_evidence(),
+            )
+
+        self.assertTrue(result['checks']['source_documentation_confirmed'])
+        self.assertTrue(result['checks']['comparison_ready_for_mirror_conclusion'])
+        self.assertFalse(result['checks']['mirror_run_evidence_confirmed'])
+        self.assertFalse(result['summary']['ready_for_architecture_proof'])
+        self.assertIn('mirror_run.ownership_snapshot_missing', result['summary']['blockers'])
+        self.assertIn('mirror_run.not_ready_for_generation', result['summary']['blockers'])
+        self.assertIn('mirror_run.not_generated', result['summary']['blockers'])
+
+    def test_command_writes_proof_and_refuses_versioned_output(self):
+        empresa = self._create_empresa()
+        mirror_run = self._load_and_generate_annual_layer(empresa)
 
         with TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -439,8 +511,10 @@ class AnnualTaxMirrorProofTests(TestCase):
             self._write_expected_output_sources(source_root, manifest)
             manifest_path = temp_path / 'manifest.json'
             ownership_evidence_path = temp_path / 'ownership-evidence.json'
+            mirror_run_path = temp_path / 'mirror-run.json'
             manifest_path.write_text(json.dumps(manifest), encoding='utf-8')
             ownership_evidence_path.write_text(json.dumps(self._ownership_validation_evidence()), encoding='utf-8')
+            mirror_run_path.write_text(json.dumps(mirror_run), encoding='utf-8')
             output_path = Path(settings.PROJECT_ROOT) / 'local-evidence' / 'stage6' / 'mirror-proof-test.json'
             stdout = StringIO()
             call_command(
@@ -455,6 +529,8 @@ class AnnualTaxMirrorProofTests(TestCase):
                 str(manifest_path),
                 '--ownership-evidence',
                 str(ownership_evidence_path),
+                '--mirror-run',
+                str(mirror_run_path),
                 '--source-root',
                 str(source_root),
                 '--source-label',
@@ -479,6 +555,7 @@ class AnnualTaxMirrorProofTests(TestCase):
             )
             written = json.loads(output_path.read_text(encoding='utf-8'))
             self.assertTrue(written['checks']['ownership_evidence_confirmed'])
+            self.assertTrue(written['checks']['mirror_run_evidence_confirmed'])
             with self.assertRaises(CommandError):
                 call_command(
                     'audit_annual_tax_mirror_proof',
@@ -768,6 +845,110 @@ class AnnualTaxMirrorProofTests(TestCase):
 
             rendered_error = str(error.exception)
             self.assertEqual(rendered_error, 'No se pudo leer ownership evidence JSON.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+            self.assertNotIn('D:/Privado', rendered_error)
+
+    def test_command_missing_mirror_run_error_does_not_echo_sensitive_path(self):
+        empresa = self._create_empresa()
+
+        with TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            manifest_path = temp_path / 'manifest.json'
+            mirror_run_path = temp_path / 'Socio Controlado Uno 11111111-1.json'
+            manifest_path.write_text(json.dumps(self._manifest()), encoding='utf-8')
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'audit_annual_tax_mirror_proof',
+                    '--empresa-id',
+                    str(empresa.id),
+                    '--commercial-year',
+                    '2024',
+                    '--tax-year',
+                    '2025',
+                    '--manifest',
+                    str(manifest_path),
+                    '--mirror-run',
+                    str(mirror_run_path),
+                    '--source-label',
+                    'inmobiliaria-puig-ac2024-controlled-writer',
+                    '--authorization-ref',
+                    'user-authorized-local-source-review',
+                    '--stage5-evidence-ref',
+                    'stage5-ledger-year-controlled-v1',
+                    '--stage4-sii-evidence-ref',
+                    'stage4-sii-annual-controlled-v1',
+                    '--fiscal-rule-ref',
+                    'ac2024-tax-rule-review-pending',
+                    '--certificates-proof-ref',
+                    'ac2024-certificates-proof-pending',
+                    '--responsible-ref',
+                    'stage6-responsibles-v1',
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No existe mirror run JSON o no es un archivo legible.')
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11111111-1', rendered_error)
+
+    def test_command_mirror_run_read_error_does_not_echo_sensitive_path(self):
+        empresa = self._create_empresa()
+        mirror_run = {
+            'schema_version': 'annual-tax-controlled-mirror-run.v1',
+            'empresa_id': empresa.id,
+            'commercial_year': 2024,
+            'tax_year': 2025,
+            'source_label': 'inmobiliaria-puig-ac2024-controlled-writer',
+        }
+
+        with TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            manifest_path = temp_path / 'manifest.json'
+            mirror_run_path = temp_path / 'Socio Controlado Uno 11111111-1.json'
+            manifest_path.write_text(json.dumps(self._manifest()), encoding='utf-8')
+            mirror_run_path.write_text(json.dumps(mirror_run), encoding='utf-8')
+            real_read_text = Path.read_text
+
+            def fail_only_mirror_run(path, *args, **kwargs):
+                if path == mirror_run_path:
+                    raise OSError('D:/Privado/Socio Controlado Uno 11111111-1/mirror-run.json')
+                return real_read_text(path, *args, **kwargs)
+
+            with patch.object(Path, 'read_text', fail_only_mirror_run):
+                with self.assertRaises(CommandError) as error:
+                    call_command(
+                        'audit_annual_tax_mirror_proof',
+                        '--empresa-id',
+                        str(empresa.id),
+                        '--commercial-year',
+                        '2024',
+                        '--tax-year',
+                        '2025',
+                        '--manifest',
+                        str(manifest_path),
+                        '--mirror-run',
+                        str(mirror_run_path),
+                        '--source-label',
+                        'inmobiliaria-puig-ac2024-controlled-writer',
+                        '--authorization-ref',
+                        'user-authorized-local-source-review',
+                        '--stage5-evidence-ref',
+                        'stage5-ledger-year-controlled-v1',
+                        '--stage4-sii-evidence-ref',
+                        'stage4-sii-annual-controlled-v1',
+                        '--fiscal-rule-ref',
+                        'ac2024-tax-rule-review-pending',
+                        '--certificates-proof-ref',
+                        'ac2024-certificates-proof-pending',
+                        '--responsible-ref',
+                        'stage6-responsibles-v1',
+                        stdout=StringIO(),
+                    )
+
+            rendered_error = str(error.exception)
+            self.assertEqual(rendered_error, 'No se pudo leer mirror run JSON.')
             self.assertNotIn('Socio Controlado Uno', rendered_error)
             self.assertNotIn('11111111-1', rendered_error)
             self.assertNotIn('D:/Privado', rendered_error)

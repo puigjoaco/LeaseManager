@@ -38,6 +38,15 @@ bloquea con `ownership_snapshot_missing`, `ownership_snapshot_incomplete` o
 normalizados no reemplazan la fuente societaria controlada ni habilitan
 calculo tributario final o presentacion SII.
 
+Nota 2026-06-21: Etapa 6/Renta Anual enlaza el proof final con la evidencia
+del run mirror. `audit_annual_tax_mirror_proof` acepta `mirror_run` redactado y
+exige que corresponda a empresa/AC/AT/source, que haya generado DB con 12
+`MonthlyTaxFact`, ownership completo y sin blockers; si falta, esta bloqueado o
+corresponde a otra corrida, `ready_for_architecture_proof=false` aunque existan
+artefactos heredados en DB. `scripts/run-stage6-mirror-proof-gate.ps1` agrega
+`-MirrorRunPath` y mantiene el mismo boundary: no SII real, no credenciales, no
+outputs finales como input, no calculo tributario final ni presentacion SII.
+
 Nota 2026-06-17: Etapa 6/Renta Anual avanza desde manifiesto de archivos hacia
 paquete local materializable. `AnnualTaxExport` conserva
 `export_file_package_manifest` y `export_file_package_hash`; los servicios
