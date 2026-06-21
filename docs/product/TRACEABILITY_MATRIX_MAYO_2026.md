@@ -56,6 +56,16 @@ comparado, `mirror_run_artifacts_not_linked` bloquea la prueba arquitectonica.
 La salida conserva solo `mirror_run_artifact_link_summary` sanitizado y no
 convierte artefactos heredados en evidencia de cierre.
 
+Nota 2026-06-21: Etapa 6/Renta Anual endurece el medidor de progreso
+empresa/ano antes del handoff responsable. `collect_company_accounting_progress`
+y `collect_company_accounting_candidates` solo cuentan `AnnualTaxExport`
+preparado como export local listo si conserva paquete materializable de
+archivos (`export_file_package_manifest`, version, hash, conteos DDJJ/F22 y
+boundary sin formato oficial, presentacion SII ni calculo final). Un export
+preparado sin paquete queda como fase faltante o senal cero, evitando que el
+ranking o `ready_for_company_accounting_review` adelanten revision responsable
+sin evidencia local verificable.
+
 Nota 2026-06-17: Etapa 6/Renta Anual avanza desde manifiesto de archivos hacia
 paquete local materializable. `AnnualTaxExport` conserva
 `export_file_package_manifest` y `export_file_package_hash`; los servicios

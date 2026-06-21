@@ -43,6 +43,7 @@ from sii.models import (
     MonthlyTaxFact,
     ProcesoRentaAnual,
     TaxYearRuleSet,
+    TipoAnnualTaxArtifactTarget,
     TipoAnnualTaxWorkbook,
     TipoAnnualTaxOfficialSource,
 )
@@ -194,6 +195,66 @@ class CompanyAccountingProgressTests(TestCase):
             metadata={'source': 'company-accounting-progress-test'},
         )
         return rule_set, source
+
+    def _export_package_payload(self):
+        package_manifest = [
+            {
+                'package_entry_version': 'annual-tax-export-file-package-manifest-v1',
+                'artifact_matrix_item_id': '1',
+                'target_kind': TipoAnnualTaxArtifactTarget.DDJJ,
+                'target_code': '1887',
+                'file_name': 'ddjj-1887.json',
+                'content_type': 'application/json',
+                'encoding': 'utf-8',
+                'schema_ref': 'annual-tax-export-file-payload-v1',
+                'delivery_kind': 'local_controlled_export_package',
+                'materialized_from': 'annual-tax-export-file-payload-v1',
+                'canonical_json': 'sort_keys_ascii_compact',
+                'payload_hash': 'a' * 64,
+                'manifest_payload_hash': 'a' * 64,
+                'payload_size_bytes': 10,
+                'manifest_payload_size_bytes': 10,
+                'requires_official_format_gate': True,
+                'requires_explicit_submission_authorization': True,
+                'official_format': False,
+                'sii_submission': False,
+                'final_tax_calculation': False,
+            },
+            {
+                'package_entry_version': 'annual-tax-export-file-package-manifest-v1',
+                'artifact_matrix_item_id': '2',
+                'target_kind': TipoAnnualTaxArtifactTarget.F22,
+                'target_code': 'F22',
+                'file_name': 'f22.json',
+                'content_type': 'application/json',
+                'encoding': 'utf-8',
+                'schema_ref': 'annual-tax-export-file-payload-v1',
+                'delivery_kind': 'local_controlled_export_package',
+                'materialized_from': 'annual-tax-export-file-payload-v1',
+                'canonical_json': 'sort_keys_ascii_compact',
+                'payload_hash': 'b' * 64,
+                'manifest_payload_hash': 'b' * 64,
+                'payload_size_bytes': 20,
+                'manifest_payload_size_bytes': 20,
+                'requires_official_format_gate': True,
+                'requires_explicit_submission_authorization': True,
+                'official_format': False,
+                'sii_submission': False,
+                'final_tax_calculation': False,
+            },
+        ]
+        return {
+            'source': 'company-accounting-progress-test',
+            'official_format': False,
+            'sii_submission': False,
+            'final_tax_calculation': False,
+            'export_file_package_manifest': package_manifest,
+            'export_file_package_version': 'annual-tax-export-file-package-v1',
+            'export_file_package_files_total': 2,
+            'ddjj_export_package_files_total': 1,
+            'f22_export_package_files_total': 1,
+            'export_file_package_hash': payload_hash(package_manifest),
+        }
 
     def test_partial_progress_reports_next_missing_phase_without_external_sources(self):
         empresa = self._create_empresa()
@@ -402,7 +463,7 @@ class CompanyAccountingProgressTests(TestCase):
             hash_dossier='c' * 64,
             estado=EstadoAnnualTaxDossier.PREPARED,
         )
-        AnnualTaxExport.objects.create(
+        export = AnnualTaxExport.objects.create(
             empresa=empresa,
             proceso_renta_anual=process,
             dossier=dossier,
@@ -421,6 +482,15 @@ class CompanyAccountingProgressTests(TestCase):
             export_payload={'source': 'candidate-test'},
             hash_export='d' * 64,
             estado=EstadoAnnualTaxExport.PREPARED,
+        )
+
+        missing_package_result = collect_company_accounting_candidates(empresa_ids=[empresa.id, empresa_sin_senales.id])
+        self.assertEqual(missing_package_result['candidates'][0]['years'][0]['signals']['annual_export'], 0)
+
+        export_payload = self._export_package_payload()
+        AnnualTaxExport.objects.filter(pk=export.pk).update(
+            export_payload=export_payload,
+            hash_export=payload_hash(export_payload),
         )
 
         result = collect_company_accounting_candidates(empresa_ids=[empresa.id, empresa_sin_senales.id])
@@ -926,7 +996,7 @@ class CompanyAccountingProgressTests(TestCase):
             hash_dossier='7' * 64,
             estado=EstadoAnnualTaxDossier.PREPARED,
         )
-        AnnualTaxExport.objects.create(
+        export = AnnualTaxExport.objects.create(
             empresa=empresa,
             proceso_renta_anual=process,
             dossier=dossier,
@@ -945,6 +1015,32 @@ class CompanyAccountingProgressTests(TestCase):
             export_payload={'source': 'company-accounting-progress-test'},
             hash_export='8' * 64,
             estado=EstadoAnnualTaxExport.PREPARED,
+        )
+
+        missing_package_result = collect_company_accounting_progress(empresa_id=empresa.id, fiscal_year=2025)
+        self.assertEqual(missing_package_result['classification'], 'parcial')
+        self.assertFalse(missing_package_result['ready_for_company_accounting_review'])
+        self.assertFalse(missing_package_result['phases']['annual_export']['ready'])
+        self.assertEqual(missing_package_result['next_blocking_phase'], 'annual_export')
+        self.assertIn(
+            'company_accounting.annual_export_missing',
+            {issue['code'] for issue in missing_package_result['issues']},
+        )
+
+        malformed_export_payload = self._export_package_payload()
+        malformed_export_payload['export_file_package_files_total'] = 'not-a-number'
+        AnnualTaxExport.objects.filter(pk=export.pk).update(
+            export_payload=malformed_export_payload,
+            hash_export=payload_hash(malformed_export_payload),
+        )
+        malformed_package_result = collect_company_accounting_progress(empresa_id=empresa.id, fiscal_year=2025)
+        self.assertEqual(malformed_package_result['classification'], 'parcial')
+        self.assertFalse(malformed_package_result['phases']['annual_export']['ready'])
+
+        export_payload = self._export_package_payload()
+        AnnualTaxExport.objects.filter(pk=export.pk).update(
+            export_payload=export_payload,
+            hash_export=payload_hash(export_payload),
         )
 
         result = collect_company_accounting_progress(empresa_id=empresa.id, fiscal_year=2025)
