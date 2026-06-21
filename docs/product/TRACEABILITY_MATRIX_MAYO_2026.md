@@ -47,6 +47,15 @@ artefactos heredados en DB. `scripts/run-stage6-mirror-proof-gate.ps1` agrega
 `-MirrorRunPath` y mantiene el mismo boundary: no SII real, no credenciales, no
 outputs finales como input, no calculo tributario final ni presentacion SII.
 
+Nota 2026-06-21: Etapa 6/Renta Anual cierra el enlace entre el run mirror y los
+artefactos comparados por el proof. `audit_annual_tax_mirror_proof` ahora
+cruza `process_id` y `source_bundle_id` del `mirror_run` contra
+`generated_inventory` y `comparison_generated_artifact_evidence`; si el run es
+valido pero no corresponde al `ProcesoRentaAnual`/`AnnualTaxSourceBundle`
+comparado, `mirror_run_artifacts_not_linked` bloquea la prueba arquitectonica.
+La salida conserva solo `mirror_run_artifact_link_summary` sanitizado y no
+convierte artefactos heredados en evidencia de cierre.
+
 Nota 2026-06-17: Etapa 6/Renta Anual avanza desde manifiesto de archivos hacia
 paquete local materializable. `AnnualTaxExport` conserva
 `export_file_package_manifest` y `export_file_package_hash`; los servicios

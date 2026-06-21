@@ -371,12 +371,16 @@ credenciales, `.env`, EDIG ejecutable ni outputs finales como input.
 El proof puede recibir `--mirror-run` con la salida JSON de
 `run_annual_tax_controlled_mirror`: valida schema, empresa, AC/AT, source,
 12 `MonthlyTaxFact`, `writes_database=true`, `generated=true`, process id,
-ownership snapshot completo y seguridad. Si falta, corresponde a otra corrida,
-trae blockers o reporta `ownership_snapshot_missing`,
-`ownership_snapshot_incomplete` o `ownership_snapshot_duplicate_participants`,
-`ready_for_architecture_proof` queda falso aun si existen artefactos heredados
-en DB. La salida solo conserva `mirror_run_summary` sanitizado, sin nombres,
-RUTs ni payloads crudos.
+source bundle, ownership snapshot completo y seguridad. Ademas cruza
+`process_id` y `source_bundle_id` contra el `generated_inventory` y la
+`comparison_generated_artifact_evidence` que el comparador esta evaluando. Si
+falta, corresponde a otra corrida, trae blockers, reporta
+`ownership_snapshot_missing`, `ownership_snapshot_incomplete` o
+`ownership_snapshot_duplicate_participants`, o no coincide con los artefactos
+comparados, `ready_for_architecture_proof` queda falso aun si existen
+artefactos heredados en DB. La salida solo conserva `mirror_run_summary` y
+`mirror_run_artifact_link_summary` sanitizados, sin nombres, RUTs ni payloads
+crudos.
 Cuando el manifiesto historico todavia marca `ownership_source_missing`, el
 proof puede recibir evidencia posterior redactada de ownership mediante
 `--ownership-evidence`: salida de `validate_annual_tax_ownership_patch` o de

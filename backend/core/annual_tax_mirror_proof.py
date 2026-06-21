@@ -173,6 +173,12 @@ def _mirror_run_summary(
         blockers.append('not_generated')
     if _safe_int(mirror_run.get('process_id')) <= 0:
         blockers.append('process_id_missing')
+    if _safe_int(mirror_run.get('source_bundle_id')) <= 0:
+        blockers.append('source_bundle_id_missing')
+    if str(mirror_run.get('source_bundle_kind') or '') != 'snapshot_controlado':
+        blockers.append('source_bundle_kind_invalid')
+    if mirror_run.get('source_bundle_monthly_tax_fact_months') != list(range(1, 13)):
+        blockers.append('source_bundle_monthly_tax_fact_months_invalid')
 
     safety = mirror_run.get('safety') if isinstance(mirror_run.get('safety'), dict) else {}
     if (
@@ -196,7 +202,90 @@ def _mirror_run_summary(
         'monthly_tax_facts_total': _safe_int(mirror_run.get('monthly_tax_facts_total')),
         'monthly_tax_fact_months': monthly_months if isinstance(monthly_months, list) else [],
         'process_id_present': _safe_int(mirror_run.get('process_id')) > 0,
+        'process_id': _safe_int(mirror_run.get('process_id')),
+        'source_bundle_id': _safe_int(mirror_run.get('source_bundle_id')),
+        'source_bundle_kind': str(mirror_run.get('source_bundle_kind') or ''),
+        'source_bundle_monthly_tax_fact_months': (
+            mirror_run.get('source_bundle_monthly_tax_fact_months')
+            if isinstance(mirror_run.get('source_bundle_monthly_tax_fact_months'), list)
+            else []
+        ),
         'ownership_snapshot': ownership_snapshot,
+        'blockers': sorted(set(blockers)),
+    }
+
+
+def _mirror_run_artifact_link_summary(
+    *,
+    mirror_run_summary: dict[str, Any],
+    comparison: dict[str, Any],
+) -> dict[str, Any]:
+    generated_inventory = (
+        comparison.get('generated_inventory')
+        if isinstance(comparison.get('generated_inventory'), dict)
+        else {}
+    )
+    evidence = (
+        generated_inventory.get('generated_artifact_evidence')
+        if isinstance(generated_inventory.get('generated_artifact_evidence'), dict)
+        else {}
+    )
+    process_evidence = evidence.get('process') if isinstance(evidence.get('process'), dict) else {}
+    mirror_process_id = _safe_int(mirror_run_summary.get('process_id'))
+    mirror_source_bundle_id = _safe_int(mirror_run_summary.get('source_bundle_id'))
+    inventory_process_id = _safe_int(generated_inventory.get('process_id'))
+    inventory_source_bundle_id = _safe_int(generated_inventory.get('source_bundle_id'))
+    evidence_process_id = _safe_int(process_evidence.get('process_id'))
+    evidence_source_bundle_id = _safe_int(process_evidence.get('source_bundle_id'))
+
+    blockers = []
+    if mirror_process_id <= 0:
+        blockers.append('mirror_process_id_missing')
+    if mirror_source_bundle_id <= 0:
+        blockers.append('mirror_source_bundle_id_missing')
+    if inventory_process_id <= 0:
+        blockers.append('generated_process_id_missing')
+    if inventory_source_bundle_id <= 0:
+        blockers.append('generated_source_bundle_id_missing')
+    if evidence_process_id <= 0:
+        blockers.append('evidence_process_id_missing')
+    if evidence_source_bundle_id <= 0:
+        blockers.append('evidence_source_bundle_id_missing')
+    if mirror_process_id and inventory_process_id and mirror_process_id != inventory_process_id:
+        blockers.append('process_id_mismatch')
+    if mirror_process_id and evidence_process_id and mirror_process_id != evidence_process_id:
+        blockers.append('evidence_process_id_mismatch')
+    if (
+        mirror_source_bundle_id
+        and inventory_source_bundle_id
+        and mirror_source_bundle_id != inventory_source_bundle_id
+    ):
+        blockers.append('source_bundle_id_mismatch')
+    if (
+        mirror_source_bundle_id
+        and evidence_source_bundle_id
+        and mirror_source_bundle_id != evidence_source_bundle_id
+    ):
+        blockers.append('evidence_source_bundle_id_mismatch')
+
+    return {
+        'complete': not blockers,
+        'mirror_process_id_present': mirror_process_id > 0,
+        'mirror_source_bundle_id_present': mirror_source_bundle_id > 0,
+        'generated_process_id_present': inventory_process_id > 0,
+        'generated_source_bundle_id_present': inventory_source_bundle_id > 0,
+        'evidence_process_id_present': evidence_process_id > 0,
+        'evidence_source_bundle_id_present': evidence_source_bundle_id > 0,
+        'process_id_matches_generated_artifacts': (
+            mirror_process_id > 0
+            and mirror_process_id == inventory_process_id
+            and mirror_process_id == evidence_process_id
+        ),
+        'source_bundle_id_matches_generated_artifacts': (
+            mirror_source_bundle_id > 0
+            and mirror_source_bundle_id == inventory_source_bundle_id
+            and mirror_source_bundle_id == evidence_source_bundle_id
+        ),
         'blockers': sorted(set(blockers)),
     }
 
@@ -312,6 +401,11 @@ def audit_annual_tax_mirror_proof(
         source_label=source_label,
     )
     mirror_run_ready = bool(mirror_run_summary['complete'])
+    mirror_run_artifact_link_summary = _mirror_run_artifact_link_summary(
+        mirror_run_summary=mirror_run_summary,
+        comparison=comparison,
+    )
+    mirror_run_artifact_link_ready = bool(mirror_run_artifact_link_summary['complete'])
 
     blockers = []
     if not manifest_closed_books_pilot_ready:
@@ -341,8 +435,17 @@ def audit_annual_tax_mirror_proof(
     if not mirror_run_ready:
         blockers.append('mirror_run_evidence_not_confirmed')
         blockers.extend(f'mirror_run.{code}' for code in mirror_run_summary['blockers'])
+    if not mirror_run_artifact_link_ready:
+        blockers.append('mirror_run_artifacts_not_linked')
+        blockers.extend(f'mirror_run_artifact_link.{code}' for code in mirror_run_artifact_link_summary['blockers'])
 
-    ready_for_architecture_proof = comparison_ready and stage6_ready and safety_ok and mirror_run_ready
+    ready_for_architecture_proof = (
+        comparison_ready
+        and stage6_ready
+        and safety_ok
+        and mirror_run_ready
+        and mirror_run_artifact_link_ready
+    )
     ready_for_objective_completion = (
         effective_source_ready and effective_architecture_ready and ready_for_architecture_proof
     )
@@ -368,6 +471,7 @@ def audit_annual_tax_mirror_proof(
             'comparison_ready_for_mirror_conclusion': comparison_ready,
             'stage6_ready_for_renta_anual': stage6_ready,
             'mirror_run_evidence_confirmed': mirror_run_ready,
+            'mirror_run_artifacts_linked': mirror_run_artifact_link_ready,
             'safety_boundary_ok': safety_ok,
         },
         'summary': {
@@ -390,6 +494,7 @@ def audit_annual_tax_mirror_proof(
             'issue_codes': [issue['code'] for issue in readiness['issues']],
         },
         'mirror_run_summary': mirror_run_summary,
+        'mirror_run_artifact_link_summary': mirror_run_artifact_link_summary,
         'safety': {
             'writes_database': False,
             'uses_sii_real': False,

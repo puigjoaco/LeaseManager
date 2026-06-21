@@ -425,11 +425,13 @@ class AnnualTaxMirrorProofTests(TestCase):
         self.assertFalse(result['checks']['manifest_architecture_complete_for_mirror_run'])
         self.assertTrue(result['checks']['architecture_complete_for_mirror_run'])
         self.assertTrue(result['checks']['mirror_run_evidence_confirmed'])
+        self.assertTrue(result['checks']['mirror_run_artifacts_linked'])
         self.assertTrue(result['summary']['ready_for_architecture_proof'])
         self.assertNotIn('source_documentation_not_confirmed', result['summary']['blockers'])
         self.assertNotIn('source.ownership_source_missing', result['summary']['blockers'])
         self.assertNotIn('architecture.expected_output_value_equality_completion', result['summary']['blockers'])
         self.assertNotIn('mirror_run_evidence_not_confirmed', result['summary']['blockers'])
+        self.assertNotIn('mirror_run_artifacts_not_linked', result['summary']['blockers'])
         self.assertFalse(result['safety']['uses_expected_outputs_as_inputs'])
         self.assertTrue(result['safety']['expected_outputs_used_as_comparison_only'])
         self.assertFalse(result['safety']['final_tax_calculation'])
@@ -454,10 +456,12 @@ class AnnualTaxMirrorProofTests(TestCase):
         self.assertTrue(result['checks']['comparison_ready_for_mirror_conclusion'])
         self.assertTrue(result['checks']['stage6_ready_for_renta_anual'])
         self.assertFalse(result['checks']['mirror_run_evidence_confirmed'])
+        self.assertFalse(result['checks']['mirror_run_artifacts_linked'])
         self.assertFalse(result['summary']['ready_for_architecture_proof'])
         self.assertFalse(result['summary']['ready_for_objective_completion'])
         self.assertIn('mirror_run_evidence_not_confirmed', result['summary']['blockers'])
         self.assertIn('mirror_run.evidence_missing', result['summary']['blockers'])
+        self.assertIn('mirror_run_artifacts_not_linked', result['summary']['blockers'])
 
     def test_mirror_proof_rejects_blocked_mirror_run_even_if_db_has_old_artifacts(self):
         empresa = self._create_empresa()
@@ -498,6 +502,40 @@ class AnnualTaxMirrorProofTests(TestCase):
         self.assertIn('mirror_run.ownership_snapshot_missing', result['summary']['blockers'])
         self.assertIn('mirror_run.not_ready_for_generation', result['summary']['blockers'])
         self.assertIn('mirror_run.not_generated', result['summary']['blockers'])
+
+    def test_mirror_proof_requires_mirror_run_to_match_generated_artifacts(self):
+        empresa = self._create_empresa()
+        mirror_run = self._load_and_generate_annual_layer(empresa)
+        self._review_generated_artifacts(empresa)
+        stale_mirror_run = {
+            **mirror_run,
+            'process_id': mirror_run['process_id'] + 100,
+            'source_bundle_id': mirror_run['source_bundle_id'] + 100,
+        }
+
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            manifest = self._manifest(ready=False, closed_books_pilot_ready=True)
+            self._write_expected_output_sources(source_root, manifest)
+            kwargs = self._proof_kwargs(empresa, manifest, source_root)
+            kwargs['mirror_run'] = stale_mirror_run
+            result = audit_annual_tax_mirror_proof(
+                **kwargs,
+                ownership_evidence=self._ownership_validation_evidence(),
+            )
+
+        self.assertTrue(result['checks']['source_documentation_confirmed'])
+        self.assertTrue(result['checks']['comparison_ready_for_mirror_conclusion'])
+        self.assertTrue(result['checks']['stage6_ready_for_renta_anual'])
+        self.assertTrue(result['checks']['mirror_run_evidence_confirmed'])
+        self.assertFalse(result['checks']['mirror_run_artifacts_linked'])
+        self.assertFalse(result['summary']['ready_for_architecture_proof'])
+        self.assertFalse(result['summary']['ready_for_objective_completion'])
+        self.assertIn('mirror_run_artifacts_not_linked', result['summary']['blockers'])
+        self.assertIn('mirror_run_artifact_link.process_id_mismatch', result['summary']['blockers'])
+        self.assertIn('mirror_run_artifact_link.evidence_process_id_mismatch', result['summary']['blockers'])
+        self.assertIn('mirror_run_artifact_link.source_bundle_id_mismatch', result['summary']['blockers'])
+        self.assertIn('mirror_run_artifact_link.evidence_source_bundle_id_mismatch', result['summary']['blockers'])
 
     def test_command_writes_proof_and_refuses_versioned_output(self):
         empresa = self._create_empresa()
@@ -556,6 +594,7 @@ class AnnualTaxMirrorProofTests(TestCase):
             written = json.loads(output_path.read_text(encoding='utf-8'))
             self.assertTrue(written['checks']['ownership_evidence_confirmed'])
             self.assertTrue(written['checks']['mirror_run_evidence_confirmed'])
+            self.assertTrue(written['checks']['mirror_run_artifacts_linked'])
             with self.assertRaises(CommandError):
                 call_command(
                     'audit_annual_tax_mirror_proof',
