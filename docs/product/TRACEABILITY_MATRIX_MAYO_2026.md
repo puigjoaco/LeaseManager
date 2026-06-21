@@ -235,6 +235,14 @@ escribirse/verificarse, el CLI responde sin rutas locales completas, nombres ni
 RUTs. Asi el review package que alimenta preguntas responsables no convierte
 stdout/logs en superficie de PII.
 
+Nota 2026-06-20: Los modos `--fail-on-incomplete` del auditor y materializador
+del paquete de revision contable/renta ahora distinguen el bloqueo real de
+productividad: junto con la clasificacion y porcentajes de avance, el error
+incluye `formal_bank_support_ready` y `document_intake_ready`. Asi una cobertura
+contable/bancaria local de 100% no oculta que falta confirmacion formal Banco
+Chile/leasing o que el intake documental verificado aun no esta listo para
+revision productiva.
+
 Nota 2026-06-18: Etapa 6/Renta Anual separa el codigo de certificacion F22 del
 candidato local. `build_annual_tax_f22_fixed_width_export_candidate()` ahora
 requiere fuente no sensible, responsable revisor y estado de revision para los

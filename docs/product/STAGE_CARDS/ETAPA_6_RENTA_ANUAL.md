@@ -1315,6 +1315,10 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   `materialize_company_accounting_review_package` redactan errores de archivo:
   manifest bancario faltante, lectura fallida o escritura/verificacion fallida
   no devuelven rutas locales completas con nombres, RUTs o carpetas privadas.
+  Cuando fallan por `--fail-on-incomplete`, tambien reportan
+  `formal_bank_support_ready` y `document_intake_ready` para distinguir
+  progreso local completo de blockers de soporte bancario formal o intake
+  documental productivo.
 - `materialize_company_accounting_review_package` escribe ese mismo paquete en
   una carpeta local verificable con manifest canonico
   `company-accounting-review-package.json`. El writer y verificador rechazan

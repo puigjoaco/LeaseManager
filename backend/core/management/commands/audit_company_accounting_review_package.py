@@ -128,5 +128,6 @@ class Command(BaseCommand):
                 f'classification={result["classification"]}, '
                 f'accounting={result["summary"]["accounting_progress_classification"]}, '
                 f'bank_support={result["summary"]["bank_support_classification"]}, '
+                f'formal_bank_support_ready={result["summary"]["ready_for_formal_bank_support_review"]}, '
                 f'document_intake_ready={result["summary"]["document_intake_ready_for_productive_review"]}.'
             )

@@ -575,6 +575,32 @@ class CompanyAccountingReviewPackageTests(TestCase):
                     stdout=StringIO(),
                 )
 
+    def test_audit_fail_on_incomplete_reports_formal_bank_support_readiness(self):
+        empresa = self._create_empresa()
+        self._prepare_complete_accounting_layers(empresa)
+        manifest = _complete_bank_manifest(
+            empresa=empresa,
+            statement_strength='expected_complete',
+        )
+
+        with TemporaryDirectory() as temp_dir:
+            manifest_path = Path(temp_dir) / 'bank-support-manifest.json'
+            manifest_path.write_text(json.dumps(manifest), encoding='utf-8')
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'audit_company_accounting_review_package',
+                    empresa_id=empresa.id,
+                    fiscal_year=2025,
+                    bank_support_manifest=str(manifest_path),
+                    fail_on_incomplete=True,
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertIn('formal_bank_support_ready=False', rendered_error)
+            self.assertIn('document_intake_ready=None', rendered_error)
+
     def test_audit_command_accepts_verified_document_intake_package(self):
         empresa = self._create_empresa()
         self._prepare_complete_accounting_layers(empresa)
@@ -914,6 +940,50 @@ class CompanyAccountingReviewPackageTests(TestCase):
                 'company_accounting_review.document_intake_not_productive_ready',
                 issue_codes,
             )
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'materialize_company_accounting_review_package',
+                    empresa_id=empresa.id,
+                    fiscal_year=2025,
+                    document_intake_package_dir=str(intake_dir),
+                    output_dir=str(Path(temp_dir) / 'company-accounting-review-package-fail'),
+                    fail_on_incomplete=True,
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertIn('formal_bank_support_ready=True', rendered_error)
+            self.assertIn('document_intake_ready=False', rendered_error)
+
+    def test_materialize_fail_on_incomplete_reports_formal_bank_support_readiness(self):
+        empresa = self._create_empresa()
+        self._prepare_complete_accounting_layers(empresa)
+        manifest = _complete_bank_manifest(
+            empresa=empresa,
+            statement_strength='expected_complete',
+        )
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            manifest_path = Path(temp_dir) / 'bank-support-manifest.json'
+            manifest_path.write_text(json.dumps(manifest), encoding='utf-8')
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'materialize_company_accounting_review_package',
+                    empresa_id=empresa.id,
+                    fiscal_year=2025,
+                    bank_support_manifest=str(manifest_path),
+                    output_dir=str(Path(temp_dir) / 'company-accounting-review-package'),
+                    fail_on_incomplete=True,
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertIn('formal_bank_support_ready=False', rendered_error)
+            self.assertIn('document_intake_ready=None', rendered_error)
 
     def test_materialize_company_accounting_review_package_rejects_nonempty_output_dir(self):
         empresa = self._create_empresa()
