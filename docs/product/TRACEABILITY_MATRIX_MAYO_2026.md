@@ -259,6 +259,16 @@ de los candidatos de preflight. El handoff ahora expone
 PII, evitando que al pasar de preguntas a carpeta verificable se pierda si el
 bloqueo pendiente es soporte bancario formal o intake documental productivo.
 
+Nota 2026-06-21: `validate_company_accounting_responsible_answers`,
+`materialize_company_accounting_responsible_answers`,
+`audit_company_accounting_responsible_answers_draft` y
+`audit_company_accounting_responsible_answers_review_presence` conservan la
+misma trazabilidad en la capa de respuestas responsables. El review redactado
+guarda `question_source_summaries` sanitizados y `readiness_sources_total`, y
+el discovery de reviews devuelve esa informacion sin rutas, nombres, RUTs ni
+PII. Asi completar respuestas responsables no borra el motivo formal que aun
+separa preparacion local de revision/productividad.
+
 Nota 2026-06-18: Etapa 6/Renta Anual separa el codigo de certificacion F22 del
 candidato local. `build_annual_tax_f22_fixed_width_export_candidate()` ahora
 requiere fuente no sensible, responsable revisor y estado de revision para los
