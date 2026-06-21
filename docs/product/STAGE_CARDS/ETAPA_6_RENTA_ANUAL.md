@@ -762,6 +762,14 @@ Para workbooks RLI/CPT, el progreso exige `AnnualTaxWorkbookLine` activas por
 workbook preparado. Un workbook `PREPARED` sin lineas es solo cabecera
 operativa: queda como fase faltante o senal cero y no adelanta revision
 responsable.
+Para `AnnualTaxDossier`, el progreso exige un expediente local revisable, no
+solo una cabecera preparada: `resumen_dossier` debe coincidir con empresa,
+proceso, source bundle, rule set, matriz, ano y conteos; `hash_dossier` debe
+corresponder al payload, `review_state` debe quedar `listo_revision`, refs de
+responsable/dossier deben ser no sensibles, los warnings pendientes deben ser
+cero y `ProcesoRentaAnual.resumen_anual.annual_tax_dossiers` debe reflejar el
+mismo dossier/hash/conteos. Un dossier preparado sin ese amarre queda como fase
+faltante o senal cero y no adelanta revision responsable.
 Para `AnnualTaxExport`, el progreso exige ademas un paquete local
 materializable: `export_file_package_manifest`, version
 `annual-tax-export-file-package-v1`, hash SHA-256 del manifiesto, conteos

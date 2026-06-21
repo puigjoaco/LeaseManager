@@ -82,6 +82,15 @@ preparado si cada workbook RLI/CPT tiene al menos una
 fase faltante o senal cero, evitando que el ranking o
 `ready_for_company_accounting_review` avancen antes de tener RLI/CPT revisables.
 
+Nota 2026-06-21: Etapa 6/Renta Anual alinea el medidor de progreso de empresa
+con el gate de dossier anual revisable. `collect_company_accounting_progress` y
+`collect_company_accounting_candidates` solo cuentan `AnnualTaxDossier`
+preparado si conserva `resumen_dossier` con hash vigente, refs no sensibles,
+estado `listo_revision`, conteos coherentes, warnings pendientes cero, boundary
+sin formato oficial/presentacion SII/calculo final y reflejo coincidente en
+`ProcesoRentaAnual.resumen_anual.annual_tax_dossiers`. Un dossier cabecera o
+desanclado queda como fase faltante o senal cero.
+
 Nota 2026-06-17: Etapa 6/Renta Anual avanza desde manifiesto de archivos hacia
 paquete local materializable. `AnnualTaxExport` conserva
 `export_file_package_manifest` y `export_file_package_hash`; los servicios
