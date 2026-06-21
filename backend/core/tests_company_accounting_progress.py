@@ -167,6 +167,29 @@ class CompanyAccountingProgressTests(TestCase):
             estado=EstadoAnnualTaxSourceBundle.FROZEN,
         )
 
+    def _process_summary(self, source_bundle, *, fiscal_year=2025):
+        return {
+            'fiscal_year': fiscal_year,
+            'annual_tax_source_bundle': {
+                'id': source_bundle.id,
+                'source_kind': source_bundle.source_kind,
+                'source_label': source_bundle.source_label,
+                'hash_fuentes': source_bundle.hash_fuentes,
+                'anio_comercial': source_bundle.anio_comercial,
+                'approved_closes_total': 12,
+                'obligations_total': 12,
+                'f29_preparations_total': 12,
+                'real_estate_properties_total': 1,
+            },
+            'annual_tax_monthly_facts': {
+                'total': 12,
+                'months': list(range(1, 13)),
+                'obligations_total': 12,
+                'rent_distributions_total': 1,
+                'liquidation_lines_total': 12,
+            },
+        }
+
     def _create_mismatched_source_bundle(self, empresa):
         return AnnualTaxSourceBundle.objects.create(
             empresa=empresa,
@@ -580,7 +603,7 @@ class CompanyAccountingProgressTests(TestCase):
             estado=EstadoPreparacionTributaria.PREPARED,
             source_bundle=source_bundle,
             fecha_preparacion=timezone.now(),
-            resumen_anual={'source': 'candidate-test'},
+            resumen_anual=self._process_summary(source_bundle),
         )
         trial_balance = AnnualTaxTrialBalance.objects.create(
             empresa=empresa,
@@ -801,6 +824,29 @@ class CompanyAccountingProgressTests(TestCase):
         self.assertEqual(result['candidates'][0]['years'][0]['signals']['annual_processes'], 0)
         self.assertNotIn(empresa.rut, json.dumps(result))
 
+    def test_candidates_ignore_annual_process_without_traceable_summary(self):
+        empresa = self._create_empresa()
+        self._activate_fiscal_config(empresa)
+        self._create_close(empresa, 1)
+        source_bundle = self._create_source_bundle(empresa)
+        ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=2026,
+            estado=EstadoPreparacionTributaria.PREPARED,
+            source_bundle=source_bundle,
+            resumen_anual={
+                **self._process_summary(source_bundle),
+                'callback': 'https://sii.example.test/anual?token=secret',
+            },
+        )
+
+        result = collect_company_accounting_candidates(empresa_ids=[empresa.id])
+
+        self.assertEqual(result['candidates'][0]['years'][0]['signals']['monthly_closes'], 1)
+        self.assertEqual(result['candidates'][0]['years'][0]['signals']['annual_processes'], 0)
+        self.assertNotIn('token=secret', json.dumps(result))
+        self.assertNotIn(empresa.rut, json.dumps(result))
+
     def test_candidates_ignore_downstream_annual_artifacts_without_valid_process(self):
         empresa = self._create_empresa()
         config = self._activate_fiscal_config(empresa)
@@ -933,7 +979,7 @@ class CompanyAccountingProgressTests(TestCase):
             anio_tributario=2026,
             estado=EstadoPreparacionTributaria.PREPARED,
             source_bundle=source_bundle,
-            resumen_anual={'source': 'company-accounting-progress-test'},
+            resumen_anual=self._process_summary(source_bundle),
         )
         source_balance = BalanceComprobacion.objects.create(
             empresa=empresa,
@@ -1146,6 +1192,28 @@ class CompanyAccountingProgressTests(TestCase):
         )
         self.assertNotIn(empresa.rut, json.dumps(result))
 
+    def test_progress_requires_annual_process_traceable_summary(self):
+        empresa = self._create_empresa()
+        self._activate_fiscal_config(empresa)
+        source_bundle = self._create_source_bundle(empresa)
+        ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=2026,
+            estado=EstadoPreparacionTributaria.PREPARED,
+            source_bundle=source_bundle,
+            resumen_anual={'source': 'company-accounting-progress-test'},
+        )
+
+        result = collect_company_accounting_progress(empresa_id=empresa.id, fiscal_year=2025)
+
+        self.assertFalse(result['phases']['annual_process']['ready'])
+        self.assertEqual(result['phases']['annual_process']['missing'], ['resumen_anual_trazable'])
+        self.assertIn(
+            'company_accounting.annual_process_summary_missing',
+            {issue['code'] for issue in result['issues']},
+        )
+        self.assertNotIn(empresa.rut, json.dumps(result))
+
     def test_complete_local_layers_are_ready_for_review_not_close(self):
         empresa = self._create_empresa()
         config = self._activate_fiscal_config(empresa)
@@ -1183,7 +1251,7 @@ class CompanyAccountingProgressTests(TestCase):
             estado=EstadoPreparacionTributaria.PREPARED,
             source_bundle=source_bundle,
             fecha_preparacion=timezone.now(),
-            resumen_anual={'source': 'company-accounting-progress-test'},
+            resumen_anual=self._process_summary(source_bundle),
         )
         trial_balance = AnnualTaxTrialBalance.objects.create(
             empresa=empresa,
@@ -1420,7 +1488,7 @@ class CompanyAccountingProgressTests(TestCase):
             estado=EstadoPreparacionTributaria.PREPARED,
             source_bundle=source_bundle,
             fecha_preparacion=timezone.now(),
-            resumen_anual={'source': 'company-accounting-progress-test'},
+            resumen_anual=self._process_summary(source_bundle),
         )
         AnnualTaxTrialBalance.objects.create(
             empresa=empresa,

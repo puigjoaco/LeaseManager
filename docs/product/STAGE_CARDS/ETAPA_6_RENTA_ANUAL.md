@@ -791,11 +791,16 @@ como brecha de fuente. En Inmobiliaria Puig AC2024/AT2025, esa distincion
 desplaza el bloqueo de progreso desde F29 hacia la capa anual
 (`ProcesoRentaAnual`).
 La senal `annual_process` solo cuenta si el `ProcesoRentaAnual` preparado o
-superior esta enlazado a un `AnnualTaxSourceBundle` congelado. Un proceso anual
-sin source bundle congelado se reporta como
-`company_accounting.annual_process_source_bundle_missing`, porque la preparacion
-anual debe nacer de fuentes congeladas antes de tratarse como expediente
-revisable.
+superior esta enlazado a un `AnnualTaxSourceBundle` congelado y conserva
+`resumen_anual` trazable. Ese resumen debe ser no sensible, declarar
+`fiscal_year` coherente con el AT, conservar insumo mensual trazable y reflejar
+la metadata del `AnnualTaxSourceBundle` por id, hash y ano comercial. Un
+proceso anual sin source bundle congelado se reporta como
+`company_accounting.annual_process_source_bundle_missing`; un proceso con bundle
+pero sin resumen trazable se reporta como
+`company_accounting.annual_process_summary_missing`. En ambos casos queda como
+fase faltante o senal cero, porque la preparacion anual debe nacer de fuentes
+congeladas antes de tratarse como expediente revisable.
 La sincronizacion anual de hechos mensuales conserva esa condicion: si
 `run_annual_tax_controlled_mirror` vuelve a ejecutar `sync_monthly_tax_facts`
 y no existe `F29PreparacionMensual` para un mes, pero el hecho mensual vigente

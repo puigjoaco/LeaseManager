@@ -250,6 +250,29 @@ class CompanyAccountingReviewPackageTests(TestCase):
             estado=EstadoAnnualTaxSourceBundle.FROZEN,
         )
 
+    def _process_summary(self, source_bundle):
+        return {
+            'fiscal_year': source_bundle.anio_comercial,
+            'annual_tax_source_bundle': {
+                'id': source_bundle.id,
+                'source_kind': source_bundle.source_kind,
+                'source_label': source_bundle.source_label,
+                'hash_fuentes': source_bundle.hash_fuentes,
+                'anio_comercial': source_bundle.anio_comercial,
+                'approved_closes_total': 12,
+                'obligations_total': 12,
+                'f29_preparations_total': 12,
+                'real_estate_properties_total': 1,
+            },
+            'annual_tax_monthly_facts': {
+                'total': 12,
+                'months': list(range(1, 13)),
+                'obligations_total': 12,
+                'rent_distributions_total': 1,
+                'liquidation_lines_total': 12,
+            },
+        }
+
     def _create_rule_set(self, config):
         source = AnnualTaxOfficialSource.objects.create(
             anio_tributario=2026,
@@ -516,7 +539,7 @@ class CompanyAccountingReviewPackageTests(TestCase):
             estado=EstadoPreparacionTributaria.PREPARED,
             source_bundle=source_bundle,
             fecha_preparacion=timezone.now(),
-            resumen_anual={'source': 'company-accounting-review-package-test'},
+            resumen_anual=self._process_summary(source_bundle),
         )
         trial_balance = AnnualTaxTrialBalance.objects.create(
             empresa=empresa,
