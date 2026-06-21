@@ -123,12 +123,14 @@ class Command(BaseCommand):
                 empresa_id=options['empresa_id'],
                 fiscal_year=options['fiscal_year'],
                 bank_support_payload=bank_support_payload,
+                document_intake_package=intake_package,
                 output_dir=output_dir,
             )
             verification = verify_company_accounting_review_package(
                 empresa_id=options['empresa_id'],
                 fiscal_year=options['fiscal_year'],
                 bank_support_payload=bank_support_payload,
+                document_intake_package=intake_package,
                 package_dir=output_dir,
             )
         except Empresa.DoesNotExist as error:
@@ -163,6 +165,12 @@ class Command(BaseCommand):
             'warnings_total': verification['warnings_total'],
             'source_kind': 'document_intake_package' if intake_package else 'bank_support_manifest',
             'document_intake_package_hash': intake_package['package_hash'] if intake_package else '',
+            'document_intake_ready_for_productive_review': verification['summary'][
+                'document_intake_ready_for_productive_review'
+            ],
+            'document_intake_ready_for_formal_bank_support_manifest': verification['summary'][
+                'document_intake_ready_for_formal_bank_support_manifest'
+            ],
             'autonomous_accounting': False,
             'final_tax_calculation': False,
             'sii_submission': False,
