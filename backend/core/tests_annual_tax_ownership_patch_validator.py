@@ -131,6 +131,80 @@ class AnnualTaxOwnershipPatchValidatorTests(SimpleTestCase):
         self.assertNotIn('https://secret.example/evidence', rendered)
         self.assertEqual(result['summary']['redacted_participants'][1]['evidence_ref_hash'], '')
 
+    def test_patch_rejects_control_sensitive_refs_without_exposing_or_hashing_values(self):
+        cases = (
+            (
+                'company_ref',
+                lambda patch: patch.update({'company_ref': 'inmobiliaria_11.111.111-1'}),
+                '$.company_ref',
+            ),
+            (
+                'responsible_ref',
+                lambda patch: patch.update({'responsible_ref': 'responsible_11.111.111-1'}),
+                '$.responsible_ref',
+            ),
+            (
+                'approval_ref',
+                lambda patch: patch.update({'approval_ref': 'approval_C:/Privado/aprobacion.json'}),
+                '$.approval_ref',
+            ),
+            (
+                'ownership.source_ref',
+                lambda patch: patch['ownership'].update({'source_ref': 'ownership_22.222.222-2'}),
+                '$.ownership.source_ref',
+            ),
+            (
+                'participant_ref',
+                lambda patch: patch['ownership']['participants'][0].update(
+                    {'participant_ref': 'participant_C:/Privado/socio.json'}
+                ),
+                '$.ownership.participants[0].participant_ref',
+            ),
+            (
+                'evidence_ref',
+                lambda patch: patch['ownership']['participants'][0].update(
+                    {'evidence_ref': r'evidence_\\server\share\socio.pdf'}
+                ),
+                '$.ownership.participants[0].evidence_ref',
+            ),
+        )
+        for label, mutate, expected_path in cases:
+            with self.subTest(label=label):
+                patch = self._valid_patch()
+                mutate(patch)
+
+                result = validate_annual_tax_ownership_patch(template=self._template(), patch=patch)
+                rendered = json.dumps(result, ensure_ascii=True)
+
+                self.assertFalse(result['ready_for_controlled_db_load'])
+                self.assertIn('ownership_patch_sensitive_reference', result['blockers'])
+                self.assertIn(expected_path, result['invalid_paths'] + result['missing_paths'])
+                self.assertNotIn('11.111.111-1', rendered)
+                self.assertNotIn('22.222.222-2', rendered)
+                self.assertNotIn('C:/Privado', rendered)
+                self.assertNotIn(r'\\server\share', rendered)
+                if expected_path == '$.ownership.source_ref':
+                    self.assertEqual(result['summary']['source_ref_hash'], '')
+                if expected_path == '$.ownership.participants[0].participant_ref':
+                    self.assertEqual(result['summary']['redacted_participants'][0]['participant_ref_hash'], '')
+                if expected_path == '$.ownership.participants[0].evidence_ref':
+                    self.assertEqual(result['summary']['redacted_participants'][0]['evidence_ref_hash'], '')
+
+    def test_patch_rejects_sensitive_company_ref_even_when_template_matches(self):
+        template = self._template()
+        patch = self._valid_patch()
+        template['company_ref'] = 'inmobiliaria_C:/Privado/contexto.json'
+        patch['company_ref'] = 'inmobiliaria_C:/Privado/contexto.json'
+
+        result = validate_annual_tax_ownership_patch(template=template, patch=patch)
+        rendered = json.dumps(result, ensure_ascii=True)
+
+        self.assertFalse(result['ready_for_controlled_db_load'])
+        self.assertIn('ownership_patch_sensitive_reference', result['blockers'])
+        self.assertIn('$.company_ref', result['invalid_paths'])
+        self.assertNotIn('C:/Privado', rendered)
+        self.assertNotIn('inmobiliaria_C:/Privado/contexto.json', rendered)
+
     def test_patch_requires_year_end_snapshot_date(self):
         patch = self._valid_patch()
         patch['ownership']['as_of'] = '2024-06-30'
@@ -214,3 +288,30 @@ class AnnualTaxOwnershipPatchValidatorTests(SimpleTestCase):
             rendered_error = str(error.exception)
             self.assertNotIn('Socio Controlado Uno', rendered_error)
             self.assertNotIn('11111111-1', rendered_error)
+
+    def test_command_outputs_redacted_control_sensitive_ref_validation(self):
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            template_path = temp_root / 'template.json'
+            patch_path = temp_root / 'patch.json'
+            patch = self._valid_patch()
+            patch['ownership']['participants'][0]['evidence_ref'] = 'evidence_C:/Privado/socio.pdf'
+            template_path.write_text(json.dumps(self._template()), encoding='utf-8')
+            patch_path.write_text(json.dumps(patch), encoding='utf-8')
+            stdout = StringIO()
+
+            call_command(
+                'validate_annual_tax_ownership_patch',
+                template=str(template_path),
+                patch=str(patch_path),
+                stdout=stdout,
+            )
+
+            result = json.loads(stdout.getvalue())
+            rendered = json.dumps(result, ensure_ascii=True)
+            self.assertFalse(result['ready_for_controlled_db_load'])
+            self.assertIn('ownership_patch_sensitive_reference', result['blockers'])
+            self.assertIn('$.ownership.participants[0].evidence_ref', result['missing_paths'])
+            self.assertEqual(result['summary']['redacted_participants'][0]['evidence_ref_hash'], '')
+            self.assertNotIn('evidence_C:/Privado/socio.pdf', rendered)
+            self.assertNotIn('C:/Privado', rendered)

@@ -8,7 +8,7 @@ from django.core.exceptions import ValidationError
 
 from core.annual_tax_ownership_snapshot_template import OWNERSHIP_SNAPSHOT_TEMPLATE_SCHEMA_VERSION
 from core.annual_tax_source_manifest import payload_hash
-from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
+from core.reference_validation import contains_sensitive_reference, is_non_sensitive_control_reference
 from patrimonio.validators import validate_rut
 
 
@@ -42,7 +42,23 @@ def _normalized_rut(value: Any) -> str | None:
 
 
 def _non_sensitive_text(value: Any) -> bool:
-    return is_non_sensitive_reference(value)
+    return is_non_sensitive_control_reference(value)
+
+
+def _contains_sensitive_control_reference_except_structured_rut(value: Any, *, current_key: str = '') -> bool:
+    if isinstance(value, dict):
+        return any(
+            _contains_sensitive_control_reference_except_structured_rut(item, current_key=str(key or ''))
+            for key, item in value.items()
+        )
+    if isinstance(value, (list, tuple, set)):
+        return any(_contains_sensitive_control_reference_except_structured_rut(item) for item in value)
+    if current_key == 'rut':
+        return False
+    if isinstance(value, str):
+        text = value.strip()
+        return bool(text) and not is_non_sensitive_control_reference(text)
+    return False
 
 
 def _add_once(items: list[str], value: str) -> None:
@@ -171,12 +187,18 @@ def validate_annual_tax_ownership_patch(*, template: dict[str, Any], patch: dict
         blockers.add('ownership_patch_schema_invalid')
         _add_once(invalid_paths, '$.schema_version')
 
-    company_ref = str(patch.get('company_ref') or template.get('company_ref') or '').strip()
+    template_company_ref = str(template.get('company_ref') or '').strip()
+    company_ref = str(patch.get('company_ref') or template_company_ref).strip()
+    output_company_ref = company_ref if _non_sensitive_text(company_ref) else ''
+    output_template_company_ref = template_company_ref if _non_sensitive_text(template_company_ref) else ''
     commercial_year = int(patch.get('commercial_year') or template.get('commercial_year') or 0)
     tax_year = int(patch.get('tax_year') or template.get('tax_year') or 0)
 
-    if company_ref != str(template.get('company_ref') or '').strip():
+    if company_ref != template_company_ref:
         blockers.add('ownership_patch_context_mismatch')
+        _add_once(invalid_paths, '$.company_ref')
+    if not _non_sensitive_text(company_ref):
+        blockers.add('ownership_patch_sensitive_reference')
         _add_once(invalid_paths, '$.company_ref')
     if commercial_year != int(template.get('commercial_year') or 0):
         blockers.add('ownership_patch_context_mismatch')
@@ -207,7 +229,10 @@ def validate_annual_tax_ownership_patch(*, template: dict[str, Any], patch: dict
         _add_once(missing_paths, '$.ownership')
         ownership = {}
 
-    if contains_sensitive_reference(ownership, include_sensitive_keys=True, allowed_sensitive_keys={'rut'}):
+    if (
+        contains_sensitive_reference(ownership, include_sensitive_keys=True, allowed_sensitive_keys={'rut'})
+        or _contains_sensitive_control_reference_except_structured_rut(ownership)
+    ):
         blockers.add('ownership_patch_sensitive_reference')
         _add_once(invalid_paths, '$.ownership')
 
@@ -258,7 +283,7 @@ def validate_annual_tax_ownership_patch(*, template: dict[str, Any], patch: dict
 
     redacted_patch_fingerprint_payload = {
         'schema_version': schema_version or OWNERSHIP_CONTROLLED_PATCH_SCHEMA_VERSION,
-        'company_ref': company_ref,
+        'company_ref': output_company_ref,
         'commercial_year': commercial_year,
         'tax_year': tax_year,
         'source_ref_hash': _hash_value(source_ref),
@@ -275,13 +300,13 @@ def validate_annual_tax_ownership_patch(*, template: dict[str, Any], patch: dict
         'generated_at': datetime.now(timezone.utc).isoformat(),
         'input_schema_version': schema_version or 'ownership-object',
         'template_schema_version': template.get('schema_version'),
-        'company_ref': company_ref,
+        'company_ref': output_company_ref,
         'commercial_year': commercial_year,
         'tax_year': tax_year,
         'template_hash': payload_hash(
             {
                 'schema_version': template.get('schema_version'),
-                'company_ref': template.get('company_ref'),
+                'company_ref': output_template_company_ref,
                 'commercial_year': template.get('commercial_year'),
                 'tax_year': template.get('tax_year'),
                 'source_review_hash': template.get('source_review_hash'),

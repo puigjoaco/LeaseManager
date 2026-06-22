@@ -216,6 +216,12 @@ solapar algun tramo del ano. En la evidencia real AC2024/AT2025, el patch
 pendiente queda correctamente bloqueado por `$.ownership.participants` vacio:
 la arquitectura esta lista para recibir ownership controlado, pero no inventa
 socios, RUTs ni porcentajes desde F22/DDJJ, registros finales o inferencia.
+La validacion del patch tambien usa el boundary controlado de refs: rechaza
+RUT chileno o rutas locales absolutas en `company_ref`, `responsible_ref`, `approval_ref`,
+`ownership.source_ref`, `participant_ref` y `evidence_ref`, sin hashear esos
+valores ni exponerlos en la salida redactada. El campo
+`ownership.participants[].rut` sigue permitido solo como dato estructurado
+validado, necesario para crear el snapshot patrimonial controlado.
 `build_annual_tax_ownership_review_checklist` consolida el siguiente paso sin
 exponer PII: combina template, reporte de validacion redactado y paquete visual
 canonico o `ownership-visual-index.v1` local en una cola de revision con
