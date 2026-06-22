@@ -309,6 +309,10 @@ Cuando existe `ownership_review`, el auditor lo expone como
 `ownership_review_handoff` y advierte si esta listo para inyeccion pero aun no
 existe `package.ownership`; no lo usa como fuente societaria ni como permiso
 para generar el mirror anual.
+El template de carga controlada tambien sanitiza ese handoff: cualquier
+`blocking_item_keys` o `validation_blockers` contaminado con rutas, RUTs, URLs,
+emails o texto libre sensible se reemplaza por marcadores `redacted-*` antes de
+entrar a `package.ownership_review`, conservando solo claves tecnicas seguras.
 Si `ownership_review` ya declara una validacion lista junto a `package.ownership`,
 el readiness exige `redacted_patch_hash` del patch validado y que
 `participants_count`/`percentage_total` coincidan con el snapshot ownership. El

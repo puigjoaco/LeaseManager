@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any
@@ -9,11 +10,15 @@ from core.annual_tax_controlled_db_load import CONTROLLED_DB_LOAD_SCHEMA_VERSION
 from core.annual_tax_controlled_load_plan import CALCULATION_INPUT_CATEGORIES, COMPARISON_ONLY_CATEGORIES
 from core.annual_tax_ownership_review_checklist import OWNERSHIP_REVIEW_CHECKLIST_SCHEMA_VERSION
 from core.annual_tax_source_manifest import payload_hash
+from core.reference_validation import contains_sensitive_reference
 
 
 CONTROLLED_DB_LOAD_TEMPLATE_SCHEMA_VERSION = 'annual-tax-controlled-db-load-template.v1'
 CONTROLLED_OWNERSHIP_REVIEW_HANDOFF_SCHEMA_VERSION = 'annual-tax-ownership-review-handoff.v1'
 MONTHS = tuple(range(1, 13))
+CHILEAN_RUT_PATTERN = re.compile(r'\b\d{1,2}\.?\d{3}\.?\d{3}-[\dkK]\b')
+WINDOWS_ABSOLUTE_PATH_PATTERN = re.compile(r'(^|[\s"\'])([A-Za-z]:[\\/]|\\\\)')
+SAFE_REF_PATTERN = re.compile(r'^[A-Za-z0-9_.:-]+$')
 
 MONTHLY_INPUT_CATEGORIES = (
     'rcv_structured_input',
@@ -115,6 +120,32 @@ def _int_value(value: Any) -> int:
         return 0
 
 
+def _is_safe_handoff_ref(value: Any) -> bool:
+    text = str(value or '').strip()
+    return bool(text) and not (
+        contains_sensitive_reference(text)
+        or CHILEAN_RUT_PATTERN.search(text)
+        or WINDOWS_ABSOLUTE_PATH_PATTERN.search(text)
+        or not SAFE_REF_PATTERN.fullmatch(text)
+    )
+
+
+def _safe_handoff_ref(value: Any, *, fallback: str) -> str:
+    text = str(value or '').strip()
+    return text if _is_safe_handoff_ref(text) else fallback
+
+
+def _safe_handoff_refs(values: Any, *, fallback: str) -> list[str]:
+    if not isinstance(values, list):
+        return []
+    refs = {
+        _safe_handoff_ref(value, fallback=fallback)
+        for value in values
+        if str(value or '').strip()
+    }
+    return sorted(refs)
+
+
 def _ownership_review_handoff(
     *,
     checklist: dict[str, Any] | None,
@@ -148,15 +179,14 @@ def _ownership_review_handoff(
         if isinstance(item, dict)
     ]
     blocking_item_keys = [
-        str(item.get('key') or '').strip()
+        _safe_handoff_ref(item.get('key'), fallback='redacted-checklist-item')
         for item in checklist_items
         if str(item.get('status') or '').strip() != 'ready' and str(item.get('key') or '').strip()
     ]
-    validation_blockers = [
-        str(blocker or '').strip()
-        for blocker in (validation_summary.get('blockers') or [])
-        if str(blocker or '').strip()
-    ]
+    validation_blockers = _safe_handoff_refs(
+        validation_summary.get('blockers'),
+        fallback='redacted-validation-blocker',
+    )
     ready_for_controlled_db_load = bool(summary.get('ready_for_controlled_db_load'))
     return {
         'schema_version': CONTROLLED_OWNERSHIP_REVIEW_HANDOFF_SCHEMA_VERSION,

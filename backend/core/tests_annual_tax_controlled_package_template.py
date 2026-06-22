@@ -211,6 +211,42 @@ class AnnualTaxControlledPackageTemplateTests(SimpleTestCase):
         self.assertNotIn('legal/Socio Controlado Uno/constitucion.pdf', rendered)
         self.assertNotIn('Socio Controlado Uno', rendered)
 
+    def test_template_redacts_sensitive_ownership_handoff_blockers(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            self._build_complete_source_tree(source_root)
+            manifest = self._manifest(source_root)
+
+        checklist = self._ownership_review_checklist()
+        checklist['validation_summary']['blockers'] = [
+            'ownership_patch_validation_missing',
+            'D:/Privado/Socio Controlado Uno 11.111.111-1/ownership.pdf',
+            'https://example.test/review?token=secret',
+        ]
+        checklist['checklist_items'].append(
+            {
+                'key': 'C:/Privado/Socio Controlado Uno 11.111.111-1/constitucion.pdf',
+                'status': 'pending',
+            }
+        )
+
+        template = build_annual_tax_controlled_db_load_template(
+            manifest=manifest,
+            ownership_review_checklist=checklist,
+        )
+        rendered = json.dumps(template, ensure_ascii=True)
+        handoff = template['package_draft']['ownership_review']
+
+        self.assertIn('ownership_patch_validation_missing', handoff['validation_blockers'])
+        self.assertIn('redacted-validation-blocker', handoff['validation_blockers'])
+        self.assertIn('redacted-checklist-item', handoff['blocking_item_keys'])
+        self.assertNotIn('D:/Privado', rendered)
+        self.assertNotIn('C:/Privado', rendered)
+        self.assertNotIn('11.111.111-1', rendered)
+        self.assertNotIn('Socio Controlado Uno', rendered)
+        self.assertNotIn('https://example.test', rendered)
+        self.assertNotIn('token=secret', rendered)
+
     def test_command_outputs_template_and_refuses_versioned_output_outside_local_evidence(self):
         with TemporaryDirectory() as temp_dir:
             source_root = Path(temp_dir) / 'source'
