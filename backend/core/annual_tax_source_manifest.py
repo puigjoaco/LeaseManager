@@ -12,6 +12,7 @@ from typing import Any
 from core.reference_validation import (
     REDACTED_SENSITIVE_REFERENCE,
     contains_chilean_rut_reference,
+    contains_local_absolute_path_reference,
     contains_sensitive_reference,
     redact_sensitive_reference,
 )
@@ -20,7 +21,6 @@ from core.reference_validation import (
 MANIFEST_SCHEMA_VERSION = 'annual-tax-source-manifest.v1'
 EXPECTED_DDJJ_FORMS = ('1835', '1837', '1847', '1887', '1926', '1948')
 LABOR_PREVISIONAL_DDJJ_FORMS = ('1887',)
-WINDOWS_ABSOLUTE_PATH_PATTERN = re.compile(r'(^|[\s"\'])([A-Za-z]:[\\/]|\\\\)')
 EXPECTED_ANNUAL_TAX_REGISTER_KEYS = (
     'capital_propio',
     'determinacion_rai',
@@ -236,7 +236,7 @@ def _safe_relative_path(relative: str) -> tuple[str, str]:
     path_ref = f'file-path-sha256:{hashlib.sha256(relative.encode("utf-8")).hexdigest()}'
     if contains_sensitive_reference(relative):
         return redact_sensitive_reference(relative), path_ref
-    if contains_chilean_rut_reference(relative) or WINDOWS_ABSOLUTE_PATH_PATTERN.search(relative):
+    if contains_chilean_rut_reference(relative) or contains_local_absolute_path_reference(relative):
         return REDACTED_SENSITIVE_REFERENCE, path_ref
     return relative, path_ref
 

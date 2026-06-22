@@ -68,6 +68,13 @@ respuestas, intake documental, cobertura bancaria y review ownership dejan de
 mantener regex locales duplicados, reduciendo drift entre redaccion y conteo de
 senales. No cambia validacion estructurada de RUT ni abre datos reales.
 
+Nota 2026-06-22: Etapa 6/Renta Anual centraliza tambien el detector de rutas
+locales absolutas en `core.reference_validation`. Manifest, handoffs,
+readiness, preguntas/respuestas responsables, intake documental, cobertura
+bancaria y ownership controlado comparten el mismo criterio para refs Windows/
+UNC, incluyendo valores con prefijos operativos como `source_C:/Privado/...`,
+sin persistir rutas crudas ni abrir documentos reales.
+
 Nota 2026-06-21: Etapa 6/Renta Anual cierra el enlace entre el run mirror y los
 artefactos comparados por el proof. `audit_annual_tax_mirror_proof` ahora
 cruza `process_id` y `source_bundle_id` del `mirror_run` contra

@@ -22,6 +22,7 @@ from core.company_bank_support_coverage import (
 from core.reference_validation import (
     REDACTED_SENSITIVE_REFERENCE,
     contains_chilean_rut_reference,
+    contains_local_absolute_path_reference,
     contains_sensitive_reference,
 )
 
@@ -34,8 +35,6 @@ BANK_SUPPORT_MANIFEST_DRAFT_FILE = 'company-bank-support-coverage-manifest.json'
 ANNUAL_SOURCE_INTAKE_BRIDGE_FILE = 'annual-tax-source-intake-bridge.json'
 ANNUAL_SOURCE_INTAKE_BRIDGE_SCHEMA_VERSION = 'annual-tax-source-intake-bridge.v1'
 ALL_OPERATIONS = '*'
-
-WINDOWS_ABSOLUTE_PATH_PATTERN = re.compile(r'(^|[\s"\'])([A-Za-z]:[\\/]|\\\\)')
 
 SOURCE_KINDS = frozenset(
     {
@@ -117,7 +116,7 @@ def _safe_ref(value: Any) -> str:
     if (
         contains_sensitive_reference(normalized)
         or contains_chilean_rut_reference(normalized)
-        or WINDOWS_ABSOLUTE_PATH_PATTERN.search(normalized)
+        or contains_local_absolute_path_reference(normalized)
     ):
         return REDACTED_SENSITIVE_REFERENCE
     return normalized
@@ -146,7 +145,7 @@ def _has_rut(value: Any) -> bool:
 
 
 def _has_absolute_path(value: Any) -> bool:
-    return any(WINDOWS_ABSOLUTE_PATH_PATTERN.search(item) for item in _string_values(value))
+    return any(contains_local_absolute_path_reference(item) for item in _string_values(value))
 
 
 def _issue(code: str, message: str, *, severity: str = 'blocking', count: int = 1) -> dict[str, Any]:

@@ -163,7 +163,7 @@ class CompanyDocumentIntakeTests(SimpleTestCase):
         manifest = _complete_manifest()
         manifest['company_ref'] = 'company_76.123.456-7'
         manifest['source_batches'][0]['source_ref'] = 'https://mail.example.test/thread?token=secret'
-        manifest['documents'][0]['local_path'] = 'C:\\Users\\owner\\Downloads\\factura.pdf'
+        manifest['documents'][0]['local_path'] = 'source_C:/Users/owner/Downloads/factura.pdf'
         manifest['documents'][1]['password'] = 'last-six-rut-digits'
 
         result = audit_company_document_intake(payload=manifest)
@@ -177,7 +177,7 @@ class CompanyDocumentIntakeTests(SimpleTestCase):
         self.assertNotIn('https://mail.example.test', rendered)
         self.assertNotIn('last-six-rut-digits', rendered)
         self.assertNotIn('76.123.456-7', rendered)
-        self.assertNotIn('C:\\Users\\owner\\Downloads', rendered)
+        self.assertNotIn('source_C:/Users/owner/Downloads', rendered)
         self.assertIn(REDACTED_SENSITIVE_REFERENCE, rendered)
 
     def test_invalid_mapping_metadata_is_blocking(self):
@@ -403,7 +403,7 @@ class CompanyDocumentIntakeTests(SimpleTestCase):
         manifest = _complete_manifest()
         manifest['company_ref'] = '76.123.456-7'
         manifest['source_batches'][0]['source_ref'] = 'https://mail.example.test/thread?token=secret'
-        manifest['documents'][0]['local_path'] = 'C:\\Users\\owner\\Downloads\\factura.pdf'
+        manifest['documents'][0]['local_path'] = 'source_C:/Users/owner/Downloads/factura.pdf'
         manifest['documents'][1]['password'] = 'last-six-rut-digits'
 
         with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
@@ -429,7 +429,7 @@ class CompanyDocumentIntakeTests(SimpleTestCase):
                 'https://mail.example.test',
                 'last-six-rut-digits',
                 '76.123.456-7',
-                'C:\\Users\\owner\\Downloads',
+                'source_C:/Users/owner/Downloads',
             ):
                 self.assertNotIn(sensitive_value, rendered)
             self.assertIn(REDACTED_SENSITIVE_REFERENCE, rendered)

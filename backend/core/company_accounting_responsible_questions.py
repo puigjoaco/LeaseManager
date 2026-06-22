@@ -7,13 +7,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from core.reference_validation import contains_chilean_rut_reference, contains_sensitive_reference
+from core.reference_validation import (
+    contains_chilean_rut_reference,
+    contains_local_absolute_path_reference,
+    contains_sensitive_reference,
+)
 
 
 COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_SCHEMA_VERSION = 'company-accounting-responsible-questions.v1'
 COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST = 'company-accounting-responsible-questions.json'
 
-WINDOWS_ABSOLUTE_PATH_PATTERN = re.compile(r'(^|[\s"\'])([A-Za-z]:[\\/]|\\\\)')
 CANONICAL_ISSUE_CODE_PATTERN = re.compile(r'^[A-Za-z0-9_.:-]+$')
 
 RESPONSIBLE_QUESTIONS_BOUNDARY = {
@@ -41,7 +44,11 @@ def _safe_label(value: Any, *, fallback: str = 'source') -> str:
     text = str(value or '').strip()
     if not text:
         return fallback
-    if contains_sensitive_reference(text) or contains_chilean_rut_reference(text) or WINDOWS_ABSOLUTE_PATH_PATTERN.search(text):
+    if (
+        contains_sensitive_reference(text)
+        or contains_chilean_rut_reference(text)
+        or contains_local_absolute_path_reference(text)
+    ):
         return 'sensitive-source-redacted'
     normalized = re.sub(r'[^A-Za-z0-9_.:-]+', '-', text).strip('-._:')
     return normalized or fallback
@@ -54,7 +61,7 @@ def _safe_issue_code(value: Any, *, fallback: str = 'blocking-code') -> str:
     if (
         contains_sensitive_reference(text)
         or contains_chilean_rut_reference(text)
-        or WINDOWS_ABSOLUTE_PATH_PATTERN.search(text)
+        or contains_local_absolute_path_reference(text)
         or not CANONICAL_ISSUE_CODE_PATTERN.fullmatch(text)
     ):
         return 'noncanonical-issue-code'
@@ -68,7 +75,7 @@ def _safe_source_label(value: Any, *, fallback: str = 'source') -> str:
     if (
         contains_sensitive_reference(text)
         or contains_chilean_rut_reference(text)
-        or WINDOWS_ABSOLUTE_PATH_PATTERN.search(text)
+        or contains_local_absolute_path_reference(text)
         or not CANONICAL_ISSUE_CODE_PATTERN.fullmatch(text)
     ):
         return 'source-redacted'

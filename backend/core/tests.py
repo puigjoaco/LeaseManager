@@ -34,6 +34,7 @@ from .permissions import get_effective_role_codes
 from .reference_validation import (
     REDACTED_SENSITIVE_REFERENCE,
     contains_chilean_rut_reference,
+    contains_local_absolute_path_reference,
     contains_sensitive_reference,
     count_chilean_rut_references,
     redact_sensitive_payload,
@@ -398,6 +399,12 @@ class ReferenceValidationTests(TestCase):
         self.assertTrue(contains_chilean_rut_reference(value))
         self.assertEqual(count_chilean_rut_references(value), 2)
         self.assertFalse(contains_chilean_rut_reference('source-without-rut'))
+
+    def test_local_absolute_path_detector_covers_windows_and_unc_paths(self):
+        self.assertTrue(contains_local_absolute_path_reference('D:/Privado/socio.pdf'))
+        self.assertTrue(contains_local_absolute_path_reference('source_C:/Privado/socio.pdf'))
+        self.assertTrue(contains_local_absolute_path_reference(r'\\server\share\socio.pdf'))
+        self.assertFalse(contains_local_absolute_path_reference('controlled-reference:C'))
 
     def test_redact_sensitive_payload_recurses_values_and_sensitive_keys(self):
         payload = {
