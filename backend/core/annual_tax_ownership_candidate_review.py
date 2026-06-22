@@ -15,7 +15,7 @@ from core.annual_tax_source_manifest import payload_hash
 
 OWNERSHIP_CANDIDATE_REVIEW_SCHEMA_VERSION = 'annual-tax-ownership-candidate-review.v1'
 TEXT_EXTENSIONS = {'.txt', '.csv', '.json', '.md', '.html', '.htm'}
-RUT_PATTERN = re.compile(r'(?<!\w)(?:\d{1,2}\.?\d{3}\.?\d{3}-[\dkK])(?=\W|$)')
+RUT_PATTERN = re.compile(r'(?<!\d)\d{1,2}\.?\d{3}\.?\d{3}-[\dkK](?!\d)')
 YEAR_PATTERN = re.compile(r'(?<!\d)(19\d{2}|20\d{2})(?!\d)')
 
 
@@ -361,7 +361,7 @@ def review_annual_tax_ownership_candidates(
             'architecture_can_close_ownership_source': False,
             'reason': (
                 'Hay documentos con senales societarias para revision controlada, '
-                'pero ninguno se transforma automaticamente en ownership vigente AC2024.'
+                f'pero ninguno se transforma automaticamente en ownership vigente AC{commercial_year}.'
             )
             if ready_candidates
             else (

@@ -55,6 +55,13 @@ ready flags o refs alfanumericas con RUT pegado quedan tratados como sensibles
 y se reemplazan por marcadores redactados. No cambia validacion estructurada de
 RUT en snapshots controlados ni abre DB, SII, banco, EDIG o datos reales.
 
+Nota 2026-06-22: Etapa 6/Renta Anual alinea el review de candidatos ownership
+con ese mismo criterio de RUT chileno para senales estructurales. Cuando el
+texto extraido contiene valores tipo `source_11.111.111-1`, el review incrementa
+`rut_like_tokens_count` sin persistir RUTs, nombres ni texto crudo, y mantiene
+la decision como revision controlada/manual antes de cualquier snapshot
+ownership. No abre DB, SII, banco, EDIG o documentos reales.
+
 Nota 2026-06-21: Etapa 6/Renta Anual cierra el enlace entre el run mirror y los
 artefactos comparados por el proof. `audit_annual_tax_mirror_proof` ahora
 cruza `process_id` y `source_bundle_id` del `mirror_run` contra
