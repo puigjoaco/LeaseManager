@@ -25,7 +25,12 @@ from contabilidad.models import (
     TipoOwnerLiquidacion,
 )
 from cobranza.models import DistribucionCobroMensual
-from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
+from core.reference_validation import (
+    contains_chilean_rut_reference,
+    contains_local_absolute_path_reference,
+    contains_sensitive_reference,
+    is_non_sensitive_reference,
+)
 from core.stage6_official_compatibility import summarize_stage6_official_compatibility_for_presentation
 from core.stage6_f22_record_format import (
     F22_RECORD_FORMAT_SOURCE_URL,
@@ -196,15 +201,26 @@ def _ensure_artifact_valid_for_status_transition(instance, label):
 
 def _ensure_non_sensitive_reference(value, field_name):
     normalized = str(value or '').strip()
-    if normalized and not is_non_sensitive_reference(normalized):
-        raise ValueError(f'{field_name} debe ser una referencia no sensible; no use URLs, tokens, credenciales ni correos.')
+    if normalized and (
+        not is_non_sensitive_reference(normalized)
+        or contains_chilean_rut_reference(normalized)
+        or contains_local_absolute_path_reference(normalized)
+    ):
+        raise ValueError(
+            f'{field_name} debe ser una referencia no sensible; '
+            'no use URLs, tokens, credenciales, correos, RUTs ni rutas locales.'
+        )
     return normalized
 
 
 def _ensure_non_sensitive_text(value, field_name):
     normalized = str(value or '').strip()
-    if normalized and contains_sensitive_reference(normalized):
-        raise ValueError(f'{field_name} no debe contener URLs, tokens, credenciales ni correos.')
+    if normalized and (
+        contains_sensitive_reference(normalized)
+        or contains_chilean_rut_reference(normalized)
+        or contains_local_absolute_path_reference(normalized)
+    ):
+        raise ValueError(f'{field_name} no debe contener URLs, tokens, credenciales, correos, RUTs ni rutas locales.')
     return normalized
 
 
