@@ -6,6 +6,7 @@ from django.core.management.base import BaseCommand, CommandError
 
 from core.annual_tax_controlled_load_plan import load_manifest_json
 from core.annual_tax_ownership_candidate_review import review_annual_tax_ownership_candidates
+from core.reference_validation import is_non_sensitive_control_reference
 
 
 def _resolve_path(raw_path: str) -> Path:
@@ -25,12 +26,14 @@ def _validate_output_path(output_path: Path) -> None:
         return
 
     try:
-        output_path.relative_to(local_evidence_root)
+        relative_output_path = output_path.relative_to(local_evidence_root).as_posix()
     except ValueError as error:
         raise CommandError(
             'Si --output queda dentro del repo, debe estar bajo local-evidence/ '
             'para no versionar evidencia contable o tributaria.'
         ) from error
+    if not is_non_sensitive_control_reference(relative_output_path):
+        raise CommandError('--output debe usar una ruta relativa no sensible bajo local-evidence/.')
 
 
 class Command(BaseCommand):
@@ -55,7 +58,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         manifest_path = _resolve_path(options['manifest'])
         if not manifest_path.exists() or not manifest_path.is_file():
-            raise CommandError(f'No existe manifest JSON: {manifest_path}')
+            raise CommandError('No existe manifest JSON controlado.')
 
         output_path = None
         if options['output']:
@@ -72,12 +75,15 @@ class Command(BaseCommand):
                 tax_year=options.get('tax_year'),
             )
         except (OSError, ValueError, FileNotFoundError, json.JSONDecodeError) as error:
-            raise CommandError(f'Revision ownership invalida: {error}') from error
+            raise CommandError('Revision ownership invalida o incompleta; revisar entradas controladas.') from error
 
         rendered = json.dumps(review, indent=2, ensure_ascii=True)
         if output_path is not None:
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(rendered, encoding='utf-8')
+            try:
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text(rendered, encoding='utf-8')
+            except OSError as error:
+                raise CommandError('No se pudo escribir revision ownership controlada.') from error
         else:
             self.stdout.write(rendered)
 

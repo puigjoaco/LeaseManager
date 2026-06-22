@@ -188,6 +188,10 @@ para OCR/revision manual, 3 se excluyen por nulos/sin efecto y 2 quedan como
 soporte de aportes/propiedades. El resultado permite avanzar a snapshot
 controlado, pero no cierra la fuente ownership ni crea socios/porcentajes por
 inferencia.
+El review tambien aplica el boundary controlado antes de emitir salida:
+`company_ref`, `manifest.files[].path_ref` y la ruta relativa de `--output`
+bajo `local-evidence/` deben ser no sensibles. El CLI no ecoa `manifest`,
+`source_root` ni rutas de salida crudas cuando faltan entradas o falla escritura.
 Cuando el texto si es extraible, el review solo conserva hashes, conteos y
 senales estructurales. El conteo `rut_like_tokens_count` usa el mismo criterio
 robusto de RUT chileno que los sanitizadores de refs, por lo que valores como
