@@ -11,6 +11,7 @@ SENSITIVE_REFERENCE_KEY_ALIASES = {
     'authheader',
     'privatekey',
 }
+CHILEAN_RUT_REFERENCE_PATTERN = re.compile(r'(?<!\d)\d{1,2}\.?\d{3}\.?\d{3}-[\dkK](?!\d)')
 REDACTED_SENSITIVE_REFERENCE = '<redacted-sensitive-reference>'
 
 
@@ -30,6 +31,14 @@ def key_looks_sensitive(value):
         bool(SENSITIVE_REFERENCE_PATTERN.search(normalized))
         or compact in SENSITIVE_REFERENCE_KEY_ALIASES
     )
+
+
+def contains_chilean_rut_reference(value):
+    return bool(CHILEAN_RUT_REFERENCE_PATTERN.search(normalize_reference(value)))
+
+
+def count_chilean_rut_references(value):
+    return len(CHILEAN_RUT_REFERENCE_PATTERN.findall(normalize_reference(value)))
 
 
 def redact_sensitive_reference(value):

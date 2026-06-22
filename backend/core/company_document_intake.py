@@ -19,7 +19,11 @@ from core.company_bank_support_coverage import (
     KNOWN_SUPPORT_CATEGORIES,
     audit_company_bank_support_coverage,
 )
-from core.reference_validation import REDACTED_SENSITIVE_REFERENCE, contains_sensitive_reference
+from core.reference_validation import (
+    REDACTED_SENSITIVE_REFERENCE,
+    contains_chilean_rut_reference,
+    contains_sensitive_reference,
+)
 
 
 DOCUMENT_INTAKE_SCHEMA_VERSION = 'company-document-intake-manifest.v1'
@@ -31,7 +35,6 @@ ANNUAL_SOURCE_INTAKE_BRIDGE_FILE = 'annual-tax-source-intake-bridge.json'
 ANNUAL_SOURCE_INTAKE_BRIDGE_SCHEMA_VERSION = 'annual-tax-source-intake-bridge.v1'
 ALL_OPERATIONS = '*'
 
-CHILEAN_RUT_PATTERN = re.compile(r'(?<!\d)\d{1,2}\.?\d{3}\.?\d{3}-[\dkK](?!\d)')
 WINDOWS_ABSOLUTE_PATH_PATTERN = re.compile(r'(^|[\s"\'])([A-Za-z]:[\\/]|\\\\)')
 
 SOURCE_KINDS = frozenset(
@@ -113,7 +116,7 @@ def _safe_ref(value: Any) -> str:
         return ''
     if (
         contains_sensitive_reference(normalized)
-        or CHILEAN_RUT_PATTERN.search(normalized)
+        or contains_chilean_rut_reference(normalized)
         or WINDOWS_ABSOLUTE_PATH_PATTERN.search(normalized)
     ):
         return REDACTED_SENSITIVE_REFERENCE
@@ -139,7 +142,7 @@ def _string_values(value: Any) -> list[str]:
 
 
 def _has_rut(value: Any) -> bool:
-    return any(CHILEAN_RUT_PATTERN.search(item) for item in _string_values(value))
+    return any(contains_chilean_rut_reference(item) for item in _string_values(value))
 
 
 def _has_absolute_path(value: Any) -> bool:

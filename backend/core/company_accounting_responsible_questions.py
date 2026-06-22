@@ -7,13 +7,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from core.reference_validation import contains_sensitive_reference
+from core.reference_validation import contains_chilean_rut_reference, contains_sensitive_reference
 
 
 COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_SCHEMA_VERSION = 'company-accounting-responsible-questions.v1'
 COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST = 'company-accounting-responsible-questions.json'
 
-CHILEAN_RUT_PATTERN = re.compile(r'(?<!\d)\d{1,2}\.?\d{3}\.?\d{3}-[\dkK](?!\d)')
 WINDOWS_ABSOLUTE_PATH_PATTERN = re.compile(r'(^|[\s"\'])([A-Za-z]:[\\/]|\\\\)')
 CANONICAL_ISSUE_CODE_PATTERN = re.compile(r'^[A-Za-z0-9_.:-]+$')
 
@@ -42,7 +41,7 @@ def _safe_label(value: Any, *, fallback: str = 'source') -> str:
     text = str(value or '').strip()
     if not text:
         return fallback
-    if contains_sensitive_reference(text) or CHILEAN_RUT_PATTERN.search(text) or WINDOWS_ABSOLUTE_PATH_PATTERN.search(text):
+    if contains_sensitive_reference(text) or contains_chilean_rut_reference(text) or WINDOWS_ABSOLUTE_PATH_PATTERN.search(text):
         return 'sensitive-source-redacted'
     normalized = re.sub(r'[^A-Za-z0-9_.:-]+', '-', text).strip('-._:')
     return normalized or fallback
@@ -54,7 +53,7 @@ def _safe_issue_code(value: Any, *, fallback: str = 'blocking-code') -> str:
         return fallback
     if (
         contains_sensitive_reference(text)
-        or CHILEAN_RUT_PATTERN.search(text)
+        or contains_chilean_rut_reference(text)
         or WINDOWS_ABSOLUTE_PATH_PATTERN.search(text)
         or not CANONICAL_ISSUE_CODE_PATTERN.fullmatch(text)
     ):
@@ -68,7 +67,7 @@ def _safe_source_label(value: Any, *, fallback: str = 'source') -> str:
         return fallback
     if (
         contains_sensitive_reference(text)
-        or CHILEAN_RUT_PATTERN.search(text)
+        or contains_chilean_rut_reference(text)
         or WINDOWS_ABSOLUTE_PATH_PATTERN.search(text)
         or not CANONICAL_ISSUE_CODE_PATTERN.fullmatch(text)
     ):

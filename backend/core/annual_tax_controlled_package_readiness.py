@@ -17,13 +17,16 @@ from core.annual_tax_controlled_package_template import (
     CONTROLLED_OWNERSHIP_REVIEW_HANDOFF_SCHEMA_VERSION,
 )
 from core.annual_tax_controlled_load_plan import COMPARISON_ONLY_CATEGORIES
-from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
+from core.reference_validation import (
+    contains_chilean_rut_reference,
+    contains_sensitive_reference,
+    is_non_sensitive_reference,
+)
 from patrimonio.validators import validate_rut
 
 
 CONTROLLED_PACKAGE_READINESS_SCHEMA_VERSION = 'annual-tax-controlled-package-readiness.v1'
 MONTHS = tuple(range(1, 13))
-CHILEAN_RUT_PATTERN = re.compile(r'(?<!\d)\d{1,2}\.?\d{3}\.?\d{3}-[\dkK](?!\d)')
 WINDOWS_ABSOLUTE_PATH_PATTERN = re.compile(r'(^|[\s"\'])([A-Za-z]:[\\/]|\\\\)')
 SAFE_REF_PATTERN = re.compile(r'^[A-Za-z0-9_.:-]+$')
 
@@ -92,7 +95,7 @@ def _safe_summary_ref(value: Any, *, fallback: str) -> str:
     text = str(value or '').strip()
     safe = bool(text) and not (
         contains_sensitive_reference(text)
-        or CHILEAN_RUT_PATTERN.search(text)
+        or contains_chilean_rut_reference(text)
         or WINDOWS_ABSOLUTE_PATH_PATTERN.search(text)
         or not SAFE_REF_PATTERN.fullmatch(text)
     )

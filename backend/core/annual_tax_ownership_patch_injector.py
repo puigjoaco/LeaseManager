@@ -16,11 +16,10 @@ from core.annual_tax_ownership_patch_validator import (
     validate_annual_tax_ownership_patch,
 )
 from core.annual_tax_ownership_patch_workbench import OWNERSHIP_PATCH_WORKBENCH_SCHEMA_VERSION
-from core.reference_validation import contains_sensitive_reference
+from core.reference_validation import contains_chilean_rut_reference, contains_sensitive_reference
 
 
 OWNERSHIP_PATCH_INJECTION_SCHEMA_VERSION = 'annual-tax-ownership-patch-injection.v1'
-CHILEAN_RUT_PATTERN = re.compile(r'(?<!\d)\d{1,2}\.?\d{3}\.?\d{3}-[\dkK](?!\d)')
 WINDOWS_ABSOLUTE_PATH_PATTERN = re.compile(r'(^|[\s"\'])([A-Za-z]:[\\/]|\\\\)')
 SAFE_REF_PATTERN = re.compile(r'^[A-Za-z0-9_.:-]+$')
 
@@ -65,7 +64,7 @@ def _is_safe_ref(value: Any) -> bool:
     text = str(value or '').strip()
     return bool(text) and not (
         contains_sensitive_reference(text)
-        or CHILEAN_RUT_PATTERN.search(text)
+        or contains_chilean_rut_reference(text)
         or WINDOWS_ABSOLUTE_PATH_PATTERN.search(text)
         or not SAFE_REF_PATTERN.fullmatch(text)
     )

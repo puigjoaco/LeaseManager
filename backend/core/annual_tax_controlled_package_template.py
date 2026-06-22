@@ -10,13 +10,12 @@ from core.annual_tax_controlled_db_load import CONTROLLED_DB_LOAD_SCHEMA_VERSION
 from core.annual_tax_controlled_load_plan import CALCULATION_INPUT_CATEGORIES, COMPARISON_ONLY_CATEGORIES
 from core.annual_tax_ownership_review_checklist import OWNERSHIP_REVIEW_CHECKLIST_SCHEMA_VERSION
 from core.annual_tax_source_manifest import payload_hash
-from core.reference_validation import contains_sensitive_reference
+from core.reference_validation import contains_chilean_rut_reference, contains_sensitive_reference
 
 
 CONTROLLED_DB_LOAD_TEMPLATE_SCHEMA_VERSION = 'annual-tax-controlled-db-load-template.v1'
 CONTROLLED_OWNERSHIP_REVIEW_HANDOFF_SCHEMA_VERSION = 'annual-tax-ownership-review-handoff.v1'
 MONTHS = tuple(range(1, 13))
-CHILEAN_RUT_PATTERN = re.compile(r'(?<!\d)\d{1,2}\.?\d{3}\.?\d{3}-[\dkK](?!\d)')
 WINDOWS_ABSOLUTE_PATH_PATTERN = re.compile(r'(^|[\s"\'])([A-Za-z]:[\\/]|\\\\)')
 SAFE_REF_PATTERN = re.compile(r'^[A-Za-z0-9_.:-]+$')
 
@@ -124,7 +123,7 @@ def _is_safe_handoff_ref(value: Any) -> bool:
     text = str(value or '').strip()
     return bool(text) and not (
         contains_sensitive_reference(text)
-        or CHILEAN_RUT_PATTERN.search(text)
+        or contains_chilean_rut_reference(text)
         or WINDOWS_ABSOLUTE_PATH_PATTERN.search(text)
         or not SAFE_REF_PATTERN.fullmatch(text)
     )
