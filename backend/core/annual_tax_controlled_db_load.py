@@ -128,6 +128,25 @@ def _safe_ready_flags(raw_flags: Any) -> dict[str, bool]:
     return {key: flags[key] for key in sorted(flags)}
 
 
+def _safe_source_issue_codes(raw_issue_codes: Any) -> list[dict[str, str]]:
+    if not isinstance(raw_issue_codes, list):
+        return []
+    issue_codes: list[dict[str, str]] = []
+    for raw_issue in raw_issue_codes:
+        if not isinstance(raw_issue, dict):
+            continue
+        code = _safe_summary_ref(raw_issue.get('code'), fallback='redacted-issue-code')
+        if not code:
+            continue
+        issue_codes.append(
+            {
+                'code': code,
+                'severity': _safe_summary_ref(raw_issue.get('severity'), fallback='blocking'),
+            }
+        )
+    return sorted(issue_codes, key=lambda item: (item['code'], item['severity']))
+
+
 def _question_source_summaries(payload: dict[str, Any]) -> list[dict[str, Any]]:
     raw_summaries = payload.get('question_source_summaries')
     if not isinstance(raw_summaries, list):
@@ -152,6 +171,7 @@ def _question_source_summaries(payload: dict[str, Any]) -> list[dict[str, Any]]:
                 ),
                 'ready_flags': _safe_ready_flags(raw_summary.get('ready_flags')),
                 'issues_total': _safe_int(raw_summary.get('issues_total')),
+                'safe_issue_codes': _safe_source_issue_codes(raw_summary.get('safe_issue_codes')),
                 'source_hash': _safe_summary_ref(raw_summary.get('source_hash'), fallback='source-hash-pending'),
             }
         )
