@@ -10,6 +10,7 @@ from core.company_accounting_responsible_answers import (
     build_company_accounting_responsible_answers_template,
     write_company_accounting_responsible_answers_template,
 )
+from core.reference_validation import is_non_sensitive_control_reference
 
 
 def _resolve_path(raw_path: str) -> Path:
@@ -41,6 +42,10 @@ def _validate_output_dir(output_dir: Path) -> None:
             'Si --output-dir queda dentro del repo, debe estar bajo local-evidence/ '
             'para no versionar respuestas privadas o evidencia contable/tributaria.'
         )
+    if _is_inside(output_dir, _local_evidence_root()):
+        relative_output_dir = output_dir.resolve().relative_to(_local_evidence_root()).as_posix()
+        if not is_non_sensitive_control_reference(relative_output_dir):
+            raise CommandError('--output-dir debe usar una ruta relativa no sensible bajo local-evidence/.')
 
 
 def _safe_path_component(value) -> str:

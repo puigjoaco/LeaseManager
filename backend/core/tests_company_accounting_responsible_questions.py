@@ -256,6 +256,30 @@ class CompanyAccountingResponsibleQuestionsTests(SimpleTestCase):
                         stdout=StringIO(),
                     )
 
+    def test_command_rejects_sensitive_output_under_local_evidence_without_echoing_value(self):
+        with TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / 'repo'
+            input_dir = repo_root / 'local-evidence' / 'inputs'
+            input_dir.mkdir(parents=True)
+            ownership_path = input_dir / 'ownership-validation.json'
+            ownership_path.write_text(json.dumps(self._ownership_validation()), encoding='utf-8')
+            sensitive_output = repo_root / 'local-evidence' / 'Socio Controlado 11.111.111-1' / 'questions'
+
+            with override_settings(PROJECT_ROOT=str(repo_root)):
+                with self.assertRaises(CommandError) as error:
+                    call_command(
+                        'materialize_company_accounting_responsible_questions',
+                        ownership_validation=str(ownership_path),
+                        output_dir=str(sensitive_output),
+                        stdout=StringIO(),
+                    )
+
+            rendered_error = str(error.exception)
+            self.assertIn('ruta relativa no sensible', rendered_error)
+            self.assertNotIn('Socio Controlado', rendered_error)
+            self.assertNotIn('11.111.111-1', rendered_error)
+            self.assertFalse(sensitive_output.exists())
+
     def test_command_rejects_non_empty_output_dir(self):
         with TemporaryDirectory() as temp_dir:
             temp_root = Path(temp_dir)
