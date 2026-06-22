@@ -5898,6 +5898,41 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertEqual(result['sections']['annual_documents']['f22_sensitive_payload'], 1)
         self.assertNotIn('api_key', json.dumps(result))
 
+    def test_control_sensitive_annual_payload_values_are_blocking(self):
+        self._create_valid_local_matrix()
+        summary = self._annual_summary()
+        ProcesoRentaAnual.objects.update(
+            resumen_anual={**summary, 'source_ref': 'source_11.111.111-1'}
+        )
+        DDJJPreparacionAnual.objects.update(
+            resumen_paquete={
+                'ddjj_habilitadas': ['1887'],
+                'resumen_anual': summary,
+                'support_ref': 'source_C:/Privado/ddjj.xlsx',
+            }
+        )
+        F22PreparacionAnual.objects.update(
+            resumen_f22={
+                'resumen_anual': summary,
+                'regimen_tributario': 'propyme-general-v1',
+                'support_ref': 'source_11.111.111-1',
+            }
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.annual_process_sensitive_payload', issue_codes)
+        self.assertIn('stage6.ddjj_sensitive_payload', issue_codes)
+        self.assertIn('stage6.f22_sensitive_payload', issue_codes)
+        self.assertEqual(result['sections']['annual_process']['process_sensitive_payload'], 1)
+        self.assertEqual(result['sections']['annual_documents']['ddjj_sensitive_payload'], 1)
+        self.assertEqual(result['sections']['annual_documents']['f22_sensitive_payload'], 1)
+        serialized_result = json.dumps(result)
+        self.assertNotIn('11.111.111-1', serialized_result)
+        self.assertNotIn('C:/Privado', serialized_result)
+
     def test_ddjj_and_f22_approved_without_refs_or_presented_are_blocking(self):
         self._create_valid_local_matrix()
         ProcesoRentaAnual.objects.update(paquete_ddjj_ref='', borrador_f22_ref='')
@@ -5972,6 +6007,37 @@ class Stage6RentaAnualReadinessTests(TestCase):
         self.assertEqual(result['sections']['annual_documents']['ddjj_responsible_ref_sensitive'], 1)
         self.assertEqual(result['sections']['annual_documents']['f22_responsible_ref_sensitive'], 1)
         self.assertNotIn('token=secret', json.dumps(result))
+
+    def test_control_sensitive_annual_final_refs_are_classified_explicitly(self):
+        self._create_valid_local_matrix()
+        ProcesoRentaAnual.objects.update(
+            paquete_ddjj_ref='package_11.111.111-1',
+            borrador_f22_ref='source_C:/Privado/f22.pdf',
+            responsable_revision_ref='review_11.111.111-1',
+        )
+        DDJJPreparacionAnual.objects.update(
+            paquete_ref='source_C:/Privado/ddjj.zip',
+            responsable_revision_ref='ddjj-review_11.111.111-1',
+        )
+        F22PreparacionAnual.objects.update(
+            borrador_ref='f22_11.111.111-1',
+            responsable_revision_ref='source_C:/Privado/f22-review.txt',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage6_renta_anual'])
+        self.assertIn('stage6.process_ddjj_ref_sensitive', issue_codes)
+        self.assertIn('stage6.process_f22_ref_sensitive', issue_codes)
+        self.assertIn('stage6.process_responsible_ref_sensitive', issue_codes)
+        self.assertIn('stage6.ddjj_ref_sensitive', issue_codes)
+        self.assertIn('stage6.f22_ref_sensitive', issue_codes)
+        self.assertIn('stage6.ddjj_responsible_ref_sensitive', issue_codes)
+        self.assertIn('stage6.f22_responsible_ref_sensitive', issue_codes)
+        serialized_result = json.dumps(result)
+        self.assertNotIn('11.111.111-1', serialized_result)
+        self.assertNotIn('C:/Privado', serialized_result)
 
     def test_tax_support_document_must_be_valid_pdf(self):
         self._create_valid_local_matrix()

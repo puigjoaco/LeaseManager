@@ -131,6 +131,10 @@ actual ya rechace nuevas escrituras contaminadas.
 Ese redactor conserva strings vacios como ausencia de dato, incluso bajo claves
 sensibles, para no introducir falsos marcadores de redaccion en payloads
 controlados; cualquier valor no vacio bajo clave sensible sigue redactado.
+Los payloads y refs tributarios de F29, ProcesoRentaAnual, DDJJ y F22 usan el
+mismo boundary controlado en dominio y readiness: RUT chileno y rutas locales
+absolutas bloquean `full_clean()` o se clasifican como brecha heredada aunque
+no contengan URL, correo, token ni credencial.
 El comparador de outputs esperados aplica ese mismo boundary a la evidencia de
 artefactos generados: `ddjj_package_ref`, `f22_draft_ref`, `source_ref`,
 `dossier_ref`, `export_ref`, `checklist_ref` y `evidence_ref` se redactan si
@@ -1183,9 +1187,9 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   heredadas, sin busquedas por los campos crudos ni alta manual desde
   backoffice.
 - `audit_stage6_renta_anual_readiness` clasifica como bloqueantes los payloads
-  anuales heredados con URLs, tokens, credenciales, correos o claves sensibles
-  en `resumen_anual`, `resumen_paquete` o `resumen_f22`, sin imprimir esos
-  valores.
+  anuales heredados con URLs, tokens, credenciales, correos, RUT chileno, rutas
+  locales absolutas o claves sensibles en `resumen_anual`, `resumen_paquete` o
+  `resumen_f22`, sin imprimir esos valores.
 - `audit_stage6_renta_anual_readiness` solo puede cerrar con `--source-kind`
   `snapshot_controlado` o `real_autorizado`; `local`, `fixture` y `demo`
   diagnostican brechas pero no habilitan cierre de Etapa 6.
@@ -1193,13 +1197,13 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   `--authorization-ref` no sensibles. Sin esas refs, el tipo de fuente queda
   reconocido pero no puede cerrar Etapa 6.
 - Si `--source-label` o `--authorization-ref` contienen URL, token, credencial
-  o valor sensible, readiness debe clasificar `stage6.source_label_sensitive`
-  o `stage6.authorization_ref_sensitive`, exponer solo
+  RUT chileno, ruta local absoluta o valor sensible, readiness debe clasificar
+  `stage6.source_label_sensitive` o `stage6.authorization_ref_sensitive`, exponer solo
   `sections.source_trace_sensitive` y no mezclarlo con refs faltantes.
 - Las referencias finales de cierre (`Stage5EvidenceRef`,
   `Stage4SiiEvidenceRef`, `FiscalRuleRef`, `CertificatesProofRef` y
   `ResponsibleRef`) tambien deben ser no sensibles. Si contienen URL, token,
-  credencial o valor sensible, readiness debe clasificar
+  credencial, RUT chileno, ruta local absoluta o valor sensible, readiness debe clasificar
   `stage6.*_ref_sensitive`, exponer `sections.final_evidence_sensitive` y no
   mezclarlas con refs faltantes.
 - `scripts/run-stage6-readiness-gate.ps1` ejecuta el diagnostico local con

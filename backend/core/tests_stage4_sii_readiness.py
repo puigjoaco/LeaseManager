@@ -740,6 +740,34 @@ class Stage4SiiReadinessTests(TestCase):
         self.assertEqual(result['sections']['f29']['sensitive_responsible_ref'], 1)
         self.assertNotIn('api_key', json.dumps(result))
 
+    def test_control_sensitive_sii_operational_refs_do_not_close_readiness(self):
+        self._create_valid_local_matrix()
+        CapacidadTributariaSII.objects.update(
+            certificado_ref='cert_11.111.111-1',
+            ultimo_resultado={'source_ref': 'source_C:/Privado/cert.json'},
+        )
+        DTEEmitido.objects.update(sii_track_id='track_11.111.111-1')
+        F29PreparacionMensual.objects.update(
+            borrador_ref='source_C:/Privado/f29.pdf',
+            responsable_revision_ref='review_11.111.111-1',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage4_sii'])
+        self.assertIn('stage4.capability_sensitive_reference', issue_codes)
+        self.assertIn('stage4.dte_sensitive_tracking_ref', issue_codes)
+        self.assertIn('stage4.f29_sensitive_ref', issue_codes)
+        self.assertIn('stage4.f29_responsible_ref_sensitive', issue_codes)
+        self.assertEqual(result['sections']['capabilities']['open_sensitive_refs'], 3)
+        self.assertEqual(result['sections']['dte']['sensitive_tracking_ref'], 1)
+        self.assertEqual(result['sections']['f29']['sensitive_ref'], 1)
+        self.assertEqual(result['sections']['f29']['sensitive_responsible_ref'], 1)
+        serialized_result = json.dumps(result)
+        self.assertNotIn('11.111.111-1', serialized_result)
+        self.assertNotIn('C:/Privado', serialized_result)
+
     def test_sensitive_tax_payload_keys_do_not_close_readiness(self):
         empresa = self._create_valid_local_matrix()
         ddjj_capability = self._open_capability(empresa, CapacidadSII.DDJJ_PREPARACION, 'ddjj')
@@ -786,6 +814,55 @@ class Stage4SiiReadinessTests(TestCase):
         self.assertEqual(result['sections']['annual']['ddjj_sensitive_payload'], 1)
         self.assertEqual(result['sections']['annual']['f22_sensitive_payload'], 1)
         self.assertNotIn('api_key', json.dumps(result))
+
+    def test_control_sensitive_tax_payload_values_do_not_close_readiness(self):
+        empresa = self._create_valid_local_matrix()
+        ddjj_capability = self._open_capability(empresa, CapacidadSII.DDJJ_PREPARACION, 'ddjj')
+        f22_capability = self._open_capability(empresa, CapacidadSII.F22_PREPARACION, 'f22')
+        F29PreparacionMensual.objects.update(resumen_formulario={'source_ref': 'source_11.111.111-1'})
+        process = ProcesoRentaAnual.objects.create(
+            empresa=empresa,
+            anio_tributario=2027,
+            estado=EstadoPreparacionTributaria.PREPARED,
+            fecha_preparacion=timezone.now(),
+            resumen_anual={'support_ref': 'source_C:/Privado/renta.xlsx'},
+            paquete_ddjj_ref='ddjj-stage4-controlled',
+            borrador_f22_ref='f22-stage4-controlled',
+        )
+        DDJJPreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=ddjj_capability,
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion=EstadoPreparacionTributaria.PREPARED,
+            resumen_paquete={'resumen_anual': {'fiscal_year': 2026}, 'source_ref': 'source_11.111.111-1'},
+            paquete_ref='ddjj-stage4-controlled',
+        )
+        F22PreparacionAnual.objects.create(
+            empresa=empresa,
+            capacidad_tributaria=f22_capability,
+            proceso_renta_anual=process,
+            anio_tributario=2027,
+            estado_preparacion=EstadoPreparacionTributaria.PREPARED,
+            resumen_f22={'resumen_anual': {'fiscal_year': 2026}, 'support_ref': 'source_C:/Privado/f22.xlsx'},
+            borrador_ref='f22-stage4-controlled',
+        )
+
+        result = self._collect_with_final_refs()
+        issue_codes = {issue['code'] for issue in result['issues']}
+
+        self.assertFalse(result['ready_for_stage4_sii'])
+        self.assertIn('stage4.f29_sensitive_payload', issue_codes)
+        self.assertIn('stage4.annual_process_sensitive_payload', issue_codes)
+        self.assertIn('stage4.ddjj_sensitive_payload', issue_codes)
+        self.assertIn('stage4.f22_sensitive_payload', issue_codes)
+        self.assertEqual(result['sections']['f29']['sensitive_payload'], 1)
+        self.assertEqual(result['sections']['annual']['process_sensitive_payload'], 1)
+        self.assertEqual(result['sections']['annual']['ddjj_sensitive_payload'], 1)
+        self.assertEqual(result['sections']['annual']['f22_sensitive_payload'], 1)
+        serialized_result = json.dumps(result)
+        self.assertNotIn('11.111.111-1', serialized_result)
+        self.assertNotIn('C:/Privado', serialized_result)
 
     def test_sensitive_tax_observations_do_not_close_readiness(self):
         empresa = self._create_valid_local_matrix()

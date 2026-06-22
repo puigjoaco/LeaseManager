@@ -7,7 +7,11 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 from contabilidad.models import ConfiguracionFiscalEmpresa, EstadoPreparacionTributaria, EstadoRegistro
-from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
+from core.reference_validation import (
+    contains_sensitive_control_reference,
+    contains_sensitive_reference,
+    is_non_sensitive_control_reference,
+)
 from core.state_transition_audit_readiness import (
     count_audit_events_without_transition_metadata,
     count_state_changed_events_without_transition_metadata,
@@ -65,7 +69,7 @@ CAPABILITY_REFERENCE_FIELDS = (
 
 
 def _non_sensitive_reference(value: str) -> bool:
-    return is_non_sensitive_reference(value)
+    return is_non_sensitive_control_reference(value)
 
 
 def _sensitive_reference(value: str) -> bool:
@@ -106,9 +110,9 @@ def _count_without_active_fiscal_config(items, active_fiscal_company_ids: set[in
 def _capability_has_sensitive_reference(capability) -> bool:
     return any(
         has_text(getattr(capability, field_name, ''))
-        and not is_non_sensitive_reference(getattr(capability, field_name, ''))
+        and not is_non_sensitive_control_reference(getattr(capability, field_name, ''))
         for field_name in CAPABILITY_REFERENCE_FIELDS
-    ) or contains_sensitive_reference(capability.ultimo_resultado or {}, include_sensitive_keys=True)
+    ) or contains_sensitive_control_reference(capability.ultimo_resultado or {}, include_sensitive_keys=True)
 
 
 def _capability_ready_for_tax_state(capability) -> bool:
@@ -137,7 +141,7 @@ def _collect_dte_issues(dtes, dte_status_capabilities_by_company: dict[int, Capa
             dte_status_capabilities_by_company.get(dte.empresa_id)
         ):
             counts['status_query_capability_not_ready'] += 1
-        if has_text(dte.sii_track_id) and not is_non_sensitive_reference(dte.sii_track_id):
+        if has_text(dte.sii_track_id) and not is_non_sensitive_control_reference(dte.sii_track_id):
             counts['sensitive_tracking_ref'] += 1
         if contains_sensitive_reference(dte.observaciones or ''):
             counts['sensitive_observations'] += 1
@@ -165,11 +169,14 @@ def _collect_f29_issues(f29_drafts) -> dict[str, int]:
             counts['approved_ref_missing'] += 1
         if draft.estado_preparacion in TAX_REF_REQUIRED_STATES and not has_text(draft.responsable_revision_ref):
             counts['responsible_ref_missing'] += 1
-        if has_text(draft.borrador_ref) and not is_non_sensitive_reference(draft.borrador_ref):
+        if has_text(draft.borrador_ref) and not is_non_sensitive_control_reference(draft.borrador_ref):
             counts['sensitive_ref'] += 1
-        if has_text(draft.responsable_revision_ref) and not is_non_sensitive_reference(draft.responsable_revision_ref):
+        if (
+            has_text(draft.responsable_revision_ref)
+            and not is_non_sensitive_control_reference(draft.responsable_revision_ref)
+        ):
             counts['sensitive_responsible_ref'] += 1
-        if contains_sensitive_reference(draft.resumen_formulario or {}, include_sensitive_keys=True):
+        if contains_sensitive_control_reference(draft.resumen_formulario or {}, include_sensitive_keys=True):
             counts['sensitive_payload'] += 1
         if contains_sensitive_reference(draft.observaciones or ''):
             counts['sensitive_observations'] += 1
@@ -189,13 +196,13 @@ def _collect_annual_issues(processes, ddjj_preparations, f22_preparations) -> di
             counts['process_summary_missing'] += 1
         if (
             has_text(process.paquete_ddjj_ref)
-            and not is_non_sensitive_reference(process.paquete_ddjj_ref)
+            and not is_non_sensitive_control_reference(process.paquete_ddjj_ref)
         ) or (
             has_text(process.borrador_f22_ref)
-            and not is_non_sensitive_reference(process.borrador_f22_ref)
+            and not is_non_sensitive_control_reference(process.borrador_f22_ref)
         ):
             counts['sensitive_ref'] += 1
-        if contains_sensitive_reference(process.resumen_anual or {}, include_sensitive_keys=True):
+        if contains_sensitive_control_reference(process.resumen_anual or {}, include_sensitive_keys=True):
             counts['process_sensitive_payload'] += 1
 
     for ddjj in ddjj_preparations:
@@ -211,9 +218,9 @@ def _collect_annual_issues(processes, ddjj_preparations, f22_preparations) -> di
             counts['ddjj_capability_not_ready'] += 1
         if ddjj.estado_preparacion in TAX_REF_REQUIRED_STATES and not has_text(ddjj.paquete_ref):
             counts['ddjj_ref_missing'] += 1
-        if has_text(ddjj.paquete_ref) and not is_non_sensitive_reference(ddjj.paquete_ref):
+        if has_text(ddjj.paquete_ref) and not is_non_sensitive_control_reference(ddjj.paquete_ref):
             counts['sensitive_ref'] += 1
-        if contains_sensitive_reference(ddjj.resumen_paquete or {}, include_sensitive_keys=True):
+        if contains_sensitive_control_reference(ddjj.resumen_paquete or {}, include_sensitive_keys=True):
             counts['ddjj_sensitive_payload'] += 1
         if contains_sensitive_reference(ddjj.observaciones or ''):
             counts['ddjj_sensitive_observations'] += 1
@@ -231,9 +238,9 @@ def _collect_annual_issues(processes, ddjj_preparations, f22_preparations) -> di
             counts['f22_capability_not_ready'] += 1
         if f22.estado_preparacion in TAX_REF_REQUIRED_STATES and not has_text(f22.borrador_ref):
             counts['f22_ref_missing'] += 1
-        if has_text(f22.borrador_ref) and not is_non_sensitive_reference(f22.borrador_ref):
+        if has_text(f22.borrador_ref) and not is_non_sensitive_control_reference(f22.borrador_ref):
             counts['sensitive_ref'] += 1
-        if contains_sensitive_reference(f22.resumen_f22 or {}, include_sensitive_keys=True):
+        if contains_sensitive_control_reference(f22.resumen_f22 or {}, include_sensitive_keys=True):
             counts['f22_sensitive_payload'] += 1
         if contains_sensitive_reference(f22.observaciones or ''):
             counts['f22_sensitive_observations'] += 1
