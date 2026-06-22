@@ -24,7 +24,7 @@ from core.reference_validation import (
     contains_chilean_rut_reference,
     contains_local_absolute_path_reference,
     contains_sensitive_reference,
-    is_non_sensitive_reference,
+    is_non_sensitive_control_reference,
 )
 from patrimonio.models import EstadoPatrimonial, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 from patrimonio.validators import validate_rut
@@ -66,7 +66,7 @@ def _required_text(payload: dict[str, Any], key: str) -> str:
     value = str(payload.get(key) or '').strip()
     if not value:
         raise ValueError(f'{key} es obligatorio.')
-    if key != 'source_manifest_hash' and not is_non_sensitive_reference(value):
+    if key != 'source_manifest_hash' and not is_non_sensitive_control_reference(value):
         raise ValueError(f'{key} debe ser una referencia no sensible.')
     return value
 
@@ -372,7 +372,7 @@ def _validate_real_estate_snapshot(real_estate: Any, *, commercial_year: int) ->
         if contribution < Decimal('0.00'):
             raise ValueError('real_estate.properties[].contribuciones_clp no puede ser negativo.')
         codigo_f22 = str(item.get('codigo_f22') or '').strip()
-        if codigo_f22 and not is_non_sensitive_reference(codigo_f22):
+        if codigo_f22 and not is_non_sensitive_control_reference(codigo_f22):
             raise ValueError('real_estate.properties[].codigo_f22 debe ser una referencia no sensible.')
 
 
@@ -394,9 +394,9 @@ def _validate_labor_previsional_source(labor_previsional: Any) -> dict[str, Any]
             raise ValueError('labor_previsional.required_by_ddjj_forms debe incluir 1887 cuando required=true.')
         if not source_ref:
             raise ValueError('labor_previsional.source_ref es obligatorio.')
-        if not is_non_sensitive_reference(source_ref):
+        if not is_non_sensitive_control_reference(source_ref):
             raise ValueError('labor_previsional.source_ref debe ser una referencia no sensible.')
-    elif source_ref and not is_non_sensitive_reference(source_ref):
+    elif source_ref and not is_non_sensitive_control_reference(source_ref):
         raise ValueError('labor_previsional.source_ref debe ser una referencia no sensible.')
 
     return {

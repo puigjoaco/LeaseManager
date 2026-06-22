@@ -386,6 +386,12 @@ sanitizados y flags seguras heredadas del paquete controlado, sin nombres, RUTs,
 rutas ni PII. Asi la carga local/controlada no borra si el writer viene de un
 flujo aun separado por soporte bancario formal, intake documental observado o
 gate responsable.
+El writer directo aplica el mismo boundary controlado que el readiness para las
+refs operativas del paquete: `company_ref`, refs responsables/aprobacion,
+ownership, meses, labor previsional y bienes raices rechazan RUT chileno o rutas
+locales absolutas antes de abrir transaccion o escribir socios, propiedades,
+fuentes oficiales o `MonthlyTaxFact`. El RUT estructurado de
+`ownership.participants[].rut` sigue siendo dato controlado validado, no una ref.
 `build_annual_tax_controlled_values_draft` completa ese paquete desde fuentes
 AC2024 permitidas y read-only: Libro Diario, Libro Mayor, Libro Inventario, F29,
 libros de remuneraciones y soporte de bienes raices. La corrida real de

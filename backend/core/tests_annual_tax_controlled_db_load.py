@@ -224,6 +224,13 @@ class AnnualTaxControlledDbLoadTests(TestCase):
         ]
         return package
 
+    def _assert_no_controlled_domain_writes(self, empresa):
+        self.assertEqual(Socio.objects.count(), 0)
+        self.assertEqual(ParticipacionPatrimonial.objects.filter(empresa_owner=empresa).count(), 0)
+        self.assertEqual(Propiedad.objects.filter(empresa_owner=empresa).count(), 0)
+        self.assertEqual(AnnualTaxOfficialSource.objects.count(), 0)
+        self.assertEqual(MonthlyTaxFact.objects.filter(empresa=empresa).count(), 0)
+
     def test_apply_controlled_package_materializes_monthly_accounting_and_tax_facts(self):
         empresa = self._create_empresa()
 
@@ -467,6 +474,81 @@ class AnnualTaxControlledDbLoadTests(TestCase):
         self.assertEqual(Propiedad.objects.filter(empresa_owner=empresa).count(), 0)
         self.assertEqual(AnnualTaxOfficialSource.objects.count(), 0)
         self.assertEqual(MonthlyTaxFact.objects.filter(empresa=empresa).count(), 0)
+
+    def test_apply_rejects_control_sensitive_package_refs_without_writing(self):
+        empresa = self._create_empresa()
+        package = self._package()
+        package['responsible_ref'] = 'responsible_11.111.111-1'
+
+        with self.assertRaisesMessage(ValueError, 'responsible_ref debe ser una referencia no sensible') as context:
+            apply_annual_tax_controlled_db_load(
+                empresa=empresa,
+                package=package,
+                write_database=True,
+            )
+
+        self.assertNotIn('11.111.111-1', str(context.exception))
+        self._assert_no_controlled_domain_writes(empresa)
+
+    def test_apply_rejects_control_sensitive_monthly_and_labor_refs_without_writing(self):
+        empresa = self._create_empresa()
+        package = self._package()
+        package['months'][0]['source_ref'] = 'source_C:/Privado/enero.json'
+
+        with self.assertRaisesMessage(ValueError, 'source_ref debe ser una referencia no sensible') as context:
+            apply_annual_tax_controlled_db_load(
+                empresa=empresa,
+                package=package,
+                write_database=True,
+            )
+
+        self.assertNotIn('C:/Privado', str(context.exception))
+        self._assert_no_controlled_domain_writes(empresa)
+
+        package = self._package()
+        package['labor_previsional'] = {
+            'required': True,
+            'required_by_ddjj_forms': ['1887'],
+            'source_ref': 'labor_22.222.222-2',
+        }
+
+        with self.assertRaisesMessage(ValueError, 'labor_previsional.source_ref debe ser una referencia no sensible') as context:
+            apply_annual_tax_controlled_db_load(
+                empresa=empresa,
+                package=package,
+                write_database=True,
+            )
+
+        self.assertNotIn('22.222.222-2', str(context.exception))
+        self._assert_no_controlled_domain_writes(empresa)
+
+    def test_apply_rejects_control_sensitive_ownership_and_real_estate_refs_without_writing(self):
+        empresa = self._create_empresa()
+        package = self._with_ownership(self._package())
+        package['ownership']['participants'][0]['participant_ref'] = 'participant_11.111.111-1'
+
+        with self.assertRaisesMessage(ValueError, 'participant_ref debe ser una referencia no sensible') as context:
+            apply_annual_tax_controlled_db_load(
+                empresa=empresa,
+                package=package,
+                write_database=True,
+            )
+
+        self.assertNotIn('11.111.111-1', str(context.exception))
+        self._assert_no_controlled_domain_writes(empresa)
+
+        package = self._with_real_estate(self._with_ownership(self._package()))
+        package['real_estate']['properties'][0]['codigo_f22'] = 'source_C:/Privado/f22.txt'
+
+        with self.assertRaisesMessage(ValueError, 'codigo_f22 debe ser una referencia no sensible') as context:
+            apply_annual_tax_controlled_db_load(
+                empresa=empresa,
+                package=package,
+                write_database=True,
+            )
+
+        self.assertNotIn('C:/Privado', str(context.exception))
+        self._assert_no_controlled_domain_writes(empresa)
 
     def test_apply_rejects_required_labor_previsional_without_source(self):
         empresa = self._create_empresa()
