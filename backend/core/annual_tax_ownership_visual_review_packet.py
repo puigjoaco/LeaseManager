@@ -10,6 +10,7 @@ from typing import Any
 
 from core.annual_tax_ownership_candidate_review import OWNERSHIP_CANDIDATE_REVIEW_SCHEMA_VERSION
 from core.annual_tax_source_manifest import payload_hash
+from core.reference_validation import is_non_sensitive_control_reference
 
 
 OWNERSHIP_VISUAL_REVIEW_PACKET_SCHEMA_VERSION = 'annual-tax-ownership-visual-review-packet.v1'
@@ -19,9 +20,16 @@ REVIEWABLE_STATUSES = {
 }
 
 
+def _required_control_ref(value: Any, *, field_name: str) -> str:
+    text = str(value or '').strip()
+    if not is_non_sensitive_control_reference(text):
+        raise ValueError(f'{field_name} debe ser una referencia no sensible.')
+    return text
+
+
 def _manifest_by_path_ref(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {
-        str(item.get('path_ref') or ''): item
+        _required_control_ref(item.get('path_ref'), field_name='manifest.files[].path_ref'): item
         for item in manifest.get('files') or []
         if isinstance(item, dict) and item.get('path_ref')
     }
@@ -131,15 +139,31 @@ def build_annual_tax_ownership_visual_review_packet(
     source_root = source_root.expanduser().resolve()
     output_dir = output_dir.expanduser().resolve()
     if not source_root.exists() or not source_root.is_dir():
-        raise FileNotFoundError(f'source_root does not exist or is not a directory: {source_root}')
-    output_dir.mkdir(parents=True, exist_ok=True)
+        raise FileNotFoundError('source_root no existe o no es un directorio controlado.')
+    try:
+        output_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as error:
+        raise ValueError('No se pudo preparar output_dir visual controlado.') from error
     tax_year = tax_year or commercial_year + 1
+    company_ref = _required_control_ref(company_ref, field_name='company_ref')
+    if str(manifest.get('company_ref') or '').strip() != company_ref:
+        raise ValueError('manifest.company_ref no coincide con company_ref.')
+    if str(review.get('company_ref') or '').strip() != company_ref:
+        raise ValueError('review.company_ref no coincide con company_ref.')
+    if int(manifest.get('commercial_year') or manifest.get('anio_comercial') or 0) != commercial_year:
+        raise ValueError('manifest.commercial_year no coincide con commercial_year.')
+    if int(review.get('commercial_year') or 0) != commercial_year:
+        raise ValueError('review.commercial_year no coincide con commercial_year.')
+    if int(manifest.get('tax_year') or manifest.get('anio_tributario') or 0) != tax_year:
+        raise ValueError('manifest.tax_year no coincide con tax_year.')
+    if int(review.get('tax_year') or 0) != tax_year:
+        raise ValueError('review.tax_year no coincide con tax_year.')
     manifest_index = _manifest_by_path_ref(manifest)
     candidates = _reviewable_candidates(review)
     items = []
     render_errors = []
     for index, item in enumerate(candidates, start=1):
-        path_ref = str(item.get('path_ref') or '')
+        path_ref = _required_control_ref(item.get('path_ref'), field_name='review_items[].path_ref')
         manifest_item = manifest_index.get(path_ref)
         safe_id = _safe_id(path_ref, index)
         base_payload = {

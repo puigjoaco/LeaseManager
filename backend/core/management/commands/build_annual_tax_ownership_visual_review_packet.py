@@ -27,6 +27,25 @@ def _validate_local_evidence_path(path: Path) -> None:
         ) from error
 
 
+def _read_text(path: Path, *, label: str) -> str:
+    if not path.exists() or not path.is_file():
+        raise CommandError(f'No existe {label} JSON o no es un archivo legible.')
+    try:
+        return path.read_text(encoding='utf-8')
+    except OSError as error:
+        raise CommandError(f'No se pudo leer {label} JSON.') from error
+
+
+def _read_review_json(path: Path) -> dict:
+    try:
+        payload = json.loads(_read_text(path, label='review'))
+    except json.JSONDecodeError as error:
+        raise CommandError(f'review JSON invalido: line {error.lineno}, column {error.colno}.') from error
+    if not isinstance(payload, dict):
+        raise CommandError('review JSON debe ser un objeto.')
+    return payload
+
+
 class Command(BaseCommand):
     help = (
         'Renderiza paginas iniciales de candidatos ownership a imagenes locales '
@@ -59,14 +78,9 @@ class Command(BaseCommand):
         _validate_local_evidence_path(output_dir)
         _validate_local_evidence_path(output_path)
 
-        if not manifest_path.exists() or not manifest_path.is_file():
-            raise CommandError(f'No existe manifest JSON: {manifest_path}')
-        if not review_path.exists() or not review_path.is_file():
-            raise CommandError(f'No existe review JSON: {review_path}')
-
         try:
-            manifest = load_manifest_json(manifest_path.read_text(encoding='utf-8'))
-            review = json.loads(review_path.read_text(encoding='utf-8'))
+            manifest = load_manifest_json(_read_text(manifest_path, label='manifest'))
+            review = _read_review_json(review_path)
             packet = build_annual_tax_ownership_visual_review_packet(
                 manifest=manifest,
                 review=review,
@@ -78,11 +92,14 @@ class Command(BaseCommand):
                 max_pages_per_candidate=options['max_pages_per_candidate'],
                 resolution=options['resolution'],
             )
-        except (OSError, ValueError, FileNotFoundError, json.JSONDecodeError) as error:
+        except (ValueError, FileNotFoundError) as error:
             raise CommandError(f'Paquete visual ownership invalido: {error}') from error
 
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(json.dumps(packet, indent=2, ensure_ascii=True), encoding='utf-8')
+        try:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(json.dumps(packet, indent=2, ensure_ascii=True), encoding='utf-8')
+        except OSError as error:
+            raise CommandError('No se pudo escribir el indice visual ownership.') from error
         self.stdout.write(json.dumps(packet['summary'], ensure_ascii=True))
 
         if options['fail_if_no_render'] and not packet['summary']['rendered_pages_total']:

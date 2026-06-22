@@ -203,6 +203,10 @@ paginas iniciales de los 10 candidatos a PNG bajo `local-evidence`, con indice
 por hash/path_ref. La corrida real produce 19 paginas sin errores. Las imagenes
 pueden contener datos sensibles, por lo que no se versionan ni se usan como
 calculo; sirven para OCR/revision manual previa a completar el snapshot.
+El paquete visual tambien aplica el boundary controlado: `company_ref`,
+`manifest.files[].path_ref` y `review_items[].path_ref` rechazan RUT chileno o
+rutas locales absolutas antes de emitir indice visual, y el CLI no ecoa rutas
+crudas cuando faltan manifest, review o `source_root`.
 `build_annual_tax_ownership_evidence_chain` deja esa secuencia reproducible
 desde `main`: manifiesto, revision de candidatos, template ownership y paquete
 visual opcional se regeneran bajo `local-evidence/` con una sola orden. Esto no
