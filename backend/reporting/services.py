@@ -23,9 +23,11 @@ from conciliacion.models import (
     MovimientoBancarioImportado,
 )
 from core.reference_validation import (
-    contains_sensitive_reference,
-    is_non_sensitive_reference,
+    contains_sensitive_control_reference,
+    is_non_sensitive_control_reference,
     redact_sensitive_payload,
+    redact_sensitive_control_payload,
+    redact_sensitive_control_reference,
     redact_sensitive_reference,
 )
 from core.company_accounting_review_package import build_company_accounting_review_package
@@ -167,11 +169,11 @@ def _has_text(value) -> bool:
 
 def _sensitive_reference(value) -> bool:
     normalized = str(value or '').strip()
-    return bool(normalized) and not is_non_sensitive_reference(normalized)
+    return bool(normalized) and not is_non_sensitive_control_reference(normalized)
 
 
 def _sensitive_payload(value) -> bool:
-    return contains_sensitive_reference(value or {}, include_sensitive_keys=True)
+    return contains_sensitive_control_reference(value or {}, include_sensitive_keys=True)
 
 
 def _annual_status_audit_metadata_missing(*, ddjj_items, f22_items) -> list[dict[str, object]]:
@@ -1748,8 +1750,8 @@ def build_annual_tax_summary(anio_tributario, empresa_id=None, access: ScopeAcce
                 'empresa_id': process.empresa_id,
                 'estado': process.estado,
                 'fecha_preparacion': process.fecha_preparacion.isoformat() if process.fecha_preparacion else None,
-                'responsable_revision_ref': redact_sensitive_reference(process.responsable_revision_ref),
-                'resumen_anual': redact_sensitive_payload(process.resumen_anual),
+                'responsable_revision_ref': redact_sensitive_control_reference(process.responsable_revision_ref),
+                'resumen_anual': redact_sensitive_control_payload(process.resumen_anual),
             }
             for process in process_items
         ],
@@ -1757,9 +1759,9 @@ def build_annual_tax_summary(anio_tributario, empresa_id=None, access: ScopeAcce
             {
                 'empresa_id': item.empresa_id,
                 'estado_preparacion': item.estado_preparacion,
-                'paquete_ref': redact_sensitive_reference(item.paquete_ref),
-                'responsable_revision_ref': redact_sensitive_reference(item.responsable_revision_ref),
-                'resumen_paquete': redact_sensitive_payload(item.resumen_paquete),
+                'paquete_ref': redact_sensitive_control_reference(item.paquete_ref),
+                'responsable_revision_ref': redact_sensitive_control_reference(item.responsable_revision_ref),
+                'resumen_paquete': redact_sensitive_control_payload(item.resumen_paquete),
             }
             for item in ddjj_items
         ],
@@ -1767,9 +1769,9 @@ def build_annual_tax_summary(anio_tributario, empresa_id=None, access: ScopeAcce
             {
                 'empresa_id': item.empresa_id,
                 'estado_preparacion': item.estado_preparacion,
-                'borrador_ref': redact_sensitive_reference(item.borrador_ref),
-                'responsable_revision_ref': redact_sensitive_reference(item.responsable_revision_ref),
-                'resumen_f22': redact_sensitive_payload(item.resumen_f22),
+                'borrador_ref': redact_sensitive_control_reference(item.borrador_ref),
+                'responsable_revision_ref': redact_sensitive_control_reference(item.responsable_revision_ref),
+                'resumen_f22': redact_sensitive_control_payload(item.resumen_f22),
             }
             for item in f22_items
         ],

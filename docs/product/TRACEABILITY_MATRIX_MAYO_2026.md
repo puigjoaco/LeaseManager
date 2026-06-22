@@ -3933,6 +3933,13 @@ valores no vacios bajo claves sensibles, con RUT chileno, ruta local absoluta,
 URL, token, credencial o correo siguen redactados antes de salir por API,
 snapshot o admin.
 
+Nota 2026-06-22: Reporting/Etapa 7 aplica el boundary controlado compartido a
+su resumen tributario anual y readiness. `build_annual_tax_summary` y
+`audit_stage7_reporting_readiness` bloquean RUT chileno y rutas locales
+absolutas heredadas en refs/payloads anuales antes de validar el reporte,
+preservan strings vacios inocuos y mantienen respuestas/evidencia sin valores
+crudos.
+
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |
 | Gobierno documental | Fuente de verdad, AGENTS, README, cursor operativo | `docs/governance`, `AGENTS.md`, `ORDEN_DE_LECTURA.md`, `.gitignore`, `docs/product/EXECUTION_CURSOR_MAYO_2026.md` | 0 | resuelto_confirmado | PR con CI verde y docs consistentes | Mantener actualizado al cambiar fuentes; bloqueos y evidencia son controles operativos de cierre, no arquitectura de producto; el cursor gobierna reanudaciones, worktrees tacticos y metatareas cerradas; artefactos locales de herramienta como `.codex-spreadsheet/`, `.playwright-cli/`, capturas PNG en el root y archivos manuales `CONFIDENCIAL`/`NO_SUBIR` quedan ignorados para no ensuciar `main` ni confundirse con paquetes activos; acceptance ejecuta `assert-repo-hygiene.ps1 -IncludeUntracked` para detectar artefactos sensibles no versionados ni ignorados sin leer secretos. |

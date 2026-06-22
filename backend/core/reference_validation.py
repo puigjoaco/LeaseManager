@@ -169,3 +169,47 @@ def contains_sensitive_reference(
     if _sensitive_key:
         return True
     return False
+
+
+def contains_sensitive_control_reference(
+    value,
+    *,
+    include_sensitive_keys=False,
+    allowed_sensitive_keys=(),
+    _sensitive_key=False,
+):
+    allowed_sensitive_keys = {str(key) for key in allowed_sensitive_keys}
+    if isinstance(value, str):
+        normalized = normalize_reference(value)
+        if not normalized:
+            return False
+        return _sensitive_key or not is_non_sensitive_control_reference(normalized)
+    if isinstance(value, dict):
+        return any(
+            contains_sensitive_control_reference(
+                item,
+                include_sensitive_keys=include_sensitive_keys,
+                allowed_sensitive_keys=allowed_sensitive_keys,
+                _sensitive_key=_sensitive_key
+                or bool(
+                    include_sensitive_keys
+                    and isinstance(key, str)
+                    and key not in allowed_sensitive_keys
+                    and key_looks_sensitive(key)
+                ),
+            )
+            for key, item in value.items()
+        )
+    if isinstance(value, (list, tuple, set)):
+        return any(
+            contains_sensitive_control_reference(
+                item,
+                include_sensitive_keys=include_sensitive_keys,
+                allowed_sensitive_keys=allowed_sensitive_keys,
+                _sensitive_key=_sensitive_key,
+            )
+            for item in value
+        )
+    if _sensitive_key:
+        return True
+    return False

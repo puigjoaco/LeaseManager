@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections import Counter
-import re
 from typing import Any
 
 from django.core.exceptions import ValidationError
@@ -25,15 +24,10 @@ from contabilidad.models import (
     MovimientoAsiento,
     ObligacionTributariaMensual,
 )
-from core.reference_validation import contains_sensitive_reference
+from core.reference_validation import contains_sensitive_control_reference, is_non_sensitive_control_reference
 from core.state_transition_audit_readiness import count_audit_events_without_transition_metadata
 from sii.models import DDJJPreparacionAnual, F22PreparacionAnual, ProcesoRentaAnual, has_text
 
-
-SENSITIVE_REFERENCE_PATTERN = re.compile(
-    r'(:\/\/|@|password|passwd|pwd|secret|token|bearer|api[_-]?key|credential|credencial)',
-    re.IGNORECASE,
-)
 
 AUTHORIZED_STAGE7_REPORTING_SOURCE_KINDS = {'snapshot_controlado', 'real_autorizado'}
 STAGE7_ANNUAL_STATUS_UPDATE_EVENT_TYPES = (
@@ -59,7 +53,7 @@ ANNUAL_STATES_REQUIRING_REF = {
 
 def _non_sensitive_reference(value: str) -> bool:
     normalized = str(value or '').strip()
-    return bool(normalized) and not SENSITIVE_REFERENCE_PATTERN.search(normalized)
+    return bool(normalized) and is_non_sensitive_control_reference(normalized)
 
 
 def _sensitive_reference(value: str) -> bool:
@@ -229,7 +223,7 @@ def _collect_annual_report_issues(processes, ddjj_preparations, f22_preparations
             counts['process_summary_missing'] += 1
         if _annual_summary_fiscal_year_mismatch(process.resumen_anual, process.anio_tributario):
             counts['process_fiscal_year_mismatch'] += 1
-        if contains_sensitive_reference(process.resumen_anual or {}, include_sensitive_keys=True):
+        if contains_sensitive_control_reference(process.resumen_anual or {}, include_sensitive_keys=True):
             counts['process_sensitive_payload'] += 1
         if _sensitive_reference(process.paquete_ddjj_ref):
             counts['process_ddjj_ref_sensitive'] += 1
@@ -267,7 +261,7 @@ def _collect_annual_report_issues(processes, ddjj_preparations, f22_preparations
         ddjj_summary = ddjj.resumen_paquete.get('resumen_anual') if isinstance(ddjj.resumen_paquete, dict) else None
         if _annual_summary_fiscal_year_mismatch(ddjj_summary, ddjj.anio_tributario):
             counts['ddjj_summary_fiscal_year_mismatch'] += 1
-        if contains_sensitive_reference(ddjj.resumen_paquete or {}, include_sensitive_keys=True):
+        if contains_sensitive_control_reference(ddjj.resumen_paquete or {}, include_sensitive_keys=True):
             counts['ddjj_sensitive_payload'] += 1
         if _sensitive_reference(ddjj.paquete_ref):
             counts['ddjj_ref_sensitive'] += 1
@@ -292,7 +286,7 @@ def _collect_annual_report_issues(processes, ddjj_preparations, f22_preparations
         f22_summary = f22.resumen_f22.get('resumen_anual') if isinstance(f22.resumen_f22, dict) else None
         if _annual_summary_fiscal_year_mismatch(f22_summary, f22.anio_tributario):
             counts['f22_summary_fiscal_year_mismatch'] += 1
-        if contains_sensitive_reference(f22.resumen_f22 or {}, include_sensitive_keys=True):
+        if contains_sensitive_control_reference(f22.resumen_f22 or {}, include_sensitive_keys=True):
             counts['f22_sensitive_payload'] += 1
         if _sensitive_reference(f22.borrador_ref):
             counts['f22_ref_sensitive'] += 1

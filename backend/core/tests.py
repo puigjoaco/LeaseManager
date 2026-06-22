@@ -35,6 +35,7 @@ from .reference_validation import (
     REDACTED_SENSITIVE_REFERENCE,
     contains_chilean_rut_reference,
     contains_local_absolute_path_reference,
+    contains_sensitive_control_reference,
     contains_sensitive_reference,
     count_chilean_rut_references,
     is_non_sensitive_control_reference,
@@ -518,6 +519,23 @@ class ReferenceValidationTests(TestCase):
                 allowed_sensitive_keys=('credencial_validada_ref',),
             )
         )
+
+    def test_contains_sensitive_control_reference_uses_control_boundary(self):
+        payload = {
+            'safe_ref': 'controlled-reference',
+            'empty_auth': {'authorization': ''},
+            'rut_ref': 'source_11.111.111-1',
+            'path_ref': 'source_C:/Privado/renta.xlsx',
+            'nested': [{'api_key': 'opaque-key'}],
+        }
+
+        self.assertFalse(contains_sensitive_control_reference(''))
+        self.assertFalse(contains_sensitive_control_reference({'authorization': ''}, include_sensitive_keys=True))
+        self.assertFalse(contains_sensitive_control_reference('controlled-reference'))
+        self.assertTrue(contains_sensitive_control_reference('source_11.111.111-1'))
+        self.assertTrue(contains_sensitive_control_reference('source_C:/Privado/renta.xlsx'))
+        self.assertTrue(contains_sensitive_control_reference({'api_key': None}, include_sensitive_keys=True))
+        self.assertTrue(contains_sensitive_control_reference(payload, include_sensitive_keys=True))
 
     def test_runtime_signal_rejects_opaque_authorization_or_private_key_metadata(self):
         for payload in (

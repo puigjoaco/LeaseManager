@@ -1629,7 +1629,13 @@ class ReportingAPITests(APITestCase):
             empresa=empresa,
             anio_tributario=2027,
             estado='preparado',
-            resumen_anual={'fiscal_year': 2026, 'obligaciones': [{'mes': 1}], 'total_obligaciones': 12},
+            resumen_anual={
+                'fiscal_year': 2026,
+                'obligaciones': [{'mes': 1}],
+                'total_obligaciones': 12,
+                'empty_review_ref': '',
+                'headers': {'authorization': ''},
+            },
             responsable_revision_ref='process-review-controlled-ref',
         )
         DDJJPreparacionAnual.objects.create(
@@ -1646,7 +1652,12 @@ class ReportingAPITests(APITestCase):
             estado_preparacion='preparado',
             paquete_ref='ddjj-controlled-ref',
             responsable_revision_ref='ddjj-review-controlled-ref',
-            resumen_paquete={'ddjj_habilitadas': ['1887'], 'resumen_anual': {'fiscal_year': 2026}},
+            resumen_paquete={
+                'ddjj_habilitadas': ['1887'],
+                'resumen_anual': {'fiscal_year': 2026},
+                'empty_review_ref': '',
+                'headers': {'authorization': ''},
+            },
         )
         F22PreparacionAnual.objects.create(
             empresa=empresa,
@@ -1662,7 +1673,12 @@ class ReportingAPITests(APITestCase):
             estado_preparacion='preparado',
             borrador_ref='f22-controlled-ref',
             responsable_revision_ref='f22-review-controlled-ref',
-            resumen_f22={'base': '100.00', 'resumen_anual': {'fiscal_year': 2026}},
+            resumen_f22={
+                'base': '100.00',
+                'resumen_anual': {'fiscal_year': 2026},
+                'empty_review_ref': '',
+                'headers': {'authorization': ''},
+            },
         )
 
         response = self.client.get(f"{reverse('reporting-tributario-anual')}?anio_tributario=2027&empresa_id={empresa.id}")
@@ -1674,6 +1690,11 @@ class ReportingAPITests(APITestCase):
         self.assertEqual(response.data['procesos_renta'][0]['responsable_revision_ref'], 'process-review-controlled-ref')
         self.assertEqual(response.data['ddjj_preparadas'][0]['responsable_revision_ref'], 'ddjj-review-controlled-ref')
         self.assertEqual(response.data['f22_preparados'][0]['responsable_revision_ref'], 'f22-review-controlled-ref')
+        self.assertEqual(response.data['procesos_renta'][0]['resumen_anual']['empty_review_ref'], '')
+        self.assertEqual(response.data['procesos_renta'][0]['resumen_anual']['headers']['authorization'], '')
+        self.assertEqual(response.data['ddjj_preparadas'][0]['resumen_paquete']['headers']['authorization'], '')
+        self.assertEqual(response.data['f22_preparados'][0]['resumen_f22']['headers']['authorization'], '')
+        self.assertNotIn(REDACTED_SENSITIVE_REFERENCE, json.dumps(response.data))
 
     def test_annual_tax_summary_blocks_process_without_traceable_state(self):
         _, empresa, _, _, _, _ = self._create_context('ANNUALPROCSTATE')
@@ -2474,6 +2495,30 @@ class ReportingAPITests(APITestCase):
         self.assertEqual(response.data['traceability']['code'], 'reporting.annual_process_sensitive_payload')
         self.assertNotIn('api_key', json.dumps(response.data))
 
+    def test_annual_tax_summary_blocks_control_sensitive_process_payload_without_leaking_value(self):
+        _, empresa, _, _, _, _ = self._create_context('ANNUALPREPPROCCONTROL')
+        self._activate_fiscal_config(empresa)
+        process = self._create_annual_reporting_process(empresa)
+        self._create_annual_ddjj(empresa, process, suffix='prepared-process-control')
+        self._create_annual_f22(empresa, process, suffix='prepared-process-control')
+        ProcesoRentaAnual.objects.filter(pk=process.pk).update(
+            resumen_anual={
+                'fiscal_year': 2026,
+                'obligaciones': [{'mes': 1}],
+                'total_obligaciones': 12,
+                'source_ref': 'source_11.111.111-1',
+                'support_ref': 'source_C:/Privado/renta.xlsx',
+            }
+        )
+
+        response = self.client.get(f"{reverse('reporting-tributario-anual')}?anio_tributario=2027&empresa_id={empresa.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_process_sensitive_payload')
+        serialized_response = json.dumps(response.data)
+        self.assertNotIn('11.111.111-1', serialized_response)
+        self.assertNotIn('C:/Privado', serialized_response)
+
     def test_annual_tax_summary_blocks_prepared_ddjj_sensitive_payload_without_leaking_value(self):
         _, empresa, _, _, _, _ = self._create_context('ANNUALPREPDDJJPAYLOAD')
         self._activate_fiscal_config(empresa)
@@ -2599,6 +2644,20 @@ class ReportingAPITests(APITestCase):
         serialized_response = json.dumps(response.data)
         self.assertNotIn('sii.example.test', serialized_response)
         self.assertNotIn('token=secret', serialized_response)
+
+    def test_annual_tax_summary_blocks_control_sensitive_process_refs_without_leaking_value(self):
+        _, empresa, _, _, _, _ = self._create_context('ANNUALPROCCONTROLREF')
+        self._activate_fiscal_config(empresa)
+        process = self._create_annual_reporting_process(empresa)
+        self._create_annual_ddjj(empresa, process, suffix='process-control-ref')
+        self._create_annual_f22(empresa, process, suffix='process-control-ref')
+        ProcesoRentaAnual.objects.filter(pk=process.pk).update(paquete_ddjj_ref='package_11.111.111-1')
+
+        response = self.client.get(f"{reverse('reporting-tributario-anual')}?anio_tributario=2027&empresa_id={empresa.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['traceability']['code'], 'reporting.annual_process_ddjj_ref_sensitive')
+        self.assertNotIn('11.111.111-1', json.dumps(response.data))
 
     def test_annual_tax_summary_blocks_sensitive_process_f22_ref_without_leaking_value(self):
         _, empresa, _, _, _, _ = self._create_context('ANNUALPROCF22SENSITIVE')
