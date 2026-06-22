@@ -3810,6 +3810,13 @@ matriz, conteos, warnings y flags de boundary. Un export preparado sin resumen
 anual alineado queda como `company_accounting.annual_export_missing` o senal
 cero, sin habilitar handoff responsable.
 
+Nota 2026-06-21: El paquete contable/renta de revision responsable conserva en
+su `summary` el estado resumido del `responsible_review_gate`: estado, siguiente
+accion, issue bloqueante, capas locales listas, requerimiento de manifest
+responsable y flags de no-handoff/no-calculo/no-SII. Los comandos de auditoria y
+materializacion reportan ese gate al fallar por incompleto, y las preguntas
+responsables preservan las flags anidadas como readiness no sensible.
+
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |
 | Gobierno documental | Fuente de verdad, AGENTS, README, cursor operativo | `docs/governance`, `AGENTS.md`, `ORDEN_DE_LECTURA.md`, `.gitignore`, `docs/product/EXECUTION_CURSOR_MAYO_2026.md` | 0 | resuelto_confirmado | PR con CI verde y docs consistentes | Mantener actualizado al cambiar fuentes; bloqueos y evidencia son controles operativos de cierre, no arquitectura de producto; el cursor gobierna reanudaciones, worktrees tacticos y metatareas cerradas; artefactos locales de herramienta como `.codex-spreadsheet/`, `.playwright-cli/`, capturas PNG en el root y archivos manuales `CONFIDENCIAL`/`NO_SUBIR` quedan ignorados para no ensuciar `main` ni confundirse con paquetes activos; acceptance ejecuta `assert-repo-hygiene.ps1 -IncludeUntracked` para detectar artefactos sensibles no versionados ni ignorados sin leer secretos. |

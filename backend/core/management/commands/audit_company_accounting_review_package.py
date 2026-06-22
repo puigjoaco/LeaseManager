@@ -127,6 +127,8 @@ class Command(BaseCommand):
                 'Paquete de revision contable/renta incompleto: '
                 f'classification={result["classification"]}, '
                 f'accounting={result["summary"]["accounting_progress_classification"]}, '
+                f'review_gate={result["summary"]["accounting_responsible_review_gate_state"]}, '
+                f'next_action={result["summary"]["accounting_responsible_review_next_action_ref"]}, '
                 f'bank_support={result["summary"]["bank_support_classification"]}, '
                 f'formal_bank_support_ready={result["summary"]["ready_for_formal_bank_support_review"]}, '
                 f'document_intake_ready={result["summary"]["document_intake_ready_for_productive_review"]}.'

@@ -121,6 +121,8 @@ class CompanyAccountingResponsibleQuestionsTests(SimpleTestCase):
                 'ready_for_formal_bank_support_review': False,
                 'document_intake_ready_for_productive_review': False,
                 'document_intake_ready_for_formal_bank_support_manifest': True,
+                'accounting_local_layers_ready_for_review': True,
+                'accounting_ready_for_responsible_decision_handoff': False,
             }
         )
 
@@ -138,6 +140,8 @@ class CompanyAccountingResponsibleQuestionsTests(SimpleTestCase):
         self.assertFalse(ready_flags['ready_for_formal_bank_support_review'])
         self.assertFalse(ready_flags['document_intake_ready_for_productive_review'])
         self.assertTrue(ready_flags['document_intake_ready_for_formal_bank_support_manifest'])
+        self.assertTrue(ready_flags['accounting_local_layers_ready_for_review'])
+        self.assertFalse(ready_flags['accounting_ready_for_responsible_decision_handoff'])
 
     def test_command_materializes_questions_packet_with_redacted_stdout(self):
         with TemporaryDirectory() as temp_dir:
