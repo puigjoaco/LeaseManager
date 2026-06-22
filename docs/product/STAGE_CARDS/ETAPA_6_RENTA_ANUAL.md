@@ -123,6 +123,12 @@ artefactos generados: `ddjj_package_ref`, `f22_draft_ref`, `source_ref`,
 `dossier_ref`, `export_ref`, `checklist_ref` y `evidence_ref` se redactan si
 contienen RUT chileno o rutas locales absolutas, evitando que el proof anual
 propague refs historicas crudas hacia `comparison_generated_artifact_evidence`.
+El draft controlado de valores aplica el mismo boundary antes de persistir
+salida revisable: rechaza `responsible_ref`/`approval_ref` sensibles, vacia
+`source_root_ref` sensible del summary y limpia `path_ref` embebidos en
+`package_draft`, `input_source_refs`, `comparison_targets`, F29, payroll,
+ledger, labor previsional y bienes raices cuando contienen RUT chileno o rutas
+locales absolutas.
 Para evitar una prueba circular, el manifiesto separa explicitamente inputs de
 calculo y objetivos de comparacion: Libro Diario, Libro Mayor, Libro
 Inventario, RCV, F29, compra/venta, remuneraciones y fuente societaria/
@@ -366,6 +372,12 @@ En AC2024/AT2025 detecta 6 propiedades y 0 pagos AC2024 verificables, sin usar
 outputs finales como input ni declarar calculo fiscal. La aplicacion de
 propiedades a DB sigue condicionada por `ownership`: el dominio de Patrimonio
 rechaza `Propiedad` activa si la empresa no tiene participaciones completas.
+La misma carga controlada no acepta ni propaga refs de trabajo contaminadas:
+`source_root_ref`, refs responsables/aprobacion y `path_ref` de F29, payroll,
+ledger, labor previsional, bienes raices o targets de comparacion se filtran
+con los detectores compartidos antes de materializar el JSON. Si una ref
+contiene RUT chileno o ruta local absoluta, queda vacia o rechazada sin imprimir
+el valor crudo.
 El Libro Inventario se conserva como lineas de balance anual en diciembre para
 que el mirror genere `AnnualTaxTrialBalanceLine` desde cuentas controladas
 reales de entrada.

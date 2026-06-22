@@ -83,6 +83,14 @@ refs heredadas contaminadas en proceso, balance, workbooks, registros, DDJJ/F22,
 dossier, export y checklist. No abre DB real, SII, banco, EDIG, documentos
 reales ni calculo tributario final.
 
+Nota 2026-06-22: Etapa 6/Renta Anual alinea
+`build_annual_tax_controlled_values_draft` con esos detectores compartidos. El
+draft controlado rechaza refs responsables/aprobacion contaminadas, vacia
+`source_root_ref` sensible y limpia `path_ref` embebidos en package,
+input_source_refs, targets de comparacion, F29, payroll, ledger, labor
+previsional y bienes raices antes de persistir la salida revisable. No abre DB
+real, SII, banco, EDIG, documentos reales ni calculo tributario final.
+
 Nota 2026-06-21: Etapa 6/Renta Anual cierra el enlace entre el run mirror y los
 artefactos comparados por el proof. `audit_annual_tax_mirror_proof` ahora
 cruza `process_id` y `source_bundle_id` del `mirror_run` contra
