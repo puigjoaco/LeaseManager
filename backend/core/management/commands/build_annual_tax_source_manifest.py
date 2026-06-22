@@ -5,6 +5,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from core.annual_tax_source_manifest import build_annual_tax_source_manifest
+from core.reference_validation import is_non_sensitive_control_reference
 
 
 def _resolve_output_path(raw_output_path: str) -> Path:
@@ -24,12 +25,14 @@ def _validate_output_path(output_path: Path) -> None:
         return
 
     try:
-        output_path.relative_to(local_evidence_root)
+        relative_output_path = output_path.relative_to(local_evidence_root).as_posix()
     except ValueError as error:
         raise CommandError(
             'Si --output queda dentro del repo, debe estar bajo local-evidence/ '
             'para no versionar evidencia contable o tributaria.'
         ) from error
+    if not is_non_sensitive_control_reference(relative_output_path):
+        raise CommandError('--output debe usar una ruta relativa no sensible bajo local-evidence/.')
 
 
 class Command(BaseCommand):
@@ -92,13 +95,16 @@ class Command(BaseCommand):
                 include_file_list=not options['summary_only'],
                 f29_no_declaration_months=options['f29_no_declaration_months'],
             )
-        except FileNotFoundError as error:
-            raise CommandError(str(error)) from error
+        except (OSError, ValueError, FileNotFoundError) as error:
+            raise CommandError('Manifiesto anual invalido o incompleto; revisar entradas controladas.') from error
 
         rendered = json.dumps(manifest, indent=2, ensure_ascii=True)
         if output_path is not None:
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(rendered, encoding='utf-8')
+            try:
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text(rendered, encoding='utf-8')
+            except OSError as error:
+                raise CommandError('No se pudo escribir manifiesto anual controlado.') from error
         else:
             self.stdout.write(rendered)
 
