@@ -146,6 +146,11 @@ para OCR/revision manual, 3 se excluyen por nulos/sin efecto y 2 quedan como
 soporte de aportes/propiedades. El resultado permite avanzar a snapshot
 controlado, pero no cierra la fuente ownership ni crea socios/porcentajes por
 inferencia.
+Cuando el texto si es extraible, el review solo conserva hashes, conteos y
+senales estructurales. El conteo `rut_like_tokens_count` usa el mismo criterio
+robusto de RUT chileno que los sanitizadores de refs, por lo que valores como
+`source_11.111.111-1` cuentan como senal societaria sensible aunque vengan
+pegados a `_`; la salida sigue sin guardar RUTs, nombres ni texto crudo.
 `build_annual_tax_ownership_snapshot_template` prepara el puente hacia el
 writer anual: desde la revision real genera 10 `candidate_sources`, un
 `ownership_patch_template` con `participants=[]` y reglas para completar socios,

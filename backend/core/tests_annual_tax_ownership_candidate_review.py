@@ -75,6 +75,40 @@ class AnnualTaxOwnershipCandidateReviewTests(SimpleTestCase):
         self.assertFalse(review['safety']['stores_rut_values'])
         self.assertFalse(review['safety']['can_generate_controlled_snapshot_without_review'])
 
+    def test_review_counts_prefixed_rut_like_tokens_without_leaking_values(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            self._write(
+                source_root,
+                'Ano_HISTORICO/08_Base_Legal_Patrimonial_Operativa/Inmobiliaria Puig SpA/'
+                '1. Escrituras y Modificaciones/1.Constitucion/1.Escritura de Constitucion/Escritura.txt',
+                'Inmobiliaria Puig SpA sociedad por acciones. Capital social 1000. '
+                'Accionistas source_11.111.111-1 y participant_22.222.222-2 con participaciones al ano 2024.',
+            )
+            manifest = self._manifest(source_root)
+
+            review = review_annual_tax_ownership_candidates(
+                manifest=manifest,
+                source_root=source_root,
+                company_ref='inmobiliaria-puig',
+                commercial_year=2025,
+                tax_year=2026,
+            )
+
+        rendered = json.dumps(review, ensure_ascii=True)
+        item = review['review_items'][0]
+
+        self.assertEqual(item['signals']['rut_like_tokens_count'], 2)
+        self.assertEqual(item['review_status'], 'candidate_for_controlled_snapshot_review')
+        self.assertIn('AC2025', review['decision']['reason'])
+        self.assertNotIn('source_11.111.111-1', rendered)
+        self.assertNotIn('participant_22.222.222-2', rendered)
+        self.assertNotIn('11.111.111-1', rendered)
+        self.assertNotIn('22.222.222-2', rendered)
+        self.assertNotIn('Accionistas', rendered)
+        self.assertFalse(review['safety']['stores_raw_text'])
+        self.assertFalse(review['safety']['stores_rut_values'])
+
     def test_review_keeps_unextractable_legal_pdf_as_manual_candidate(self):
         with TemporaryDirectory() as temp_dir:
             source_root = Path(temp_dir)
