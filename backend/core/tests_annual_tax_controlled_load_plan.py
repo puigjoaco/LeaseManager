@@ -4,6 +4,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
+from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import SimpleTestCase
@@ -186,6 +187,84 @@ class AnnualTaxControlledLoadPlanTests(SimpleTestCase):
                     manifest=str(manifest_path),
                     output='docs/ac2024-load-plan.json',
                 )
+
+    def test_load_plan_rejects_sensitive_manifest_refs_without_echoing_values(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir) / 'source'
+            source_root.mkdir()
+            self._build_complete_source_tree(source_root)
+            manifest = self._manifest(source_root)
+            cases = (
+                ('company_ref', ('company_ref',), 'inmobiliaria_11.111.111-1', '11.111.111-1'),
+                ('source_root_ref', ('source_root_ref',), r'source_\\server\share', r'\\server\share'),
+                (
+                    'bundle_authorization_ref',
+                    ('annual_tax_source_bundle_draft', 'authorization_ref'),
+                    'authorization_C:/Privado/fuente.txt',
+                    'C:/Privado',
+                ),
+                ('file_path_ref', ('files', 0, 'path_ref'), 'file_22.222.222-2', '22.222.222-2'),
+            )
+            for label, path_parts, value, sensitive_fragment in cases:
+                with self.subTest(label=label):
+                    contaminated = json.loads(json.dumps(manifest))
+                    target = contaminated
+                    for part in path_parts[:-1]:
+                        target = target[part]
+                    target[path_parts[-1]] = value
+
+                    with self.assertRaises(ValueError) as error:
+                        build_annual_tax_controlled_load_plan(manifest=contaminated)
+
+                    rendered_error = str(error.exception)
+                    self.assertIn('referencia no sensible', rendered_error)
+                    self.assertNotIn(sensitive_fragment, rendered_error)
+
+    def test_command_rejects_sensitive_manifest_refs_without_echoing_values(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir) / 'source'
+            source_root.mkdir()
+            self._build_complete_source_tree(source_root)
+            manifest = self._manifest(source_root)
+            manifest['files'][0]['path_ref'] = 'file_C:/Privado/ownership.pdf'
+            manifest_path = Path(temp_dir) / 'manifest.json'
+            manifest_path.write_text(json.dumps(manifest), encoding='utf-8')
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'build_annual_tax_controlled_load_plan',
+                    manifest=str(manifest_path),
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertIn('Plan de carga controlada invalido', rendered_error)
+            self.assertNotIn('C:/Privado', rendered_error)
+
+    def test_command_rejects_sensitive_output_path_under_local_evidence_without_echoing_value(self):
+        local_evidence = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence.mkdir(exist_ok=True)
+        with TemporaryDirectory(dir=local_evidence) as temp_dir:
+            temp_root = Path(temp_dir)
+            source_root = temp_root / 'source'
+            source_root.mkdir()
+            self._build_complete_source_tree(source_root)
+            manifest_path = temp_root / 'manifest.json'
+            manifest_path.write_text(json.dumps(self._manifest(source_root)), encoding='utf-8')
+            sensitive_output = local_evidence / 'Socio Controlado 33.333.333-3' / 'load-plan.json'
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'build_annual_tax_controlled_load_plan',
+                    manifest=str(manifest_path),
+                    output=str(sensitive_output),
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertIn('ruta relativa no sensible', rendered_error)
+            self.assertNotIn('Socio Controlado', rendered_error)
+            self.assertNotIn('33.333.333-3', rendered_error)
 
     def test_command_can_fail_on_blocking_plan(self):
         with TemporaryDirectory() as temp_dir:

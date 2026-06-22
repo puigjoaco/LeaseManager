@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from core.annual_tax_source_manifest import payload_hash
+from core.reference_validation import is_non_sensitive_control_reference
 
 
 LOAD_PLAN_SCHEMA_VERSION = 'annual-tax-controlled-load-plan.v1'
@@ -115,6 +116,32 @@ CATEGORY_TARGETS = {
 }
 
 
+def _validate_control_ref(value: Any, *, field_name: str, required: bool = True) -> str:
+    text = str(value or '').strip()
+    if not text and not required:
+        return ''
+    if not is_non_sensitive_control_reference(text):
+        raise ValueError(f'{field_name} debe ser una referencia no sensible.')
+    return text
+
+
+def _validate_manifest_control_refs(manifest: dict[str, Any]) -> None:
+    _validate_control_ref(manifest.get('company_ref'), field_name='company_ref')
+    _validate_control_ref(manifest.get('source_root_ref'), field_name='source_root_ref')
+    bundle = manifest.get('annual_tax_source_bundle_draft')
+    if isinstance(bundle, dict):
+        _validate_control_ref(bundle.get('source_label'), field_name='source_label', required=False)
+        _validate_control_ref(bundle.get('authorization_ref'), field_name='authorization_ref', required=False)
+        _validate_control_ref(bundle.get('responsible_ref'), field_name='responsible_ref', required=False)
+        summary = bundle.get('resumen_fuentes')
+        if isinstance(summary, dict):
+            _validate_control_ref(summary.get('company_ref'), field_name='resumen_fuentes.company_ref', required=False)
+            _validate_control_ref(summary.get('source_root_ref'), field_name='resumen_fuentes.source_root_ref', required=False)
+    for index, item in enumerate(manifest.get('files') or []):
+        if isinstance(item, dict):
+            _validate_control_ref(item.get('path_ref'), field_name=f'files[{index}].path_ref')
+
+
 def _files_by_category(manifest: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for item in manifest.get('files') or []:
@@ -186,6 +213,7 @@ def _category_item(category: str, files: list[dict[str, Any]]) -> dict[str, Any]
 
 
 def build_annual_tax_controlled_load_plan(*, manifest: dict[str, Any]) -> dict[str, Any]:
+    _validate_manifest_control_refs(manifest)
     files = manifest.get('files') or []
     coverage = manifest.get('coverage') if isinstance(manifest.get('coverage'), dict) else {}
     mirror = (

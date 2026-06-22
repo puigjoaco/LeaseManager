@@ -8,6 +8,7 @@ from core.annual_tax_controlled_load_plan import (
     build_annual_tax_controlled_load_plan,
     load_manifest_json,
 )
+from core.reference_validation import is_non_sensitive_control_reference
 
 
 def _resolve_path(raw_path: str) -> Path:
@@ -27,12 +28,14 @@ def _validate_output_path(output_path: Path) -> None:
         return
 
     try:
-        output_path.relative_to(local_evidence_root)
+        relative_output_path = output_path.relative_to(local_evidence_root).as_posix()
     except ValueError as error:
         raise CommandError(
             'Si --output queda dentro del repo, debe estar bajo local-evidence/ '
             'para no versionar evidencia contable o tributaria.'
         ) from error
+    if not is_non_sensitive_control_reference(relative_output_path):
+        raise CommandError('--output debe usar una ruta relativa no sensible bajo local-evidence/.')
 
 
 def _read_manifest(path: Path) -> dict:
@@ -81,7 +84,10 @@ class Command(BaseCommand):
 
         manifest = _read_manifest(manifest_path)
 
-        plan = build_annual_tax_controlled_load_plan(manifest=manifest)
+        try:
+            plan = build_annual_tax_controlled_load_plan(manifest=manifest)
+        except ValueError as error:
+            raise CommandError('Plan de carga controlada invalido; revisar entradas controladas.') from error
         rendered = json.dumps(plan, indent=2, ensure_ascii=True)
         if output_path is not None:
             _write_plan(output_path, rendered=rendered)
