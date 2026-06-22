@@ -67,6 +67,16 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
                     'D:/Privado/Socio Controlado Uno 11111111-1': True,
                 },
                 'issues_total': 2,
+                'safe_issue_codes': [
+                    {
+                        'code': 'company_accounting.responsible_review_missing',
+                        'severity': 'blocking',
+                    },
+                    {
+                        'code': 'D:/Privado/Socio Controlado Uno 11111111-1',
+                        'severity': 'https://review.example.test/token=secret',
+                    },
+                ],
                 'source_hash': 'a' * 64,
             }
         ]
@@ -120,12 +130,18 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
         rendered = json.dumps(review, ensure_ascii=True)
         source_summary = review['question_source_summaries'][0]
         ready_flags = source_summary['ready_flags']
+        safe_issue_codes = source_summary['safe_issue_codes']
 
         self.assertTrue(review['summary']['ready_for_responsible_decision_handoff'])
         self.assertEqual(review['summary']['readiness_sources_total'], 1)
         self.assertFalse(ready_flags['ready_for_formal_bank_support_review'])
         self.assertFalse(ready_flags['document_intake_ready_for_productive_review'])
         self.assertTrue(ready_flags['document_intake_ready_for_formal_bank_support_manifest'])
+        self.assertIn(
+            {'code': 'company_accounting.responsible_review_missing', 'severity': 'blocking'},
+            safe_issue_codes,
+        )
+        self.assertIn({'code': 'redacted-issue-code', 'severity': 'blocking'}, safe_issue_codes)
         self.assertNotIn('D:/Privado/Socio Controlado Uno 11111111-1', ready_flags)
         self.assertNotIn('Socio Controlado Uno', rendered)
         self.assertNotIn('11111111-1', rendered)
@@ -983,6 +999,16 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
                     'D:/Privado/Socio Controlado Uno 11111111-1': True,
                 },
                 'issues_total': 2,
+                'safe_issue_codes': [
+                    {
+                        'code': 'company_accounting.responsible_review_missing',
+                        'severity': 'blocking',
+                    },
+                    {
+                        'code': 'D:/Privado/Socio Controlado Uno 11111111-1',
+                        'severity': 'https://review.example.test/token=secret',
+                    },
+                ],
                 'source_hash': 'a' * 64,
             }
         ]
@@ -998,12 +1024,18 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
         rendered = json.dumps(manifest, ensure_ascii=True)
         source_summary = manifest['artifacts']['questions_packet']['source_summaries'][0]
         ready_flags = source_summary['ready_flags']
+        safe_issue_codes = source_summary['safe_issue_codes']
 
         self.assertEqual(manifest['summary']['readiness_sources_total'], 1)
         self.assertEqual(manifest['artifacts']['questions_packet']['readiness_sources_total'], 1)
         self.assertFalse(ready_flags['ready_for_formal_bank_support_review'])
         self.assertFalse(ready_flags['document_intake_ready_for_productive_review'])
         self.assertTrue(ready_flags['document_intake_ready_for_formal_bank_support_manifest'])
+        self.assertIn(
+            {'code': 'company_accounting.responsible_review_missing', 'severity': 'blocking'},
+            safe_issue_codes,
+        )
+        self.assertIn({'code': 'redacted-issue-code', 'severity': 'blocking'}, safe_issue_codes)
         self.assertNotIn('D:/Privado/Socio Controlado Uno 11111111-1', ready_flags)
         self.assertNotIn('Socio Controlado Uno', rendered)
         self.assertNotIn('11111111-1', rendered)
@@ -1162,6 +1194,15 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
             self.assertEqual(
                 len(audit['questions']['candidates'][0]['source_summaries']),
                 len(packet['source_summaries']),
+            )
+            preflight_issue_codes = {
+                issue['code']
+                for source_summary in audit['questions']['candidates'][0]['source_summaries']
+                for issue in source_summary['safe_issue_codes']
+            }
+            self.assertIn(
+                'company_bank_support.bank_confirmation_missing',
+                preflight_issue_codes,
             )
             self.assertNotIn('Socio Controlado Uno', rendered)
             self.assertNotIn('11111111-1', rendered)
