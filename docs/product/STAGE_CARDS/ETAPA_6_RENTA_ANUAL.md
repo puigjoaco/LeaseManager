@@ -213,6 +213,11 @@ visual opcional se regeneran bajo `local-evidence/` con una sola orden. Esto no
 desbloquea `ownership` por si mismo ni genera participantes; evita que la etapa
 dependa de artefactos locales perdidos y mantiene el siguiente paso en
 revision/OCR y aprobacion responsable.
+La cadena compuesta aplica su propio boundary antes de crear nombres de salida
+o llamar a builders internos: `company_ref`, `source_label`,
+`authorization_ref`, `responsible_ref`, `approval_ref`, `run_label` y la ruta
+relativa de `output_dir` deben ser no sensibles. El CLI no ecoa rutas crudas si
+falla `source_root`, la salida o algun tramo de la cadena.
 `validate_annual_tax_ownership_patch` valida el patch local completado contra
 ese template antes de inyectarlo al paquete controlado. El comando rechaza
 patches versionados fuera de `local-evidence/`, no escribe DB y emite solo un

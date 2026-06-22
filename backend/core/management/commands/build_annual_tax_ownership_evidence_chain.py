@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -10,9 +11,11 @@ from core.annual_tax_ownership_candidate_review import review_annual_tax_ownersh
 from core.annual_tax_ownership_snapshot_template import build_annual_tax_ownership_snapshot_template
 from core.annual_tax_ownership_visual_review_packet import build_annual_tax_ownership_visual_review_packet
 from core.annual_tax_source_manifest import build_annual_tax_source_manifest, payload_hash
+from core.reference_validation import is_non_sensitive_control_reference
 
 
 CHAIN_SCHEMA_VERSION = 'annual-tax-ownership-evidence-chain.v1'
+SAFE_RUN_LABEL_PATTERN = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._-]*$')
 
 
 def _resolve_path(raw_path: str) -> Path:
@@ -26,6 +29,27 @@ def _local_evidence_root() -> Path:
     return (Path(settings.PROJECT_ROOT).resolve() / 'local-evidence').resolve()
 
 
+def _required_control_ref(value: Any, *, field_name: str) -> str:
+    text = str(value or '').strip()
+    if not is_non_sensitive_control_reference(text):
+        raise CommandError(f'{field_name} debe ser una referencia no sensible.')
+    return text
+
+
+def _optional_control_ref(value: Any, *, field_name: str) -> str:
+    text = str(value or '').strip()
+    if text and not is_non_sensitive_control_reference(text):
+        raise CommandError(f'{field_name} debe ser una referencia no sensible.')
+    return text
+
+
+def _required_run_label(value: Any) -> str:
+    text = str(value or 'v1').strip() or 'v1'
+    if not is_non_sensitive_control_reference(text) or not SAFE_RUN_LABEL_PATTERN.match(text):
+        raise CommandError('run_label debe ser un slug no sensible.')
+    return text
+
+
 def _default_output_dir(*, company_ref: str, commercial_year: int, tax_year: int, run_label: str) -> Path:
     return (
         _local_evidence_root()
@@ -37,17 +61,22 @@ def _default_output_dir(*, company_ref: str, commercial_year: int, tax_year: int
 
 def _validate_local_evidence_dir(path: Path) -> None:
     try:
-        path.relative_to(_local_evidence_root())
+        relative = path.relative_to(_local_evidence_root()).as_posix()
     except ValueError as error:
         raise CommandError(
             'La cadena de evidencia ownership puede contener indices tributarios y '
             'imagenes sensibles; --output-dir debe quedar bajo local-evidence/.'
         ) from error
+    if not is_non_sensitive_control_reference(relative):
+        raise CommandError('--output-dir debe usar una ruta relativa no sensible bajo local-evidence/.')
 
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, ensure_ascii=True), encoding='utf-8')
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload, indent=2, ensure_ascii=True), encoding='utf-8')
+    except OSError as error:
+        raise CommandError('No se pudo escribir artefacto ownership controlado.') from error
 
 
 def _repo_ref(path: Path) -> str:
@@ -114,11 +143,17 @@ class Command(BaseCommand):
         parser.add_argument('--resolution', type=int, default=150)
 
     def handle(self, *args, **options):
-        company_ref = str(options['company_ref'])
+        company_ref = _required_control_ref(options['company_ref'], field_name='company_ref')
         commercial_year = int(options['commercial_year'])
         tax_year = int(options.get('tax_year') or commercial_year + 1)
-        run_label = str(options.get('run_label') or 'v1').strip() or 'v1'
+        run_label = _required_run_label(options.get('run_label') or 'v1')
+        source_label = _optional_control_ref(options.get('source_label') or '', field_name='source_label')
+        authorization_ref = _required_control_ref(options['authorization_ref'], field_name='authorization_ref')
+        responsible_ref = _required_control_ref(options['responsible_ref'], field_name='responsible_ref')
+        approval_ref = _optional_control_ref(options.get('approval_ref') or '', field_name='approval_ref')
         source_root = _resolve_path(options['source_root'])
+        if not source_root.exists() or not source_root.is_dir():
+            raise CommandError('source_root no existe o no es un directorio controlado.')
         output_dir = (
             _resolve_path(options['output_dir'])
             if options.get('output_dir')
@@ -145,9 +180,9 @@ class Command(BaseCommand):
                 company_ref=company_ref,
                 commercial_year=commercial_year,
                 tax_year=tax_year,
-                source_label=options.get('source_label') or '',
-                authorization_ref=options['authorization_ref'],
-                responsible_ref=options['responsible_ref'],
+                source_label=source_label,
+                authorization_ref=authorization_ref,
+                responsible_ref=responsible_ref,
                 include_file_list=True,
                 f29_no_declaration_months=options['f29_no_declaration_months'],
             )
@@ -164,8 +199,8 @@ class Command(BaseCommand):
                 company_ref=company_ref,
                 commercial_year=commercial_year,
                 tax_year=tax_year,
-                responsible_ref=options['responsible_ref'],
-                approval_ref=options.get('approval_ref') or '',
+                responsible_ref=responsible_ref,
+                approval_ref=approval_ref,
             )
             visual_packet = None
             if not options['skip_visual_review_packet']:
@@ -181,7 +216,7 @@ class Command(BaseCommand):
                     resolution=options['resolution'],
                 )
         except (OSError, ValueError, FileNotFoundError, json.JSONDecodeError) as error:
-            raise CommandError(f'Cadena ownership invalida: {error}') from error
+            raise CommandError('Cadena ownership invalida o incompleta; revisar entradas controladas.') from error
 
         _write_json(manifest_path, manifest)
         _write_json(review_path, review)

@@ -79,3 +79,100 @@ class AnnualTaxOwnershipEvidenceChainCommandTests(SimpleTestCase):
                     output_dir='docs/ownership-chain',
                     skip_visual_review_packet=True,
                 )
+
+    def test_command_rejects_sensitive_refs_without_echoing_values(self):
+        local_evidence = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence.mkdir(exist_ok=True)
+        with TemporaryDirectory() as temp_dir, TemporaryDirectory(dir=local_evidence) as output_dir:
+            source_root = Path(temp_dir) / 'source'
+            source_root.mkdir()
+            cases = (
+                (
+                    'company_ref',
+                    {'company_ref': 'inmobiliaria_11.111.111-1'},
+                    '11.111.111-1',
+                ),
+                (
+                    'authorization_ref',
+                    {'authorization_ref': r'authorization_\\server\share\ownership.txt'},
+                    r'\\server\share',
+                ),
+                (
+                    'responsible_ref',
+                    {'responsible_ref': 'responsible_C:/Privado/revision.txt'},
+                    'C:/Privado',
+                ),
+                (
+                    'approval_ref',
+                    {'approval_ref': 'approval_22.222.222-2'},
+                    '22.222.222-2',
+                ),
+                (
+                    'run_label',
+                    {'run_label': '../SocioControlado'},
+                    '../SocioControlado',
+                ),
+            )
+            for label, overrides, sensitive_fragment in cases:
+                with self.subTest(label=label):
+                    kwargs = {
+                        'source_root': str(source_root),
+                        'company_ref': 'inmobiliaria-puig',
+                        'commercial_year': 2024,
+                        'tax_year': 2025,
+                        'output_dir': output_dir,
+                        'run_label': 'test',
+                        'skip_visual_review_packet': True,
+                        'stdout': StringIO(),
+                    }
+                    kwargs.update(overrides)
+
+                    with self.assertRaises(CommandError) as error:
+                        call_command('build_annual_tax_ownership_evidence_chain', **kwargs)
+
+                    rendered_error = str(error.exception)
+                    self.assertNotIn(sensitive_fragment, rendered_error)
+
+    def test_command_redacts_sensitive_source_and_output_paths_in_errors(self):
+        local_evidence = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence.mkdir(exist_ok=True)
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            sensitive_source_root = temp_root / 'Socio Controlado Uno 11.111.111-1'
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'build_annual_tax_ownership_evidence_chain',
+                    source_root=str(sensitive_source_root),
+                    company_ref='inmobiliaria-puig',
+                    commercial_year=2024,
+                    skip_visual_review_packet=True,
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertIn('source_root no existe', rendered_error)
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11.111.111-1', rendered_error)
+
+        with TemporaryDirectory(dir=local_evidence) as temp_dir:
+            temp_root = Path(temp_dir)
+            source_root = temp_root / 'source'
+            source_root.mkdir()
+            sensitive_output_dir = local_evidence / 'Socio Controlado Dos 22.222.222-2'
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'build_annual_tax_ownership_evidence_chain',
+                    source_root=str(source_root),
+                    company_ref='inmobiliaria-puig',
+                    commercial_year=2024,
+                    output_dir=str(sensitive_output_dir),
+                    skip_visual_review_packet=True,
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertIn('ruta relativa no sensible', rendered_error)
+            self.assertNotIn('Socio Controlado Dos', rendered_error)
+            self.assertNotIn('22.222.222-2', rendered_error)
