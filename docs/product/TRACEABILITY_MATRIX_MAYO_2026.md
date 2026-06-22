@@ -97,6 +97,17 @@ chileno o rutas locales absolutas antes de emitir el indice visual bajo
 `source_root`. No usa DB real ni declara snapshot ownership, calculo tributario
 final o presentacion SII.
 
+Nota 2026-06-22: Etapa 6/Renta Anual aplica el boundary controlado al checklist
+ownership. `build_annual_tax_ownership_review_checklist` rechaza
+`template.company_ref`, `candidate_sources[].path_ref`,
+`candidate_sources[].evidence_ref_suggestion`,
+`visual_packet.items[].path_ref` y `visual_packet.records[].path_ref` con RUT
+chileno o rutas locales absolutas antes de emitir cola, matching visual o hashes.
+Tambien exige contexto consistente de empresa/AC/AT entre template, visual y
+validation, y el CLI no ecoa rutas crudas de template/validation/visual faltantes.
+No usa DB real ni declara snapshot ownership, calculo tributario final o
+presentacion SII.
+
 Nota 2026-06-21: Etapa 6/Renta Anual enlaza el proof final con la evidencia
 del run mirror. `audit_annual_tax_mirror_proof` acepta `mirror_run` redactado y
 exige que corresponda a empresa/AC/AT/source, que haya generado DB con 12

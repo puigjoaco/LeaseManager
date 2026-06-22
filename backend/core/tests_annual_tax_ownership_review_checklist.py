@@ -1,4 +1,5 @@
 import json
+from copy import deepcopy
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -49,6 +50,9 @@ class AnnualTaxOwnershipReviewChecklistTests(SimpleTestCase):
     def _visual_packet(self) -> dict:
         return {
             'schema_version': OWNERSHIP_VISUAL_REVIEW_PACKET_SCHEMA_VERSION,
+            'company_ref': 'inmobiliaria-puig',
+            'commercial_year': 2024,
+            'tax_year': 2025,
             'items': [
                 {
                     'path_ref': 'legal/Socio Controlado Uno/constitucion.pdf',
@@ -114,6 +118,111 @@ class AnnualTaxOwnershipReviewChecklistTests(SimpleTestCase):
                 ],
             },
         }
+
+    def test_checklist_rejects_control_sensitive_refs_without_echoing_values(self):
+        validation = validate_annual_tax_ownership_patch(
+            template=self._template(),
+            patch=self._valid_patch(),
+        )
+        cases = (
+            (
+                'template_company_ref',
+                {
+                    'template': {
+                        **self._template(),
+                        'company_ref': 'inmobiliaria_11.111.111-1',
+                    },
+                },
+                '11.111.111-1',
+            ),
+            (
+                'template_path_ref',
+                {
+                    'template': {
+                        **self._template(),
+                        'candidate_sources': [
+                            {
+                                **self._template()['candidate_sources'][0],
+                                'path_ref': 'candidate_C:/Privado/accionistas.pdf',
+                            }
+                        ],
+                    },
+                },
+                'C:/Privado',
+            ),
+            (
+                'template_evidence_ref',
+                {
+                    'template': {
+                        **self._template(),
+                        'candidate_sources': [
+                            {
+                                **self._template()['candidate_sources'][0],
+                                'evidence_ref_suggestion': r'evidence_\\server\share\accionistas.pdf',
+                            }
+                        ],
+                    },
+                },
+                r'\\server\share',
+            ),
+            (
+                'visual_path_ref',
+                {
+                    'visual_packet': {
+                        **self._visual_packet(),
+                        'items': [
+                            {
+                                **self._visual_packet()['items'][0],
+                                'path_ref': 'candidate_22.222.222-2',
+                            }
+                        ],
+                    },
+                },
+                '22.222.222-2',
+            ),
+            (
+                'validation_company_ref',
+                {
+                    'validation': {
+                        **validation,
+                        'company_ref': 'inmobiliaria_33.333.333-3',
+                    },
+                },
+                '33.333.333-3',
+            ),
+        )
+        for label, overrides, sensitive_fragment in cases:
+            with self.subTest(label=label):
+                with self.assertRaises(ValueError) as error:
+                    build_annual_tax_ownership_review_checklist(
+                        template=overrides.get('template', self._template()),
+                        validation=overrides.get('validation'),
+                        visual_packet=overrides.get('visual_packet', self._visual_packet()),
+                    )
+
+                rendered_error = str(error.exception)
+                self.assertIn('referencia no sensible', rendered_error)
+                self.assertNotIn(sensitive_fragment, rendered_error)
+
+    def test_checklist_requires_visual_and_validation_context_match(self):
+        mismatched_visual = {**self._visual_index(), 'commercial_year': 2023}
+        validation = validate_annual_tax_ownership_patch(
+            template=self._template(),
+            patch=self._valid_patch(),
+        )
+        mismatched_validation = {**validation, 'tax_year': 2026}
+
+        with self.assertRaisesMessage(ValueError, 'visual_packet.commercial_year no coincide'):
+            build_annual_tax_ownership_review_checklist(
+                template=self._template(),
+                visual_packet=mismatched_visual,
+            )
+
+        with self.assertRaisesMessage(ValueError, 'validation.tax_year no coincide'):
+            build_annual_tax_ownership_review_checklist(
+                template=self._template(),
+                validation=mismatched_validation,
+            )
 
     def test_pending_checklist_tracks_missing_participants_without_source_paths(self):
         validation = validate_annual_tax_ownership_patch(
@@ -224,3 +333,55 @@ class AnnualTaxOwnershipReviewChecklistTests(SimpleTestCase):
                     output=str(blocked_output),
                     stdout=StringIO(),
                 )
+
+    def test_command_errors_do_not_echo_sensitive_paths_or_refs(self):
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            sensitive_template = temp_root / 'Socio Controlado Uno 11.111.111-1.json'
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'build_annual_tax_ownership_review_checklist',
+                    template=str(sensitive_template),
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11.111.111-1', rendered_error)
+
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            template_path = temp_root / 'ownership-template.json'
+            sensitive_validation = temp_root / 'Socio Controlado Dos 22.222.222-2.json'
+            template_path.write_text(json.dumps(self._template()), encoding='utf-8')
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'build_annual_tax_ownership_review_checklist',
+                    template=str(template_path),
+                    validation=str(sensitive_validation),
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertNotIn('Socio Controlado Dos', rendered_error)
+            self.assertNotIn('22.222.222-2', rendered_error)
+
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            template = deepcopy(self._template())
+            template['candidate_sources'][0]['path_ref'] = 'candidate_33.333.333-3'
+            template_path = temp_root / 'ownership-template.json'
+            template_path.write_text(json.dumps(template), encoding='utf-8')
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'build_annual_tax_ownership_review_checklist',
+                    template=str(template_path),
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertIn('Checklist ownership invalido', rendered_error)
+            self.assertNotIn('33.333.333-3', rendered_error)
