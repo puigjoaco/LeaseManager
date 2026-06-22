@@ -120,7 +120,7 @@ class CompanyBankSupportCoverageTests(TestCase):
         manifest = _complete_manifest()
         manifest['company_ref'] = 'company_76.123.456-7'
         manifest['attachments'][0]['source_ref'] = 'https://bank.example.test/file?token=secret'
-        manifest['attachments'][1]['local_path'] = 'C:\\Users\\owner\\Downloads\\factura.pdf'
+        manifest['attachments'][1]['local_path'] = 'source_C:/Users/owner/Downloads/factura.pdf'
         manifest['confirmations'][0]['password'] = 'last-six-rut-digits'
 
         result = audit_company_bank_support_coverage(payload=manifest)

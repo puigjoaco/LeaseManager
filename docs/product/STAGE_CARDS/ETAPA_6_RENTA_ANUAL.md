@@ -113,6 +113,11 @@ Ese criterio vive en `core.reference_validation` como detector compartido, de
 modo que manifest, handoffs, readiness, preguntas/respuestas responsables,
 intake documental, cobertura bancaria y review ownership no mantienen regex
 divergentes.
+La deteccion de rutas locales absolutas sigue el mismo criterio compartido:
+`core.reference_validation` centraliza refs Windows/UNC, incluyendo valores con
+prefijos operativos como `source_C:/Privado/...`, para que manifest, handoffs,
+readiness, preguntas/respuestas, intake, cobertura bancaria y ownership
+controlado no mantengan regex locales divergentes ni persistan rutas crudas.
 Para evitar una prueba circular, el manifiesto separa explicitamente inputs de
 calculo y objetivos de comparacion: Libro Diario, Libro Mayor, Libro
 Inventario, RCV, F29, compra/venta, remuneraciones y fuente societaria/

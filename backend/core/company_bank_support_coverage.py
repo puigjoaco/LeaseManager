@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import re
 from collections import defaultdict
 from typing import Any
 
 from core.reference_validation import (
     REDACTED_SENSITIVE_REFERENCE,
     contains_chilean_rut_reference,
+    contains_local_absolute_path_reference,
     contains_sensitive_reference,
 )
 
@@ -32,7 +32,6 @@ STRONG_CONFIRMATION_STRENGTHS = frozenset({'verified_complete'})
 ACCEPTED_CONFIRMATION_STRENGTHS = frozenset({'expected_complete', 'verified_complete'})
 KNOWN_CONFIRMATION_STRENGTHS = frozenset({'expected_complete', 'verified_complete'})
 ALL_OPERATIONS = '*'
-WINDOWS_ABSOLUTE_PATH_PATTERN = re.compile(r'(^|[\s"\'])([A-Za-z]:[\\/]|\\\\)')
 COMPANY_BANK_SUPPORT_BOUNDARY = {
     'purpose': 'auditar_cobertura_documental_bancaria_para_revision_contable',
     'reads_documents': False,
@@ -65,7 +64,7 @@ def _safe_ref(value: Any) -> str:
     if (
         contains_sensitive_reference(normalized)
         or contains_chilean_rut_reference(normalized)
-        or WINDOWS_ABSOLUTE_PATH_PATTERN.search(normalized)
+        or contains_local_absolute_path_reference(normalized)
     ):
         return REDACTED_SENSITIVE_REFERENCE
     return normalized
@@ -94,7 +93,7 @@ def _has_rut(value: Any) -> bool:
 
 
 def _has_absolute_path(value: Any) -> bool:
-    return any(WINDOWS_ABSOLUTE_PATH_PATTERN.search(item) for item in _string_values(value))
+    return any(contains_local_absolute_path_reference(item) for item in _string_values(value))
 
 
 def _issue(code: str, message: str, *, severity: str = 'blocking', count: int = 1) -> dict[str, Any]:

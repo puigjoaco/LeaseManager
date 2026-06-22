@@ -22,6 +22,7 @@ from core.annual_tax_controlled_load_plan import COMPARISON_ONLY_CATEGORIES
 from core.annual_tax_source_manifest import payload_hash
 from core.reference_validation import (
     contains_chilean_rut_reference,
+    contains_local_absolute_path_reference,
     contains_sensitive_reference,
     is_non_sensitive_reference,
 )
@@ -41,7 +42,6 @@ from sii.models import (
 
 CONTROLLED_DB_LOAD_SCHEMA_VERSION = 'annual-tax-controlled-db-load.v1'
 CONTROLLED_OWNERSHIP_REVIEW_HANDOFF_SCHEMA_VERSION = 'annual-tax-ownership-review-handoff.v1'
-WINDOWS_ABSOLUTE_PATH_PATTERN = re.compile(r'(^|[\s"\'])([A-Za-z]:[\\/]|\\\\)')
 SAFE_REF_PATTERN = re.compile(r'^[A-Za-z0-9_.:-]+$')
 
 FORBIDDEN_EXPECTED_OUTPUT_KEYS = {
@@ -110,7 +110,7 @@ def _is_safe_ref(value: Any) -> bool:
     return bool(text) and not (
         contains_sensitive_reference(text)
         or contains_chilean_rut_reference(text)
-        or WINDOWS_ABSOLUTE_PATH_PATTERN.search(text)
+        or contains_local_absolute_path_reference(text)
         or not SAFE_REF_PATTERN.fullmatch(text)
     )
 

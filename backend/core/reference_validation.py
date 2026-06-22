@@ -12,6 +12,7 @@ SENSITIVE_REFERENCE_KEY_ALIASES = {
     'privatekey',
 }
 CHILEAN_RUT_REFERENCE_PATTERN = re.compile(r'(?<!\d)\d{1,2}\.?\d{3}\.?\d{3}-[\dkK](?!\d)')
+LOCAL_ABSOLUTE_PATH_REFERENCE_PATTERN = re.compile(r'(?<![A-Za-z0-9])(?:[A-Za-z]:[\\/]|\\\\)')
 REDACTED_SENSITIVE_REFERENCE = '<redacted-sensitive-reference>'
 
 
@@ -39,6 +40,10 @@ def contains_chilean_rut_reference(value):
 
 def count_chilean_rut_references(value):
     return len(CHILEAN_RUT_REFERENCE_PATTERN.findall(normalize_reference(value)))
+
+
+def contains_local_absolute_path_reference(value):
+    return bool(LOCAL_ABSOLUTE_PATH_REFERENCE_PATTERN.search(normalize_reference(value)))
 
 
 def redact_sensitive_reference(value):

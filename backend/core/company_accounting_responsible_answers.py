@@ -12,7 +12,11 @@ from core.company_accounting_responsible_questions import (
     COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST,
     COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_SCHEMA_VERSION,
 )
-from core.reference_validation import contains_chilean_rut_reference, contains_sensitive_reference
+from core.reference_validation import (
+    contains_chilean_rut_reference,
+    contains_local_absolute_path_reference,
+    contains_sensitive_reference,
+)
 
 
 COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_SCHEMA_VERSION = 'company-accounting-responsible-answers.v1'
@@ -33,7 +37,6 @@ COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_SCHEMA_VERSION = (
 COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST = 'company-accounting-responsible-answers.template.json'
 COMPANY_ACCOUNTING_RESPONSIBLE_HANDOFF_PACKET_MANIFEST = 'company-accounting-responsible-handoff-packet.json'
 
-WINDOWS_ABSOLUTE_PATH_PATTERN = re.compile(r'(^|[\s"\'])([A-Za-z]:[\\/]|\\\\)')
 SAFE_REF_PATTERN = re.compile(r'^[A-Za-z0-9_.:-]+$')
 
 ALLOWED_DECISION_STATES = {'pendiente', 'observado', 'respondido', 'resuelto_controlado'}
@@ -80,7 +83,7 @@ def _is_safe_ref(value: Any) -> bool:
     return bool(text) and not (
         contains_sensitive_reference(text)
         or contains_chilean_rut_reference(text)
-        or WINDOWS_ABSOLUTE_PATH_PATTERN.search(text)
+        or contains_local_absolute_path_reference(text)
         or not SAFE_REF_PATTERN.fullmatch(text)
     )
 

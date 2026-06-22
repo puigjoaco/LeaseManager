@@ -19,6 +19,7 @@ from core.annual_tax_controlled_package_template import (
 from core.annual_tax_controlled_load_plan import COMPARISON_ONLY_CATEGORIES
 from core.reference_validation import (
     contains_chilean_rut_reference,
+    contains_local_absolute_path_reference,
     contains_sensitive_reference,
     is_non_sensitive_reference,
 )
@@ -27,7 +28,6 @@ from patrimonio.validators import validate_rut
 
 CONTROLLED_PACKAGE_READINESS_SCHEMA_VERSION = 'annual-tax-controlled-package-readiness.v1'
 MONTHS = tuple(range(1, 13))
-WINDOWS_ABSOLUTE_PATH_PATTERN = re.compile(r'(^|[\s"\'])([A-Za-z]:[\\/]|\\\\)')
 SAFE_REF_PATTERN = re.compile(r'^[A-Za-z0-9_.:-]+$')
 
 PACKAGE_REFERENCE_FIELDS = (
@@ -96,7 +96,7 @@ def _safe_summary_ref(value: Any, *, fallback: str) -> str:
     safe = bool(text) and not (
         contains_sensitive_reference(text)
         or contains_chilean_rut_reference(text)
-        or WINDOWS_ABSOLUTE_PATH_PATTERN.search(text)
+        or contains_local_absolute_path_reference(text)
         or not SAFE_REF_PATTERN.fullmatch(text)
     )
     return text if safe else fallback
