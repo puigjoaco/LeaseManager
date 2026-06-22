@@ -64,7 +64,7 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
                     'ready_for_formal_bank_support_review': False,
                     'document_intake_ready_for_productive_review': False,
                     'document_intake_ready_for_formal_bank_support_manifest': True,
-                    'D:/Privado/Socio Controlado Uno 11111111-1': True,
+                    'source_11.111.111-1': True,
                 },
                 'issues_total': 2,
                 'safe_issue_codes': [
@@ -73,8 +73,8 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
                         'severity': 'blocking',
                     },
                     {
-                        'code': 'D:/Privado/Socio Controlado Uno 11111111-1',
-                        'severity': 'https://review.example.test/token=secret',
+                        'code': 'ownership_11.111.111-1_pending',
+                        'severity': 'severity_22.222.222-2',
                     },
                 ],
                 'source_hash': 'a' * 64,
@@ -142,9 +142,10 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
             safe_issue_codes,
         )
         self.assertIn({'code': 'redacted-issue-code', 'severity': 'blocking'}, safe_issue_codes)
-        self.assertNotIn('D:/Privado/Socio Controlado Uno 11111111-1', ready_flags)
+        self.assertNotIn('source_11.111.111-1', ready_flags)
         self.assertNotIn('Socio Controlado Uno', rendered)
-        self.assertNotIn('11111111-1', rendered)
+        self.assertNotIn('11.111.111-1', rendered)
+        self.assertNotIn('22.222.222-2', rendered)
         self.assertNotIn('D:/Privado', rendered)
 
     def test_missing_answers_are_blocking_when_complete_required(self):

@@ -47,6 +47,14 @@ artefactos heredados en DB. `scripts/run-stage6-mirror-proof-gate.ps1` agrega
 `-MirrorRunPath` y mantiene el mismo boundary: no SII real, no credenciales, no
 outputs finales como input, no calculo tributario final ni presentacion SII.
 
+Nota 2026-06-22: Etapa 6/Renta Anual endurece la redaccion de referencias con
+RUT chileno en sanitizadores de manifest, handoffs, readiness, preguntas,
+respuestas, intake documental y cobertura bancaria. El detector ya no depende
+de `\b`, por lo que valores tipo `source_11.111.111-1`, issue codes,
+ready flags o refs alfanumericas con RUT pegado quedan tratados como sensibles
+y se reemplazan por marcadores redactados. No cambia validacion estructurada de
+RUT en snapshots controlados ni abre DB, SII, banco, EDIG o datos reales.
+
 Nota 2026-06-21: Etapa 6/Renta Anual cierra el enlace entre el run mirror y los
 artefactos comparados por el proof. `audit_annual_tax_mirror_proof` ahora
 cruza `process_id` y `source_bundle_id` del `mirror_run` contra

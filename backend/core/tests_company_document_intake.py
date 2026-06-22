@@ -161,7 +161,7 @@ class CompanyDocumentIntakeTests(SimpleTestCase):
 
     def test_sensitive_intake_blocks_without_leaking_values(self):
         manifest = _complete_manifest()
-        manifest['company_ref'] = '76.123.456-7'
+        manifest['company_ref'] = 'company_76.123.456-7'
         manifest['source_batches'][0]['source_ref'] = 'https://mail.example.test/thread?token=secret'
         manifest['documents'][0]['local_path'] = 'C:\\Users\\owner\\Downloads\\factura.pdf'
         manifest['documents'][1]['password'] = 'last-six-rut-digits'

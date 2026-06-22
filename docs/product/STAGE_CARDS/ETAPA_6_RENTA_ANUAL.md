@@ -103,6 +103,12 @@ Cuando incluye lista de archivos, conserva `path_ref` estable para trazabilidad
 y redacta `relative_path` si la ruta contiene URL, token, correo, ruta local
 absoluta o RUT chileno. La clasificacion, meses y cobertura se calculan desde
 la ruta cruda solo en memoria, sin persistir el RUT en el JSON.
+Los sanitizadores hermanos que propagan handoffs, readiness, preguntas,
+respuestas, intake documental y cobertura bancaria usan el mismo criterio de
+RUT chileno para referencias no estructuradas: un valor como
+`source_11.111.111-1` queda tratado como sensible aunque no sea URL, correo ni
+ruta absoluta. El RUT estructurado de snapshots controlados sigue limitado a
+los tramos privados/DB autorizados y no se versiona en manifests de revision.
 Para evitar una prueba circular, el manifiesto separa explicitamente inputs de
 calculo y objetivos de comparacion: Libro Diario, Libro Mayor, Libro
 Inventario, RCV, F29, compra/venta, remuneraciones y fuente societaria/
