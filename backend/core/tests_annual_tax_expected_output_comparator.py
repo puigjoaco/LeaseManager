@@ -21,7 +21,20 @@ from core.annual_tax_expected_output_comparator import compare_annual_tax_expect
 from core.annual_tax_source_manifest import EXPECTED_ANNUAL_TAX_REGISTER_KEYS, EXPECTED_DDJJ_FORMS
 from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from patrimonio.models import Empresa
-from sii.models import CapacidadSII, CapacidadTributariaSII, EstadoGateSII, ProcesoRentaAnual
+from sii.models import (
+    AnnualEnterpriseRegisterSet,
+    AnnualTaxDossier,
+    AnnualTaxExport,
+    AnnualTaxReviewChecklist,
+    AnnualTaxTrialBalance,
+    AnnualTaxWorkbook,
+    CapacidadSII,
+    CapacidadTributariaSII,
+    DDJJPreparacionAnual,
+    EstadoGateSII,
+    F22PreparacionAnual,
+    ProcesoRentaAnual,
+)
 from sii.services import mark_annual_tax_generated_warnings_reviewed
 
 
@@ -626,6 +639,66 @@ class AnnualTaxExpectedOutputComparatorTests(TestCase):
         self.assertEqual(evidence['process']['ddjj_package_ref'], REDACTED_SENSITIVE_REFERENCE)
         rendered_evidence = json.dumps(evidence, default=str)
         self.assertNotIn('https://private.example.test/token', rendered_evidence)
+
+    def test_generated_artifact_evidence_redacts_rut_and_local_path_refs(self):
+        empresa = self._create_empresa()
+        self._load_and_generate_annual_layer(empresa)
+        process = ProcesoRentaAnual.objects.get(empresa=empresa, anio_tributario=2025)
+
+        ProcesoRentaAnual.objects.filter(pk=process.pk).update(
+            paquete_ddjj_ref='source_11.111.111-1',
+            borrador_f22_ref='source_C:/Privado/f22/borrador.pdf',
+        )
+        AnnualTaxTrialBalance.objects.filter(proceso_renta_anual=process).update(
+            source_ref='source_D:/Privado/balance_11.111.111-1.xlsx',
+        )
+        AnnualTaxWorkbook.objects.filter(proceso_renta_anual=process).update(
+            source_ref='workbook_11.111.111-1',
+        )
+        AnnualEnterpriseRegisterSet.objects.filter(proceso_renta_anual=process).update(
+            source_ref='source_C:/Privado/registros.xlsx',
+        )
+        DDJJPreparacionAnual.objects.filter(proceso_renta_anual=process).update(
+            paquete_ref='ddjj_11.111.111-1',
+        )
+        F22PreparacionAnual.objects.filter(proceso_renta_anual=process).update(
+            borrador_ref='source_C:/Privado/f22.pdf',
+        )
+        AnnualTaxDossier.objects.filter(proceso_renta_anual=process).update(
+            dossier_ref='dossier_11.111.111-1',
+        )
+        AnnualTaxExport.objects.filter(proceso_renta_anual=process).update(
+            export_ref='source_C:/Privado/export.zip',
+        )
+        AnnualTaxReviewChecklist.objects.filter(proceso_renta_anual=process).update(
+            checklist_ref='checklist_11.111.111-1',
+            evidence_ref='source_C:/Privado/checklist-evidence.pdf',
+        )
+
+        result = compare_annual_tax_expected_outputs(
+            empresa=empresa,
+            commercial_year=2024,
+            tax_year=2025,
+            manifest=self._manifest(),
+        )
+
+        evidence = result['generated_inventory']['generated_artifact_evidence']
+        self.assertEqual(evidence['process']['ddjj_package_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(evidence['process']['f22_draft_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(evidence['trial_balances'][0]['source_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(evidence['ddjj']['paquete_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(evidence['f22']['borrador_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(evidence['dossier']['dossier_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(evidence['annual_export']['export_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(evidence['review_checklist']['checklist_ref'], REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(evidence['review_checklist']['evidence_ref'], REDACTED_SENSITIVE_REFERENCE)
+        for workbook in evidence['workbooks_by_type'].values():
+            self.assertEqual(workbook['source_ref'], REDACTED_SENSITIVE_REFERENCE)
+        for register in evidence['enterprise_registers_by_type'].values():
+            self.assertEqual(register['source_ref'], REDACTED_SENSITIVE_REFERENCE)
+        rendered_evidence = json.dumps(evidence, default=str)
+        for forbidden in ('11.111.111-1', 'C:/Privado', 'D:/Privado'):
+            self.assertNotIn(forbidden, rendered_evidence)
 
     def test_non_decisive_expected_output_extraction_errors_do_not_block_identity_or_semantics(self):
         empresa = self._create_empresa()

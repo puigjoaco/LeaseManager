@@ -75,6 +75,14 @@ bancaria y ownership controlado comparten el mismo criterio para refs Windows/
 UNC, incluyendo valores con prefijos operativos como `source_C:/Privado/...`,
 sin persistir rutas crudas ni abrir documentos reales.
 
+Nota 2026-06-22: Etapa 6/Renta Anual alinea
+`compare_annual_tax_expected_outputs` con los detectores compartidos de RUT
+chileno y rutas locales absolutas. La evidencia de artefactos generados que
+alimenta el proof anual conserva ids, hashes, conteos y estados, pero redacta
+refs heredadas contaminadas en proceso, balance, workbooks, registros, DDJJ/F22,
+dossier, export y checklist. No abre DB real, SII, banco, EDIG, documentos
+reales ni calculo tributario final.
+
 Nota 2026-06-21: Etapa 6/Renta Anual cierra el enlace entre el run mirror y los
 artefactos comparados por el proof. `audit_annual_tax_mirror_proof` ahora
 cruza `process_id` y `source_bundle_id` del `mirror_run` contra

@@ -15,7 +15,12 @@ from core.annual_tax_expected_output_content import (
     value_ref_for_clp_amount_token,
 )
 from core.annual_tax_source_manifest import EXPECTED_DDJJ_FORMS, EXPECTED_ANNUAL_TAX_REGISTER_KEYS
-from core.reference_validation import redact_sensitive_reference
+from core.reference_validation import (
+    REDACTED_SENSITIVE_REFERENCE,
+    contains_chilean_rut_reference,
+    contains_local_absolute_path_reference,
+    redact_sensitive_reference,
+)
 from sii.models import (
     AnnualEnterpriseRegisterSet,
     AnnualEnterpriseRegisterMovement,
@@ -113,7 +118,15 @@ def _generated_process(empresa, tax_year: int) -> ProcesoRentaAnual | None:
 
 
 def _safe_reference(value: Any) -> str:
-    return redact_sensitive_reference(value)
+    redacted = redact_sensitive_reference(value)
+    if not redacted:
+        return ''
+    if (
+        contains_chilean_rut_reference(redacted)
+        or contains_local_absolute_path_reference(redacted)
+    ):
+        return REDACTED_SENSITIVE_REFERENCE
+    return redacted
 
 
 def _hash_or_blank(value: Any) -> str:
