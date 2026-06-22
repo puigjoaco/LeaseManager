@@ -108,6 +108,15 @@ validation, y el CLI no ecoa rutas crudas de template/validation/visual faltante
 No usa DB real ni declara snapshot ownership, calculo tributario final o
 presentacion SII.
 
+Nota 2026-06-22: Etapa 6/Renta Anual aplica el boundary controlado a la cadena
+compuesta ownership. `build_annual_tax_ownership_evidence_chain` valida
+`company_ref`, `source_label`, `authorization_ref`, `responsible_ref`,
+`approval_ref`, `run_label` y `output_dir` relativa antes de crear rutas o
+artefactos, bloqueando RUT chileno, rutas locales absolutas y slugs peligrosos.
+El CLI no ecoa rutas crudas cuando falla `source_root`, la salida o algun tramo
+interno. No usa DB real ni declara snapshot ownership, calculo tributario final
+o presentacion SII.
+
 Nota 2026-06-21: Etapa 6/Renta Anual enlaza el proof final con la evidencia
 del run mirror. `audit_annual_tax_mirror_proof` acepta `mirror_run` redactado y
 exige que corresponda a empresa/AC/AT/source, que haya generado DB con 12
