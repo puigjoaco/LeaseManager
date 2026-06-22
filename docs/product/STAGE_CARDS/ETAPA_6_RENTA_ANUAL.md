@@ -109,6 +109,10 @@ RUT chileno para referencias no estructuradas: un valor como
 `source_11.111.111-1` queda tratado como sensible aunque no sea URL, correo ni
 ruta absoluta. El RUT estructurado de snapshots controlados sigue limitado a
 los tramos privados/DB autorizados y no se versiona en manifests de revision.
+Ese criterio vive en `core.reference_validation` como detector compartido, de
+modo que manifest, handoffs, readiness, preguntas/respuestas responsables,
+intake documental, cobertura bancaria y review ownership no mantienen regex
+divergentes.
 Para evitar una prueba circular, el manifiesto separa explicitamente inputs de
 calculo y objetivos de comparacion: Libro Diario, Libro Mayor, Libro
 Inventario, RCV, F29, compra/venta, remuneraciones y fuente societaria/

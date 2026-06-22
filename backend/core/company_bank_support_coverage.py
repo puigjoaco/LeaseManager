@@ -4,7 +4,11 @@ import re
 from collections import defaultdict
 from typing import Any
 
-from core.reference_validation import REDACTED_SENSITIVE_REFERENCE, contains_sensitive_reference
+from core.reference_validation import (
+    REDACTED_SENSITIVE_REFERENCE,
+    contains_chilean_rut_reference,
+    contains_sensitive_reference,
+)
 
 
 BANK_SUPPORT_MANIFEST_SCHEMA_VERSION = 'company-bank-support-coverage-manifest.v1'
@@ -28,7 +32,6 @@ STRONG_CONFIRMATION_STRENGTHS = frozenset({'verified_complete'})
 ACCEPTED_CONFIRMATION_STRENGTHS = frozenset({'expected_complete', 'verified_complete'})
 KNOWN_CONFIRMATION_STRENGTHS = frozenset({'expected_complete', 'verified_complete'})
 ALL_OPERATIONS = '*'
-CHILEAN_RUT_PATTERN = re.compile(r'(?<!\d)\d{1,2}\.?\d{3}\.?\d{3}-[\dkK](?!\d)')
 WINDOWS_ABSOLUTE_PATH_PATTERN = re.compile(r'(^|[\s"\'])([A-Za-z]:[\\/]|\\\\)')
 COMPANY_BANK_SUPPORT_BOUNDARY = {
     'purpose': 'auditar_cobertura_documental_bancaria_para_revision_contable',
@@ -61,7 +64,7 @@ def _safe_ref(value: Any) -> str:
         return ''
     if (
         contains_sensitive_reference(normalized)
-        or CHILEAN_RUT_PATTERN.search(normalized)
+        or contains_chilean_rut_reference(normalized)
         or WINDOWS_ABSOLUTE_PATH_PATTERN.search(normalized)
     ):
         return REDACTED_SENSITIVE_REFERENCE
@@ -87,7 +90,7 @@ def _string_values(value: Any) -> list[str]:
 
 
 def _has_rut(value: Any) -> bool:
-    return any(CHILEAN_RUT_PATTERN.search(item) for item in _string_values(value))
+    return any(contains_chilean_rut_reference(item) for item in _string_values(value))
 
 
 def _has_absolute_path(value: Any) -> bool:

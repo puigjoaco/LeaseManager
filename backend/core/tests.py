@@ -33,7 +33,9 @@ from .models import (
 from .permissions import get_effective_role_codes
 from .reference_validation import (
     REDACTED_SENSITIVE_REFERENCE,
+    contains_chilean_rut_reference,
     contains_sensitive_reference,
+    count_chilean_rut_references,
     redact_sensitive_payload,
     redact_sensitive_payload_values,
 )
@@ -390,6 +392,13 @@ class PlatformSettingValidationTests(TestCase):
 
 
 class ReferenceValidationTests(TestCase):
+    def test_chilean_rut_reference_detector_counts_prefixed_values(self):
+        value = 'source_11.111.111-1 participant_22222222-2 invalid-123'
+
+        self.assertTrue(contains_chilean_rut_reference(value))
+        self.assertEqual(count_chilean_rut_references(value), 2)
+        self.assertFalse(contains_chilean_rut_reference('source-without-rut'))
+
     def test_redact_sensitive_payload_recurses_values_and_sensitive_keys(self):
         payload = {
             'safe_ref': 'controlled-reference',

@@ -11,11 +11,11 @@ from pathlib import Path
 from typing import Any
 
 from core.annual_tax_source_manifest import payload_hash
+from core.reference_validation import count_chilean_rut_references
 
 
 OWNERSHIP_CANDIDATE_REVIEW_SCHEMA_VERSION = 'annual-tax-ownership-candidate-review.v1'
 TEXT_EXTENSIONS = {'.txt', '.csv', '.json', '.md', '.html', '.htm'}
-RUT_PATTERN = re.compile(r'(?<!\d)\d{1,2}\.?\d{3}\.?\d{3}-[\dkK](?!\d)')
 YEAR_PATTERN = re.compile(r'(?<!\d)(19\d{2}|20\d{2})(?!\d)')
 
 
@@ -133,7 +133,7 @@ def _signals(text: str, path: Path) -> dict[str, Any]:
         'text_extractable': True,
         'text_sha256': hashlib.sha256(text.encode('utf-8', errors='replace')).hexdigest(),
         'text_chars': len(text),
-        'rut_like_tokens_count': len(RUT_PATTERN.findall(text)),
+        'rut_like_tokens_count': count_chilean_rut_references(text),
         'years_detected': years,
         'company_ref_mentioned': _contains_any(
             f'{normalized_path}\n{normalized_text}',
