@@ -4057,6 +4057,14 @@ valores crudos; el RUT estructurado de `package.ownership` sigue permitido como
 snapshot patrimonial controlado y los summaries de handoff ownership se
 sanitizan antes de exponerse.
 
+Nota 2026-06-22: Los auditores responsables AC/AT de discovery y preflight
+aplican el mismo boundary controlado al `--output` local. Si el reporte JSON
+queda bajo `local-evidence/`, la ruta relativa ya no puede incluir RUT chileno,
+ruta local absoluta embebida, URL, token, credencial, correo ni otra referencia
+no controlada antes de escribir evidencia local. Esto mantiene separado el
+avance local de una revision responsable real y no abre calculo tributario
+final ni presentacion SII.
+
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |
 | Gobierno documental | Fuente de verdad, AGENTS, README, cursor operativo | `docs/governance`, `AGENTS.md`, `ORDEN_DE_LECTURA.md`, `.gitignore`, `docs/product/EXECUTION_CURSOR_MAYO_2026.md` | 0 | resuelto_confirmado | PR con CI verde y docs consistentes | Mantener actualizado al cambiar fuentes; bloqueos y evidencia son controles operativos de cierre, no arquitectura de producto; el cursor gobierna reanudaciones, worktrees tacticos y metatareas cerradas; artefactos locales de herramienta como `.codex-spreadsheet/`, `.playwright-cli/`, capturas PNG en el root y archivos manuales `CONFIDENCIAL`/`NO_SUBIR` quedan ignorados para no ensuciar `main` ni confundirse con paquetes activos; acceptance ejecuta `assert-repo-hygiene.ps1 -IncludeUntracked` para detectar artefactos sensibles no versionados ni ignorados sin leer secretos. |

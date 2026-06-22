@@ -986,6 +986,22 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
                         stdout=StringIO(),
                     )
 
+    def test_review_presence_command_rejects_sensitive_output_relative_path(self):
+        with TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / 'repo'
+            (repo_root / 'local-evidence').mkdir(parents=True)
+            output_path = repo_root / 'local-evidence' / '11111111-1' / 'responsible-review-discovery.json'
+
+            with override_settings(PROJECT_ROOT=str(repo_root)):
+                with self.assertRaisesMessage(CommandError, 'ruta relativa no sensible'):
+                    call_command(
+                        'audit_company_accounting_responsible_answers_review_presence',
+                        output=str(output_path),
+                        stdout=StringIO(),
+                    )
+
+            self.assertFalse(output_path.exists())
+
     def test_handoff_preflight_reports_missing_artifacts_without_manual_path(self):
         with TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir) / 'repo'
@@ -1199,6 +1215,22 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
                         output_dir=str(docs_dir / 'packet'),
                         stdout=StringIO(),
                     )
+
+    def test_handoff_preflight_command_rejects_sensitive_output_relative_path(self):
+        with TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / 'repo'
+            (repo_root / 'local-evidence').mkdir(parents=True)
+            output_path = repo_root / 'local-evidence' / '11111111-1' / 'responsible-handoff-preflight.json'
+
+            with override_settings(PROJECT_ROOT=str(repo_root)):
+                with self.assertRaisesMessage(CommandError, 'ruta relativa no sensible'):
+                    call_command(
+                        'audit_company_accounting_responsible_handoff_preflight',
+                        output=str(output_path),
+                        stdout=StringIO(),
+                    )
+
+            self.assertFalse(output_path.exists())
 
     def test_handoff_packet_command_rejects_sensitive_output_under_local_evidence_without_echoing_value(self):
         packet = self._questions_packet()

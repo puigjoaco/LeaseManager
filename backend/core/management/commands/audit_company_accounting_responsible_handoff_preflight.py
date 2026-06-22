@@ -7,6 +7,7 @@ from django.core.management.base import BaseCommand, CommandError
 from core.company_accounting_responsible_answers import (
     audit_company_accounting_responsible_handoff_preflight,
 )
+from core.reference_validation import is_non_sensitive_control_reference
 
 
 def _resolve_path(raw_path: str) -> Path:
@@ -35,6 +36,9 @@ def _is_inside(path: Path, root: Path) -> bool:
 def _validate_local_evidence_path(path: Path, *, option_name: str) -> None:
     if not _is_inside(path, _local_evidence_root()):
         raise CommandError(f'{option_name} debe quedar bajo local-evidence/.')
+    relative_path = path.resolve().relative_to(_local_evidence_root()).as_posix()
+    if not is_non_sensitive_control_reference(relative_path):
+        raise CommandError(f'{option_name} debe usar una ruta relativa no sensible bajo local-evidence/.')
 
 
 class Command(BaseCommand):
