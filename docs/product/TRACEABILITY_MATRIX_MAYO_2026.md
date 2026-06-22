@@ -3940,6 +3940,14 @@ absolutas heredadas en refs/payloads anuales antes de validar el reporte,
 preservan strings vacios inocuos y mantienen respuestas/evidencia sin valores
 crudos.
 
+Nota 2026-06-22: SII/Etapa 4 y Renta Anual/Etapa 6 aplican el mismo boundary
+controlado compartido al dominio y readiness tributario. `F29PreparacionMensual`,
+`ProcesoRentaAnual`, `DDJJPreparacionAnual`, `F22PreparacionAnual`,
+`audit_stage4_sii_readiness` y `audit_stage6_renta_anual_readiness` bloquean o
+clasifican refs/payloads con RUT chileno o rutas locales absolutas, ademas de
+URLs, tokens, credenciales, correos y claves sensibles, sin imprimir valores
+crudos ni declarar calculo tributario final o presentacion SII.
+
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |
 | Gobierno documental | Fuente de verdad, AGENTS, README, cursor operativo | `docs/governance`, `AGENTS.md`, `ORDEN_DE_LECTURA.md`, `.gitignore`, `docs/product/EXECUTION_CURSOR_MAYO_2026.md` | 0 | resuelto_confirmado | PR con CI verde y docs consistentes | Mantener actualizado al cambiar fuentes; bloqueos y evidencia son controles operativos de cierre, no arquitectura de producto; el cursor gobierna reanudaciones, worktrees tacticos y metatareas cerradas; artefactos locales de herramienta como `.codex-spreadsheet/`, `.playwright-cli/`, capturas PNG en el root y archivos manuales `CONFIDENCIAL`/`NO_SUBIR` quedan ignorados para no ensuciar `main` ni confundirse con paquetes activos; acceptance ejecuta `assert-repo-hygiene.ps1 -IncludeUntracked` para detectar artefactos sensibles no versionados ni ignorados sin leer secretos. |

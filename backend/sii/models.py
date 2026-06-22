@@ -20,7 +20,11 @@ from contabilidad.models import (
     RegimenTributarioEmpresa,
 )
 from contratos.models import Contrato
-from core.reference_validation import contains_sensitive_reference, is_non_sensitive_control_reference
+from core.reference_validation import (
+    contains_sensitive_control_reference,
+    contains_sensitive_reference,
+    is_non_sensitive_control_reference,
+)
 from patrimonio.models import Empresa
 
 
@@ -144,11 +148,11 @@ def _add_required_review_responsible_error(errors, instance, state_field_name):
 
 
 def _add_non_sensitive_payload_error(errors, field_name, value):
-    if value and contains_sensitive_reference(value, include_sensitive_keys=True):
+    if value and contains_sensitive_control_reference(value, include_sensitive_keys=True):
         _add_error(
             errors,
             field_name,
-            f'{field_name} no debe contener URLs, tokens, credenciales, correos ni claves sensibles.',
+            f'{field_name} no debe contener URLs, tokens, credenciales, correos, RUT, rutas locales ni claves sensibles.',
         )
 
 

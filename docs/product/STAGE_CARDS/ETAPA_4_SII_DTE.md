@@ -46,9 +46,9 @@ produccion por defecto.
   canonizar la traza tributaria no sensible.
 - Los payloads tributarios locales (`ultimo_resultado`, `resumen_formulario`,
   `resumen_anual`, `resumen_paquete`, `resumen_f22`) rechazan URLs, tokens,
-  credenciales, correos y claves sensibles como `api_key`, `access_token` o
-  `credential`; readiness Etapa 4 detecta snapshots heredados sin exponer esos
-  valores.
+  credenciales, correos, RUT chileno, rutas locales absolutas y claves
+  sensibles como `api_key`, `access_token` o `credential`; readiness Etapa 4
+  detecta snapshots heredados sin exponer esos valores.
 - Las observaciones tributarias de DTE, F29, DDJJ y F22 deben ser no
   sensibles: dominio y servicios rechazan nuevas URLs, correos, tokens o
   credenciales; API, snapshot y admin Django redactan observaciones heredadas;
@@ -107,13 +107,14 @@ produccion por defecto.
   `--authorization-ref` no sensibles. Sin esas refs, el tipo de fuente queda
   reconocido pero no puede cerrar Etapa 4.
 - Si `--source-label` o `--authorization-ref` contienen URL, token, credencial
-  o valor sensible, readiness debe clasificar `stage4.source_label_sensitive`
-  o `stage4.authorization_ref_sensitive`, exponer solo
+  RUT chileno, ruta local absoluta o valor sensible, readiness debe clasificar
+  `stage4.source_label_sensitive` o `stage4.authorization_ref_sensitive`, exponer solo
   `sections.source_trace_sensitive` y no mezclarlo con refs faltantes.
 - Las referencias finales de cierre (`Stage5EvidenceRef`,
   `EnvironmentProofRef`, `FiscalRuleRef` y `ResponsibleRef`) tambien deben
-  ser no sensibles. Si contienen URL, token, credencial o valor sensible,
-  readiness debe clasificar `stage4.*_ref_sensitive`, exponer
+  ser no sensibles. Si contienen URL, token, credencial, RUT chileno, ruta
+  local absoluta o valor sensible, readiness debe clasificar
+  `stage4.*_ref_sensitive`, exponer
   `sections.final_evidence_sensitive` y no mezclarlas con refs faltantes.
 - `scripts/run-stage4-readiness-gate.ps1` ejecuta el diagnostico local con
   SQLite efimero bajo `local-evidence/`, no conecta SII, no lee `.env`, no usa

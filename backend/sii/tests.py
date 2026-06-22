@@ -2371,6 +2371,19 @@ class SiiAPITests(APITestCase):
             f29.full_clean()
         self.assertIn('resumen_formulario', f29_error.exception.message_dict)
 
+        f29_control_payload = F29PreparacionMensual(
+            empresa=empresa,
+            capacidad_tributaria=f29_capability,
+            cierre_mensual=close,
+            anio=2026,
+            mes=1,
+            estado_preparacion='preparado',
+            resumen_formulario={'source_ref': 'source_11.111.111-1'},
+        )
+        with self.assertRaises(ValidationError) as f29_control_error:
+            f29_control_payload.full_clean()
+        self.assertIn('resumen_formulario', f29_control_error.exception.message_dict)
+
         process = ProcesoRentaAnual(
             empresa=empresa,
             anio_tributario=2027,
@@ -2380,6 +2393,16 @@ class SiiAPITests(APITestCase):
         with self.assertRaises(ValidationError) as process_error:
             process.full_clean()
         self.assertIn('resumen_anual', process_error.exception.message_dict)
+
+        process_control_payload = ProcesoRentaAnual(
+            empresa=empresa,
+            anio_tributario=2027,
+            estado='preparado',
+            resumen_anual={'support_ref': 'source_C:/Privado/renta.xlsx'},
+        )
+        with self.assertRaises(ValidationError) as process_control_error:
+            process_control_payload.full_clean()
+        self.assertIn('resumen_anual', process_control_error.exception.message_dict)
 
         stored_process = ProcesoRentaAnual.objects.create(
             empresa=empresa,
@@ -2399,6 +2422,18 @@ class SiiAPITests(APITestCase):
             ddjj.full_clean()
         self.assertIn('resumen_paquete', ddjj_error.exception.message_dict)
 
+        ddjj_control_payload = DDJJPreparacionAnual(
+            empresa=empresa,
+            capacidad_tributaria=ddjj_capability,
+            proceso_renta_anual=stored_process,
+            anio_tributario=2027,
+            estado_preparacion='preparado',
+            resumen_paquete={'resumen_anual': {'fiscal_year': 2026}, 'source_ref': 'source_11.111.111-1'},
+        )
+        with self.assertRaises(ValidationError) as ddjj_control_error:
+            ddjj_control_payload.full_clean()
+        self.assertIn('resumen_paquete', ddjj_control_error.exception.message_dict)
+
         f22 = F22PreparacionAnual(
             empresa=empresa,
             capacidad_tributaria=f22_capability,
@@ -2410,6 +2445,18 @@ class SiiAPITests(APITestCase):
         with self.assertRaises(ValidationError) as f22_error:
             f22.full_clean()
         self.assertIn('resumen_f22', f22_error.exception.message_dict)
+
+        f22_control_payload = F22PreparacionAnual(
+            empresa=empresa,
+            capacidad_tributaria=f22_capability,
+            proceso_renta_anual=stored_process,
+            anio_tributario=2027,
+            estado_preparacion='preparado',
+            resumen_f22={'resumen_anual': {'fiscal_year': 2026}, 'support_ref': 'source_C:/Privado/f22.xlsx'},
+        )
+        with self.assertRaises(ValidationError) as f22_control_error:
+            f22_control_payload.full_clean()
+        self.assertIn('resumen_f22', f22_control_error.exception.message_dict)
 
     def test_tax_artifacts_require_traceable_ref_for_advanced_state(self):
         empresa, _ = self._setup_paid_payment()
