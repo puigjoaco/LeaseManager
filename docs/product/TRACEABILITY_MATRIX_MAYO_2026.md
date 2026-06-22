@@ -371,6 +371,13 @@ devuelven ahora `ownership_review_handoff` sanitizado en su resultado, con
 `package.ownership_review`. Asi la carga DB local/controlada conserva la causa
 de readiness parcial sin persistir ni exponer rutas, nombres, RUTs o PII.
 
+Nota 2026-06-21: `build_annual_tax_controlled_db_load_template` sanitiza ahora
+`blocking_item_keys` y `validation_blockers` del `ownership_review_handoff`
+antes de escribir `package.ownership_review`. Los blockers tecnicos seguros se
+conservan, pero rutas, RUTs, URLs, emails o texto libre sensible quedan como
+`redacted-checklist-item` o `redacted-validation-blocker`, evitando que un
+checklist ownership contaminado propague PII al paquete controlado.
+
 Nota 2026-06-18: Etapa 6/Renta Anual separa el codigo de certificacion F22 del
 candidato local. `build_annual_tax_f22_fixed_width_export_candidate()` ahora
 requiere fuente no sensible, responsable revisor y estado de revision para los
