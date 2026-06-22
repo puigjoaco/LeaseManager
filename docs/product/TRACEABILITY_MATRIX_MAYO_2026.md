@@ -140,6 +140,13 @@ manifest (`company_ref`, `source_root_ref`, refs del bundle anual y
 el plan, bloqueando RUT chileno y rutas locales absolutas. No usa DB real ni
 declara writer anual productivo, calculo tributario final o presentacion SII.
 
+Nota 2026-06-22: Etapa 6/Renta Anual aplica el boundary controlado a salidas de
+auditores contables/renta. `audit_company_accounting_progress` y
+`audit_company_accounting_candidates` validan `--output` relativo bajo
+`local-evidence/` antes de escribir JSON de progreso o candidatos, bloqueando
+RUT chileno y rutas locales absolutas. No usa DB real ni declara review
+responsable, contabilidad final, calculo tributario final o presentacion SII.
+
 Nota 2026-06-21: Etapa 6/Renta Anual enlaza el proof final con la evidencia
 del run mirror. `audit_annual_tax_mirror_proof` acepta `mirror_run` redactado y
 exige que corresponda a empresa/AC/AT/source, que haya generado DB con 12

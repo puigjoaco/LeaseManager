@@ -1,7 +1,9 @@
 import json
 from datetime import date
 from io import StringIO
+from pathlib import Path
 
+from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
@@ -1147,6 +1149,26 @@ class CompanyAccountingProgressTests(TestCase):
                 output='docs/company-accounting-candidates.json',
             )
 
+    def test_candidates_command_refuses_sensitive_output_under_local_evidence_without_echoing_value(self):
+        sensitive_output = (
+            Path(settings.PROJECT_ROOT)
+            / 'local-evidence'
+            / 'Socio Controlado 11.111.111-1'
+            / 'company-accounting-candidates.json'
+        )
+
+        with self.assertRaises(CommandError) as error:
+            call_command(
+                'audit_company_accounting_candidates',
+                output=str(sensitive_output),
+                stdout=StringIO(),
+            )
+
+        rendered_error = str(error.exception)
+        self.assertIn('ruta relativa no sensible', rendered_error)
+        self.assertNotIn('Socio Controlado', rendered_error)
+        self.assertNotIn('11.111.111-1', rendered_error)
+
     def test_downstream_annual_artifacts_do_not_count_without_prepared_process(self):
         empresa = self._create_empresa()
         config = self._activate_fiscal_config(empresa)
@@ -1559,6 +1581,29 @@ class CompanyAccountingProgressTests(TestCase):
                 fiscal_year=2025,
                 output='docs/company-accounting-progress.json',
             )
+
+    def test_command_refuses_sensitive_output_under_local_evidence_without_echoing_value(self):
+        empresa = self._create_empresa()
+        sensitive_output = (
+            Path(settings.PROJECT_ROOT)
+            / 'local-evidence'
+            / 'Empresa Progress 77.777.777-7'
+            / 'company-accounting-progress.json'
+        )
+
+        with self.assertRaises(CommandError) as error:
+            call_command(
+                'audit_company_accounting_progress',
+                empresa_id=empresa.id,
+                fiscal_year=2025,
+                output=str(sensitive_output),
+                stdout=StringIO(),
+            )
+
+        rendered_error = str(error.exception)
+        self.assertIn('ruta relativa no sensible', rendered_error)
+        self.assertNotIn('Empresa Progress', rendered_error)
+        self.assertNotIn('77.777.777-7', rendered_error)
 
     def test_command_outputs_progress_and_can_fail_on_incomplete(self):
         empresa = self._create_empresa()

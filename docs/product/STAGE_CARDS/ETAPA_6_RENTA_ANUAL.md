@@ -897,6 +897,11 @@ no habilita calculo tributario final, upload SII ni presentacion autonoma.
 El selector expone `selection_boundary` para indicar que solo ordena candidatos
 con senales internas, sin fuentes externas, sin gates externos y sin habilitar
 contabilidad autonoma.
+Los comandos `audit_company_accounting_progress` y
+`audit_company_accounting_candidates` aplican el boundary controlado a `--output`
+cuando escribe bajo `local-evidence/`: la ruta relativa no puede contener RUT
+chileno ni rutas locales absolutas antes de materializar JSON de progreso o
+candidatos.
 Los artefactos anuales downstream (`AnnualTaxTrialBalance`, workbooks RLI/CPT,
 `AnnualTaxDossier` y `AnnualTaxExport`) solo suman senal de candidato si
 pertenecen a un `ProcesoRentaAnual` preparado o superior con

@@ -6,6 +6,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db.utils import OperationalError, ProgrammingError
 
 from core.company_accounting_progress import collect_company_accounting_progress
+from core.reference_validation import is_non_sensitive_control_reference
 from patrimonio.models import Empresa
 
 
@@ -26,12 +27,14 @@ def _validate_output_path(output_path: Path) -> None:
         return
 
     try:
-        output_path.relative_to(local_evidence_root)
+        relative_output_path = output_path.relative_to(local_evidence_root).as_posix()
     except ValueError as error:
         raise CommandError(
             'Si --output queda dentro del repo, debe estar bajo local-evidence/ '
             'para no versionar evidencia contable o tributaria.'
         ) from error
+    if not is_non_sensitive_control_reference(relative_output_path):
+        raise CommandError('--output debe usar una ruta relativa no sensible bajo local-evidence/.')
 
 
 class Command(BaseCommand):
