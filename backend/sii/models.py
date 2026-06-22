@@ -20,7 +20,7 @@ from contabilidad.models import (
     RegimenTributarioEmpresa,
 )
 from contratos.models import Contrato
-from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
+from core.reference_validation import contains_sensitive_reference, is_non_sensitive_control_reference
 from patrimonio.models import Empresa
 
 
@@ -118,8 +118,10 @@ def _add_active_fiscal_config_error(errors, instance, artifact_label):
 
 def _add_non_sensitive_reference_error(errors, instance, field_name):
     value = getattr(instance, field_name, '')
-    if has_text(value) and not is_non_sensitive_reference(value):
-        errors[field_name] = f'{field_name} debe ser una referencia no sensible, no una URL, token o credencial.'
+    if has_text(value) and not is_non_sensitive_control_reference(value):
+        errors[field_name] = (
+            f'{field_name} debe ser una referencia no sensible, sin URL, token, credencial, RUT ni ruta local.'
+        )
 
 
 def _add_required_tax_reference_error(errors, instance, field_name, state_field_name):

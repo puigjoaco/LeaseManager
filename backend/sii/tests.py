@@ -114,6 +114,84 @@ class SiiAPITests(APITestCase):
         )
         self.client.force_authenticate(self.user)
 
+    def test_sii_model_reference_fields_reject_rut_and_local_path_refs(self):
+        empresa = self._create_active_empresa(nombre='SiiModelRefs', rut='77777777-7')
+        invalid_cases = (
+            (
+                AnnualTaxSourceBundle(
+                    empresa=empresa,
+                    anio_tributario=2027,
+                    anio_comercial=2026,
+                    source_kind=SourceKindRentaAnual.LOCAL,
+                    source_label='source_11.111.111-1',
+                    authorization_ref='',
+                    responsible_ref='responsible-controlled-ref',
+                    resumen_fuentes={},
+                ),
+                'source_label',
+            ),
+            (
+                AnnualTaxSourceBundle(
+                    empresa=empresa,
+                    anio_tributario=2027,
+                    anio_comercial=2026,
+                    source_kind=SourceKindRentaAnual.CONTROLLED_SNAPSHOT,
+                    source_label='source-bundle-controlled',
+                    authorization_ref='source_C:/Privado/source-bundle-auth.pdf',
+                    responsible_ref='responsible-controlled-ref',
+                    resumen_fuentes={},
+                ),
+                'authorization_ref',
+            ),
+            (
+                AnnualTaxOfficialSource(
+                    anio_tributario=2027,
+                    source_key='expert-source-controlled',
+                    source_type=TipoAnnualTaxOfficialSource.EXPERT_REVIEW,
+                    title='Revision experta controlada',
+                    source_ref='expert_22.222.222-2',
+                    source_hash='a' * 64,
+                    retrieved_on=timezone.localdate(),
+                    responsible_ref='responsible-controlled-ref',
+                    estado=EstadoAnnualTaxOfficialSource.REVIEWED,
+                ),
+                'source_ref',
+            ),
+            (
+                AnnualTaxDDJJFormLayout(
+                    anio_tributario=2027,
+                    form_code='1887',
+                    title='DDJJ 1887',
+                    allows_file_upload=True,
+                    medio_preferente=MedioAnnualTaxDDJJ.FILE_UPLOAD,
+                    due_date_label='Marzo',
+                    layout_ref='source_C:/Privado/ddjj-layout.txt',
+                    instructions_ref='ddjj-instructions-controlled',
+                    responsible_ref='responsible-controlled-ref',
+                ),
+                'layout_ref',
+            ),
+            (
+                AnnualTaxF22ExportLayout(
+                    anio_tributario=2027,
+                    title='Formulario 22',
+                    medio_preferente=MedioAnnualTaxF22Export.LOCAL_PREVIEW,
+                    certification_ref='certification_33.333.333-3',
+                    format_ref='f22-format-controlled',
+                    instructions_ref='f22-instructions-controlled',
+                    responsible_ref='responsible-controlled-ref',
+                ),
+                'certification_ref',
+            ),
+        )
+
+        for instance, field_name in invalid_cases:
+            with self.subTest(model=instance.__class__.__name__, field_name=field_name):
+                with self.assertRaises(ValidationError) as context:
+                    instance.full_clean()
+                self.assertIn(field_name, context.exception.message_dict)
+                self.assertIn('RUT ni ruta local', str(context.exception.message_dict[field_name]))
+
     def _assert_transition_metadata(self, event, *, field, previous, current):
         self.assertEqual(event.metadata['campo_estado'], field)
         self.assertEqual(event.metadata['estado_anterior'], previous)
