@@ -1309,6 +1309,33 @@ class CompanyAccountingReviewPackageTests(TestCase):
 
             self.assertFalse(blocked_output.exists())
 
+    def test_materialize_company_accounting_review_package_rejects_sensitive_output_under_local_evidence(self):
+        empresa = self._create_empresa()
+        manifest = _complete_bank_manifest(empresa=empresa)
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            manifest_path = Path(temp_dir) / 'bank-support-manifest.json'
+            manifest_path.write_text(json.dumps(manifest), encoding='utf-8')
+            sensitive_output = Path(temp_dir) / 'Socio Controlado 11.111.111-1' / 'review-package'
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'materialize_company_accounting_review_package',
+                    empresa_id=empresa.id,
+                    fiscal_year=2025,
+                    bank_support_manifest=str(manifest_path),
+                    output_dir=str(sensitive_output),
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertIn('ruta relativa no sensible', rendered_error)
+            self.assertNotIn('Socio Controlado', rendered_error)
+            self.assertNotIn('11.111.111-1', rendered_error)
+            self.assertFalse(sensitive_output.exists())
+
     def test_materialize_company_accounting_review_package_redacts_sensitive_manifest_values(self):
         empresa = self._create_empresa()
         self._prepare_complete_accounting_layers(empresa)
@@ -1427,7 +1454,7 @@ class CompanyAccountingReviewPackageTests(TestCase):
                         empresa_id=empresa.id,
                         fiscal_year=2025,
                         bank_support_manifest=str(manifest_path),
-                        output_dir=str(temp_root / 'Socio Controlado Uno 11111111-1'),
+                        output_dir=str(temp_root / 'company-accounting-review-package'),
                         stdout=StringIO(),
                     )
 

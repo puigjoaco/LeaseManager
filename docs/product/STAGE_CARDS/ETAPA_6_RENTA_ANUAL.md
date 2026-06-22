@@ -1574,6 +1574,9 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   `sii_submission=false` y `requires_responsible_review=true`. La salida sirve
   para entregar evidencia ordenada a revision responsable/experta, no para
   ejecutar contabilidad o renta final de forma autonoma.
+  Si `--output-dir` queda bajo `local-evidence/`, la ruta relativa debe ser no
+  sensible: no puede contener RUT chileno ni rutas locales absolutas antes de
+  materializar el paquete.
 - `materialize_company_accounting_responsible_questions` convierte artefactos
   JSON ya redactados (`company-accounting-review-package`, cobertura bancaria,
   validacion ownership o readiness de paquete controlado) en
@@ -1585,6 +1588,8 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   codigos/flags/contexto. Si la salida queda dentro del repo debe estar bajo
   `local-evidence/`. No lee documentos reales, no abre banco/SII, no escribe DB
   y no declara contabilidad final, calculo tributario final ni presentacion SII.
+  Si `--output-dir` queda bajo `local-evidence/`, la ruta relativa tambien debe
+  ser no sensible antes de escribir preguntas, template u handoff responsable.
   Sus `source_summaries.ready_flags` conservan flags booleanos tanto del nivel
   raiz como de `summary`, incluyendo `ready_for_formal_bank_support_review` y
   `document_intake_ready_for_productive_review`, para que el handoff responsable
@@ -1609,8 +1614,9 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   operar como fallback no sensible para respuestas individuales, igual que los
   refs superiores de responsable/decision/evidencia; el template rellenable lo
   materializa para evitar duplicacion manual. La salida solo puede quedar bajo
-  `local-evidence/` si esta dentro del repo, no guarda nombres, RUTs, rutas
-  locales, adjuntos ni respuestas crudas, y conserva
+  `local-evidence/` si esta dentro del repo y su ruta relativa debe ser no
+  sensible. No guarda nombres, RUTs, rutas locales, adjuntos ni respuestas
+  crudas, y conserva
   `ready_for_productive_accounting_review=false`, `final_tax_calculation=false`
   y `sii_submission=false`. El review conserva
   `question_source_summaries` sanitizados, `readiness_sources_total` y

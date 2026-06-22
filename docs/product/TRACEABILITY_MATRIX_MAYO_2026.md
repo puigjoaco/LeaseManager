@@ -147,6 +147,16 @@ auditores contables/renta. `audit_company_accounting_progress` y
 RUT chileno y rutas locales absolutas. No usa DB real ni declara review
 responsable, contabilidad final, calculo tributario final o presentacion SII.
 
+Nota 2026-06-22: Etapa 6/Renta Anual aplica el boundary controlado a salidas de
+materializadores contables/renta. `materialize_company_accounting_review_package`,
+`materialize_company_accounting_responsible_questions`,
+`materialize_company_accounting_responsible_answers_template`,
+`materialize_company_accounting_responsible_handoff_packet` y
+`materialize_company_accounting_responsible_answers` validan `--output-dir`
+relativo bajo `local-evidence/` antes de escribir artefactos, bloqueando RUT
+chileno y rutas locales absolutas. No usa DB real ni declara review
+responsable, contabilidad final, calculo tributario final o presentacion SII.
+
 Nota 2026-06-21: Etapa 6/Renta Anual enlaza el proof final con la evidencia
 del run mirror. `audit_annual_tax_mirror_proof` acepta `mirror_run` redactado y
 exige que corresponda a empresa/AC/AT/source, que haya generado DB con 12

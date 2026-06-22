@@ -673,6 +673,35 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
                         stdout=StringIO(),
                     )
 
+    def test_command_rejects_sensitive_output_under_local_evidence_without_echoing_value(self):
+        packet = self._questions_packet()
+        answers = self._answers_payload(packet)
+        with TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / 'repo'
+            input_dir = repo_root / 'local-evidence' / 'inputs'
+            input_dir.mkdir(parents=True)
+            questions_path = input_dir / 'questions.json'
+            answers_path = input_dir / 'answers.json'
+            questions_path.write_text(json.dumps(packet), encoding='utf-8')
+            answers_path.write_text(json.dumps(answers), encoding='utf-8')
+            sensitive_output = repo_root / 'local-evidence' / 'Socio Controlado 11.111.111-1' / 'answers-review'
+
+            with override_settings(PROJECT_ROOT=str(repo_root)):
+                with self.assertRaises(CommandError) as error:
+                    call_command(
+                        'materialize_company_accounting_responsible_answers',
+                        questions_packet=str(questions_path),
+                        answers=str(answers_path),
+                        output_dir=str(sensitive_output),
+                        stdout=StringIO(),
+                    )
+
+            rendered_error = str(error.exception)
+            self.assertIn('ruta relativa no sensible', rendered_error)
+            self.assertNotIn('Socio Controlado', rendered_error)
+            self.assertNotIn('11.111.111-1', rendered_error)
+            self.assertFalse(sensitive_output.exists())
+
     def test_command_write_error_does_not_echo_sensitive_path(self):
         packet = self._questions_packet()
         answers = self._answers_payload(packet)
@@ -781,6 +810,31 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
                         output_dir=str(docs_dir / 'answers-template'),
                         stdout=StringIO(),
                     )
+
+    def test_template_command_rejects_sensitive_output_under_local_evidence_without_echoing_value(self):
+        packet = self._questions_packet()
+        with TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / 'repo'
+            input_dir = repo_root / 'local-evidence' / 'inputs'
+            input_dir.mkdir(parents=True)
+            questions_path = input_dir / 'questions.json'
+            questions_path.write_text(json.dumps(packet), encoding='utf-8')
+            sensitive_output = repo_root / 'local-evidence' / 'Socio Controlado 11.111.111-1' / 'answers-template'
+
+            with override_settings(PROJECT_ROOT=str(repo_root)):
+                with self.assertRaises(CommandError) as error:
+                    call_command(
+                        'materialize_company_accounting_responsible_answers_template',
+                        questions_packet=str(questions_path),
+                        output_dir=str(sensitive_output),
+                        stdout=StringIO(),
+                    )
+
+            rendered_error = str(error.exception)
+            self.assertIn('ruta relativa no sensible', rendered_error)
+            self.assertNotIn('Socio Controlado', rendered_error)
+            self.assertNotIn('11.111.111-1', rendered_error)
+            self.assertFalse(sensitive_output.exists())
 
     def test_template_command_write_error_does_not_echo_sensitive_path(self):
         packet = self._questions_packet()
@@ -1145,6 +1199,35 @@ class CompanyAccountingResponsibleAnswersTests(SimpleTestCase):
                         output_dir=str(docs_dir / 'packet'),
                         stdout=StringIO(),
                     )
+
+    def test_handoff_packet_command_rejects_sensitive_output_under_local_evidence_without_echoing_value(self):
+        packet = self._questions_packet()
+        template = build_company_accounting_responsible_answers_template(questions_packet=packet)
+        with TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / 'repo'
+            input_dir = repo_root / 'local-evidence' / 'inputs'
+            input_dir.mkdir(parents=True)
+            questions_path = input_dir / COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST
+            template_path = input_dir / COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST
+            questions_path.write_text(json.dumps(packet), encoding='utf-8')
+            template_path.write_text(json.dumps(template), encoding='utf-8')
+            sensitive_output = repo_root / 'local-evidence' / 'Socio Controlado 11.111.111-1' / 'handoff'
+
+            with override_settings(PROJECT_ROOT=str(repo_root)):
+                with self.assertRaises(CommandError) as error:
+                    call_command(
+                        'materialize_company_accounting_responsible_handoff_packet',
+                        questions_packet=str(questions_path),
+                        answers_template=str(template_path),
+                        output_dir=str(sensitive_output),
+                        stdout=StringIO(),
+                    )
+
+            rendered_error = str(error.exception)
+            self.assertIn('ruta relativa no sensible', rendered_error)
+            self.assertNotIn('Socio Controlado', rendered_error)
+            self.assertNotIn('11.111.111-1', rendered_error)
+            self.assertFalse(sensitive_output.exists())
 
     def test_handoff_preflight_finds_questions_and_template_without_returning_paths(self):
         packet = self._questions_packet()
