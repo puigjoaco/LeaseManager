@@ -323,6 +323,107 @@ class AnnualTaxControlledValuesDraftTests(SimpleTestCase):
         rendered_package = json.dumps(result['package_draft'], ensure_ascii=True)
         self.assertNotIn('f22_expected_output', rendered_package)
 
+    def test_values_draft_rejects_rut_and_local_path_responsible_refs(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+
+            with self.assertRaisesMessage(ValueError, 'responsible_ref debe ser una referencia no sensible.'):
+                build_annual_tax_controlled_values_draft(
+                    manifest=self._manifest(),
+                    template=self._template(),
+                    source_root=source_root,
+                    responsible_ref='source_11.111.111-1',
+                )
+
+            with self.assertRaisesMessage(ValueError, 'approval_ref debe ser una referencia no sensible.'):
+                build_annual_tax_controlled_values_draft(
+                    manifest=self._manifest(),
+                    template=self._template(),
+                    source_root=source_root,
+                    approval_ref='source_C:/Privado/aprobacion.pdf',
+                )
+
+    def test_values_draft_sanitizes_unsafe_path_refs_before_output(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            self._source_file(
+                source_root,
+                '01_Libros_Anuales/Libro Diario 2024.txt',
+                'Comprobantes MES DE ENERO\nTOTAL COMPROBANTE Nº 1 1.000 1.000\nTotal ENERO 1.000 1.000\n',
+            )
+            self._source_file(
+                source_root,
+                '01_Libros_Anuales/Libro Mayor 2024.txt',
+                '1101001 Caja\nTotal Mes de Enero . 1.000 1.000 0 DB\n',
+            )
+            self._source_file(
+                source_root,
+                '01_Libros_Anuales/Libro Inventario 2024.txt',
+                'DETALLE DE ACTIVOS\n1101001 Caja\nSALDO CONTABLE AL 31/12/2024 1.000\n',
+            )
+            self._source_file(
+                source_root,
+                '06_Respaldos_Tributarios/01_F29_y_Comprobantes/2024-01 F29.txt',
+                'PERIODO [15] 202401\n563 BASE IMPONIBLE 1.000 062 PPM NETO DETERMINADO 10\n',
+            )
+            self._source_file(
+                source_root,
+                '05_Libro_Remuneraciones/01 Enero.txt',
+                'Total General : 4.000.000 0 3.166.637',
+            )
+            manifest = self._manifest()
+            manifest['source_root_ref'] = 'source-root-C:/Privado/11.111.111-1'
+            manifest['files'].extend(
+                [
+                    {
+                        'path_ref': 'source_C:/Privado/f29-enero.pdf',
+                        'relative_path': '06_Respaldos_Tributarios/01_F29_y_Comprobantes/2024-01 F29.txt',
+                        'category': 'f29_support_input',
+                        'artifact_key': 'f29_support_input',
+                        'months': [1],
+                    },
+                    {
+                        'path_ref': 'payroll_11.111.111-1',
+                        'relative_path': '05_Libro_Remuneraciones/01 Enero.txt',
+                        'category': 'payroll_support',
+                        'artifact_key': 'payroll_support',
+                        'months': [1],
+                    },
+                ]
+            )
+            template = self._template()
+            month = template['package_draft']['months'][0]
+            month['input_source_refs']['f29_support_input'] = [{'path_ref': 'source_C:/Privado/f29-enero.pdf'}]
+            month['input_source_refs']['payroll_support'] = [{'path_ref': 'payroll_11.111.111-1'}]
+            template['package_draft']['labor_previsional']['source_ref'] = 'labor_11.111.111-1'
+            template['package_draft']['labor_previsional']['source_refs'] = [{'path_ref': 'payroll_11.111.111-1'}]
+            template['comparison_targets']['f22_expected_output'].append(
+                {'path_ref': 'source_C:/Privado/f22.pdf', 'category': 'f22_expected_output'}
+            )
+
+            result = build_annual_tax_controlled_values_draft(
+                manifest=manifest,
+                template=template,
+                source_root=source_root,
+                responsible_ref='codex-local-review',
+                approval_ref='user-authorized-local-source-review',
+            )
+
+        month = result['package_draft']['months'][0]
+        labor = result['package_draft']['labor_previsional']
+        self.assertEqual(month['f29']['borrador_ref'], '')
+        self.assertEqual(month['obligations'], [])
+        self.assertEqual(month['payroll']['source_ref'], '')
+        self.assertIsNone(month['payroll']['has_movements'])
+        self.assertEqual(labor['source_ref'], '')
+        self.assertEqual(labor['status'], 'pending_source_review')
+        self.assertEqual(result['values_draft_summary']['source_root_ref'], '')
+        self.assertFalse(result['values_draft_summary']['labor_previsional_source_ref_ready'])
+        self.assertEqual(result['values_draft_summary']['labor_previsional_reviewed_source_refs_count'], 0)
+        rendered = json.dumps(result, ensure_ascii=True)
+        for forbidden in ('11.111.111-1', 'C:/Privado', 'source_C:/Privado', 'payroll_11'):
+            self.assertNotIn(forbidden, rendered)
+
     def test_values_draft_materializes_real_estate_from_controlled_support(self):
         with TemporaryDirectory() as temp_dir:
             source_root = Path(temp_dir)

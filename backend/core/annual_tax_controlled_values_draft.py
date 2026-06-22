@@ -12,7 +12,11 @@ from typing import Any
 from core.annual_tax_controlled_db_load import CONTROLLED_DB_LOAD_SCHEMA_VERSION
 from core.annual_tax_controlled_package_template import CONTROLLED_DB_LOAD_TEMPLATE_SCHEMA_VERSION
 from core.annual_tax_source_manifest import payload_hash
-from core.reference_validation import is_non_sensitive_reference
+from core.reference_validation import (
+    contains_chilean_rut_reference,
+    contains_local_absolute_path_reference,
+    is_non_sensitive_reference,
+)
 
 
 CONTROLLED_VALUES_DRAFT_SCHEMA_VERSION = 'annual-tax-controlled-values-draft.v1'
@@ -65,6 +69,33 @@ def _normalized_upper(value: Any) -> str:
 
 def _hash_ref(prefix: str, payload: Any, *, length: int = 16) -> str:
     return f'{prefix}-{payload_hash(payload)[:length]}'
+
+
+def _is_safe_reference(value: Any) -> bool:
+    normalized = str(value or '').strip()
+    return (
+        bool(normalized)
+        and is_non_sensitive_reference(normalized)
+        and not contains_chilean_rut_reference(normalized)
+        and not contains_local_absolute_path_reference(normalized)
+    )
+
+
+def _safe_reference(value: Any) -> str:
+    normalized = str(value or '').strip()
+    return normalized if _is_safe_reference(normalized) else ''
+
+
+def _sanitize_embedded_path_refs(value: Any) -> None:
+    if isinstance(value, dict):
+        for key, item in list(value.items()):
+            if key == 'path_ref':
+                value[key] = _safe_reference(item)
+            else:
+                _sanitize_embedded_path_refs(item)
+    elif isinstance(value, list):
+        for item in value:
+            _sanitize_embedded_path_refs(item)
 
 
 def _last_amounts(line: str, count: int) -> list[int]:
@@ -414,31 +445,47 @@ def _load_json_source(path: Path) -> Any:
 
 def _manifest_file_index(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {
-        str(item.get('path_ref') or ''): item
+        _safe_reference(item.get('path_ref')): item
         for item in manifest.get('files') or []
-        if isinstance(item, dict) and item.get('path_ref')
+        if isinstance(item, dict) and _is_safe_reference(item.get('path_ref'))
     }
 
 
 def _source_path(source_root: Path, file_index: dict[str, dict[str, Any]], path_ref: str) -> Path:
+    if not _is_safe_reference(path_ref):
+        raise ValueError('path_ref sensible o invalido en fuente controlada.')
     item = file_index.get(path_ref)
     if not item:
-        raise ValueError(f'No existe path_ref en manifiesto: {path_ref}')
+        raise ValueError('No existe path_ref seguro en manifiesto.')
     relative_path = str(item.get('relative_path') or '').strip()
     if not relative_path:
-        raise ValueError(f'path_ref sin relative_path en manifiesto: {path_ref}')
+        raise ValueError('path_ref seguro sin relative_path en manifiesto.')
     path = (source_root / relative_path).resolve()
     try:
         path.relative_to(source_root.resolve())
     except ValueError as error:
         raise ValueError('relative_path escapa del source_root controlado.') from error
     if not path.exists() or not path.is_file():
-        raise ValueError(f'No existe fuente controlada: {relative_path}')
+        raise ValueError('No existe fuente controlada declarada.')
     return path
 
 
 def _first_ref(refs: list[dict[str, Any]]) -> dict[str, Any] | None:
-    return refs[0] if refs else None
+    for item in refs:
+        if isinstance(item, dict) and _is_safe_reference(item.get('path_ref')):
+            return item
+    return None
+
+
+def _has_unsafe_path_ref(refs: Any) -> bool:
+    if not isinstance(refs, list):
+        return False
+    return any(
+        isinstance(item, dict)
+        and str(item.get('path_ref') or '').strip()
+        and not _is_safe_reference(item.get('path_ref'))
+        for item in refs
+    )
 
 
 def _normalized_manifest_path(item: dict[str, Any]) -> str:
@@ -486,7 +533,7 @@ def _select_annual_ledger_ref(manifest: dict[str, Any], artifact_key: str) -> st
         if isinstance(item, dict)
         and item.get('category') == 'annual_ledger_input'
         and item.get('artifact_key') == artifact_key
-        and item.get('path_ref')
+        and _is_safe_reference(item.get('path_ref'))
     ]
     if not candidates:
         return ''
@@ -498,7 +545,7 @@ def _select_annual_ledger_ref(manifest: dict[str, Any], artifact_key: str) -> st
         key=lambda item: _annual_ledger_candidate_score(item, commercial_year),
         reverse=True,
     )
-    return str(ranked[0].get('path_ref') or '')
+    return _safe_reference(ranked[0].get('path_ref'))
 
 
 def _real_estate_support_items(manifest: dict[str, Any]) -> list[dict[str, Any]]:
@@ -507,7 +554,7 @@ def _real_estate_support_items(manifest: dict[str, Any]) -> list[dict[str, Any]]
         for item in manifest.get('files') or []
         if isinstance(item, dict)
         and item.get('category') == 'real_estate_support'
-        and item.get('path_ref')
+        and _is_safe_reference(item.get('path_ref'))
     ]
 
 
@@ -522,7 +569,7 @@ def _select_real_estate_registry_ref(manifest: dict[str, Any]) -> str:
             score += 100
         if '03_bienes_raices_y_contribuciones/' in path:
             score += 50
-        candidates.append((score, path, str(item.get('path_ref') or '')))
+        candidates.append((score, path, _safe_reference(item.get('path_ref'))))
     if not candidates:
         return ''
     candidates.sort(reverse=True)
@@ -534,7 +581,7 @@ def _real_estate_contribution_source_refs(manifest: dict[str, Any]) -> list[str]
     for item in _real_estate_support_items(manifest):
         path = _normalized_manifest_path(item)
         if any(marker in path for marker in ('contribuciones_y_pagos_sii', 'certificados_pago_pdf', 'detalle_pago_pdf')):
-            refs.append(str(item.get('path_ref') or ''))
+            refs.append(_safe_reference(item.get('path_ref')))
     return sorted(set(ref for ref in refs if ref))
 
 
@@ -694,7 +741,9 @@ def _contribution_totals_by_property_key(
         path = _normalized_manifest_path(item)
         if 'historial_pagos' not in path or not path.endswith('.json'):
             continue
-        source_ref = str(item.get('path_ref') or '')
+        source_ref = _safe_reference(item.get('path_ref'))
+        if not source_ref:
+            continue
         try:
             data = _load_json_source(_source_path(source_root, file_index, source_ref))
             parsed = parse_real_estate_contribution_history_json(
@@ -908,8 +957,8 @@ def _labor_previsional_expected_refs(labor: dict[str, Any]) -> list[str]:
     for item in labor.get('source_refs') or []:
         if not isinstance(item, dict):
             continue
-        path_ref = str(item.get('path_ref') or '').strip()
-        if path_ref and is_non_sensitive_reference(path_ref):
+        path_ref = _safe_reference(item.get('path_ref'))
+        if path_ref:
             refs.append(path_ref)
     return sorted(set(refs))
 
@@ -923,8 +972,11 @@ def _complete_labor_previsional_source_ref(
     labor = package.get('labor_previsional')
     if not isinstance(labor, dict) or labor.get('required') is not True:
         return
-    if is_non_sensitive_reference(labor.get('source_ref')):
+    if _is_safe_reference(labor.get('source_ref')):
         return
+    if str(labor.get('source_ref') or '').strip():
+        labor['source_ref'] = ''
+        filled_paths.append('$.labor_previsional.source_ref')
 
     expected_refs = _labor_previsional_expected_refs(labor)
     if not expected_refs or not set(expected_refs).issubset(reviewed_payroll_refs):
@@ -993,6 +1045,7 @@ def build_annual_tax_controlled_values_draft(
         raise ValueError(f'package_draft.schema_version debe ser {CONTROLLED_DB_LOAD_SCHEMA_VERSION}.')
 
     draft = copy.deepcopy(template)
+    _sanitize_embedded_path_refs(draft)
     package = draft['package_draft']
     filled_paths: list[str] = []
     extraction_warnings: list[str] = []
@@ -1001,13 +1054,18 @@ def build_annual_tax_controlled_values_draft(
     file_index = _manifest_file_index(manifest)
     source_root = source_root.resolve()
 
+    for ref_field in ('responsible_ref', 'approval_ref'):
+        if str(package.get(ref_field) or '').strip() and not _is_safe_reference(package.get(ref_field)):
+            package[ref_field] = ''
+            filled_paths.append(f'$.{ref_field}')
+
     if responsible_ref:
-        if not is_non_sensitive_reference(responsible_ref):
+        if not _is_safe_reference(responsible_ref):
             raise ValueError('responsible_ref debe ser una referencia no sensible.')
         package['responsible_ref'] = responsible_ref
         filled_paths.append('$.responsible_ref')
     if approval_ref:
-        if not is_non_sensitive_reference(approval_ref):
+        if not _is_safe_reference(approval_ref):
             raise ValueError('approval_ref debe ser una referencia no sensible.')
         package['approval_ref'] = approval_ref
         filled_paths.append('$.approval_ref')
@@ -1082,9 +1140,10 @@ def build_annual_tax_controlled_values_draft(
                 ]
             )
 
-        f29_ref = _first_ref((month_payload.get('input_source_refs') or {}).get('f29_support_input') or [])
+        f29_refs = (month_payload.get('input_source_refs') or {}).get('f29_support_input') or []
+        f29_ref = _first_ref(f29_refs)
         if f29_ref:
-            path_ref = str(f29_ref.get('path_ref') or '')
+            path_ref = _safe_reference(f29_ref.get('path_ref'))
             try:
                 f29_data = parse_f29_text(_extract_text(_source_path(source_root, file_index, path_ref)))
                 f29 = month_payload.setdefault('f29', {})
@@ -1105,10 +1164,13 @@ def build_annual_tax_controlled_values_draft(
                     filled_paths.append(f'{month_path}.obligations')
             except ValueError as error:
                 extraction_errors.append(f'{month_path}.f29:{error}')
+        elif _has_unsafe_path_ref(f29_refs):
+            extraction_errors.append(f'{month_path}.f29:path_ref_sensible_o_invalido')
 
-        payroll_ref = _first_ref((month_payload.get('input_source_refs') or {}).get('payroll_support') or [])
+        payroll_refs = (month_payload.get('input_source_refs') or {}).get('payroll_support') or []
+        payroll_ref = _first_ref(payroll_refs)
         if payroll_ref:
-            path_ref = str(payroll_ref.get('path_ref') or '')
+            path_ref = _safe_reference(payroll_ref.get('path_ref'))
             try:
                 payroll_data = parse_payroll_text(_extract_text(_source_path(source_root, file_index, path_ref)))
                 payroll = month_payload.setdefault('payroll', {})
@@ -1124,6 +1186,8 @@ def build_annual_tax_controlled_values_draft(
                 filled_paths.extend([f'{month_path}.payroll.source_ref', f'{month_path}.payroll.has_movements'])
             except ValueError as error:
                 extraction_errors.append(f'{month_path}.payroll:{error}')
+        elif _has_unsafe_path_ref(payroll_refs):
+            extraction_errors.append(f'{month_path}.payroll:path_ref_sensible_o_invalido')
 
     _review_labor_previsional_expected_refs(
         package=package,
@@ -1150,14 +1214,14 @@ def build_annual_tax_controlled_values_draft(
     real_estate = package.get('real_estate') if isinstance(package.get('real_estate'), dict) else {}
     draft['values_draft_summary'] = {
         'schema_version': CONTROLLED_VALUES_DRAFT_SCHEMA_VERSION,
-        'source_root_ref': manifest.get('source_root_ref', ''),
+        'source_root_ref': _safe_reference(manifest.get('source_root_ref')),
         'filled_paths_count': len(set(filled_paths)),
         'filled_paths_sample': sorted(set(filled_paths))[:30],
         'extraction_warnings': extraction_warnings,
         'extraction_errors': extraction_errors,
-        'labor_previsional_source_ref_ready': is_non_sensitive_reference(labor_previsional.get('source_ref')),
+        'labor_previsional_source_ref_ready': _is_safe_reference(labor_previsional.get('source_ref')),
         'labor_previsional_reviewed_source_refs_count': len(reviewed_payroll_refs),
-        'real_estate_source_ref_ready': is_non_sensitive_reference(real_estate.get('source_ref')),
+        'real_estate_source_ref_ready': _is_safe_reference(real_estate.get('source_ref')),
         'real_estate_properties_count': len(real_estate.get('properties') or []),
         'writes_database': False,
         'uses_expected_outputs_as_inputs': False,
