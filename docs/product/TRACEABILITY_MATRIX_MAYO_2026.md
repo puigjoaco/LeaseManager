@@ -65,6 +65,14 @@ estructurado de `ownership.participants[].rut` sigue validado como dato
 controlado, no como ref operativa. No usa DB real ni declara calculo tributario
 final o presentacion SII.
 
+Nota 2026-06-22: Etapa 6/Renta Anual aplica el boundary controlado al mirror
+anual directo. `run_annual_tax_controlled_mirror` rechaza `source_label`,
+`authorization_ref`, `responsible_ref`, `fiscal_rule_ref` y
+`certificates_proof_ref` con RUT chileno o rutas locales absolutas antes de
+declarar readiness, abrir transaccion o crear `AnnualTaxSourceBundle`,
+`ProcesoRentaAnual`, DDJJ/F22, capacidades o fuentes controladas. No usa DB real
+ni declara calculo tributario final o presentacion SII.
+
 Nota 2026-06-21: Etapa 6/Renta Anual enlaza el proof final con la evidencia
 del run mirror. `audit_annual_tax_mirror_proof` acepta `mirror_run` redactado y
 exige que corresponda a empresa/AC/AT/source, que haya generado DB con 12

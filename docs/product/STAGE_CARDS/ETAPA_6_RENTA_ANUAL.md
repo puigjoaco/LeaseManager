@@ -392,6 +392,13 @@ ownership, meses, labor previsional y bienes raices rechazan RUT chileno o rutas
 locales absolutas antes de abrir transaccion o escribir socios, propiedades,
 fuentes oficiales o `MonthlyTaxFact`. El RUT estructurado de
 `ownership.participants[].rut` sigue siendo dato controlado validado, no una ref.
+El mirror anual directo usa esa misma frontera para sus refs operativas:
+`source_label`, `authorization_ref`, `responsible_ref`, `fiscal_rule_ref` y
+`certificates_proof_ref` rechazan RUT chileno o rutas locales absolutas antes de
+declarar readiness de generacion, abrir transaccion o crear `AnnualTaxSourceBundle`,
+`ProcesoRentaAnual`, DDJJ/F22, capacidades, fuentes oficiales o layouts
+controlados. Esto evita que una llamada directa a `run_annual_tax_controlled_mirror`
+salte el boundary ya aplicado al readiness, writer DB y comandos compuestos.
 `build_annual_tax_controlled_values_draft` completa ese paquete desde fuentes
 AC2024 permitidas y read-only: Libro Diario, Libro Mayor, Libro Inventario, F29,
 libros de remuneraciones y soporte de bienes raices. La corrida real de

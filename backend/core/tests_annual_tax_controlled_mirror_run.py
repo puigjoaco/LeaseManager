@@ -188,6 +188,12 @@ class AnnualTaxControlledMirrorRunTests(TestCase):
             write_database=True,
         )
 
+    def _assert_no_mirror_writes(self, empresa):
+        self.assertEqual(AnnualTaxSourceBundle.objects.filter(empresa=empresa).count(), 0)
+        self.assertEqual(ProcesoRentaAnual.objects.filter(empresa=empresa).count(), 0)
+        self.assertEqual(DDJJPreparacionAnual.objects.filter(proceso_renta_anual__empresa=empresa).count(), 0)
+        self.assertEqual(F22PreparacionAnual.objects.filter(proceso_renta_anual__empresa=empresa).count(), 0)
+
     def _mirror_kwargs(self, empresa):
         return {
             'empresa': empresa,
@@ -199,6 +205,33 @@ class AnnualTaxControlledMirrorRunTests(TestCase):
             'fiscal_rule_ref': 'ac2024-tax-rule-review-pending',
             'certificates_proof_ref': 'ac2024-certificates-proof-pending',
         }
+
+    def test_controlled_mirror_rejects_control_sensitive_refs_without_writing(self):
+        empresa = self._create_empresa()
+        self._load_monthly_package(empresa, package=self._with_ownership(self._package()))
+        bad_cases = (
+            ('source_label', 'source_11.111.111-1'),
+            ('authorization_ref', 'authorization_C:/Privado/autorizacion.json'),
+            ('responsible_ref', 'responsible_22.222.222-2'),
+            ('fiscal_rule_ref', r'fiscal_\\server\share\regla.pdf'),
+            ('certificates_proof_ref', 'proof_C:/Privado/certificados.pdf'),
+        )
+        for field_name, bad_value in bad_cases:
+            with self.subTest(field_name=field_name):
+                kwargs = self._mirror_kwargs(empresa)
+                kwargs[field_name] = bad_value
+
+                with self.assertRaises(ValueError) as error:
+                    run_annual_tax_controlled_mirror(**kwargs, write_database=True)
+
+                rendered_error = str(error.exception)
+                self.assertIn(field_name, rendered_error)
+                self.assertNotIn(bad_value, rendered_error)
+                self.assertNotIn('11.111.111-1', rendered_error)
+                self.assertNotIn('22.222.222-2', rendered_error)
+                self.assertNotIn('C:/Privado', rendered_error)
+                self.assertNotIn(r'\\server\share', rendered_error)
+                self._assert_no_mirror_writes(empresa)
 
     def test_controlled_mirror_blocks_generation_without_ownership_snapshot(self):
         empresa = self._create_empresa()
@@ -448,6 +481,31 @@ class AnnualTaxControlledMirrorRunTests(TestCase):
         self.assertFalse(result['writes_database'])
         self.assertTrue(result['ready_for_generation'])
         self.assertEqual(stdout.getvalue(), '')
+
+    def test_command_rejects_control_sensitive_refs_without_writing_or_echoing_values(self):
+        empresa = self._create_empresa()
+        self._load_monthly_package(empresa, package=self._with_ownership(self._package()))
+
+        with self.assertRaises(CommandError) as error:
+            call_command(
+                'run_annual_tax_controlled_mirror',
+                empresa_id=empresa.id,
+                commercial_year=2024,
+                tax_year=2025,
+                source_label='inmobiliaria-puig-ac2024-controlled-writer',
+                authorization_ref='user-authorized-local-source-review',
+                responsible_ref='codex-local-review',
+                fiscal_rule_ref='ac2024-tax-rule-review-pending',
+                certificates_proof_ref='proof_C:/Privado/certificados.pdf',
+                apply=True,
+                stdout=StringIO(),
+            )
+
+        rendered_error = str(error.exception)
+        self.assertIn('certificates_proof_ref', rendered_error)
+        self.assertNotIn('proof_C:/Privado/certificados.pdf', rendered_error)
+        self.assertNotIn('C:/Privado', rendered_error)
+        self._assert_no_mirror_writes(empresa)
 
     def test_command_fail_on_blocking_stops_without_ownership_snapshot(self):
         empresa = self._create_empresa()
