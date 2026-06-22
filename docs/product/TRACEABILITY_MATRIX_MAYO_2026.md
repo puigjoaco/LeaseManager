@@ -133,6 +133,13 @@ locales absolutas. El CLI no ecoa `manifest`, `source_root` ni rutas de salida
 crudas cuando faltan entradas o falla escritura. No usa DB real ni declara
 snapshot ownership, calculo tributario final o presentacion SII.
 
+Nota 2026-06-22: Etapa 6/Renta Anual aplica el boundary controlado al plan de
+carga anual. `build_annual_tax_controlled_load_plan` valida refs heredadas del
+manifest (`company_ref`, `source_root_ref`, refs del bundle anual y
+`files[].path_ref`) y `--output` relativa bajo `local-evidence/` antes de emitir
+el plan, bloqueando RUT chileno y rutas locales absolutas. No usa DB real ni
+declara writer anual productivo, calculo tributario final o presentacion SII.
+
 Nota 2026-06-21: Etapa 6/Renta Anual enlaza el proof final con la evidencia
 del run mirror. `audit_annual_tax_mirror_proof` acepta `mirror_run` redactado y
 exige que corresponda a empresa/AC/AT/source, que haya generado DB con 12

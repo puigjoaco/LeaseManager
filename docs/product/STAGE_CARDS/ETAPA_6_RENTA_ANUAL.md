@@ -270,6 +270,10 @@ esperados no se usan como input, pero `ready_for_db_load=false` hasta tener
 parser/carga manual controlada para libros anuales, F29 PDF, remuneraciones y
 fuente societaria, mas un paquete normalizado de entrada, capa anual generada y
 comparacion de outputs esperados.
+El plan aplica el boundary controlado a refs heredadas del manifest:
+`company_ref`, `source_root_ref`, refs del bundle anual y `files[].path_ref`
+deben ser no sensibles antes de emitir el plan. `--output` bajo
+`local-evidence/` tambien debe usar ruta relativa no sensible.
 El comando redacta errores de archivo del tramo CLI: manifest faltante, lectura
 fallida o escritura fallida del plan no exponen rutas locales completas que
 puedan contener nombres, RUTs o carpetas privadas.
