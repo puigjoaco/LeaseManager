@@ -1682,7 +1682,9 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   usar el chat como evidencia ni confundir plantillas/checklists con un review
   responsable listo. Los candidatos de review preservan
   `question_source_summaries` sanitizados y `readiness_sources_total`, sin rutas
-  crudas ni valores sensibles.
+  crudas ni valores sensibles. Si se escribe `--output` dentro de
+  `local-evidence/`, la ruta relativa debe pasar el boundary controlado
+  compartido antes de crear el reporte.
 - `audit_company_accounting_responsible_handoff_preflight` consolida ese borde
   de reanudacion: escanea bajo `local-evidence/` los manifests de preguntas
   responsables, template de respuestas y review responsable; devuelve solo
@@ -1697,7 +1699,9 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   multiples handoffs distintos. Los candidatos de preguntas tambien exponen
   `readiness_sources_total`, `source_summaries` y `safe_issue_codes`
   sanitizados, sin rutas crudas ni valores sensibles, para distinguir avance
-  local de blockers formales.
+  local de blockers formales. Su `--output` dentro de `local-evidence/` tambien
+  rechaza rutas relativas con RUT chileno, rutas locales absolutas embebidas u
+  otras referencias no controladas antes de escribir el JSON.
 - Reporting expone `POST /api/v1/reporting/contabilidad/paquete-revision-empresa/`
   para construir ese mismo paquete desde una superficie operativa con scope de
   empresa. El body debe incluir `empresa_id`, `fiscal_year` y
