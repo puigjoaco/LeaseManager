@@ -56,6 +56,15 @@ referencias controladas como `source_ref`, `authorization_ref`,
 URLs, tokens, credenciales o correos. Esto cierra bypasses por uso directo de
 modelos y no abre SII real, DB real, calculo tributario final ni presentacion.
 
+Nota 2026-06-22: Etapa 6/Renta Anual aplica el mismo boundary al writer de
+carga controlada. `apply_annual_tax_controlled_db_load` rechaza refs con RUT
+chileno o rutas locales absolutas en `company_ref`, refs responsables/aprobacion,
+ownership, meses, labor previsional y bienes raices antes de abrir transaccion o
+escribir socios, propiedades, fuentes oficiales o `MonthlyTaxFact`. El RUT
+estructurado de `ownership.participants[].rut` sigue validado como dato
+controlado, no como ref operativa. No usa DB real ni declara calculo tributario
+final o presentacion SII.
+
 Nota 2026-06-21: Etapa 6/Renta Anual enlaza el proof final con la evidencia
 del run mirror. `audit_annual_tax_mirror_proof` acepta `mirror_run` redactado y
 exige que corresponda a empresa/AC/AT/source, que haya generado DB con 12
