@@ -125,6 +125,14 @@ RUT chileno y rutas locales absolutas. El CLI no ecoa `source_root` ni rutas de
 salida crudas cuando faltan fuentes o falla la escritura. No usa DB real ni
 declara calculo tributario final o presentacion SII.
 
+Nota 2026-06-22: Etapa 6/Renta Anual aplica el boundary controlado al review de
+candidatos ownership. `review_annual_tax_ownership_candidates` valida
+`company_ref`, `manifest.files[].path_ref` y `--output` relativa bajo
+`local-evidence/` antes de emitir la revision, bloqueando RUT chileno y rutas
+locales absolutas. El CLI no ecoa `manifest`, `source_root` ni rutas de salida
+crudas cuando faltan entradas o falla escritura. No usa DB real ni declara
+snapshot ownership, calculo tributario final o presentacion SII.
+
 Nota 2026-06-21: Etapa 6/Renta Anual enlaza el proof final con la evidencia
 del run mirror. `audit_annual_tax_mirror_proof` acepta `mirror_run` redactado y
 exige que corresponda a empresa/AC/AT/source, que haya generado DB con 12

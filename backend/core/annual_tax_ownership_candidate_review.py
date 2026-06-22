@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from core.annual_tax_source_manifest import payload_hash
-from core.reference_validation import count_chilean_rut_references
+from core.reference_validation import count_chilean_rut_references, is_non_sensitive_control_reference
 
 
 OWNERSHIP_CANDIDATE_REVIEW_SCHEMA_VERSION = 'annual-tax-ownership-candidate-review.v1'
@@ -23,6 +23,13 @@ def _normalize_for_match(value: str) -> str:
     normalized = unicodedata.normalize('NFKD', value or '')
     ascii_value = ''.join(char for char in normalized if not unicodedata.combining(char))
     return ascii_value.lower().replace('\\', '/').replace(' ', '_').replace('-', '_')
+
+
+def _required_control_ref(value: Any, *, field_name: str) -> str:
+    text = str(value or '').strip()
+    if not is_non_sensitive_control_reference(text):
+        raise ValueError(f'{field_name} debe ser una referencia no sensible.')
+    return text
 
 
 def _extract_text(path: Path) -> str:
@@ -72,13 +79,15 @@ def _source_path(source_root: Path, item: dict[str, Any]) -> Path:
     relative_path = str(item.get('relative_path') or '').strip()
     if not relative_path:
         raise ValueError('Candidato ownership sin relative_path en manifiesto.')
+    if not is_non_sensitive_control_reference(str(item.get('path_ref') or '')):
+        raise ValueError('Candidato ownership con path_ref sensible en manifiesto.')
     path = (source_root / relative_path).resolve()
     try:
         path.relative_to(source_root.resolve())
     except ValueError as error:
         raise ValueError('relative_path escapa del source_root controlado.') from error
     if not path.exists() or not path.is_file():
-        raise ValueError(f'No existe candidato ownership controlado: {relative_path}')
+        raise ValueError('No existe candidato ownership controlado.')
     return path
 
 
@@ -285,9 +294,10 @@ def review_annual_tax_ownership_candidates(
     commercial_year: int,
     tax_year: int | None = None,
 ) -> dict[str, Any]:
+    company_ref = _required_control_ref(company_ref, field_name='company_ref')
     source_root = source_root.expanduser().resolve()
     if not source_root.exists() or not source_root.is_dir():
-        raise FileNotFoundError(f'source_root does not exist or is not a directory: {source_root}')
+        raise FileNotFoundError('source_root no existe o no es un directorio controlado.')
     tax_year = tax_year or commercial_year + 1
     candidates = [
         item

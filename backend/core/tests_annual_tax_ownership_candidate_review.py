@@ -3,6 +3,7 @@ from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import SimpleTestCase
@@ -180,3 +181,130 @@ class AnnualTaxOwnershipCandidateReviewTests(SimpleTestCase):
                     commercial_year=2024,
                     output='docs/ownership-review.json',
                 )
+
+    def test_command_rejects_sensitive_control_refs_without_echoing_values(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir) / 'source'
+            source_root.mkdir()
+            self._write(
+                source_root,
+                'Ano_HISTORICO/08_Base_Legal_Patrimonial_Operativa/Inmobiliaria Puig SpA/'
+                '1. Escrituras y Modificaciones/1.Constitucion/2.Extracto/Extracto.txt',
+                'Inmobiliaria Puig SpA capital acciones 2024.',
+            )
+            manifest = self._manifest(source_root)
+            manifest_path = Path(temp_dir) / 'manifest.json'
+            manifest_path.write_text(json.dumps(manifest), encoding='utf-8')
+            sensitive_path_ref_manifest = dict(manifest)
+            sensitive_path_ref_manifest['files'] = [dict(item) for item in manifest['files']]
+            sensitive_path_ref_manifest['files'][0]['path_ref'] = 'file_C:/Privado/ownership.txt'
+            sensitive_manifest_path = Path(temp_dir) / 'sensitive-manifest.json'
+            sensitive_manifest_path.write_text(json.dumps(sensitive_path_ref_manifest), encoding='utf-8')
+            cases = (
+                (
+                    'company_ref',
+                    {'manifest': str(manifest_path), 'company_ref': 'inmobiliaria_11.111.111-1'},
+                    '11.111.111-1',
+                ),
+                (
+                    'path_ref',
+                    {'manifest': str(sensitive_manifest_path), 'company_ref': 'inmobiliaria-puig'},
+                    'C:/Privado',
+                ),
+            )
+            for label, overrides, sensitive_fragment in cases:
+                with self.subTest(label=label):
+                    kwargs = {
+                        'source_root': str(source_root),
+                        'commercial_year': 2024,
+                        'tax_year': 2025,
+                        'stdout': StringIO(),
+                    }
+                    kwargs.update(overrides)
+
+                    with self.assertRaises(CommandError) as error:
+                        call_command('review_annual_tax_ownership_candidates', **kwargs)
+
+                    rendered_error = str(error.exception)
+                    self.assertIn('Revision ownership invalida', rendered_error)
+                    self.assertNotIn(sensitive_fragment, rendered_error)
+
+    def test_command_redacts_sensitive_manifest_source_and_output_paths_in_errors(self):
+        local_evidence = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence.mkdir(exist_ok=True)
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            sensitive_manifest_path = temp_root / 'Socio Controlado Manifest 11.111.111-1.json'
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'review_annual_tax_ownership_candidates',
+                    manifest=str(sensitive_manifest_path),
+                    source_root=str(temp_root),
+                    company_ref='inmobiliaria-puig',
+                    commercial_year=2024,
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertIn('No existe manifest JSON controlado', rendered_error)
+            self.assertNotIn('Socio Controlado Manifest', rendered_error)
+            self.assertNotIn('11.111.111-1', rendered_error)
+
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            source_root = temp_root / 'source'
+            source_root.mkdir()
+            self._write(
+                source_root,
+                'Ano_HISTORICO/08_Base_Legal_Patrimonial_Operativa/Inmobiliaria Puig SpA/'
+                '1. Escrituras y Modificaciones/1.Constitucion/2.Extracto/Extracto.txt',
+                'Inmobiliaria Puig SpA capital acciones 2024.',
+            )
+            manifest_path = temp_root / 'manifest.json'
+            manifest_path.write_text(json.dumps(self._manifest(source_root)), encoding='utf-8')
+            sensitive_source_root = temp_root / 'Socio Controlado Source 22.222.222-2'
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'review_annual_tax_ownership_candidates',
+                    manifest=str(manifest_path),
+                    source_root=str(sensitive_source_root),
+                    company_ref='inmobiliaria-puig',
+                    commercial_year=2024,
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertIn('Revision ownership invalida', rendered_error)
+            self.assertNotIn('Socio Controlado Source', rendered_error)
+            self.assertNotIn('22.222.222-2', rendered_error)
+
+        with TemporaryDirectory(dir=local_evidence) as temp_dir:
+            temp_root = Path(temp_dir)
+            source_root = temp_root / 'source'
+            source_root.mkdir()
+            self._write(
+                source_root,
+                'Ano_HISTORICO/08_Base_Legal_Patrimonial_Operativa/Inmobiliaria Puig SpA/'
+                '1. Escrituras y Modificaciones/1.Constitucion/2.Extracto/Extracto.txt',
+                'Inmobiliaria Puig SpA capital acciones 2024.',
+            )
+            manifest_path = temp_root / 'manifest.json'
+            manifest_path.write_text(json.dumps(self._manifest(source_root)), encoding='utf-8')
+            sensitive_output = local_evidence / 'Socio Controlado Output 33.333.333-3' / 'review.json'
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'review_annual_tax_ownership_candidates',
+                    manifest=str(manifest_path),
+                    source_root=str(source_root),
+                    company_ref='inmobiliaria-puig',
+                    commercial_year=2024,
+                    output=str(sensitive_output),
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertIn('ruta relativa no sensible', rendered_error)
+            self.assertNotIn('Socio Controlado Output', rendered_error)
+            self.assertNotIn('33.333.333-3', rendered_error)
