@@ -99,6 +99,10 @@ borrador no sensible de `AnnualTaxSourceBundle`. Este manifiesto confirma si
 existen fuentes suficientes para una prueba espejo desde libros cerrados, pero
 no crea cierres mensuales ni hechos tributarios en DB y no reemplaza revision
 experta.
+Cuando incluye lista de archivos, conserva `path_ref` estable para trazabilidad
+y redacta `relative_path` si la ruta contiene URL, token, correo, ruta local
+absoluta o RUT chileno. La clasificacion, meses y cobertura se calculan desde
+la ruta cruda solo en memoria, sin persistir el RUT en el JSON.
 Para evitar una prueba circular, el manifiesto separa explicitamente inputs de
 calculo y objetivos de comparacion: Libro Diario, Libro Mayor, Libro
 Inventario, RCV, F29, compra/venta, remuneraciones y fuente societaria/
