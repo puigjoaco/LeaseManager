@@ -3948,6 +3948,14 @@ clasifican refs/payloads con RUT chileno o rutas locales absolutas, ademas de
 URLs, tokens, credenciales, correos y claves sensibles, sin imprimir valores
 crudos ni declarar calculo tributario final o presentacion SII.
 
+Nota 2026-06-22: El readiness del paquete controlado anual aplica el boundary
+controlado a refs y payloads operativos del JSON de carga. RUT chileno y rutas
+locales absolutas en `company_ref`, refs mensuales, libros, balance, F29,
+labor previsional o `annual_input_source_refs` bloquean el writer sin exponer
+valores crudos; el RUT estructurado de `package.ownership` sigue permitido como
+snapshot patrimonial controlado y los summaries de handoff ownership se
+sanitizan antes de exponerse.
+
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |
 | Gobierno documental | Fuente de verdad, AGENTS, README, cursor operativo | `docs/governance`, `AGENTS.md`, `ORDEN_DE_LECTURA.md`, `.gitignore`, `docs/product/EXECUTION_CURSOR_MAYO_2026.md` | 0 | resuelto_confirmado | PR con CI verde y docs consistentes | Mantener actualizado al cambiar fuentes; bloqueos y evidencia son controles operativos de cierre, no arquitectura de producto; el cursor gobierna reanudaciones, worktrees tacticos y metatareas cerradas; artefactos locales de herramienta como `.codex-spreadsheet/`, `.playwright-cli/`, capturas PNG en el root y archivos manuales `CONFIDENCIAL`/`NO_SUBIR` quedan ignorados para no ensuciar `main` ni confundirse con paquetes activos; acceptance ejecuta `assert-repo-hygiene.ps1 -IncludeUntracked` para detectar artefactos sensibles no versionados ni ignorados sin leer secretos. |

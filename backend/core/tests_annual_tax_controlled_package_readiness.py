@@ -208,6 +208,52 @@ class AnnualTaxControlledPackageReadinessTests(SimpleTestCase):
         self.assertEqual(result['summary']['ownership_snapshot']['participants_count'], 2)
         self.assertFalse(result['summary']['labor_previsional_source']['required'])
 
+    def test_control_sensitive_refs_inside_package_block_writer_without_leaking_values(self):
+        package = self._complete_package()
+        package['responsible_ref'] = 'responsible_11.111.111-1'
+        package['months'][0]['source_ref'] = 'source_C:/Privado/ac2024/enero.json'
+        package['months'][0]['ledger']['libro_diario_ref'] = 'ledger_11.111.111-1'
+        package['months'][0]['f29']['borrador_ref'] = 'f29_C:/Privado/f29.pdf'
+
+        result = audit_annual_tax_controlled_package_readiness(payload=package)
+        rendered_result = json.dumps(result)
+
+        self.assertFalse(result['ready_for_db_writer'])
+        self.assertFalse(result['ready_for_annual_generation'])
+        self.assertIn('sensitive_reference_present', result['blockers'])
+        self.assertIn('missing_control_refs', result['blockers'])
+        self.assertIn('monthly_source_refs_missing', result['blockers'])
+        self.assertIn('f29_status_missing', result['blockers'])
+        self.assertIn('$.responsible_ref', result['invalid_paths'])
+        self.assertIn('$.months[0].source_ref', result['invalid_paths'])
+        self.assertIn('$.months[0].ledger.libro_diario_ref', result['invalid_paths'])
+        self.assertIn('$.months[0].f29.borrador_ref', result['invalid_paths'])
+        self.assertNotIn('11.111.111-1', rendered_result)
+        self.assertNotIn('C:/Privado', rendered_result)
+
+    def test_control_sensitive_annual_input_refs_block_writer_without_leaking_values(self):
+        package = self._complete_package()
+        package['annual_input_source_refs']['annual_ledger_input'][0]['path_ref'] = (
+            'source_C:/Privado/libro-diario.pdf'
+        )
+        package['annual_input_source_refs']['annual_ledger_input'].append(
+            {
+                'path_ref': 'source_11.111.111-1',
+                'category': 'annual_ledger_input',
+                'artifact_key': 'annual_ledger_duplicate',
+            }
+        )
+
+        result = audit_annual_tax_controlled_package_readiness(payload=package)
+        rendered_result = json.dumps(result)
+
+        self.assertFalse(result['ready_for_db_writer'])
+        self.assertIn('sensitive_reference_present', result['blockers'])
+        self.assertIn('$.annual_input_source_refs.annual_ledger_input[0].path_ref', result['invalid_paths'])
+        self.assertIn('$.annual_input_source_refs.annual_ledger_input[1].path_ref', result['invalid_paths'])
+        self.assertNotIn('11.111.111-1', rendered_result)
+        self.assertNotIn('C:/Privado', rendered_result)
+
     def test_labor_previsional_required_without_source_blocks_writer(self):
         package = self._complete_package()
         package['labor_previsional'] = {

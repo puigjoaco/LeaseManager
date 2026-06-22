@@ -19,9 +19,10 @@ from core.annual_tax_controlled_package_template import (
 from core.annual_tax_controlled_load_plan import COMPARISON_ONLY_CATEGORIES
 from core.reference_validation import (
     contains_chilean_rut_reference,
+    contains_sensitive_control_reference,
     contains_local_absolute_path_reference,
     contains_sensitive_reference,
-    is_non_sensitive_reference,
+    is_non_sensitive_control_reference,
 )
 from patrimonio.validators import validate_rut
 
@@ -29,6 +30,10 @@ from patrimonio.validators import validate_rut
 CONTROLLED_PACKAGE_READINESS_SCHEMA_VERSION = 'annual-tax-controlled-package-readiness.v1'
 MONTHS = tuple(range(1, 13))
 SAFE_REF_PATTERN = re.compile(r'^[A-Za-z0-9_.:-]+$')
+CONTROLLED_CONTEXT_KEY_PATTERN = re.compile(
+    r'(ref|refs|path|paths|source|sources|payload|metadata|summary|resumen|warning|warnings)',
+    re.IGNORECASE,
+)
 
 PACKAGE_REFERENCE_FIELDS = (
     'company_ref',
@@ -88,7 +93,7 @@ def _normalized_rut(value: Any) -> str | None:
 
 
 def _non_sensitive_text(value: Any) -> bool:
-    return is_non_sensitive_reference(value)
+    return is_non_sensitive_control_reference(value)
 
 
 def _safe_summary_ref(value: Any, *, fallback: str) -> str:
@@ -130,6 +135,43 @@ def _safe_source_issue_codes(raw_issue_codes: Any) -> list[dict[str, str]]:
             }
         )
     return sorted(issue_codes, key=lambda item: (item['code'], item['severity']))
+
+
+def _find_control_sensitive_reference_paths(
+    value: Any,
+    *,
+    path: str = '$',
+    controlled_context: bool = False,
+) -> list[str]:
+    paths: list[str] = []
+    if isinstance(value, dict):
+        for key, item in value.items():
+            key_text = str(key or '')
+            item_path = f'{path}.{key_text}'
+            if path == '$.ownership_review' and key_text in {'question_source_summaries', 'source_summaries'}:
+                continue
+            item_controlled_context = controlled_context or bool(
+                CONTROLLED_CONTEXT_KEY_PATTERN.search(key_text)
+            )
+            paths.extend(
+                _find_control_sensitive_reference_paths(
+                    item,
+                    path=item_path,
+                    controlled_context=item_controlled_context,
+                )
+            )
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            paths.extend(
+                _find_control_sensitive_reference_paths(
+                    item,
+                    path=f'{path}[{index}]',
+                    controlled_context=controlled_context,
+                )
+            )
+    elif controlled_context and isinstance(value, str) and contains_sensitive_control_reference(value):
+        paths.append(path)
+    return paths
 
 
 def _question_source_summaries(payload: dict[str, Any]) -> list[dict[str, Any]]:
@@ -210,6 +252,12 @@ def _validate_top_level(
     if contains_sensitive_reference(package, include_sensitive_keys=True):
         blockers.add('sensitive_reference_present')
         _add_invalid(invalid_paths, '$')
+
+    control_sensitive_paths = _find_control_sensitive_reference_paths(package)
+    if control_sensitive_paths:
+        blockers.add('sensitive_reference_present')
+        for path in control_sensitive_paths[:20]:
+            _add_invalid(invalid_paths, path)
 
     for field_name in PACKAGE_REFERENCE_FIELDS:
         if not _completed_reference(package.get(field_name)):
