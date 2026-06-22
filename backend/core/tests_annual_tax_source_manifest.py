@@ -252,6 +252,29 @@ class AnnualTaxSourceManifestTests(SimpleTestCase):
         self.assertEqual(file_payload['category'], 'rcv_structured_input')
         self.assertEqual(file_payload['months'], [1])
 
+    def test_manifest_redacts_rut_relative_paths_but_keeps_path_ref_and_classification(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            self._write(
+                source_root,
+                'Socio_11.111.111-1/Ano_2024/06_Respaldos_Tributarios/02_RCV_SII/2024-01_RCV_Resumen.csv',
+            )
+
+            manifest = build_annual_tax_source_manifest(
+                source_root=source_root,
+                company_ref='inmobiliaria-puig',
+                commercial_year=2024,
+                tax_year=2025,
+            )
+
+        file_payload = manifest['files'][0]
+        rendered = json.dumps(manifest, ensure_ascii=True)
+        self.assertEqual(file_payload['relative_path'], '<redacted-sensitive-reference>')
+        self.assertTrue(file_payload['path_ref'].startswith('file-path-sha256:'))
+        self.assertEqual(file_payload['category'], 'rcv_structured_input')
+        self.assertEqual(file_payload['months'], [1])
+        self.assertNotIn('11.111.111-1', rendered)
+
     def test_manifest_treats_balance_and_tax_registers_as_comparison_targets_not_inputs(self):
         with TemporaryDirectory() as temp_dir:
             source_root = Path(temp_dir)

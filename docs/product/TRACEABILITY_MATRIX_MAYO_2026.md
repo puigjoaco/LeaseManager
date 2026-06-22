@@ -378,6 +378,12 @@ conservan, pero rutas, RUTs, URLs, emails o texto libre sensible quedan como
 `redacted-checklist-item` o `redacted-validation-blocker`, evitando que un
 checklist ownership contaminado propague PII al paquete controlado.
 
+Nota 2026-06-21: `build_annual_tax_source_manifest` redacta ahora
+`files[].relative_path` cuando la ruta relativa contiene RUT chileno, ademas de
+URLs/tokens/refs sensibles ya cubiertos. El `path_ref` hash se conserva y la
+clasificacion/cobertura se calculan desde la ruta cruda solo en memoria, por lo
+que el manifest puede seguir alimentando templates sin versionar RUTs.
+
 Nota 2026-06-18: Etapa 6/Renta Anual separa el codigo de certificacion F22 del
 candidato local. `build_annual_tax_f22_fixed_width_export_candidate()` ahora
 requiere fuente no sensible, responsable revisor y estado de revision para los
