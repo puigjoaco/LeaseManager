@@ -18,7 +18,7 @@ from contabilidad.models import (
     LibroDiario,
     NaturalezaCuenta,
 )
-from core.reference_validation import is_non_sensitive_reference
+from core.reference_validation import is_non_sensitive_control_reference
 from sii.models import (
     AnnualTaxDDJJFormLayout,
     AnnualTaxF22ExportLayout,
@@ -62,7 +62,7 @@ def _require_reference(value: str, field_name: str) -> str:
     normalized = str(value or '').strip()
     if not normalized:
         raise ValueError(f'{field_name} es obligatorio.')
-    if not is_non_sensitive_reference(normalized):
+    if not is_non_sensitive_control_reference(normalized):
         raise ValueError(f'{field_name} debe ser una referencia no sensible.')
     return normalized
 
