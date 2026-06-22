@@ -124,6 +124,10 @@ controladas: `source_ref`, `authorization_ref`, `responsible_ref`,
 RUT chileno o rutas locales absolutas, no solo URLs, tokens, credenciales o
 correos. Esto cierra llamadas directas a modelos que no pasan por builders o
 CLI operativos.
+La salida SII aplica el mismo boundary controlado antes de exponer API,
+snapshot o admin: refs y payloads heredados o escritos por cargas masivas se
+redactan si conservan RUT chileno o rutas locales absolutas, aunque el dominio
+actual ya rechace nuevas escrituras contaminadas.
 El comparador de outputs esperados aplica ese mismo boundary a la evidencia de
 artefactos generados: `ddjj_package_ref`, `f22_draft_ref`, `source_ref`,
 `dossier_ref`, `export_ref`, `checklist_ref` y `evidence_ref` se redactan si
@@ -1242,8 +1246,9 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   bootstrap demo anual crea parametria demo controlada, no oficial, antes de
   generar artefactos anuales locales.
 - La API/snapshot/admin de SII exponen `AnnualTaxSourceBundle` con refs y
-  payloads redactados; el admin no busca referencias crudas potencialmente
-  sensibles.
+  payloads redactados mediante el boundary controlado de refs SII; RUTs
+  chilenos y rutas locales absolutas heredadas no salen por API, snapshot ni
+  admin, y el admin no busca referencias crudas potencialmente sensibles.
 - La API/snapshot/admin de SII exponen `MonthlyTaxFact` con `source_ref`,
   `responsible_ref` y `resumen_hecho` redactados; el admin es solo lectura para
   evitar ediciones manuales de hechos derivados.

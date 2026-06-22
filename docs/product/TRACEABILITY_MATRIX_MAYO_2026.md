@@ -3920,6 +3920,13 @@ Nota 2026-06-21: El tramo ownership/controlado conserva la misma traza segura.
 en `question_source_summaries`; los paquetes controlados siguen rechazando refs
 sensibles crudas y no abren calculo final ni presentacion SII.
 
+Nota 2026-06-22: SII/Etapa 6 aplica redaccion de salida con el mismo boundary
+controlado que el dominio. `core.reference_validation` expone redactors
+estrictos para refs/payloads controlados y API, snapshot y admin SII los usan
+para ocultar RUT chileno y rutas locales absolutas heredadas antes de exponer
+`AnnualTaxSourceBundle` u otros payloads SII. No abre calculo tributario final
+ni presentacion SII.
+
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |
 | Gobierno documental | Fuente de verdad, AGENTS, README, cursor operativo | `docs/governance`, `AGENTS.md`, `ORDEN_DE_LECTURA.md`, `.gitignore`, `docs/product/EXECUTION_CURSOR_MAYO_2026.md` | 0 | resuelto_confirmado | PR con CI verde y docs consistentes | Mantener actualizado al cambiar fuentes; bloqueos y evidencia son controles operativos de cierre, no arquitectura de producto; el cursor gobierna reanudaciones, worktrees tacticos y metatareas cerradas; artefactos locales de herramienta como `.codex-spreadsheet/`, `.playwright-cli/`, capturas PNG en el root y archivos manuales `CONFIDENCIAL`/`NO_SUBIR` quedan ignorados para no ensuciar `main` ni confundirse con paquetes activos; acceptance ejecuta `assert-repo-hygiene.ps1 -IncludeUntracked` para detectar artefactos sensibles no versionados ni ignorados sin leer secretos. |

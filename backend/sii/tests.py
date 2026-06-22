@@ -192,6 +192,60 @@ class SiiAPITests(APITestCase):
                 self.assertIn(field_name, context.exception.message_dict)
                 self.assertIn('RUT ni ruta local', str(context.exception.message_dict[field_name]))
 
+    def test_sii_output_redacts_legacy_rut_and_local_path_refs(self):
+        empresa = self._create_active_empresa(nombre='SiiOutputRefs', rut='77777777-7')
+        bundle = AnnualTaxSourceBundle.objects.create(
+            empresa=empresa,
+            anio_tributario=2027,
+            anio_comercial=2026,
+            source_kind=SourceKindRentaAnual.LOCAL,
+            source_label='source_11.111.111-1',
+            authorization_ref='source_C:/Privado/source-bundle-auth.pdf',
+            responsible_ref='responsible_22.222.222-2',
+            resumen_fuentes={
+                'safe_ref': 'controlled-source-summary',
+                'rut_ref': 'participant_33.333.333-3',
+                'path_ref': 'source_D:/Privado/source-summary.pdf',
+            },
+        )
+        admin = AnnualTaxSourceBundleAdmin(AnnualTaxSourceBundle, AdminSite())
+
+        self.assertEqual(admin.source_label_redacted(bundle), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(admin.authorization_ref_redacted(bundle), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(admin.responsible_ref_redacted(bundle), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(
+            admin.resumen_fuentes_redacted(bundle),
+            {
+                'safe_ref': 'controlled-source-summary',
+                'rut_ref': REDACTED_SENSITIVE_REFERENCE,
+                'path_ref': REDACTED_SENSITIVE_REFERENCE,
+            },
+        )
+
+        response = self.client.get(reverse('sii-annual-source-bundle-list'))
+        snapshot = self.client.get(reverse('sii-snapshot'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
+        bundle_data = next(item for item in response.data if item['id'] == bundle.id)
+        snapshot_bundle_data = next(
+            item for item in snapshot.data['annual_tax_source_bundles'] if item['id'] == bundle.id
+        )
+        for data in (bundle_data, snapshot_bundle_data):
+            self.assertEqual(data['source_label'], REDACTED_SENSITIVE_REFERENCE)
+            self.assertEqual(data['authorization_ref'], REDACTED_SENSITIVE_REFERENCE)
+            self.assertEqual(data['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
+            self.assertEqual(data['resumen_fuentes']['safe_ref'], 'controlled-source-summary')
+            self.assertEqual(data['resumen_fuentes']['rut_ref'], REDACTED_SENSITIVE_REFERENCE)
+            self.assertEqual(data['resumen_fuentes']['path_ref'], REDACTED_SENSITIVE_REFERENCE)
+
+        serialized_payload = json.dumps({'response': response.data, 'snapshot': snapshot.data}, default=str)
+        self.assertNotIn('11.111.111-1', serialized_payload)
+        self.assertNotIn('22.222.222-2', serialized_payload)
+        self.assertNotIn('33.333.333-3', serialized_payload)
+        self.assertNotIn('C:/Privado', serialized_payload)
+        self.assertNotIn('D:/Privado', serialized_payload)
+
     def _assert_transition_metadata(self, event, *, field, previous, current):
         self.assertEqual(event.metadata['campo_estado'], field)
         self.assertEqual(event.metadata['estado_anterior'], previous)

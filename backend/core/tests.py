@@ -38,6 +38,8 @@ from .reference_validation import (
     contains_sensitive_reference,
     count_chilean_rut_references,
     is_non_sensitive_control_reference,
+    redact_sensitive_control_payload,
+    redact_sensitive_control_reference,
     redact_sensitive_payload,
     redact_sensitive_payload_values,
 )
@@ -412,6 +414,28 @@ class ReferenceValidationTests(TestCase):
         self.assertFalse(is_non_sensitive_control_reference('https://example.test/ref?token=secret'))
         self.assertFalse(is_non_sensitive_control_reference('source_11.111.111-1'))
         self.assertFalse(is_non_sensitive_control_reference('source_C:/Privado/socio.pdf'))
+
+    def test_control_redaction_covers_rut_local_paths_and_payloads(self):
+        self.assertEqual(redact_sensitive_control_reference('controlled-reference'), 'controlled-reference')
+        self.assertEqual(redact_sensitive_control_reference('source_11.111.111-1'), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(redact_sensitive_control_reference('source_C:/Privado/socio.pdf'), REDACTED_SENSITIVE_REFERENCE)
+
+        payload = {
+            'safe_ref': 'controlled-reference',
+            'rut_ref': 'participant_22.222.222-2',
+            'path_ref': 'source_C:/Privado/socio.pdf',
+            'nested': [{'authorization': 'opaque-header-value'}],
+        }
+
+        self.assertEqual(
+            redact_sensitive_control_payload(payload),
+            {
+                'safe_ref': 'controlled-reference',
+                'rut_ref': REDACTED_SENSITIVE_REFERENCE,
+                'path_ref': REDACTED_SENSITIVE_REFERENCE,
+                'nested': [{'authorization': REDACTED_SENSITIVE_REFERENCE}],
+            },
+        )
 
     def test_redact_sensitive_payload_recurses_values_and_sensitive_keys(self):
         payload = {
