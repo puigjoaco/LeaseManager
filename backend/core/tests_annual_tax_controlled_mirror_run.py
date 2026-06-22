@@ -482,6 +482,30 @@ class AnnualTaxControlledMirrorRunTests(TestCase):
         self.assertTrue(result['ready_for_generation'])
         self.assertEqual(stdout.getvalue(), '')
 
+    def test_command_rejects_sensitive_output_relative_path_under_local_evidence(self):
+        with TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / 'repo'
+            (repo_root / 'local-evidence').mkdir(parents=True)
+            output_path = repo_root / 'local-evidence' / '11111111-1' / 'mirror-run.json'
+
+            with self.settings(PROJECT_ROOT=str(repo_root)):
+                with self.assertRaisesMessage(CommandError, 'ruta relativa no sensible'):
+                    call_command(
+                        'run_annual_tax_controlled_mirror',
+                        empresa_id=1,
+                        commercial_year=2024,
+                        tax_year=2025,
+                        source_label='inmobiliaria-puig-ac2024-controlled-writer',
+                        authorization_ref='user-authorized-local-source-review',
+                        responsible_ref='codex-local-review',
+                        fiscal_rule_ref='ac2024-tax-rule-review-pending',
+                        certificates_proof_ref='ac2024-certificates-proof-pending',
+                        output=str(output_path),
+                        stdout=StringIO(),
+                    )
+
+            self.assertFalse(output_path.exists())
+
     def test_command_rejects_control_sensitive_refs_without_writing_or_echoing_values(self):
         empresa = self._create_empresa()
         self._load_monthly_package(empresa, package=self._with_ownership(self._package()))

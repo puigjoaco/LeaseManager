@@ -1,36 +1,13 @@
 import json
-from pathlib import Path
 
-from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from core.annual_tax_controlled_mirror_run import run_annual_tax_controlled_mirror
+from core.management.local_evidence_paths import (
+    resolve_command_path,
+    validate_local_evidence_output_path,
+)
 from patrimonio.models import Empresa
-
-
-def _resolve_path(raw_path: str) -> Path:
-    path = Path(raw_path).expanduser()
-    if not path.is_absolute():
-        path = Path.cwd() / path
-    return path.resolve()
-
-
-def _validate_output_path(output_path: Path) -> None:
-    repo_root = Path(settings.PROJECT_ROOT).resolve()
-    local_evidence_root = (repo_root / 'local-evidence').resolve()
-
-    try:
-        output_path.relative_to(repo_root)
-    except ValueError:
-        return
-
-    try:
-        output_path.relative_to(local_evidence_root)
-    except ValueError as error:
-        raise CommandError(
-            'Si --output queda dentro del repo, debe estar bajo local-evidence/ '
-            'para no versionar evidencia contable o tributaria.'
-        ) from error
 
 
 class Command(BaseCommand):
@@ -64,8 +41,8 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         output_path = None
         if options['output']:
-            output_path = _resolve_path(options['output'])
-            _validate_output_path(output_path)
+            output_path = resolve_command_path(options['output'])
+            validate_local_evidence_output_path(output_path)
 
         try:
             empresa = Empresa.objects.get(pk=options['empresa_id'])

@@ -1,36 +1,13 @@
 import json
-from pathlib import Path
 
-from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from core.annual_tax_mirror_proof import audit_annual_tax_mirror_proof
+from core.management.local_evidence_paths import (
+    resolve_command_path,
+    validate_local_evidence_output_path,
+)
 from patrimonio.models import Empresa
-
-
-def _resolve_path(raw_path: str) -> Path:
-    path = Path(raw_path).expanduser()
-    if not path.is_absolute():
-        path = Path.cwd() / path
-    return path.resolve()
-
-
-def _validate_output_path(output_path: Path) -> None:
-    repo_root = Path(settings.PROJECT_ROOT).resolve()
-    local_evidence_root = (repo_root / 'local-evidence').resolve()
-
-    try:
-        output_path.relative_to(repo_root)
-    except ValueError:
-        return
-
-    try:
-        output_path.relative_to(local_evidence_root)
-    except ValueError as error:
-        raise CommandError(
-            'Si --output queda dentro del repo, debe estar bajo local-evidence/ '
-            'para no versionar evidencia contable o tributaria.'
-        ) from error
 
 
 class Command(BaseCommand):
@@ -86,17 +63,17 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        manifest_path = _resolve_path(options['manifest'])
+        manifest_path = resolve_command_path(options['manifest'])
         if not manifest_path.exists() or not manifest_path.is_file():
             raise CommandError('No existe manifest JSON o no es un archivo legible.')
-        source_root = _resolve_path(options['source_root']) if options['source_root'] else None
+        source_root = resolve_command_path(options['source_root']) if options['source_root'] else None
         if source_root is not None and not source_root.is_dir():
             raise CommandError('No existe source-root o no es un directorio legible.')
 
         output_path = None
         if options['output']:
-            output_path = _resolve_path(options['output'])
-            _validate_output_path(output_path)
+            output_path = resolve_command_path(options['output'])
+            validate_local_evidence_output_path(output_path)
 
         try:
             manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
@@ -106,7 +83,7 @@ class Command(BaseCommand):
             raise CommandError('No se pudo leer manifest JSON.') from error
         ownership_evidence = None
         if options['ownership_evidence']:
-            ownership_evidence_path = _resolve_path(options['ownership_evidence'])
+            ownership_evidence_path = resolve_command_path(options['ownership_evidence'])
             if not ownership_evidence_path.exists() or not ownership_evidence_path.is_file():
                 raise CommandError('No existe ownership evidence JSON o no es un archivo legible.')
             try:
@@ -119,7 +96,7 @@ class Command(BaseCommand):
                 raise CommandError('No se pudo leer ownership evidence JSON.') from error
         mirror_run = None
         if options['mirror_run']:
-            mirror_run_path = _resolve_path(options['mirror_run'])
+            mirror_run_path = resolve_command_path(options['mirror_run'])
             if not mirror_run_path.exists() or not mirror_run_path.is_file():
                 raise CommandError('No existe mirror run JSON o no es un archivo legible.')
             try:

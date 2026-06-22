@@ -479,6 +479,25 @@ class AnnualTaxControlledPackageReadinessTests(SimpleTestCase):
                     stdout=StringIO(),
                 )
 
+    def test_command_rejects_sensitive_output_relative_path_under_local_evidence(self):
+        with TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / 'repo'
+            (repo_root / 'local-evidence').mkdir(parents=True)
+            package_path = Path(temp_dir) / 'package.json'
+            output_path = repo_root / 'local-evidence' / '11111111-1' / 'readiness.json'
+            package_path.write_text(json.dumps(self._complete_package()), encoding='utf-8')
+
+            with self.settings(PROJECT_ROOT=str(repo_root)):
+                with self.assertRaisesMessage(CommandError, 'ruta relativa no sensible'):
+                    call_command(
+                        'audit_annual_tax_controlled_package_readiness',
+                        package=str(package_path),
+                        output=str(output_path),
+                        stdout=StringIO(),
+                    )
+
+            self.assertFalse(output_path.exists())
+
     def test_command_missing_package_error_does_not_echo_sensitive_path(self):
         with TemporaryDirectory() as temp_dir:
             missing_path = Path(temp_dir) / 'Socio Controlado Uno 11111111-1.json'
