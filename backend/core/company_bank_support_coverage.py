@@ -28,7 +28,7 @@ STRONG_CONFIRMATION_STRENGTHS = frozenset({'verified_complete'})
 ACCEPTED_CONFIRMATION_STRENGTHS = frozenset({'expected_complete', 'verified_complete'})
 KNOWN_CONFIRMATION_STRENGTHS = frozenset({'expected_complete', 'verified_complete'})
 ALL_OPERATIONS = '*'
-CHILEAN_RUT_PATTERN = re.compile(r'\b\d{1,2}\.?\d{3}\.?\d{3}-[\dkK]\b')
+CHILEAN_RUT_PATTERN = re.compile(r'(?<!\d)\d{1,2}\.?\d{3}\.?\d{3}-[\dkK](?!\d)')
 WINDOWS_ABSOLUTE_PATH_PATTERN = re.compile(r'(^|[\s"\'])([A-Za-z]:[\\/]|\\\\)')
 COMPANY_BANK_SUPPORT_BOUNDARY = {
     'purpose': 'auditar_cobertura_documental_bancaria_para_revision_contable',

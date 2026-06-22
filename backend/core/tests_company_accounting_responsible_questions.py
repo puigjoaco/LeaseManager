@@ -224,9 +224,9 @@ class CompanyAccountingResponsibleQuestionsTests(SimpleTestCase):
     def test_noncanonical_issue_codes_are_redacted(self):
         packet = build_company_accounting_responsible_questions(
             source_payloads={
-                'Socio Controlado Uno': {
+                'source_11.111.111-1': {
                     'schema_version': 'bad-source.v1',
-                    'blockers': ['Socio Controlado Uno 11111111-1 pendiente'],
+                    'blockers': ['blocking_11.111.111-1_pending'],
                 }
             },
         )
@@ -235,8 +235,9 @@ class CompanyAccountingResponsibleQuestionsTests(SimpleTestCase):
         self.assertEqual(packet['questions'][0]['source_issue_code'], 'noncanonical-issue-code')
         self.assertEqual(packet['questions'][0]['source_label'], 'source-redacted')
         self.assertIn('noncanonical-issue-code', packet['questions'][0]['question'])
-        self.assertNotIn('Socio Controlado Uno', rendered)
-        self.assertNotIn('11111111-1', rendered)
+        self.assertNotIn('source_11.111.111-1', rendered)
+        self.assertNotIn('blocking_11.111.111-1_pending', rendered)
+        self.assertNotIn('11.111.111-1', rendered)
 
     def test_command_rejects_repo_output_outside_local_evidence(self):
         with TemporaryDirectory() as temp_dir:

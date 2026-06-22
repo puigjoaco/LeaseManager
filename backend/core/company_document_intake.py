@@ -31,7 +31,7 @@ ANNUAL_SOURCE_INTAKE_BRIDGE_FILE = 'annual-tax-source-intake-bridge.json'
 ANNUAL_SOURCE_INTAKE_BRIDGE_SCHEMA_VERSION = 'annual-tax-source-intake-bridge.v1'
 ALL_OPERATIONS = '*'
 
-CHILEAN_RUT_PATTERN = re.compile(r'\b\d{1,2}\.?\d{3}\.?\d{3}-[\dkK]\b')
+CHILEAN_RUT_PATTERN = re.compile(r'(?<!\d)\d{1,2}\.?\d{3}\.?\d{3}-[\dkK](?!\d)')
 WINDOWS_ABSOLUTE_PATH_PATTERN = re.compile(r'(^|[\s"\'])([A-Za-z]:[\\/]|\\\\)')
 
 SOURCE_KINDS = frozenset(

@@ -33,7 +33,7 @@ COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_SCHEMA_VERSION = (
 COMPANY_ACCOUNTING_RESPONSIBLE_ANSWERS_TEMPLATE_MANIFEST = 'company-accounting-responsible-answers.template.json'
 COMPANY_ACCOUNTING_RESPONSIBLE_HANDOFF_PACKET_MANIFEST = 'company-accounting-responsible-handoff-packet.json'
 
-CHILEAN_RUT_PATTERN = re.compile(r'\b\d{1,2}\.?\d{3}\.?\d{3}-[\dkK]\b')
+CHILEAN_RUT_PATTERN = re.compile(r'(?<!\d)\d{1,2}\.?\d{3}\.?\d{3}-[\dkK](?!\d)')
 WINDOWS_ABSOLUTE_PATH_PATTERN = re.compile(r'(^|[\s"\'])([A-Za-z]:[\\/]|\\\\)')
 SAFE_REF_PATTERN = re.compile(r'^[A-Za-z0-9_.:-]+$')
 

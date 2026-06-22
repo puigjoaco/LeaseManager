@@ -118,7 +118,7 @@ class CompanyBankSupportCoverageTests(TestCase):
 
     def test_sensitive_manifest_is_blocking_and_does_not_leak_values(self):
         manifest = _complete_manifest()
-        manifest['company_ref'] = '76.123.456-7'
+        manifest['company_ref'] = 'company_76.123.456-7'
         manifest['attachments'][0]['source_ref'] = 'https://bank.example.test/file?token=secret'
         manifest['attachments'][1]['local_path'] = 'C:\\Users\\owner\\Downloads\\factura.pdf'
         manifest['confirmations'][0]['password'] = 'last-six-rut-digits'

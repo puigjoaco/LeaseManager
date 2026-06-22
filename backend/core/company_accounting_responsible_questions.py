@@ -13,7 +13,7 @@ from core.reference_validation import contains_sensitive_reference
 COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_SCHEMA_VERSION = 'company-accounting-responsible-questions.v1'
 COMPANY_ACCOUNTING_RESPONSIBLE_QUESTIONS_MANIFEST = 'company-accounting-responsible-questions.json'
 
-CHILEAN_RUT_PATTERN = re.compile(r'\b\d{1,2}\.?\d{3}\.?\d{3}-[\dkK]\b')
+CHILEAN_RUT_PATTERN = re.compile(r'(?<!\d)\d{1,2}\.?\d{3}\.?\d{3}-[\dkK](?!\d)')
 WINDOWS_ABSOLUTE_PATH_PATTERN = re.compile(r'(^|[\s"\'])([A-Za-z]:[\\/]|\\\\)')
 CANONICAL_ISSUE_CODE_PATTERN = re.compile(r'^[A-Za-z0-9_.:-]+$')
 

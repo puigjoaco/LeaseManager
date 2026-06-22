@@ -220,9 +220,16 @@ class AnnualTaxControlledPackageTemplateTests(SimpleTestCase):
         checklist = self._ownership_review_checklist()
         checklist['validation_summary']['blockers'] = [
             'ownership_patch_validation_missing',
+            'ownership_source_11.111.111-1_missing',
             'D:/Privado/Socio Controlado Uno 11.111.111-1/ownership.pdf',
             'https://example.test/review?token=secret',
         ]
+        checklist['checklist_items'].append(
+            {
+                'key': 'participants_11.111.111-1_pending',
+                'status': 'pending',
+            }
+        )
         checklist['checklist_items'].append(
             {
                 'key': 'C:/Privado/Socio Controlado Uno 11.111.111-1/constitucion.pdf',
@@ -240,6 +247,8 @@ class AnnualTaxControlledPackageTemplateTests(SimpleTestCase):
         self.assertIn('ownership_patch_validation_missing', handoff['validation_blockers'])
         self.assertIn('redacted-validation-blocker', handoff['validation_blockers'])
         self.assertIn('redacted-checklist-item', handoff['blocking_item_keys'])
+        self.assertNotIn('ownership_source_11.111.111-1_missing', handoff['validation_blockers'])
+        self.assertNotIn('participants_11.111.111-1_pending', handoff['blocking_item_keys'])
         self.assertNotIn('D:/Privado', rendered)
         self.assertNotIn('C:/Privado', rendered)
         self.assertNotIn('11.111.111-1', rendered)

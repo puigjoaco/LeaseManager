@@ -23,7 +23,7 @@ from patrimonio.validators import validate_rut
 
 CONTROLLED_PACKAGE_READINESS_SCHEMA_VERSION = 'annual-tax-controlled-package-readiness.v1'
 MONTHS = tuple(range(1, 13))
-CHILEAN_RUT_PATTERN = re.compile(r'\b\d{1,2}\.?\d{3}\.?\d{3}-[\dkK]\b')
+CHILEAN_RUT_PATTERN = re.compile(r'(?<!\d)\d{1,2}\.?\d{3}\.?\d{3}-[\dkK](?!\d)')
 WINDOWS_ABSOLUTE_PATH_PATTERN = re.compile(r'(^|[\s"\'])([A-Za-z]:[\\/]|\\\\)')
 SAFE_REF_PATTERN = re.compile(r'^[A-Za-z0-9_.:-]+$')
 
