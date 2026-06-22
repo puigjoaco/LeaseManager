@@ -128,6 +128,9 @@ La salida SII aplica el mismo boundary controlado antes de exponer API,
 snapshot o admin: refs y payloads heredados o escritos por cargas masivas se
 redactan si conservan RUT chileno o rutas locales absolutas, aunque el dominio
 actual ya rechace nuevas escrituras contaminadas.
+Ese redactor conserva strings vacios como ausencia de dato, incluso bajo claves
+sensibles, para no introducir falsos marcadores de redaccion en payloads
+controlados; cualquier valor no vacio bajo clave sensible sigue redactado.
 El comparador de outputs esperados aplica ese mismo boundary a la evidencia de
 artefactos generados: `ddjj_package_ref`, `f22_draft_ref`, `source_ref`,
 `dossier_ref`, `export_ref`, `checklist_ref` y `evidence_ref` se redactan si

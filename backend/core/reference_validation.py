@@ -96,9 +96,12 @@ def redact_sensitive_payload(value, *, _sensitive_key=False):
 
 def redact_sensitive_control_payload(value, *, _sensitive_key=False):
     if isinstance(value, str):
-        if _sensitive_key or not is_non_sensitive_control_reference(value):
+        normalized = normalize_reference(value)
+        if not normalized:
+            return ''
+        if _sensitive_key or not is_non_sensitive_control_reference(normalized):
             return REDACTED_SENSITIVE_REFERENCE
-        return value
+        return normalized
     if isinstance(value, dict):
         return {
             key: redact_sensitive_control_payload(
