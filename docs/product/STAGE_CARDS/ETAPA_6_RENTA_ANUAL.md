@@ -118,6 +118,12 @@ La deteccion de rutas locales absolutas sigue el mismo criterio compartido:
 prefijos operativos como `source_C:/Privado/...`, para que manifest, handoffs,
 readiness, preguntas/respuestas, intake, cobertura bancaria y ownership
 controlado no mantengan regex locales divergentes ni persistan rutas crudas.
+El helper de dominio de modelos SII usa ese boundary estricto para referencias
+controladas: `source_ref`, `authorization_ref`, `responsible_ref`,
+`warning_review_ref` y refs equivalentes fallan en `full_clean()` si contienen
+RUT chileno o rutas locales absolutas, no solo URLs, tokens, credenciales o
+correos. Esto cierra llamadas directas a modelos que no pasan por builders o
+CLI operativos.
 El comparador de outputs esperados aplica ese mismo boundary a la evidencia de
 artefactos generados: `ddjj_package_ref`, `f22_draft_ref`, `source_ref`,
 `dossier_ref`, `export_ref`, `checklist_ref` y `evidence_ref` se redactan si

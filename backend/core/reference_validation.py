@@ -25,6 +25,15 @@ def is_non_sensitive_reference(value):
     return bool(normalized) and not SENSITIVE_REFERENCE_PATTERN.search(normalized)
 
 
+def is_non_sensitive_control_reference(value):
+    normalized = normalize_reference(value)
+    return (
+        is_non_sensitive_reference(normalized)
+        and not contains_chilean_rut_reference(normalized)
+        and not contains_local_absolute_path_reference(normalized)
+    )
+
+
 def key_looks_sensitive(value):
     normalized = normalize_reference(value)
     compact = re.sub(r'[\s_-]+', '', normalized.lower())

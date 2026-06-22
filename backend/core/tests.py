@@ -37,6 +37,7 @@ from .reference_validation import (
     contains_local_absolute_path_reference,
     contains_sensitive_reference,
     count_chilean_rut_references,
+    is_non_sensitive_control_reference,
     redact_sensitive_payload,
     redact_sensitive_payload_values,
 )
@@ -405,6 +406,12 @@ class ReferenceValidationTests(TestCase):
         self.assertTrue(contains_local_absolute_path_reference('source_C:/Privado/socio.pdf'))
         self.assertTrue(contains_local_absolute_path_reference(r'\\server\share\socio.pdf'))
         self.assertFalse(contains_local_absolute_path_reference('controlled-reference:C'))
+
+    def test_control_reference_rejects_sensitive_rut_and_local_path_values(self):
+        self.assertTrue(is_non_sensitive_control_reference('controlled-reference-at2026'))
+        self.assertFalse(is_non_sensitive_control_reference('https://example.test/ref?token=secret'))
+        self.assertFalse(is_non_sensitive_control_reference('source_11.111.111-1'))
+        self.assertFalse(is_non_sensitive_control_reference('source_C:/Privado/socio.pdf'))
 
     def test_redact_sensitive_payload_recurses_values_and_sensitive_keys(self):
         payload = {

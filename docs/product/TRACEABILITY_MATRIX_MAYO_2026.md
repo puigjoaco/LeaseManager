@@ -47,6 +47,15 @@ directas a builders/verificadores, no solo los CLI compuestos de presentacion.
 No abre formato oficial, certificacion real, envio SII ni calculo tributario
 final.
 
+Nota 2026-06-22: Etapa 6/Renta Anual eleva ese boundary al dominio SII.
+`core.reference_validation` expone `is_non_sensitive_control_reference` y
+`sii.models` lo usa en `_add_non_sensitive_reference_error`, por lo que
+referencias controladas como `source_ref`, `authorization_ref`,
+`responsible_ref`, `warning_review_ref` y refs equivalentes fallan en
+`full_clean()` si contienen RUT chileno o rutas locales absolutas, ademas de
+URLs, tokens, credenciales o correos. Esto cierra bypasses por uso directo de
+modelos y no abre SII real, DB real, calculo tributario final ni presentacion.
+
 Nota 2026-06-21: Etapa 6/Renta Anual enlaza el proof final con la evidencia
 del run mirror. `audit_annual_tax_mirror_proof` acepta `mirror_run` redactado y
 exige que corresponda a empresa/AC/AT/source, que haya generado DB con 12
