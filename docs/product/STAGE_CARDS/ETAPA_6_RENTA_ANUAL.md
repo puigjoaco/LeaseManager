@@ -675,6 +675,11 @@ subdirectorios. Esta herramienta acerca la operacion a un paquete unico
 exportable/controlable, pero conserva `official_format=false`,
 `sii_submission=false`, `ready_for_sii_submission=false` y
 `final_tax_calculation=false`.
+El comando y los servicios de construccion/verificacion rechazan refs o notas
+con RUT chileno o rutas locales absolutas, ademas de URLs, tokens,
+credenciales y correos. Esto aplica a autorizacion de handoff, responsable,
+ventana de presentacion, refs de certificacion y notas antes de materializar
+artefactos en disco.
 `materialize_annual_tax_sii_certification_readiness_packet` toma el manifest
 `annual-tax-controlled-presentation-package.json` ya materializado y genera una
 segunda carpeta verificable de readiness para certificacion/presentacion SII.

@@ -4401,6 +4401,70 @@ class Stage6RentaAnualReadinessTests(TestCase):
             )
         self.assertFalse(blocked_output.exists())
 
+    def test_materialize_annual_tax_controlled_presentation_package_rejects_rut_and_local_path_refs(self):
+        export, _mapping = self._add_reviewed_f22_fixed_width_mapping_and_resync(code='1234', value='1000')
+        process = ProcesoRentaAnual.objects.get()
+        rule_set = TaxYearRuleSet.objects.get()
+        source_bundle = AnnualTaxSourceBundle.objects.get()
+        sync_annual_tax_review_checklist(process, rule_set, source_bundle)
+        checklist = AnnualTaxReviewChecklist.objects.get(annual_export=export)
+        register_annual_tax_review_decision(
+            checklist,
+            review_decision_state=EstadoAnnualTaxReviewDecision.APPROVED_FOR_PRESENTATION,
+            decision_ref='annual-tax-manual-approval-at2026-controlled',
+            decision_evidence_ref='annual-tax-manual-approval-evidence-at2026-controlled',
+            responsible_ref='tax-reviewer-final-approval-controlled',
+            reason='manual_review_completed_for_controlled_package',
+        )
+        ddjj_item = AnnualTaxArtifactMatrixItem.objects.filter(target_kind='DDJJ', target_code='DDJJ-1887').first()
+        self.assertIsNotNone(ddjj_item)
+        ddjj_inputs = {
+            '1887': {
+                'records': self._ddjj_ascii_records(ddjj_item),
+                'transfer_control_record': {
+                    'record': '0' + 'T' * 23,
+                    'review_state': 'approved_for_candidate',
+                    'transfer_source_ref': 'sii-ddjj-at2026-transfer-control-reviewed',
+                    'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+                },
+            }
+        }
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        invalid_cases = [
+            ('handoff_authorization_ref', 'handoff_11.111.111-1'),
+            ('presentation_window_ref', 'source_C:/Privado/presentacion.pdf'),
+        ]
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            for field_name, field_value in invalid_cases:
+                output_dir = Path(temp_dir) / f'controlled-presentation-package-{field_name}'
+                kwargs = {
+                    'handoff_authorization_ref': 'annual-tax-controlled-handoff-authorization-at2026',
+                    'responsible_ref': 'tax-reviewer-controlled-handoff-at2026',
+                    'presentation_window_ref': 'presentation-window-at2026-controlled-local',
+                }
+                kwargs[field_name] = field_value
+
+                with self.subTest(field_name=field_name), self.assertRaisesMessage(CommandError, field_name):
+                    call_command(
+                        'materialize_annual_tax_controlled_presentation_package',
+                        export_id=export.pk,
+                        rut_number='97030000',
+                        rut_dv='0',
+                        company_code='QA',
+                        client_number='123456',
+                        ddjj_inputs_json=json.dumps(ddjj_inputs),
+                        output_dir=str(output_dir),
+                        package_note='controlled_handoff_without_sii_submission',
+                        stdout=StringIO(),
+                        **kwargs,
+                        **self._f22_local_certification_kwargs(),
+                    )
+
+                self.assertFalse(output_dir.exists())
+
     def _materialize_controlled_presentation_package_for_certification(self, temp_dir):
         export, _mapping = self._add_reviewed_f22_fixed_width_mapping_and_resync(code='1234', value='1000')
         process = ProcesoRentaAnual.objects.get()
@@ -4601,6 +4665,36 @@ class Stage6RentaAnualReadinessTests(TestCase):
                 )
 
             self.assertFalse(output_dir.exists())
+
+    def test_materialize_annual_tax_sii_certification_readiness_packet_rejects_rut_and_local_path_refs(self):
+        local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence_root.mkdir(exist_ok=True)
+
+        with TemporaryDirectory(dir=local_evidence_root) as temp_dir:
+            fixture = self._materialize_controlled_presentation_package_for_certification(temp_dir)
+            invalid_cases = [
+                ('certification_review_ref', 'review_11.111.111-1'),
+                ('official_format_authorization_ref', 'source_C:/Privado/formato-oficial.pdf'),
+            ]
+
+            for field_name, field_value in invalid_cases:
+                output_dir = Path(temp_dir) / f'sii-certification-readiness-{field_name}'
+                kwargs = {
+                    'certification_review_ref': 'stage6-sii-certification-readiness-review-at2026',
+                    'responsible_ref': 'tax-reviewer-sii-certification-readiness-at2026',
+                }
+                kwargs[field_name] = field_value
+
+                with self.subTest(field_name=field_name), self.assertRaisesMessage(CommandError, field_name):
+                    call_command(
+                        'materialize_annual_tax_sii_certification_readiness_packet',
+                        controlled_package_dir=str(fixture['controlled_package_dir']),
+                        output_dir=str(output_dir),
+                        stdout=StringIO(),
+                        **kwargs,
+                    )
+
+                self.assertFalse(output_dir.exists())
 
     def test_materialize_annual_tax_sii_certification_readiness_packet_rejects_nonempty_output_dir(self):
         local_evidence_root = Path(settings.PROJECT_ROOT) / 'local-evidence'

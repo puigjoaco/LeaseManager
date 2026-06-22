@@ -5,7 +5,12 @@ from pathlib import Path
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
-from core.reference_validation import contains_sensitive_reference, is_non_sensitive_reference
+from core.reference_validation import (
+    contains_chilean_rut_reference,
+    contains_local_absolute_path_reference,
+    contains_sensitive_reference,
+    is_non_sensitive_reference,
+)
 from sii.services import (
     verify_annual_tax_sii_certification_readiness_packet,
     write_annual_tax_sii_certification_readiness_packet,
@@ -57,22 +62,35 @@ def _default_output_dir(controlled_package_dir: Path) -> Path:
 
 def _require_non_sensitive_reference(value, field_name: str) -> str:
     normalized = str(value or '').strip()
-    if not normalized or not is_non_sensitive_reference(normalized):
+    if (
+        not normalized
+        or not is_non_sensitive_reference(normalized)
+        or contains_chilean_rut_reference(normalized)
+        or contains_local_absolute_path_reference(normalized)
+    ):
         raise CommandError(f'{field_name} debe ser una referencia trazable no sensible.')
     return normalized
 
 
 def _optional_non_sensitive_reference(value, field_name: str) -> str:
     normalized = str(value or '').strip()
-    if normalized and not is_non_sensitive_reference(normalized):
+    if normalized and (
+        not is_non_sensitive_reference(normalized)
+        or contains_chilean_rut_reference(normalized)
+        or contains_local_absolute_path_reference(normalized)
+    ):
         raise CommandError(f'{field_name} debe ser una referencia trazable no sensible.')
     return normalized
 
 
 def _validate_non_sensitive_text(value, field_name: str) -> str:
     normalized = str(value or '').strip()
-    if normalized and contains_sensitive_reference(normalized):
-        raise CommandError(f'{field_name} no debe contener URLs, tokens, credenciales ni correos.')
+    if normalized and (
+        contains_sensitive_reference(normalized)
+        or contains_chilean_rut_reference(normalized)
+        or contains_local_absolute_path_reference(normalized)
+    ):
+        raise CommandError(f'{field_name} no debe contener URLs, tokens, credenciales, correos, RUTs ni rutas locales.')
     return normalized
 
 
