@@ -118,6 +118,11 @@ La deteccion de rutas locales absolutas sigue el mismo criterio compartido:
 prefijos operativos como `source_C:/Privado/...`, para que manifest, handoffs,
 readiness, preguntas/respuestas, intake, cobertura bancaria y ownership
 controlado no mantengan regex locales divergentes ni persistan rutas crudas.
+El comparador de outputs esperados aplica ese mismo boundary a la evidencia de
+artefactos generados: `ddjj_package_ref`, `f22_draft_ref`, `source_ref`,
+`dossier_ref`, `export_ref`, `checklist_ref` y `evidence_ref` se redactan si
+contienen RUT chileno o rutas locales absolutas, evitando que el proof anual
+propague refs historicas crudas hacia `comparison_generated_artifact_evidence`.
 Para evitar una prueba circular, el manifiesto separa explicitamente inputs de
 calculo y objetivos de comparacion: Libro Diario, Libro Mayor, Libro
 Inventario, RCV, F29, compra/venta, remuneraciones y fuente societaria/
@@ -445,6 +450,9 @@ historicos, baseline, rechazados o no decisivos no deben reabrir
 estan presentes. Esto no declara igualdad numerica final; conserva
 `expected_output_value_mismatch` y `expected_output_value_extractors_missing`
 cuando los valores comparables siguen pendientes o incompletos.
+La evidencia generada por el comparador conserva ids, hashes, conteos y estados,
+pero no conserva refs con RUTs ni rutas locales absolutas aunque provengan de
+registros heredados en DB controlada.
 Cuando el manifiesto contiene varios archivos para el mismo artefacto esperado,
 por ejemplo varias paginas o versiones de `balance_general`,
 `extract_expected_output_value_signals` une los tokens por
