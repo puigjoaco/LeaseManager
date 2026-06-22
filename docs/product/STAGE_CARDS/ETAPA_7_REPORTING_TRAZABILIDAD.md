@@ -73,6 +73,10 @@ externa final.
 - La API de resumen tributario anual bloquea payloads sensibles de
   `ProcesoRentaAnual`, DDJJ y F22 en cualquier estado trazable,
   manteniendo respuestas sin URLs, tokens, credenciales ni claves sensibles.
+- La API de resumen tributario anual usa el boundary controlado compartido para
+  refs y payloads anuales: bloquea RUT chileno y rutas locales absolutas
+  heredadas antes de validar el reporte, preserva strings vacios como ausencia
+  de dato y no emite falsos marcadores de redaccion por campos vacios.
 - La API de resumen tributario anual bloquea consultas sin
   `ProcesoRentaAnual` incluido y documentos DDJJ/F22 heredados cuyo proceso
   anual no coincide con la empresa y ano tributario del documento, usando
@@ -87,6 +91,10 @@ externa final.
 - `audit_stage7_reporting_readiness` reporta payloads anuales sensibles en
   `resumen_anual`, `resumen_paquete` y `resumen_f22` como brecha bloqueante de
   reporting, manteniendo solo conteos/codigos y sin exponer valores.
+- `audit_stage7_reporting_readiness` aplica el mismo boundary controlado para
+  esos payloads y referencias finales: RUT chileno o rutas locales absolutas
+  heredadas quedan clasificadas como sensibles aunque no contengan URL, token o
+  credencial.
 - `audit_stage7_reporting_readiness` tambien clasifica explicitamente como
   bloqueantes las referencias finales sensibles de ProcesoRentaAnual, DDJJ y
   F22, sin exponer esos valores.
