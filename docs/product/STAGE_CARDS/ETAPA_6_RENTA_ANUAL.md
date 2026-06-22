@@ -1435,6 +1435,12 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   raiz como de `summary`, incluyendo `ready_for_formal_bank_support_review` y
   `document_intake_ready_for_productive_review`, para que el handoff responsable
   no pierda blockers formales ya detectados por el paquete contable/renta.
+  Si un paquete de revision o progreso contable llega sin `issues` operativos
+  pero conserva `responsible_review_required`, el generador crea igualmente una
+  pregunta de categoria `responsible_review` desde el issue seguro del gate. Los
+  `source_summaries.safe_issue_codes` exponen codigos y severidad ya
+  normalizados, sin mensajes libres ni rutas, para auditar de donde nacio cada
+  pregunta.
   El comando redacta errores de lectura/escritura: si no puede leer una fuente
   JSON o persistir el paquete, la consola no devuelve rutas locales completas
   que puedan contener nombres, RUTs o carpetas privadas.
