@@ -669,6 +669,20 @@ class CompanyAccountingReviewPackageTests(TestCase):
         self.assertIsNone(result['summary']['document_intake_ready_for_productive_review'])
         self.assertTrue(result['summary']['ready_for_formal_bank_support_review'])
         self.assertTrue(result['summary']['bank_support_strong_confirmation_present'])
+        self.assertEqual(result['summary']['accounting_responsible_review_gate_state'], 'responsible_review_required')
+        self.assertEqual(
+            result['summary']['accounting_responsible_review_next_action_ref'],
+            'audit_or_materialize_responsible_answers',
+        )
+        self.assertEqual(
+            result['summary']['accounting_responsible_review_blocking_issue_code'],
+            'company_accounting.responsible_review_missing',
+        )
+        self.assertTrue(result['summary']['accounting_local_layers_ready_for_review'])
+        self.assertTrue(result['summary']['accounting_review_manifest_required'])
+        self.assertFalse(result['summary']['accounting_ready_for_responsible_decision_handoff'])
+        self.assertFalse(result['summary']['accounting_ready_for_final_tax_calculation'])
+        self.assertFalse(result['summary']['accounting_ready_for_sii_submission'])
         self.assertEqual(result['summary']['blocking_issues_total'], 0)
         self.assertEqual(result['issues'], [])
         self.assertIn('package_hash', result)
@@ -788,13 +802,18 @@ class CompanyAccountingReviewPackageTests(TestCase):
             result = json.loads(stdout.getvalue())
             self.assertEqual(result['classification'], 'parcial')
             self.assertFalse(result['ready_for_productive_accounting_review'])
+            self.assertEqual(result['summary']['accounting_responsible_review_gate_state'], 'local_layers_incomplete')
+            self.assertEqual(
+                result['summary']['accounting_responsible_review_next_action_ref'],
+                'complete_local_phase:fiscal_config',
+            )
             self.assertIn(
                 'company_accounting_review.accounting_progress_incomplete',
                 {issue['code'] for issue in result['issues']},
             )
             self.assertNotIn(empresa.rut, stdout.getvalue())
 
-            with self.assertRaisesMessage(CommandError, 'Paquete de revision contable/renta incompleto'):
+            with self.assertRaises(CommandError) as error:
                 call_command(
                     'audit_company_accounting_review_package',
                     empresa_id=empresa.id,
@@ -803,6 +822,9 @@ class CompanyAccountingReviewPackageTests(TestCase):
                     fail_on_incomplete=True,
                     stdout=StringIO(),
                 )
+            self.assertIn('Paquete de revision contable/renta incompleto', str(error.exception))
+            self.assertIn('review_gate=local_layers_incomplete', str(error.exception))
+            self.assertIn('next_action=complete_local_phase:fiscal_config', str(error.exception))
 
             with self.assertRaisesMessage(CommandError, 'local-evidence'):
                 call_command(
@@ -1077,6 +1099,18 @@ class CompanyAccountingReviewPackageTests(TestCase):
             self.assertEqual(result['expected_company_ref'], canonical_company_review_ref(empresa.id))
             self.assertEqual(result['bank_support_company_ref'], canonical_company_review_ref(empresa.id))
             self.assertEqual(result['accounting_progress_percent'], 100)
+            self.assertEqual(result['accounting_responsible_review_gate_state'], 'responsible_review_required')
+            self.assertEqual(
+                result['accounting_responsible_review_next_action_ref'],
+                'audit_or_materialize_responsible_answers',
+            )
+            self.assertEqual(
+                result['accounting_responsible_review_blocking_issue_code'],
+                'company_accounting.responsible_review_missing',
+            )
+            self.assertTrue(result['accounting_local_layers_ready_for_review'])
+            self.assertTrue(result['accounting_review_manifest_required'])
+            self.assertFalse(result['accounting_ready_for_responsible_decision_handoff'])
             self.assertEqual(result['bank_support_coverage_percent'], 100)
             self.assertFalse(result['autonomous_accounting'])
             self.assertFalse(result['final_tax_calculation'])
@@ -1192,6 +1226,8 @@ class CompanyAccountingReviewPackageTests(TestCase):
                 )
 
             rendered_error = str(error.exception)
+            self.assertIn('review_gate=responsible_review_required', rendered_error)
+            self.assertIn('next_action=audit_or_materialize_responsible_answers', rendered_error)
             self.assertIn('formal_bank_support_ready=True', rendered_error)
             self.assertIn('document_intake_ready=False', rendered_error)
 

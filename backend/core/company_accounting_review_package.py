@@ -116,6 +116,11 @@ def build_company_accounting_review_package(
         empresa_id=empresa_id,
         fiscal_year=fiscal_year,
     )
+    responsible_review_gate = (
+        accounting_progress.get('responsible_review_gate')
+        if isinstance(accounting_progress.get('responsible_review_gate'), dict)
+        else {}
+    )
     bank_support = audit_company_bank_support_coverage(payload=bank_support_payload)
     expected_tax_year = fiscal_year + 1
     expected_company_ref = canonical_company_review_ref(empresa_id)
@@ -222,6 +227,22 @@ def build_company_accounting_review_package(
             'ready_for_formal_bank_support_manifest'
         ],
         'ready_for_company_accounting_review': accounting_progress['ready_for_company_accounting_review'],
+        'accounting_responsible_review_gate_state': str(responsible_review_gate.get('state') or ''),
+        'accounting_responsible_review_next_action_ref': str(responsible_review_gate.get('next_action_ref') or ''),
+        'accounting_responsible_review_blocking_issue_code': str(
+            responsible_review_gate.get('blocking_issue_code') or ''
+        ),
+        'accounting_local_layers_ready_for_review': bool(
+            responsible_review_gate.get('local_layers_ready_for_review')
+        ),
+        'accounting_review_manifest_required': bool(responsible_review_gate.get('review_manifest_required')),
+        'accounting_ready_for_responsible_decision_handoff': bool(
+            responsible_review_gate.get('ready_for_responsible_decision_handoff')
+        ),
+        'accounting_ready_for_final_tax_calculation': bool(
+            responsible_review_gate.get('ready_for_final_tax_calculation')
+        ),
+        'accounting_ready_for_sii_submission': bool(responsible_review_gate.get('ready_for_sii_submission')),
         'ready_for_accounting_document_review': bank_support['ready_for_accounting_document_review'],
         'ready_for_formal_bank_support_review': ready_for_formal_bank_support_review,
         'bank_support_strong_confirmation_present': bank_support['summary']['strong_confirmation_present'],

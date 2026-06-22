@@ -160,6 +160,22 @@ class Command(BaseCommand):
             'expected_company_ref': verification['summary']['expected_company_ref'],
             'bank_support_company_ref': verification['summary']['bank_support_company_ref'],
             'accounting_progress_percent': verification['summary']['accounting_progress_percent'],
+            'accounting_responsible_review_gate_state': verification['summary'][
+                'accounting_responsible_review_gate_state'
+            ],
+            'accounting_responsible_review_next_action_ref': verification['summary'][
+                'accounting_responsible_review_next_action_ref'
+            ],
+            'accounting_responsible_review_blocking_issue_code': verification['summary'][
+                'accounting_responsible_review_blocking_issue_code'
+            ],
+            'accounting_local_layers_ready_for_review': verification['summary'][
+                'accounting_local_layers_ready_for_review'
+            ],
+            'accounting_review_manifest_required': verification['summary']['accounting_review_manifest_required'],
+            'accounting_ready_for_responsible_decision_handoff': verification['summary'][
+                'accounting_ready_for_responsible_decision_handoff'
+            ],
             'bank_support_coverage_percent': verification['summary']['bank_support_coverage_percent'],
             'ready_for_formal_bank_support_review': verification['summary'][
                 'ready_for_formal_bank_support_review'
@@ -187,6 +203,8 @@ class Command(BaseCommand):
                 'Paquete de revision contable/renta incompleto: '
                 f'classification={result["classification"]}, '
                 f'accounting_progress={result["accounting_progress_percent"]}, '
+                f'review_gate={result["accounting_responsible_review_gate_state"]}, '
+                f'next_action={result["accounting_responsible_review_next_action_ref"]}, '
                 f'bank_support={result["bank_support_coverage_percent"]}, '
                 f'formal_bank_support_ready={result["ready_for_formal_bank_support_review"]}, '
                 f'document_intake_ready={result["document_intake_ready_for_productive_review"]}.'

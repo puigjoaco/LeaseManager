@@ -1395,6 +1395,15 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   ni documentos reales, no abre banco ni SII y no declara contabilidad final:
   solo permite pasar a revision productiva responsable con evidencia formal no
   sensible.
+  El `summary` del paquete conserva tambien el gate responsable generado por el
+  medidor contable: `accounting_responsible_review_gate_state`,
+  `accounting_responsible_review_next_action_ref`,
+  `accounting_responsible_review_blocking_issue_code`,
+  `accounting_local_layers_ready_for_review`,
+  `accounting_review_manifest_required` y las flags que mantienen en falso
+  handoff responsable, calculo tributario final y presentacion SII. Los
+  comandos `--fail-on-incomplete` reportan ese gate y la siguiente accion para
+  distinguir capas locales incompletas de revision responsable pendiente.
   Los comandos `audit_company_accounting_review_package` y
   `materialize_company_accounting_review_package` redactan errores de archivo:
   manifest bancario faltante, lectura fallida o escritura/verificacion fallida
