@@ -32,6 +32,20 @@ def _validate_output_path(output_path: Path) -> None:
         ) from error
 
 
+def _read_json(path: Path, *, label: str) -> dict:
+    if not path.exists() or not path.is_file():
+        raise CommandError(f'No existe {label} JSON o no es un archivo legible.')
+    try:
+        payload = json.loads(path.read_text(encoding='utf-8'))
+    except json.JSONDecodeError as error:
+        raise CommandError(f'{label} JSON invalido: line {error.lineno}, column {error.colno}.') from error
+    except OSError as error:
+        raise CommandError(f'No se pudo leer {label} JSON.') from error
+    if not isinstance(payload, dict):
+        raise CommandError(f'{label} JSON debe ser un objeto.')
+    return payload
+
+
 class Command(BaseCommand):
     help = (
         'Construye un template controlado para completar ownership desde '
@@ -62,8 +76,6 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         review_path = _resolve_path(options['review'])
-        if not review_path.exists() or not review_path.is_file():
-            raise CommandError(f'No existe review JSON: {review_path}')
 
         output_path = None
         if options['output']:
@@ -71,7 +83,7 @@ class Command(BaseCommand):
             _validate_output_path(output_path)
 
         try:
-            review = json.loads(review_path.read_text(encoding='utf-8'))
+            review = _read_json(review_path, label='review')
             template = build_annual_tax_ownership_snapshot_template(
                 review=review,
                 company_ref=options['company_ref'],
@@ -80,7 +92,7 @@ class Command(BaseCommand):
                 responsible_ref=options['responsible_ref'],
                 approval_ref=options['approval_ref'],
             )
-        except (OSError, ValueError, json.JSONDecodeError) as error:
+        except ValueError as error:
             raise CommandError(f'Template ownership invalido: {error}') from error
 
         rendered = json.dumps(template, indent=2, ensure_ascii=True)

@@ -68,6 +68,89 @@ class AnnualTaxOwnershipSnapshotTemplateTests(SimpleTestCase):
         self.assertNotIn('11.111.111-1', rendered)
         self.assertNotIn('Accionistas con RUT', rendered)
 
+    def test_template_rejects_control_sensitive_refs_without_echoing_values(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            self._write(
+                source_root,
+                'Ano_HISTORICO/08_Base_Legal_Patrimonial_Operativa/Inmobiliaria Puig SpA/'
+                '1. Escrituras y Modificaciones/1.Constitucion/2.Extracto/Extracto.txt',
+                'Inmobiliaria Puig SpA capital acciones 2024.',
+            )
+            base_review = self._review(source_root)
+
+            cases = (
+                (
+                    'company_ref',
+                    {'company_ref': 'inmobiliaria_11.111.111-1'},
+                    '11.111.111-1',
+                ),
+                (
+                    'responsible_ref',
+                    {'responsible_ref': 'responsible_C:/Privado/revision.json'},
+                    'C:/Privado',
+                ),
+                (
+                    'approval_ref',
+                    {'approval_ref': r'approval_\\server\share\aprobacion.json'},
+                    r'\\server\share',
+                ),
+                (
+                    'candidate_path_ref',
+                    {
+                        'review': {
+                            **base_review,
+                            'review_items': [
+                                {
+                                    **base_review['review_items'][0],
+                                    'path_ref': 'candidate_22.222.222-2',
+                                }
+                            ],
+                        }
+                    },
+                    '22.222.222-2',
+                ),
+            )
+            for label, overrides, sensitive_fragment in cases:
+                with self.subTest(label=label):
+                    review = overrides.get('review', base_review)
+                    kwargs = {
+                        'review': review,
+                        'company_ref': 'inmobiliaria-puig',
+                        'commercial_year': 2024,
+                        'tax_year': 2025,
+                        'responsible_ref': 'codex-controlled-review',
+                        'approval_ref': 'approval-controlled',
+                    }
+                    kwargs.update({key: value for key, value in overrides.items() if key != 'review'})
+
+                    with self.assertRaises(ValueError) as error:
+                        build_annual_tax_ownership_snapshot_template(**kwargs)
+
+                    rendered_error = str(error.exception)
+                    self.assertNotIn(sensitive_fragment, rendered_error)
+                    self.assertIn('referencia no sensible', rendered_error)
+
+    def test_template_requires_context_matching_review(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            self._write(
+                source_root,
+                'Ano_HISTORICO/08_Base_Legal_Patrimonial_Operativa/Inmobiliaria Puig SpA/'
+                '1. Escrituras y Modificaciones/1.Constitucion/2.Extracto/Extracto.txt',
+                'Inmobiliaria Puig SpA capital acciones 2024.',
+            )
+            review = self._review(source_root)
+
+            with self.assertRaisesMessage(ValueError, 'review.company_ref no coincide'):
+                build_annual_tax_ownership_snapshot_template(
+                    review=review,
+                    company_ref='otra-empresa-controlada',
+                    commercial_year=2024,
+                    tax_year=2025,
+                    responsible_ref='codex-controlled-review',
+                )
+
     def test_command_outputs_template_and_refuses_versioned_output_outside_local_evidence(self):
         with TemporaryDirectory() as temp_dir:
             source_root = Path(temp_dir) / 'source'
@@ -104,3 +187,46 @@ class AnnualTaxOwnershipSnapshotTemplateTests(SimpleTestCase):
                     commercial_year=2024,
                     output='docs/ownership-snapshot-template.json',
                 )
+
+    def test_command_errors_do_not_echo_sensitive_paths_or_refs(self):
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            missing_review = temp_root / 'Socio Controlado Uno 11.111.111-1.json'
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'build_annual_tax_ownership_snapshot_template',
+                    review=str(missing_review),
+                    company_ref='inmobiliaria-puig',
+                    commercial_year=2024,
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11.111.111-1', rendered_error)
+
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir) / 'source'
+            source_root.mkdir()
+            self._write(
+                source_root,
+                'Ano_HISTORICO/08_Base_Legal_Patrimonial_Operativa/Inmobiliaria Puig SpA/'
+                '1. Escrituras y Modificaciones/1.Constitucion/2.Extracto/Extracto.txt',
+                'Inmobiliaria Puig SpA capital acciones 2024.',
+            )
+            review_path = Path(temp_dir) / 'review.json'
+            review_path.write_text(json.dumps(self._review(source_root)), encoding='utf-8')
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'build_annual_tax_ownership_snapshot_template',
+                    review=str(review_path),
+                    company_ref='inmobiliaria_22.222.222-2',
+                    commercial_year=2024,
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertIn('Template ownership invalido', rendered_error)
+            self.assertNotIn('22.222.222-2', rendered_error)

@@ -5,6 +5,7 @@ from typing import Any
 
 from core.annual_tax_ownership_candidate_review import OWNERSHIP_CANDIDATE_REVIEW_SCHEMA_VERSION
 from core.annual_tax_source_manifest import payload_hash
+from core.reference_validation import is_non_sensitive_control_reference
 
 
 OWNERSHIP_SNAPSHOT_TEMPLATE_SCHEMA_VERSION = 'annual-tax-ownership-snapshot-template.v1'
@@ -23,9 +24,24 @@ def _reviewable_candidates(review: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+def _required_control_ref(value: Any, *, field_name: str) -> str:
+    text = str(value or '').strip()
+    if not is_non_sensitive_control_reference(text):
+        raise ValueError(f'{field_name} debe ser una referencia no sensible.')
+    return text
+
+
+def _optional_control_ref(value: Any, *, field_name: str) -> str:
+    text = str(value or '').strip()
+    if text and not is_non_sensitive_control_reference(text):
+        raise ValueError(f'{field_name} debe ser una referencia no sensible.')
+    return text
+
+
 def _candidate_payload(item: dict[str, Any]) -> dict[str, Any]:
+    path_ref = _required_control_ref(item.get('path_ref'), field_name='candidate_sources[].path_ref')
     return {
-        'path_ref': str(item.get('path_ref') or ''),
+        'path_ref': path_ref,
         'sha256': str(item.get('sha256') or ''),
         'document_kind': str(item.get('document_kind') or ''),
         'review_status': str(item.get('review_status') or ''),
@@ -47,6 +63,15 @@ def build_annual_tax_ownership_snapshot_template(
     if review.get('schema_version') != OWNERSHIP_CANDIDATE_REVIEW_SCHEMA_VERSION:
         raise ValueError(f'review.schema_version debe ser {OWNERSHIP_CANDIDATE_REVIEW_SCHEMA_VERSION}.')
     tax_year = tax_year or commercial_year + 1
+    company_ref = _required_control_ref(company_ref, field_name='company_ref')
+    responsible_ref = _required_control_ref(responsible_ref, field_name='responsible_ref')
+    approval_ref = _optional_control_ref(approval_ref, field_name='approval_ref')
+    if str(review.get('company_ref') or '').strip() != company_ref:
+        raise ValueError('review.company_ref no coincide con company_ref.')
+    if int(review.get('commercial_year') or 0) != commercial_year:
+        raise ValueError('review.commercial_year no coincide con commercial_year.')
+    if int(review.get('tax_year') or 0) != tax_year:
+        raise ValueError('review.tax_year no coincide con tax_year.')
     candidates = _reviewable_candidates(review)
     review_hash = payload_hash(
         {
