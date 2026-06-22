@@ -353,6 +353,14 @@ que no faltan meses y que existen objetivos de comparacion, pero mantiene
 draft real post revision laboral completa, `ready_for_db_writer=true` y
 `ready_for_annual_generation=false` por `ownership_snapshot_missing`. Febrero y
 diciembre F29 `no_aplica` no cuentan como faltantes.
+El readiness del paquete controlado aplica el boundary estricto sobre refs y
+payloads operativos: `company_ref`, refs responsables/aprobacion, refs
+mensuales, libro diario/mayor, balance, F29, labor previsional,
+`annual_input_source_refs` y payloads de contexto no pueden conservar RUT
+chileno ni rutas locales absolutas. Ese chequeo no invalida el RUT estructurado
+de `package.ownership`, que se usa solo como snapshot patrimonial controlado,
+ni los `question_source_summaries` del handoff ownership, que se sanitizan antes
+de exponerse.
 El comando `audit_annual_tax_controlled_package_readiness` redacta errores de
 archivo: package faltante, lectura fallida o escritura fallida del reporte no
 devuelven rutas locales completas con nombres, RUTs o carpetas privadas. La
