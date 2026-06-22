@@ -192,6 +192,16 @@ class AnnualTaxOwnershipPatchWorkbenchTests(SimpleTestCase):
                     'D:/Privado/Socio Controlado Uno 11111111-1': True,
                 },
                 'issues_total': 2,
+                'safe_issue_codes': [
+                    {
+                        'code': 'company_accounting.responsible_review_missing',
+                        'severity': 'blocking',
+                    },
+                    {
+                        'code': 'D:/Privado/Socio Controlado Uno 11111111-1',
+                        'severity': 'https://review.example.test/token=secret',
+                    },
+                ],
                 'source_hash': 'd' * 64,
             }
         ]
@@ -212,6 +222,14 @@ class AnnualTaxOwnershipPatchWorkbenchTests(SimpleTestCase):
         self.assertFalse(source_summary['ready_flags']['ready_for_formal_bank_support_review'])
         self.assertFalse(source_summary['ready_flags']['document_intake_ready_for_productive_review'])
         self.assertTrue(source_summary['ready_flags']['document_intake_ready_for_formal_bank_support_manifest'])
+        self.assertIn(
+            {'code': 'company_accounting.responsible_review_missing', 'severity': 'blocking'},
+            source_summary['safe_issue_codes'],
+        )
+        self.assertIn(
+            {'code': 'redacted-issue-code', 'severity': 'blocking'},
+            source_summary['safe_issue_codes'],
+        )
         self.assertNotIn('D:/Privado/Socio Controlado Uno 11111111-1', source_summary['ready_flags'])
         self.assertNotIn('Socio Controlado Uno', rendered_manifest)
         self.assertNotIn('11111111-1', rendered_manifest)

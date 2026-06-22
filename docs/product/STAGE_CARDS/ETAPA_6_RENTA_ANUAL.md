@@ -221,8 +221,9 @@ conteos, categorias, estados de decision e issue codes, sin copiar refs
 individuales ni respuestas crudas. Si las respuestas responsables siguen
 pendientes, el workbench conserva `responsible_answers_ready=false` para no
 confundir el borrador privado con revision completa.
-Ese resumen preserva `question_source_summaries` sanitizados y
-`responsible_answers_readiness_sources_total`, incluyendo flags seguras como
+Ese resumen preserva `question_source_summaries` sanitizados,
+`safe_issue_codes` y `responsible_answers_readiness_sources_total`, incluyendo
+flags seguras como
 `ready_for_formal_bank_support_review`,
 `document_intake_ready_for_productive_review` y
 `document_intake_ready_for_formal_bank_support_manifest`, de modo que el tramo
@@ -255,10 +256,11 @@ reemplaza la revision responsable de ownership.
 Tambien acepta `--workbench-manifest` para tomar el
 `ownership-patch-workbench.json` redactado como fuente de continuidad: valida
 que corresponda a la misma empresa/AC/AT y conserva en `ownership_review` solo
-`question_source_summaries` sanitizados y `readiness_sources_total`. El
-readiness del paquete controlado expone esos summaries sin rutas, nombres, RUTs
-ni PII, manteniendo visible si el ownership viene de un flujo todavia separado
-por soporte bancario formal o intake documental observado.
+`question_source_summaries` sanitizados, `safe_issue_codes` y
+`readiness_sources_total`. El readiness del paquete controlado expone esos
+summaries sin rutas, nombres, RUTs ni PII, manteniendo visible si el ownership
+viene de un flujo todavia separado por soporte bancario formal, intake
+documental observado o gate responsable.
 Los comandos `validate_annual_tax_ownership_patch` e
 `inject_annual_tax_ownership_patch_into_controlled_package` mantienen errores
 de lectura/escritura redactados: si un template, patch, package u output falla,
@@ -315,10 +317,11 @@ un handoff privado desalineado o sin hash de validacion cargue socios o hechos
 mensuales.
 El resultado de `apply_annual_tax_controlled_db_load` y del comando homonimo
 tambien conserva un `ownership_review_handoff` redactado: expone
-`readiness_sources_total`, `question_source_summaries` sanitizados y flags
-seguras heredadas del paquete controlado, sin nombres, RUTs, rutas ni PII. Asi
-la carga local/controlada no borra si el writer viene de un flujo aun separado
-por soporte bancario formal o intake documental observado.
+`readiness_sources_total`, `question_source_summaries`, `safe_issue_codes`
+sanitizados y flags seguras heredadas del paquete controlado, sin nombres, RUTs,
+rutas ni PII. Asi la carga local/controlada no borra si el writer viene de un
+flujo aun separado por soporte bancario formal, intake documental observado o
+gate responsable.
 `build_annual_tax_controlled_values_draft` completa ese paquete desde fuentes
 AC2024 permitidas y read-only: Libro Diario, Libro Mayor, Libro Inventario, F29,
 libros de remuneraciones y soporte de bienes raices. La corrida real de
