@@ -143,6 +143,52 @@ class CompanyAccountingResponsibleQuestionsTests(SimpleTestCase):
         self.assertTrue(ready_flags['accounting_local_layers_ready_for_review'])
         self.assertFalse(ready_flags['accounting_ready_for_responsible_decision_handoff'])
 
+    def test_prepared_review_package_generates_question_from_responsible_review_gate(self):
+        review_package = {
+            'schema_version': 'company-accounting-review-package.v1',
+            'company_ref': 'company-1',
+            'fiscal_year': 2025,
+            'tax_year': 2026,
+            'classification': 'preparado',
+            'ready_for_productive_accounting_review': True,
+            'summary': {
+                'expected_company_ref': 'company-1',
+                'accounting_progress_classification': 'preparado',
+                'accounting_responsible_review_gate_state': 'responsible_review_required',
+                'accounting_responsible_review_next_action_ref': 'audit_or_materialize_responsible_answers',
+                'accounting_responsible_review_blocking_issue_code': 'company_accounting.responsible_review_missing',
+                'accounting_local_layers_ready_for_review': True,
+                'accounting_ready_for_responsible_decision_handoff': False,
+                'accounting_ready_for_final_tax_calculation': False,
+                'accounting_ready_for_sii_submission': False,
+            },
+            'issues': [],
+        }
+
+        packet = build_company_accounting_responsible_questions(
+            source_payloads={'company_review_package': review_package},
+            company_ref='company-1',
+            fiscal_year=2025,
+            tax_year=2026,
+        )
+        source_summary = packet['source_summaries'][0]
+
+        self.assertEqual(packet['summary']['questions_total'], 1)
+        self.assertTrue(packet['summary']['ready_for_responsible_review'])
+        self.assertEqual(packet['questions'][0]['category'], 'responsible_review')
+        self.assertEqual(
+            packet['questions'][0]['source_issue_code'],
+            'company_accounting.responsible_review_missing',
+        )
+        self.assertIn(
+            {'code': 'company_accounting.responsible_review_missing', 'severity': 'blocking'},
+            source_summary['safe_issue_codes'],
+        )
+        self.assertFalse(source_summary['ready_flags']['accounting_ready_for_responsible_decision_handoff'])
+        self.assertFalse(packet['summary']['ready_for_productive_accounting_review'])
+        self.assertFalse(packet['summary']['final_tax_calculation'])
+        self.assertFalse(packet['summary']['sii_submission'])
+
     def test_command_materializes_questions_packet_with_redacted_stdout(self):
         with TemporaryDirectory() as temp_dir:
             temp_root = Path(temp_dir)

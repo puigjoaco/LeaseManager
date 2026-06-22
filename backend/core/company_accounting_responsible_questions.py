@@ -107,6 +107,13 @@ def _source_summary(*, label: str, payload: dict[str, Any]) -> dict[str, Any]:
         'tax_year': _context_value(payload, 'tax_year'),
         'ready_flags': _ready_flags_from_payload(payload),
         'issues_total': len(issues),
+        'safe_issue_codes': [
+            {
+                'code': _safe_issue_code(issue['code']),
+                'severity': _safe_label(issue['severity'], fallback='blocking'),
+            }
+            for issue in issues
+        ],
         'source_hash': _canonical_hash(_safe_source_fingerprint_payload(payload)),
     }
 
@@ -154,11 +161,48 @@ def _issues_from_payload(payload: dict[str, Any]) -> list[dict[str, str]]:
             if code:
                 issues.append({'code': code, 'severity': 'blocking'})
 
+    summary = payload.get('summary') if isinstance(payload.get('summary'), dict) else {}
+    gate_candidates = []
+    responsible_review_gate = payload.get('responsible_review_gate')
+    if isinstance(responsible_review_gate, dict):
+        gate_candidates.append(
+            {
+                'state': responsible_review_gate.get('state'),
+                'blocking_issue_code': responsible_review_gate.get('blocking_issue_code'),
+            }
+        )
+    if summary:
+        gate_candidates.append(
+            {
+                'state': summary.get('accounting_responsible_review_gate_state'),
+                'blocking_issue_code': summary.get('accounting_responsible_review_blocking_issue_code'),
+            }
+        )
+
+    seen = {(issue['code'], issue['severity']) for issue in issues}
+    for gate in gate_candidates:
+        if gate.get('state') != 'responsible_review_required':
+            continue
+        code = str(gate.get('blocking_issue_code') or '').strip()
+        key = (code, 'blocking')
+        if code and key not in seen:
+            issues.append({'code': code, 'severity': 'blocking'})
+            seen.add(key)
+
     return issues
 
 
 def _question_template(code: str, *, fiscal_year: int, tax_year: int) -> dict[str, str]:
     normalized = code.lower()
+    if 'responsible_review' in normalized or 'responsible-review' in normalized:
+        return {
+            'category': 'responsible_review',
+            'question': (
+                f'Preparar revision responsable AC{fiscal_year}/AT{tax_year}: revisar paquete contable/renta, '
+                'registrar decision trazable no sensible y mantener fuera calculo final o presentacion SII.'
+            ),
+            'expected_answer': 'Decision responsable no sensible con alcance, evidencia, responsable y proximo paso.',
+        }
     if 'ownership' in normalized or 'participant' in normalized or 'socio' in normalized:
         return {
             'category': 'ownership',
