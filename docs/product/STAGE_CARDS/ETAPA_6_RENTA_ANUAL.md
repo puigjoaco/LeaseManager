@@ -1459,9 +1459,10 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   locales, adjuntos ni respuestas crudas, y conserva
   `ready_for_productive_accounting_review=false`, `final_tax_calculation=false`
   y `sii_submission=false`. El review conserva
-  `question_source_summaries` sanitizados y `readiness_sources_total` desde el
-  paquete de preguntas/handoff, para que la revision responsable no pierda el
-  contexto de blockers formales de soporte bancario o intake documental.
+  `question_source_summaries` sanitizados, `readiness_sources_total` y
+  `safe_issue_codes` desde el paquete de preguntas/handoff, para que la revision
+  responsable no pierda el contexto de blockers formales de soporte bancario,
+  intake documental o gate responsable.
   Si se usa `--allow-incomplete`, el comando puede materializar una revision
   observada para trazabilidad, pero las preguntas faltantes siguen generando
   `responsible_answers.questions_unanswered`, `blocking_issues_total>0` y
@@ -1482,7 +1483,8 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   completo y mantiene `--answers` como archivo externo de respuestas
   completadas. Asi el responsable no tiene que copiar rutas sueltas de
   preguntas/template ni editar el paquete verificable; el review solo nace de
-  respuestas externas validadas.
+  respuestas externas validadas. Si un codigo o severidad de fuente llega con
+  ruta, RUT, URL, correo o token, queda redactado antes de persistirse.
   El comando y el materializador de template redactan errores de
   lectura/escritura: si faltan o fallan los JSON de entrada, o si no pueden
   persistir la revision o el template, la consola no devuelve rutas locales
@@ -1509,8 +1511,8 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   ownership final, contabilidad final ni presentacion SII. El manifest conserva
   los `source_summaries` sanitizados del paquete de preguntas y el total de
   fuentes de readiness, incluyendo flags seguras como soporte bancario formal e
-  intake documental productivo, para que el handoff no pierda el contexto del
-  bloqueo al pasar a paquete verificable.
+  intake documental productivo y `safe_issue_codes` normalizados, para que el
+  handoff no pierda el contexto del bloqueo al pasar a paquete verificable.
 - `audit_company_accounting_responsible_answers_review_presence` audita si ya
   existe un `company-accounting-responsible-answers-review.json` listo bajo
   `local-evidence/`. El auditor no devuelve rutas crudas, solo hashes de
@@ -1533,8 +1535,9 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   preguntas/template, el preflight cuenta los duplicados fisicos pero deduplica
   readiness por hash semantico; esas copias no bloquean falsamente como
   multiples handoffs distintos. Los candidatos de preguntas tambien exponen
-  `readiness_sources_total` y `source_summaries` sanitizados, sin rutas crudas ni
-  valores sensibles, para distinguir avance local de blockers formales.
+  `readiness_sources_total`, `source_summaries` y `safe_issue_codes`
+  sanitizados, sin rutas crudas ni valores sensibles, para distinguir avance
+  local de blockers formales.
 - Reporting expone `POST /api/v1/reporting/contabilidad/paquete-revision-empresa/`
   para construir ese mismo paquete desde una superficie operativa con scope de
   empresa. El body debe incluir `empresa_id`, `fiscal_year` y

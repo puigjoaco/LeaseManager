@@ -3823,6 +3823,12 @@ package local no conserve issues operativos. La pregunta queda en categoria
 `responsible_review`, nace del issue seguro del gate y `source_summaries`
 expone `safe_issue_codes` normalizados sin mensajes libres ni rutas.
 
+Nota 2026-06-21: El handoff responsable conserva esos `safe_issue_codes` al
+pasar por review de respuestas, paquete verificable y preflight. El normalizador
+de `question_source_summaries` redacta codigos o severidades contaminadas con
+rutas, RUTs, URLs, correos o tokens, y mantiene `final_tax_calculation=false` y
+`sii_submission=false`.
+
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |
 | Gobierno documental | Fuente de verdad, AGENTS, README, cursor operativo | `docs/governance`, `AGENTS.md`, `ORDEN_DE_LECTURA.md`, `.gitignore`, `docs/product/EXECUTION_CURSOR_MAYO_2026.md` | 0 | resuelto_confirmado | PR con CI verde y docs consistentes | Mantener actualizado al cambiar fuentes; bloqueos y evidencia son controles operativos de cierre, no arquitectura de producto; el cursor gobierna reanudaciones, worktrees tacticos y metatareas cerradas; artefactos locales de herramienta como `.codex-spreadsheet/`, `.playwright-cli/`, capturas PNG en el root y archivos manuales `CONFIDENCIAL`/`NO_SUBIR` quedan ignorados para no ensuciar `main` ni confundirse con paquetes activos; acceptance ejecuta `assert-repo-hygiene.ps1 -IncludeUntracked` para detectar artefactos sensibles no versionados ni ignorados sin leer secretos. |
