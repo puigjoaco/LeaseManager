@@ -213,6 +213,18 @@ def _ensure_non_sensitive_reference(value, field_name):
     return normalized
 
 
+def _require_non_sensitive_reference(value, field_name, message_prefix):
+    normalized = str(value or '').strip()
+    if (
+        not normalized
+        or not is_non_sensitive_reference(normalized)
+        or contains_chilean_rut_reference(normalized)
+        or contains_local_absolute_path_reference(normalized)
+    ):
+        raise ValueError(f'{message_prefix} requiere {field_name} no sensible.')
+    return normalized
+
+
 def _ensure_non_sensitive_text(value, field_name):
     normalized = str(value or '').strip()
     if normalized and (
@@ -3912,8 +3924,7 @@ def _normalize_f22_fixed_width_entry(entry):
         ('value_source_ref', value_source_ref),
         ('responsible_review_ref', responsible_review_ref),
     ):
-        if not is_non_sensitive_reference(field_value):
-            raise ValueError(f'Cada entrada F22 fixed-width requiere {field_name} no sensible.')
+        _require_non_sensitive_reference(field_value, field_name, 'Cada entrada F22 fixed-width')
     normalized = {
         'code': raw_code,
         'sign': sign,
@@ -3962,16 +3973,18 @@ def _normalize_f22_certification_code_evidence(
         ('certification_code_source_ref', source_ref),
         ('certification_responsible_review_ref', responsible_ref),
     ):
-        if not is_non_sensitive_reference(field_value):
-            raise ValueError(f'Codigo de certificacion F22 requiere {field_name} no sensible.')
+        _require_non_sensitive_reference(field_value, field_name, 'Codigo de certificacion F22')
 
     authorized_by_sii = bool(certification_authorized_by_sii)
     authorization_ref = str(certification_authorization_ref or '').strip()
     if authorized_by_sii:
         if review_state not in {'official_authorized_code_reviewed', 'codigo_autorizado_revisado'}:
             raise ValueError('Codigo de certificacion F22 autorizado por SII requiere review_state oficial revisado.')
-        if not is_non_sensitive_reference(authorization_ref):
-            raise ValueError('Codigo de certificacion F22 autorizado por SII requiere authorization_ref no sensible.')
+        _require_non_sensitive_reference(
+            authorization_ref,
+            'certification_authorization_ref',
+            'Codigo de certificacion F22 autorizado por SII',
+        )
     elif authorization_ref:
         raise ValueError('Codigo de certificacion F22 local no puede declarar authorization_ref SII.')
 
@@ -4389,13 +4402,19 @@ def verify_annual_tax_f22_fixed_width_export_candidate(candidate, package_dir):
     if bool(summary.get('certification_code_authorized_by_sii')) != authorized_by_sii:
         raise ValueError('La evidencia de codigo de certificacion F22 no coincide con authorized_by_sii del resumen.')
     for field_name in ('certification_code_source_ref', 'certification_responsible_review_ref'):
-        if not is_non_sensitive_reference(certification_code_evidence.get(field_name)):
-            raise ValueError(f'La evidencia de codigo de certificacion F22 requiere {field_name} no sensible.')
+        _require_non_sensitive_reference(
+            certification_code_evidence.get(field_name),
+            field_name,
+            'La evidencia de codigo de certificacion F22',
+        )
     if authorized_by_sii:
         if certification_code_evidence.get('review_state') not in {'official_authorized_code_reviewed', 'codigo_autorizado_revisado'}:
             raise ValueError('La evidencia de codigo de certificacion F22 autorizada por SII requiere review_state oficial.')
-        if not is_non_sensitive_reference(certification_code_evidence.get('certification_authorization_ref')):
-            raise ValueError('La evidencia de codigo de certificacion F22 autorizada por SII requiere authorization_ref no sensible.')
+        _require_non_sensitive_reference(
+            certification_code_evidence.get('certification_authorization_ref'),
+            'certification_authorization_ref',
+            'La evidencia de codigo de certificacion F22 autorizada por SII',
+        )
     elif certification_code_evidence.get('certification_authorization_ref'):
         raise ValueError('La evidencia de codigo de certificacion F22 local no puede declarar authorization_ref SII.')
     evidence_entries = summary.get('f22_entry_review_evidence')
@@ -4418,8 +4437,11 @@ def verify_annual_tax_f22_fixed_width_export_candidate(candidate, package_dir):
         if evidence.get('review_state') not in F22_FIXED_WIDTH_ENTRY_REVIEW_STATES:
             raise ValueError('La evidencia F22 fixed-width requiere review_state approved_for_candidate.')
         for field_name in ('code_source_ref', 'value_source_ref', 'responsible_review_ref'):
-            if not is_non_sensitive_reference(evidence.get(field_name)):
-                raise ValueError(f'La evidencia F22 fixed-width requiere {field_name} no sensible.')
+            _require_non_sensitive_reference(
+                evidence.get(field_name),
+                field_name,
+                'La evidencia F22 fixed-width',
+            )
         expected_entry_hash = hashlib.sha256(
             _canonical_json_bytes({key: value for key, value in evidence.items() if key != 'entry_hash'})
         ).hexdigest()
@@ -4499,10 +4521,8 @@ def _normalize_ddjj_ascii_record_entry(entry, *, record_length):
         raise ValueError('Registro DDJJ ASCII requiere review_state approved_for_candidate.')
     record_source_ref = str(entry.get('record_source_ref') or '').strip()
     responsible_review_ref = str(entry.get('responsible_review_ref') or '').strip()
-    if not is_non_sensitive_reference(record_source_ref):
-        raise ValueError('Registro DDJJ ASCII requiere record_source_ref no sensible.')
-    if not is_non_sensitive_reference(responsible_review_ref):
-        raise ValueError('Registro DDJJ ASCII requiere responsible_review_ref no sensible.')
+    _require_non_sensitive_reference(record_source_ref, 'record_source_ref', 'Registro DDJJ ASCII')
+    _require_non_sensitive_reference(responsible_review_ref, 'responsible_review_ref', 'Registro DDJJ ASCII')
     normalized = {
         'record': record,
         'record_type': record_type,
@@ -4849,8 +4869,11 @@ def verify_annual_tax_ddjj_ascii_export_candidate(candidate, package_dir):
         if evidence.get('review_state') not in DDJJ_ASCII_RECORD_REVIEW_STATES:
             raise ValueError('La evidencia DDJJ ASCII requiere review_state approved_for_candidate.')
         for field_name in ('record_source_ref', 'responsible_review_ref'):
-            if not is_non_sensitive_reference(evidence.get(field_name)):
-                raise ValueError(f'La evidencia DDJJ ASCII requiere {field_name} no sensible.')
+            _require_non_sensitive_reference(
+                evidence.get(field_name),
+                field_name,
+                'La evidencia DDJJ ASCII',
+            )
         expected_record_hash = hashlib.sha256(record.encode('ascii')).hexdigest()
         if evidence.get('record_hash') != expected_record_hash:
             raise ValueError('La evidencia DDJJ ASCII no coincide con el hash del registro.')
@@ -4946,6 +4969,15 @@ def _validate_ddjj_ascii_candidate_for_zip(candidate):
     evidence_hash = hashlib.sha256(_canonical_json_bytes(evidence_entries)).hexdigest()
     if evidence_hash != summary.get('ddjj_record_review_evidence_hash'):
         raise ValueError('Evidencia DDJJ ASCII no coincide con hash esperado para ZIP.')
+    for evidence in evidence_entries:
+        if not isinstance(evidence, dict):
+            raise ValueError('Paquete ZIP DDJJ requiere evidencia de revision ASCII valida.')
+        for field_name in ('record_source_ref', 'responsible_review_ref'):
+            _require_non_sensitive_reference(
+                evidence.get(field_name),
+                field_name,
+                'Paquete ZIP DDJJ',
+            )
     return summary, records, content, record_length
 
 
@@ -4968,10 +5000,8 @@ def _normalize_ddjj_transfer_control_record(entry, *, record_length):
         raise ValueError('Registro de control DDJJ ZIP requiere review_state approved_for_candidate.')
     transfer_source_ref = str(entry.get('transfer_source_ref') or entry.get('record_source_ref') or '').strip()
     responsible_review_ref = str(entry.get('responsible_review_ref') or '').strip()
-    if not is_non_sensitive_reference(transfer_source_ref):
-        raise ValueError('Registro de control DDJJ ZIP requiere transfer_source_ref no sensible.')
-    if not is_non_sensitive_reference(responsible_review_ref):
-        raise ValueError('Registro de control DDJJ ZIP requiere responsible_review_ref no sensible.')
+    _require_non_sensitive_reference(transfer_source_ref, 'transfer_source_ref', 'Registro de control DDJJ ZIP')
+    _require_non_sensitive_reference(responsible_review_ref, 'responsible_review_ref', 'Registro de control DDJJ ZIP')
     evidence = {
         'record_index': 1,
         'record_type': '0',
@@ -5214,8 +5244,11 @@ def verify_annual_tax_ddjj_zip_export_candidate(candidate, package_dir):
     if not isinstance(evidence, dict) or evidence.get('record_type') != '0':
         raise ValueError('El ZIP DDJJ requiere evidencia del registro de control tipo 0.')
     for field_name in ('transfer_source_ref', 'responsible_review_ref'):
-        if not is_non_sensitive_reference(evidence.get(field_name)):
-            raise ValueError(f'El ZIP DDJJ requiere {field_name} no sensible.')
+        _require_non_sensitive_reference(
+            evidence.get(field_name),
+            field_name,
+            'El ZIP DDJJ',
+        )
     expected_record_hash = hashlib.sha256(actual_records[0].encode('ascii')).hexdigest()
     if evidence.get('record_hash') != expected_record_hash:
         raise ValueError('La evidencia ZIP DDJJ no coincide con el registro de control.')

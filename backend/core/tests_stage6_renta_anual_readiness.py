@@ -2613,6 +2613,25 @@ class Stage6RentaAnualReadinessTests(TestCase):
                 ],
             )
 
+        for field_name, field_value in (
+            ('record_source_ref', 'source_11.111.111-1'),
+            ('responsible_review_ref', 'source_C:/Privado/ddjj-review.pdf'),
+        ):
+            with self.subTest(field_name=field_name), self.assertRaisesRegex(ValueError, f'{field_name} no sensible'):
+                build_annual_tax_ddjj_ascii_export_candidate(
+                    export,
+                    form_code='1887',
+                    rut_number='97030000',
+                    records=[
+                        {
+                            **base_records[0],
+                            field_name: field_value,
+                        },
+                        base_records[1],
+                        base_records[2],
+                    ],
+                )
+
         with self.assertRaisesRegex(ValueError, 'item de matriz ajeno al export'):
             build_annual_tax_ddjj_ascii_export_candidate(
                 export,
@@ -2921,6 +2940,22 @@ class Stage6RentaAnualReadinessTests(TestCase):
                 },
             )
 
+        for field_name, field_value in (
+            ('transfer_source_ref', 'transfer_11.111.111-1'),
+            ('responsible_review_ref', 'source_C:/Privado/ddjj-transfer-review.pdf'),
+        ):
+            with self.subTest(field_name=field_name), self.assertRaisesRegex(ValueError, f'{field_name} no sensible'):
+                build_annual_tax_ddjj_zip_export_candidate(
+                    ascii_candidate,
+                    transfer_control_record={
+                        'record': '0' + 'T' * 23,
+                        'review_state': 'approved_for_candidate',
+                        'transfer_source_ref': 'sii-ddjj-at2026-transfer-control-reviewed',
+                        'responsible_review_ref': 'tax-reviewer-at2026-controlled',
+                        field_name: field_value,
+                    },
+                )
+
         tampered_candidate = {
             **ascii_candidate,
             'summary': {
@@ -3118,6 +3153,24 @@ class Stage6RentaAnualReadinessTests(TestCase):
                 entries=[reviewed_entry],
             )
 
+        for field_name, field_value in (
+            ('certification_code_source_ref', 'source_11.111.111-1'),
+            ('certification_responsible_review_ref', 'source_C:/Privado/f22-certification.pdf'),
+        ):
+            kwargs = self._f22_local_certification_kwargs()
+            kwargs[field_name] = field_value
+
+            with self.subTest(field_name=field_name), self.assertRaisesRegex(ValueError, field_name):
+                build_annual_tax_f22_fixed_width_export_candidate(
+                    export,
+                    rut_number='11111111',
+                    rut_dv='1',
+                    company_code='QA',
+                    client_number='123456',
+                    **kwargs,
+                    entries=[reviewed_entry],
+                )
+
         with self.assertRaisesRegex(ValueError, 'review_state oficial'):
             build_annual_tax_f22_fixed_width_export_candidate(
                 export,
@@ -3224,6 +3277,28 @@ class Stage6RentaAnualReadinessTests(TestCase):
                     }
                 ],
             )
+
+        for field_name, field_value in (
+            ('code_source_ref', 'source_11.111.111-1'),
+            ('value_source_ref', 'source_C:/Privado/f22-value.pdf'),
+            ('responsible_review_ref', 'review_22.222.222-2'),
+        ):
+            with self.subTest(field_name=field_name), self.assertRaisesRegex(ValueError, f'{field_name} no sensible'):
+                build_annual_tax_f22_fixed_width_export_candidate(
+                    export,
+                    rut_number='11111111',
+                    rut_dv='1',
+                    company_code='QA',
+                    client_number='123456',
+                    **self._f22_local_certification_kwargs(),
+                    entries=[
+                        {
+                            **reviewed_entry,
+                            'code': '2345',
+                            field_name: field_value,
+                        }
+                    ],
+                )
 
     def test_tax_export_f22_fixed_width_candidate_manifest_tamper_is_rejected(self):
         self._create_valid_local_matrix()

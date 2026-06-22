@@ -621,6 +621,10 @@ disco, valida ASCII, largo fijo, tipos de registro, hashes y evidencia por
 registro. Mantiene `official_format=false`, `sii_submission=false` y
 `final_tax_calculation=false`; el ZIP, layout exacto por formulario,
 certificacion y envio SII quedan bajo gate externo/autorizacion.
+La evidencia de cada registro DDJJ ASCII usa la misma referencia estricta de
+privacidad que el resto de Etapa 6: `record_source_ref` y
+`responsible_review_ref` no pueden contener RUT chileno ni rutas locales
+absolutas, ademas de URLs, tokens, credenciales o correos.
 El escritor solo materializa el candidato si el destino es inexistente o un
 directorio vacio, para impedir que un manifest DDJJ ASCII nuevo conviva con
 archivos residuales de una corrida anterior.
@@ -641,6 +645,9 @@ contenido ASCII, secuencia 0/1/2/3, largo fijo, evidencia del registro tipo 0
 y flags `official_format=false`, `sii_submission=false` y
 `final_tax_calculation=false`. Sigue siendo candidato local: no declara ZIP
 oficial, certificacion, upload SII, codigo de software ni calculo final.
+La evidencia del registro tipo 0 de transferencia aplica el mismo boundary:
+`transfer_source_ref` y `responsible_review_ref` se rechazan si contienen RUT
+chileno, rutas locales absolutas o referencias sensibles.
 El escritor del ZIP candidato aplica el mismo guard de destino limpio: rechaza
 rutas que no sean directorio y directorios no vacios antes de crear el ZIP o su
 manifest.
@@ -731,6 +738,10 @@ Cada entrada del candidato exige trazabilidad minima no sensible:
 `review_state=approved_for_candidate`, fuente del codigo, fuente del valor y
 responsable revisor. Esa evidencia queda hasheada por linea en el manifest, y
 el verificador bloquea codigos duplicados, refs sensibles o evidencia alterada.
+Las refs de entrada F22 (`code_source_ref`, `value_source_ref` y
+`responsible_review_ref`) tambien rechazan RUT chileno y rutas locales
+absolutas, incluso cuando llegan por llamada directa al builder o por
+verificacion de manifest.
 El mismo candidato exige evidencia separada para los campos de codigo de
 certificacion F22 usados en el registro tipo 0: fuente no sensible, responsable
 revisor, estado sintetico local u oficial autorizado revisado, hash de
@@ -739,6 +750,10 @@ SII, no puede declarar `certification_authorization_ref`; si lo esta, requiere
 estado oficial revisado y ref no sensible. En ambos casos el paquete local
 mantiene `ready_for_certification_submission=false`: es revisable, no
 presentable.
+Las refs de certificacion (`certification_code_source_ref`,
+`certification_responsible_review_ref` y, si aplica,
+`certification_authorization_ref`) quedan sujetas al mismo filtro estricto de
+RUT/rutas locales antes de persistir el manifest candidato.
 `build_f22_fixed_width_entries_from_artifact_matrix()` elimina el ultimo puente
 manual de esa preparacion: deriva las entradas del candidato desde
 `AnnualTaxArtifactMatrixItem` activos generados por `TaxCodeMapping` F22 del

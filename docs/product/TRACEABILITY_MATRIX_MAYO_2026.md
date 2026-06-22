@@ -38,6 +38,15 @@ bloquea con `ownership_snapshot_missing`, `ownership_snapshot_incomplete` o
 normalizados no reemplazan la fuente societaria controlada ni habilitan
 calculo tributario final o presentacion SII.
 
+Nota 2026-06-22: Etapa 6/Renta Anual endurece los candidatos locales de
+exportacion F22/DDJJ. `sii.services` aplica el boundary estricto de refs no
+sensibles a evidencia F22 fixed-width, evidencia DDJJ ASCII y registro de
+control ZIP DDJJ: las refs con RUT chileno o rutas locales absolutas se
+rechazan igual que URLs, tokens, credenciales o correos. Esto protege llamadas
+directas a builders/verificadores, no solo los CLI compuestos de presentacion.
+No abre formato oficial, certificacion real, envio SII ni calculo tributario
+final.
+
 Nota 2026-06-21: Etapa 6/Renta Anual enlaza el proof final con la evidencia
 del run mirror. `audit_annual_tax_mirror_proof` acepta `mirror_run` redactado y
 exige que corresponda a empresa/AC/AT/source, que haya generado DB con 12
