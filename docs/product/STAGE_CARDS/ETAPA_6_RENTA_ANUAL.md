@@ -194,6 +194,10 @@ writer anual: desde la revision real genera 10 `candidate_sources`, un
 RUT, porcentajes, vigencias y evidencia no sensible. El template no esta listo
 para DB hasta que esa informacion sea completada por OCR/revision controlada y
 aprobacion responsable.
+El builder aplica el mismo boundary controlado antes de emitir el template:
+`company_ref`, `responsible_ref`, `approval_ref` y
+`candidate_sources[].path_ref` rechazan RUT chileno o rutas locales absolutas,
+y el comando no ecoa rutas crudas cuando falta o falla la lectura del review.
 `build_annual_tax_ownership_visual_review_packet` prepara esa revision: renderiza
 paginas iniciales de los 10 candidatos a PNG bajo `local-evidence`, con indice
 por hash/path_ref. La corrida real produce 19 paginas sin errores. Las imagenes

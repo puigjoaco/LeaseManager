@@ -76,9 +76,17 @@ ni declara calculo tributario final o presentacion SII.
 Nota 2026-06-22: Etapa 6/Renta Anual aplica el boundary controlado al patch
 ownership privado. `validate_annual_tax_ownership_patch` rechaza refs
 operativas con RUT chileno o rutas locales absolutas en `company_ref`,
-`responsible_ref`, `approval_ref`, `ownership.source_ref`, `participant_ref` y `evidence_ref`; no
-las hashea ni las expone en la validacion redactada. El RUT estructurado de
+`responsible_ref`, `approval_ref`, `ownership.source_ref`, `participant_ref` y
+`evidence_ref`; no las hashea ni las expone en la validacion redactada. El RUT estructurado de
 `ownership.participants[].rut` sigue validado como dato controlado, no como ref.
+
+Nota 2026-06-22: Etapa 6/Renta Anual aplica el boundary controlado al template
+ownership previo al patch. `build_annual_tax_ownership_snapshot_template`
+rechaza `company_ref`, `responsible_ref`, `approval_ref` y
+`candidate_sources[].path_ref` con RUT chileno o rutas locales absolutas antes
+de emitir el puente hacia el patch privado. El CLI no ecoa rutas crudas cuando
+falta o falla la lectura del review. No usa DB real ni declara snapshot
+ownership, calculo tributario final o presentacion SII.
 
 Nota 2026-06-21: Etapa 6/Renta Anual enlaza el proof final con la evidencia
 del run mirror. `audit_annual_tax_mirror_proof` acepta `mirror_run` redactado y
