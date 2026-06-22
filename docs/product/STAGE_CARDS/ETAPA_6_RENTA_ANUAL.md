@@ -774,9 +774,12 @@ Para `AnnualTaxExport`, el progreso exige ademas un paquete local
 materializable: `export_file_package_manifest`, version
 `annual-tax-export-file-package-v1`, hash SHA-256 del manifiesto, conteos
 DDJJ/F22 coherentes y boundary seguro (`official_format=false`,
-`sii_submission=false`, `final_tax_calculation=false`). Un export preparado sin
-ese paquete queda como fase faltante o senal cero y no dispara handoff
-responsable.
+`sii_submission=false`, `final_tax_calculation=false`). Ademas,
+`ProcesoRentaAnual.resumen_anual.annual_tax_exports` debe reflejar el mismo
+export por id, `hash_export`, dossier, source bundle, rule set, matriz,
+conteos, warnings y flags de boundary. Un export preparado sin ese paquete o
+sin resumen anual alineado queda como fase faltante o senal cero y no dispara
+handoff responsable.
 Para F29 mensual, el progreso anual cuenta formularios preparados solo cuando
 son paquete local revisable: mes valido, `resumen_formulario` no vacio y sin
 referencias sensibles, `borrador_ref` no sensible y

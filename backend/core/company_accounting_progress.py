@@ -284,6 +284,89 @@ def _annual_export_has_ready_local_package(
     )
 
 
+def _annual_export_has_process_summary(item: dict[str, Any]) -> bool:
+    export_payload = item.get('export_payload')
+    if not isinstance(export_payload, dict) or contains_sensitive_reference(export_payload, include_sensitive_keys=True):
+        return False
+
+    hash_export = item.get('hash_export')
+    if not _is_sha256(hash_export) or hash_export != payload_hash(export_payload):
+        return False
+
+    process_summary = item.get('proceso_renta_anual__resumen_anual')
+    if not isinstance(process_summary, dict):
+        return False
+    export_summary = process_summary.get('annual_tax_exports')
+    if not isinstance(export_summary, dict):
+        return False
+
+    export_id = str(item.get('id'))
+    summary_ids = {str(value) for value in (export_summary.get('ids') or [])}
+    by_id = export_summary.get('by_id')
+    if not isinstance(by_id, dict):
+        return False
+    if export_id not in summary_ids or export_id not in by_id:
+        return False
+    if _int_or_none(export_summary.get('total')) != len(summary_ids) or set(by_id) != summary_ids:
+        return False
+
+    item_summary = by_id.get(export_id)
+    if not isinstance(item_summary, dict):
+        return False
+
+    integer_fields = (
+        'id',
+        'dossier_id',
+        'source_bundle_id',
+        'rule_set_id',
+        'artifact_matrix_id',
+        'official_format_source_id',
+        'target_items_total',
+        'ddjj_items_total',
+        'f22_items_total',
+        'warnings_total',
+    )
+    for field in integer_fields:
+        if _int_or_none(item_summary.get(field)) != _int_or_none(item.get(field)):
+            return False
+
+    payload_integer_fields = (
+        'f22_export_layout_id',
+        'export_contracts_total',
+        'ddjj_export_contracts_total',
+        'f22_export_contracts_total',
+        'export_files_total',
+        'ddjj_export_files_total',
+        'f22_export_files_total',
+        'export_file_package_files_total',
+        'ddjj_export_package_files_total',
+        'f22_export_package_files_total',
+    )
+    for field in payload_integer_fields:
+        if _int_or_none(item_summary.get(field)) != _int_or_none(export_payload.get(field)):
+            return False
+
+    string_fields = (
+        ('export_kind', item.get('export_kind')),
+        ('hash_export', hash_export),
+        ('dossier_hash', export_payload.get('dossier_hash')),
+        ('f22_export_layout_hash', export_payload.get('f22_export_layout_hash')),
+        ('review_state', item.get('review_state')),
+        ('export_file_manifest_hash', export_payload.get('export_file_manifest_hash')),
+        ('export_file_package_version', export_payload.get('export_file_package_version')),
+        ('export_file_package_hash', export_payload.get('export_file_package_hash')),
+    )
+    for field, expected in string_fields:
+        if item_summary.get(field) != expected:
+            return False
+
+    return (
+        item_summary.get('official_format') is False
+        and item_summary.get('sii_submission') is False
+        and item_summary.get('final_tax_calculation') is False
+    )
+
+
 def _annual_trial_balance_has_materialized_lines(*, lines_total: Any, active_lines_total: int) -> bool:
     declared_lines_total = _int_or_none(lines_total)
     return (
@@ -792,10 +875,20 @@ def collect_company_accounting_candidates(*, empresa_ids: list[int] | None = Non
         final_tax_calculation=False,
         proceso_renta_anual_id__in=valid_process_id_list,
     ).values(
+        'id',
         'proceso_renta_anual_id',
+        'proceso_renta_anual__resumen_anual',
         'source_bundle_id',
+        'rule_set_id',
+        'artifact_matrix_id',
+        'official_format_source_id',
+        'dossier_id',
         'dossier__source_bundle_id',
+        'export_kind',
+        'review_state',
+        'warnings_total',
         'export_payload',
+        'hash_export',
         'target_items_total',
         'ddjj_items_total',
         'f22_items_total',
@@ -818,6 +911,8 @@ def collect_company_accounting_candidates(*, empresa_ids: list[int] | None = Non
             sii_submission=bool(item['sii_submission']),
             final_tax_calculation=bool(item['final_tax_calculation']),
         ):
+            continue
+        if not _annual_export_has_process_summary(item):
             continue
         annual_export_counts[valid_annual_process_ids[process_id]] += 1
     for (empresa_id, fiscal_year), count in annual_export_counts.items():
@@ -1058,6 +1153,7 @@ def collect_company_accounting_progress(*, empresa_id: int, fiscal_year: int) ->
                 sii_submission=bool(export['sii_submission']),
                 final_tax_calculation=bool(export['final_tax_calculation']),
             )
+            and _annual_export_has_process_summary(export)
             for export in AnnualTaxExport.objects.filter(
                 **process_filter,
                 estado=EstadoAnnualTaxExport.PREPARED,
@@ -1066,7 +1162,18 @@ def collect_company_accounting_progress(*, empresa_id: int, fiscal_year: int) ->
                 final_tax_calculation=False,
                 dossier__source_bundle_id=annual_source_bundle_id,
             ).values(
+                'id',
+                'proceso_renta_anual__resumen_anual',
+                'source_bundle_id',
+                'rule_set_id',
+                'artifact_matrix_id',
+                'official_format_source_id',
+                'dossier_id',
+                'export_kind',
+                'review_state',
+                'warnings_total',
                 'export_payload',
+                'hash_export',
                 'target_items_total',
                 'ddjj_items_total',
                 'f22_items_total',

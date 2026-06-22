@@ -3802,6 +3802,14 @@ controlado. El script canonico `codex-github-package.ps1` agrega fallback REST
 cuando `gh` no esta disponible en PATH, usando token de entorno o Git
 Credential Manager sin imprimirlo.
 
+Nota 2026-06-21: Renta Anual endurece el medidor de progreso contable/renta
+por empresa/ano. `AnnualTaxExport` solo suma fase/senal `annual_export` si el
+paquete local es materializable y `ProcesoRentaAnual.resumen_anual.annual_tax_exports`
+refleja el mismo export por id, `hash_export`, dossier, source bundle, rule set,
+matriz, conteos, warnings y flags de boundary. Un export preparado sin resumen
+anual alineado queda como `company_accounting.annual_export_missing` o senal
+cero, sin habilitar handoff responsable.
+
 | Frente | Fuentes rectoras | Areas de codigo/docs | Etapa | Estado actual | Gate/evidencia requerida | Proxima accion |
 | --- | --- | --- | --- | --- | --- | --- |
 | Gobierno documental | Fuente de verdad, AGENTS, README, cursor operativo | `docs/governance`, `AGENTS.md`, `ORDEN_DE_LECTURA.md`, `.gitignore`, `docs/product/EXECUTION_CURSOR_MAYO_2026.md` | 0 | resuelto_confirmado | PR con CI verde y docs consistentes | Mantener actualizado al cambiar fuentes; bloqueos y evidencia son controles operativos de cierre, no arquitectura de producto; el cursor gobierna reanudaciones, worktrees tacticos y metatareas cerradas; artefactos locales de herramienta como `.codex-spreadsheet/`, `.playwright-cli/`, capturas PNG en el root y archivos manuales `CONFIDENCIAL`/`NO_SUBIR` quedan ignorados para no ensuciar `main` ni confundirse con paquetes activos; acceptance ejecuta `assert-repo-hygiene.ps1 -IncludeUntracked` para detectar artefactos sensibles no versionados ni ignorados sin leer secretos. |
