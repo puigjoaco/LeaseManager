@@ -7,6 +7,7 @@ from core.annual_tax_ownership_patch_validator import OWNERSHIP_PATCH_VALIDATION
 from core.annual_tax_ownership_snapshot_template import OWNERSHIP_SNAPSHOT_TEMPLATE_SCHEMA_VERSION
 from core.annual_tax_ownership_visual_review_packet import OWNERSHIP_VISUAL_REVIEW_PACKET_SCHEMA_VERSION
 from core.annual_tax_source_manifest import payload_hash
+from core.reference_validation import is_non_sensitive_control_reference
 
 
 OWNERSHIP_REVIEW_CHECKLIST_SCHEMA_VERSION = 'annual-tax-ownership-review-checklist.v1'
@@ -17,8 +18,56 @@ def _hash_value(value: Any) -> str:
     return payload_hash(str(value or '').strip())
 
 
+def _required_control_ref(value: Any, *, field_name: str) -> str:
+    text = str(value or '').strip()
+    if not is_non_sensitive_control_reference(text):
+        raise ValueError(f'{field_name} debe ser una referencia no sensible.')
+    return text
+
+
+def _optional_control_ref(value: Any, *, field_name: str) -> str:
+    text = str(value or '').strip()
+    if text and not is_non_sensitive_control_reference(text):
+        raise ValueError(f'{field_name} debe ser una referencia no sensible.')
+    return text
+
+
+def _required_int(value: Any, *, field_name: str) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError) as error:
+        raise ValueError(f'{field_name} debe ser numerico.') from error
+
+
 def _candidate_key(candidate: dict[str, Any]) -> str:
-    return str(candidate.get('path_ref') or candidate.get('evidence_ref_suggestion') or '').strip()
+    return _required_control_ref(candidate.get('path_ref'), field_name='candidate_sources[].path_ref')
+
+
+def _validate_context(
+    payload: dict[str, Any],
+    *,
+    payload_name: str,
+    company_ref: str,
+    commercial_year: int,
+    tax_year: int,
+) -> None:
+    payload_company_ref = payload.get('company_ref')
+    if payload_company_ref in (None, ''):
+        raise ValueError(f'{payload_name}.company_ref debe ser una referencia no sensible.')
+    if _required_control_ref(payload_company_ref, field_name=f'{payload_name}.company_ref') != company_ref:
+        raise ValueError(f'{payload_name}.company_ref no coincide con template.company_ref.')
+    payload_commercial_year = payload.get('commercial_year')
+    if (
+        payload_commercial_year not in (None, '')
+        and _required_int(payload_commercial_year, field_name=f'{payload_name}.commercial_year') != commercial_year
+    ):
+        raise ValueError(f'{payload_name}.commercial_year no coincide con template.commercial_year.')
+    payload_tax_year = payload.get('tax_year')
+    if (
+        payload_tax_year not in (None, '')
+        and _required_int(payload_tax_year, field_name=f'{payload_name}.tax_year') != tax_year
+    ):
+        raise ValueError(f'{payload_name}.tax_year no coincide con template.tax_year.')
 
 
 def _visual_index(visual_packet: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
@@ -26,14 +75,14 @@ def _visual_index(visual_packet: dict[str, Any] | None) -> dict[str, dict[str, A
         return {}
     if visual_packet.get('schema_version') == OWNERSHIP_VISUAL_INDEX_SCHEMA_VERSION:
         return {
-            str(item.get('path_ref') or ''): {
+            _required_control_ref(item.get('path_ref'), field_name='visual_packet.records[].path_ref'): {
                 'rendered_pages': list(item.get('rendered_pages') or []),
             }
             for item in visual_packet.get('records') or []
             if isinstance(item, dict) and item.get('path_ref')
         }
     return {
-        str(item.get('path_ref') or ''): item
+        _required_control_ref(item.get('path_ref'), field_name='visual_packet.items[].path_ref'): item
         for item in visual_packet.get('items') or []
         if isinstance(item, dict) and item.get('path_ref')
     }
@@ -50,7 +99,11 @@ def _reviewable_candidates(
         if not isinstance(candidate, dict):
             continue
         key = _candidate_key(candidate)
-        visual = visual_by_ref.get(str(candidate.get('path_ref') or '')) or {}
+        evidence_ref_suggestion = _optional_control_ref(
+            candidate.get('evidence_ref_suggestion'),
+            field_name='candidate_sources[].evidence_ref_suggestion',
+        )
+        visual = visual_by_ref.get(key) or {}
         rendered_pages = visual.get('rendered_pages') if isinstance(visual, dict) else []
         candidates.append(
             {
@@ -64,7 +117,7 @@ def _reviewable_candidates(
                 'document_kind': str(candidate.get('document_kind') or ''),
                 'review_status': str(candidate.get('review_status') or ''),
                 'path_context_tags': list(candidate.get('path_context_tags') or []),
-                'evidence_ref_suggestion': str(candidate.get('evidence_ref_suggestion') or ''),
+                'evidence_ref_suggestion': evidence_ref_suggestion,
                 'requires_ocr_or_manual_read': bool(candidate.get('requires_ocr_or_manual_read')),
                 'rendered_pages_count': len(rendered_pages) if isinstance(rendered_pages, list) else 0,
                 'ready_for_reviewer': bool(key),
@@ -112,6 +165,9 @@ def build_annual_tax_ownership_review_checklist(
 ) -> dict[str, Any]:
     if template.get('schema_version') != OWNERSHIP_SNAPSHOT_TEMPLATE_SCHEMA_VERSION:
         raise ValueError(f'template.schema_version debe ser {OWNERSHIP_SNAPSHOT_TEMPLATE_SCHEMA_VERSION}.')
+    company_ref = _required_control_ref(template.get('company_ref'), field_name='template.company_ref')
+    commercial_year = _required_int(template.get('commercial_year'), field_name='template.commercial_year')
+    tax_year = _required_int(template.get('tax_year'), field_name='template.tax_year')
     if (
         isinstance(visual_packet, dict)
         and visual_packet.get('schema_version')
@@ -120,6 +176,22 @@ def build_annual_tax_ownership_review_checklist(
         raise ValueError(
             'visual_packet.schema_version debe ser '
             f'{OWNERSHIP_VISUAL_REVIEW_PACKET_SCHEMA_VERSION} o {OWNERSHIP_VISUAL_INDEX_SCHEMA_VERSION}.'
+        )
+    if isinstance(visual_packet, dict):
+        _validate_context(
+            visual_packet,
+            payload_name='visual_packet',
+            company_ref=company_ref,
+            commercial_year=commercial_year,
+            tax_year=tax_year,
+        )
+    if isinstance(validation, dict):
+        _validate_context(
+            validation,
+            payload_name='validation',
+            company_ref=company_ref,
+            commercial_year=commercial_year,
+            tax_year=tax_year,
         )
 
     candidates = _reviewable_candidates(template=template, visual_packet=visual_packet)
@@ -184,15 +256,15 @@ def build_annual_tax_ownership_review_checklist(
     return {
         'schema_version': OWNERSHIP_REVIEW_CHECKLIST_SCHEMA_VERSION,
         'generated_at': datetime.now(timezone.utc).isoformat(),
-        'company_ref': str(template.get('company_ref') or ''),
-        'commercial_year': int(template.get('commercial_year') or 0),
-        'tax_year': int(template.get('tax_year') or 0),
+        'company_ref': company_ref,
+        'commercial_year': commercial_year,
+        'tax_year': tax_year,
         'source_template_hash': payload_hash(
             {
                 'schema_version': template.get('schema_version'),
-                'company_ref': template.get('company_ref'),
-                'commercial_year': template.get('commercial_year'),
-                'tax_year': template.get('tax_year'),
+                'company_ref': company_ref,
+                'commercial_year': commercial_year,
+                'tax_year': tax_year,
                 'source_review_hash': template.get('source_review_hash'),
                 'candidate_sources': template.get('candidate_sources'),
             }

@@ -241,6 +241,13 @@ pero `ready_for_controlled_db_load=false` por
 validado. Esto fija la accion correcta: completar participantes bajo
 `local-evidence/` desde revision/OCR legal controlada, no desde outputs finales
 ni memoria del chat.
+El checklist tambien aplica el boundary controlado antes de emitir cola,
+matching visual o hashes: `template.company_ref`,
+`candidate_sources[].path_ref`, `candidate_sources[].evidence_ref_suggestion`,
+`visual_packet.items[].path_ref` y `visual_packet.records[].path_ref` rechazan
+RUT chileno o rutas locales absolutas; ademas exige que visual y validation
+coincidan con empresa/AC/AT del template. El CLI no ecoa rutas crudas cuando
+faltan template, validation o visual packet.
 `build_annual_tax_controlled_load_plan` traduce ese manifiesto a un plan de
 carga contra modelos canonicos de LeaseManager sin escribir DB: cierres,
 libros, balance, obligaciones, F29, hechos mensuales y balance tributario
