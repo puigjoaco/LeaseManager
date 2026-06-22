@@ -422,18 +422,28 @@ class ReferenceValidationTests(TestCase):
 
         payload = {
             'safe_ref': 'controlled-reference',
+            'empty_ref': '',
+            'blank_ref': '   ',
             'rut_ref': 'participant_22.222.222-2',
             'path_ref': 'source_C:/Privado/socio.pdf',
-            'nested': [{'authorization': 'opaque-header-value'}],
+            'nested': [
+                {'authorization': 'opaque-header-value'},
+                {'authorization': ''},
+            ],
         }
 
         self.assertEqual(
             redact_sensitive_control_payload(payload),
             {
                 'safe_ref': 'controlled-reference',
+                'empty_ref': '',
+                'blank_ref': '',
                 'rut_ref': REDACTED_SENSITIVE_REFERENCE,
                 'path_ref': REDACTED_SENSITIVE_REFERENCE,
-                'nested': [{'authorization': REDACTED_SENSITIVE_REFERENCE}],
+                'nested': [
+                    {'authorization': REDACTED_SENSITIVE_REFERENCE},
+                    {'authorization': ''},
+                ],
             },
         )
 

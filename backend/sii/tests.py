@@ -204,8 +204,11 @@ class SiiAPITests(APITestCase):
             responsible_ref='responsible_22.222.222-2',
             resumen_fuentes={
                 'safe_ref': 'controlled-source-summary',
+                'empty_ref': '',
+                'blank_ref': '   ',
                 'rut_ref': 'participant_33.333.333-3',
                 'path_ref': 'source_D:/Privado/source-summary.pdf',
+                'nested': [{'authorization': ''}, {'authorization': 'opaque-header-value'}],
             },
         )
         admin = AnnualTaxSourceBundleAdmin(AnnualTaxSourceBundle, AdminSite())
@@ -217,8 +220,14 @@ class SiiAPITests(APITestCase):
             admin.resumen_fuentes_redacted(bundle),
             {
                 'safe_ref': 'controlled-source-summary',
+                'empty_ref': '',
+                'blank_ref': '',
                 'rut_ref': REDACTED_SENSITIVE_REFERENCE,
                 'path_ref': REDACTED_SENSITIVE_REFERENCE,
+                'nested': [
+                    {'authorization': ''},
+                    {'authorization': REDACTED_SENSITIVE_REFERENCE},
+                ],
             },
         )
 
@@ -236,8 +245,15 @@ class SiiAPITests(APITestCase):
             self.assertEqual(data['authorization_ref'], REDACTED_SENSITIVE_REFERENCE)
             self.assertEqual(data['responsible_ref'], REDACTED_SENSITIVE_REFERENCE)
             self.assertEqual(data['resumen_fuentes']['safe_ref'], 'controlled-source-summary')
+            self.assertEqual(data['resumen_fuentes']['empty_ref'], '')
+            self.assertEqual(data['resumen_fuentes']['blank_ref'], '')
             self.assertEqual(data['resumen_fuentes']['rut_ref'], REDACTED_SENSITIVE_REFERENCE)
             self.assertEqual(data['resumen_fuentes']['path_ref'], REDACTED_SENSITIVE_REFERENCE)
+            self.assertEqual(data['resumen_fuentes']['nested'][0]['authorization'], '')
+            self.assertEqual(
+                data['resumen_fuentes']['nested'][1]['authorization'],
+                REDACTED_SENSITIVE_REFERENCE,
+            )
 
         serialized_payload = json.dumps({'response': response.data, 'snapshot': snapshot.data}, default=str)
         self.assertNotIn('11.111.111-1', serialized_payload)
