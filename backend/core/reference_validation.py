@@ -64,6 +64,15 @@ def redact_sensitive_reference(value):
     return normalized
 
 
+def redact_sensitive_control_reference(value):
+    normalized = normalize_reference(value)
+    if not normalized:
+        return ''
+    if not is_non_sensitive_control_reference(normalized):
+        return REDACTED_SENSITIVE_REFERENCE
+    return normalized
+
+
 def redact_sensitive_payload(value, *, _sensitive_key=False):
     if isinstance(value, str):
         if _sensitive_key or SENSITIVE_REFERENCE_PATTERN.search(value):
@@ -80,6 +89,27 @@ def redact_sensitive_payload(value, *, _sensitive_key=False):
         }
     if isinstance(value, (list, tuple, set)):
         return [redact_sensitive_payload(item, _sensitive_key=_sensitive_key) for item in value]
+    if _sensitive_key and value is not None:
+        return REDACTED_SENSITIVE_REFERENCE
+    return value
+
+
+def redact_sensitive_control_payload(value, *, _sensitive_key=False):
+    if isinstance(value, str):
+        if _sensitive_key or not is_non_sensitive_control_reference(value):
+            return REDACTED_SENSITIVE_REFERENCE
+        return value
+    if isinstance(value, dict):
+        return {
+            key: redact_sensitive_control_payload(
+                item,
+                _sensitive_key=_sensitive_key
+                or bool(isinstance(key, str) and key_looks_sensitive(key)),
+            )
+            for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple, set)):
+        return [redact_sensitive_control_payload(item, _sensitive_key=_sensitive_key) for item in value]
     if _sensitive_key and value is not None:
         return REDACTED_SENSITIVE_REFERENCE
     return value

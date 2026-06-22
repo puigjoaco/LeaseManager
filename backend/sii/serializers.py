@@ -1,7 +1,10 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
-from core.reference_validation import redact_sensitive_payload, redact_sensitive_reference
+from core.reference_validation import (
+    redact_sensitive_control_payload as redact_sensitive_payload,
+    redact_sensitive_control_reference as redact_sensitive_reference,
+)
 from core.scope_access import scope_queryset_for_user
 from cobranza.models import PagoMensual
 

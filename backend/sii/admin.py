@@ -1,6 +1,9 @@
 from django.contrib import admin
 
-from core.reference_validation import redact_sensitive_payload, redact_sensitive_reference
+from core.reference_validation import (
+    redact_sensitive_control_payload as redact_sensitive_payload,
+    redact_sensitive_control_reference as redact_sensitive_reference,
+)
 
 from .models import (
     AnnualEnterpriseRegisterMovement,

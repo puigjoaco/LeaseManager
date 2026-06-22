@@ -5,7 +5,10 @@ from rest_framework.views import APIView
 
 from audit.services import create_audit_event
 from core.permissions import ControlModulePermission
-from core.reference_validation import redact_sensitive_payload, redact_sensitive_reference
+from core.reference_validation import (
+    redact_sensitive_control_payload as redact_sensitive_payload,
+    redact_sensitive_control_reference as redact_sensitive_reference,
+)
 from core.scope_access import ScopedQuerysetMixin, get_scope_access, scope_queryset_for_access, scope_queryset_for_user
 from cobranza.models import PagoMensual
 from patrimonio.models import Empresa
