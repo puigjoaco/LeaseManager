@@ -117,6 +117,14 @@ El CLI no ecoa rutas crudas cuando falla `source_root`, la salida o algun tramo
 interno. No usa DB real ni declara snapshot ownership, calculo tributario final
 o presentacion SII.
 
+Nota 2026-06-22: Etapa 6/Renta Anual aplica el boundary controlado al manifest
+anual directo. `build_annual_tax_source_manifest` valida `company_ref`,
+`source_label`, `authorization_ref`, `responsible_ref` y `--output` relativa
+bajo `local-evidence/` antes de emitir JSON o escribir artefactos, bloqueando
+RUT chileno y rutas locales absolutas. El CLI no ecoa `source_root` ni rutas de
+salida crudas cuando faltan fuentes o falla la escritura. No usa DB real ni
+declara calculo tributario final o presentacion SII.
+
 Nota 2026-06-21: Etapa 6/Renta Anual enlaza el proof final con la evidencia
 del run mirror. `audit_annual_tax_mirror_proof` acepta `mirror_run` redactado y
 exige que corresponda a empresa/AC/AT/source, que haya generado DB con 12

@@ -3,6 +3,7 @@ from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import SimpleTestCase
@@ -375,6 +376,79 @@ class AnnualTaxSourceManifestTests(SimpleTestCase):
                 commercial_year=2024,
                 output='docs/ac2024-source-manifest.json',
             )
+
+    def test_manifest_rejects_sensitive_control_refs_without_echoing_values(self):
+        with TemporaryDirectory() as temp_dir:
+            source_root = Path(temp_dir)
+            self._write(source_root, 'Ano_2024/01_Libros_Anuales/Libro_Diario_2024.pdf')
+            cases = (
+                ('company_ref', {'company_ref': 'inmobiliaria_11.111.111-1'}, '11.111.111-1'),
+                ('source_label', {'source_label': r'source_\\server\share\manifest.json'}, r'\\server\share'),
+                ('authorization_ref', {'authorization_ref': 'authorization_C:/Privado/fuente.txt'}, 'C:/Privado'),
+                ('responsible_ref', {'responsible_ref': 'responsible_22.222.222-2'}, '22.222.222-2'),
+            )
+            for label, overrides, sensitive_fragment in cases:
+                with self.subTest(label=label):
+                    kwargs = {
+                        'source_root': str(source_root),
+                        'company_ref': 'inmobiliaria-puig',
+                        'commercial_year': 2024,
+                        'tax_year': 2025,
+                        'summary_only': True,
+                        'stdout': StringIO(),
+                    }
+                    kwargs.update(overrides)
+
+                    with self.assertRaises(CommandError) as error:
+                        call_command('build_annual_tax_source_manifest', **kwargs)
+
+                    rendered_error = str(error.exception)
+                    self.assertIn('Manifiesto anual invalido', rendered_error)
+                    self.assertNotIn(sensitive_fragment, rendered_error)
+
+    def test_command_redacts_sensitive_source_and_output_paths_in_errors(self):
+        local_evidence = Path(settings.PROJECT_ROOT) / 'local-evidence'
+        local_evidence.mkdir(exist_ok=True)
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            sensitive_source_root = temp_root / 'Socio Controlado Uno 11.111.111-1'
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'build_annual_tax_source_manifest',
+                    source_root=str(sensitive_source_root),
+                    company_ref='inmobiliaria-puig',
+                    commercial_year=2024,
+                    summary_only=True,
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertIn('Manifiesto anual invalido', rendered_error)
+            self.assertNotIn('Socio Controlado Uno', rendered_error)
+            self.assertNotIn('11.111.111-1', rendered_error)
+
+        with TemporaryDirectory(dir=local_evidence) as temp_dir:
+            temp_root = Path(temp_dir)
+            source_root = temp_root / 'source'
+            source_root.mkdir()
+            self._write(source_root, 'Ano_2024/01_Libros_Anuales/Libro_Diario_2024.pdf')
+            sensitive_output = local_evidence / 'Socio Controlado Dos 22.222.222-2' / 'manifest.json'
+
+            with self.assertRaises(CommandError) as error:
+                call_command(
+                    'build_annual_tax_source_manifest',
+                    source_root=str(source_root),
+                    company_ref='inmobiliaria-puig',
+                    commercial_year=2024,
+                    output=str(sensitive_output),
+                    stdout=StringIO(),
+                )
+
+            rendered_error = str(error.exception)
+            self.assertIn('ruta relativa no sensible', rendered_error)
+            self.assertNotIn('Socio Controlado Dos', rendered_error)
+            self.assertNotIn('22.222.222-2', rendered_error)
 
     def test_command_can_fail_on_incomplete_required_mirror_inputs(self):
         with TemporaryDirectory() as temp_dir:

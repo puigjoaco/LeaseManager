@@ -14,6 +14,7 @@ from core.reference_validation import (
     contains_chilean_rut_reference,
     contains_local_absolute_path_reference,
     contains_sensitive_reference,
+    is_non_sensitive_control_reference,
     redact_sensitive_reference,
 )
 
@@ -222,6 +223,20 @@ def _canonical_json(value: Any) -> str:
 
 def payload_hash(value: Any) -> str:
     return hashlib.sha256(_canonical_json(value).encode('utf-8')).hexdigest()
+
+
+def _required_control_ref(value: Any, *, field_name: str) -> str:
+    text = str(value or '').strip()
+    if not is_non_sensitive_control_reference(text):
+        raise ValueError(f'{field_name} debe ser una referencia no sensible.')
+    return text
+
+
+def _optional_control_ref(value: Any, *, field_name: str) -> str:
+    text = str(value or '').strip()
+    if text and not is_non_sensitive_control_reference(text):
+        raise ValueError(f'{field_name} debe ser una referencia no sensible.')
+    return text
 
 
 def _file_hash(path: Path) -> str:
@@ -708,12 +723,18 @@ def build_annual_tax_source_manifest(
     include_file_list: bool = True,
     f29_no_declaration_months: tuple[int, ...] | list[int] | None = None,
 ) -> dict[str, Any]:
+    company_ref = _required_control_ref(company_ref, field_name='company_ref')
+    authorization_ref = _required_control_ref(authorization_ref, field_name='authorization_ref')
+    responsible_ref = _required_control_ref(responsible_ref, field_name='responsible_ref')
     source_root = source_root.expanduser().resolve()
     if not source_root.exists() or not source_root.is_dir():
-        raise FileNotFoundError(f'source_root does not exist or is not a directory: {source_root}')
+        raise FileNotFoundError('source_root no existe o no es un directorio controlado.')
 
     tax_year = tax_year or commercial_year + 1
-    source_label = source_label or f'{company_ref}-AC{commercial_year}-AT{tax_year}-mirror-source'
+    source_label = (
+        _optional_control_ref(source_label, field_name='source_label')
+        or f'{company_ref}-AC{commercial_year}-AT{tax_year}-mirror-source'
+    )
     root_ref = f'source-root-sha256:{hashlib.sha256(str(source_root).encode("utf-8")).hexdigest()}'
 
     source_files = []
