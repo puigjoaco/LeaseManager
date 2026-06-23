@@ -404,6 +404,10 @@ El comando `audit_annual_tax_controlled_package_readiness` redacta errores de
 archivo: package faltante, lectura fallida o escritura fallida del reporte no
 devuelven rutas locales completas con nombres, RUTs o carpetas privadas. La
 restriccion de outputs versionables fuera de `local-evidence/` se mantiene.
+La validacion de `--output` local queda centralizada en
+`core.management.local_evidence_paths`: si una salida queda dentro del repo debe
+vivir bajo `local-evidence/`, y la ruta relativa bajo ese directorio tambien
+debe pasar el boundary controlado de refs no sensibles antes de escribir JSON.
 Cuando existe `ownership_review`, el auditor lo expone como
 `ownership_review_handoff` y advierte si esta listo para inyeccion pero aun no
 existe `package.ownership`; no lo usa como fuente societaria ni como permiso
@@ -1458,12 +1462,19 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   y lectura fallida de manifest no devuelven rutas locales completas con
   nombres, RUTs ni carpetas privadas. Las salidas versionables siguen
   restringidas a `local-evidence/`.
+- `run_annual_tax_controlled_mirror` comparte el helper de salida local
+  controlada con el readiness y writer anual: `--output` relativo bajo
+  `local-evidence/` no puede contener RUT chileno, rutas locales absolutas ni
+  otras refs sensibles antes de generar el reporte.
 - `audit_annual_tax_mirror_proof` aplica el mismo boundary de privacidad sobre
   el proof final del espejo anual: manifest faltante o ilegible, source-root
   ausente, ownership evidence faltante o ilegible, mirror run faltante o
   ilegible y escritura fallida del reporte responden con errores genericos sin
   rutas locales completas, nombres ni RUTs. El comando sigue sin leer SII real
   ni convertir la prueba espejo en cierre tributario final.
+- Su `--output` usa la misma validacion centralizada de `local-evidence/`, de
+  modo que el proof no puede dejar evidencia versionable con refs sensibles en
+  la ruta relativa aun cuando el contenido del reporte sea redactado.
 - La normalizacion anual AC2024/AT2025 distingue lineas soporte y lineas
   comparables mediante `source_payload.expected_output_artifacts`. RLI/CPT se
   generan desde Libro Inventario y resultado contable, incluyendo mappings sobre

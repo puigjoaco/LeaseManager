@@ -662,6 +662,47 @@ class AnnualTaxMirrorProofTests(TestCase):
         self.assertFalse(written['summary']['ready_for_objective_completion'])
         self.assertIn('comparison.generated_artifacts_require_review', written['summary']['blockers'])
 
+    def test_command_rejects_sensitive_output_relative_path_under_local_evidence(self):
+        with TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / 'repo'
+            (repo_root / 'local-evidence').mkdir(parents=True)
+            manifest_path = Path(temp_dir) / 'manifest.json'
+            manifest_path.write_text('{}', encoding='utf-8')
+            output_path = repo_root / 'local-evidence' / '11111111-1' / 'mirror-proof.json'
+
+            with self.settings(PROJECT_ROOT=str(repo_root)):
+                with self.assertRaisesMessage(CommandError, 'ruta relativa no sensible'):
+                    call_command(
+                        'audit_annual_tax_mirror_proof',
+                        '--empresa-id',
+                        '1',
+                        '--commercial-year',
+                        '2024',
+                        '--tax-year',
+                        '2025',
+                        '--manifest',
+                        str(manifest_path),
+                        '--source-label',
+                        'ac2024-controlled-source',
+                        '--authorization-ref',
+                        'authorization-ref',
+                        '--stage5-evidence-ref',
+                        'stage5-evidence-ref',
+                        '--stage4-sii-evidence-ref',
+                        'stage4-sii-evidence-ref',
+                        '--fiscal-rule-ref',
+                        'fiscal-rule-ref',
+                        '--certificates-proof-ref',
+                        'certificates-proof-ref',
+                        '--responsible-ref',
+                        'responsible-ref',
+                        '--output',
+                        str(output_path),
+                        stdout=StringIO(),
+                    )
+
+            self.assertFalse(output_path.exists())
+
     def test_command_missing_manifest_error_does_not_echo_sensitive_path(self):
         empresa = self._create_empresa()
 
