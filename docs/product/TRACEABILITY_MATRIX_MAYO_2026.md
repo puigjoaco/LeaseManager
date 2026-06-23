@@ -175,6 +175,18 @@ relativa no puede contener RUT chileno, rutas locales absolutas ni refs
 sensibles. No usa DB real ni declara review responsable, writer productivo,
 calculo tributario final o presentacion SII.
 
+Nota 2026-06-22: Etapa 6/Renta Anual extiende el helper compartido a directorios
+`--output-dir` de materializadores contables/renta. Los comandos
+`materialize_company_accounting_review_package`,
+`materialize_company_accounting_responsible_questions`,
+`materialize_company_accounting_responsible_answers_template`,
+`materialize_company_accounting_responsible_handoff_packet` y
+`materialize_company_accounting_responsible_answers` reutilizan
+`core.management.local_evidence_paths` para resolver rutas y bloquear salidas
+versionables o sensibles antes de escribir paquetes locales. No usa DB real ni
+declara review responsable, contabilidad final, calculo tributario final o
+presentacion SII.
+
 Nota 2026-06-22: Etapa 6/Renta Anual aplica el boundary controlado a salidas de
 materializadores contables/renta. `materialize_company_accounting_review_package`,
 `materialize_company_accounting_responsible_questions`,

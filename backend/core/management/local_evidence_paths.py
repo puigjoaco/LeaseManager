@@ -47,3 +47,16 @@ def validate_local_evidence_output_path(
     relative_output_path = output_path.resolve().relative_to(local_evidence_root()).as_posix()
     if not is_non_sensitive_control_reference(relative_output_path):
         raise CommandError(f'{option_name} debe usar una ruta relativa no sensible bajo local-evidence/.')
+
+
+def validate_local_evidence_output_dir_path(
+    output_dir: Path,
+    *,
+    option_name: str = '--output-dir',
+    artifact_description: str = 'evidencia contable o tributaria',
+) -> None:
+    validate_local_evidence_output_path(
+        output_dir,
+        option_name=option_name,
+        artifact_description=artifact_description,
+    )
