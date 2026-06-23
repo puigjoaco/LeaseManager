@@ -195,6 +195,35 @@ class AnnualTaxOwnershipVisualReviewPacketTests(SimpleTestCase):
                     output='docs/ownership-pages/index.json',
                 )
 
+    def test_command_rejects_sensitive_visual_output_relative_path(self):
+        with TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            source_root = temp_root / 'source'
+            self._write_bytes(
+                source_root,
+                'Ano_HISTORICO/08_Base_Legal_Patrimonial_Operativa/Inmobiliaria Puig SpA/'
+                '1. Escrituras y Modificaciones/1.Constitucion/4.Inscripcion/Inscripcion.pdf',
+            )
+            manifest, review = self._manifest_and_review(source_root)
+            manifest_path = temp_root / 'manifest.json'
+            review_path = temp_root / 'review.json'
+            manifest_path.write_text(json.dumps(manifest), encoding='utf-8')
+            review_path.write_text(json.dumps(review), encoding='utf-8')
+            sensitive_output_dir = temp_root / 'local-evidence' / 'Socio Controlado 11.111.111-1'
+
+            with override_settings(PROJECT_ROOT=str(temp_root)):
+                with self.assertRaisesMessage(CommandError, 'ruta relativa no sensible'):
+                    call_command(
+                        'build_annual_tax_ownership_visual_review_packet',
+                        manifest=str(manifest_path),
+                        review=str(review_path),
+                        source_root=str(source_root),
+                        company_ref='inmobiliaria-puig',
+                        commercial_year=2024,
+                        output_dir=str(sensitive_output_dir),
+                        output=str(sensitive_output_dir / 'index.json'),
+                    )
+
     def test_command_errors_do_not_echo_sensitive_paths_or_refs(self):
         with TemporaryDirectory() as temp_dir:
             temp_root = Path(temp_dir)

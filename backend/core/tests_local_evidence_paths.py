@@ -6,6 +6,8 @@ from django.core.management.base import CommandError
 from django.test import SimpleTestCase
 
 from core.management.local_evidence_paths import (
+    validate_required_local_evidence_output_dir_path,
+    validate_required_local_evidence_output_path,
     validate_local_evidence_output_dir_path,
     validate_local_evidence_output_path,
 )
@@ -55,6 +57,18 @@ class LocalEvidencePathTests(SimpleTestCase):
                 with self.assertRaisesMessage(CommandError, '--output-dir debe usar una ruta relativa no sensible'):
                     validate_local_evidence_output_dir_path(sensitive_output_dir)
 
+    def test_required_local_evidence_output_rejects_external_and_sensitive_paths(self):
+        with TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / 'repo'
+            external_output = Path(temp_dir) / 'external' / 'visual-index.json'
+            sensitive_output_dir = repo_root / 'local-evidence' / 'Socio Controlado 11.111.111-1' / 'visual'
+
+            with self.settings(PROJECT_ROOT=str(repo_root)):
+                with self.assertRaisesMessage(CommandError, 'debe quedar bajo local-evidence/'):
+                    validate_required_local_evidence_output_path(external_output)
+                with self.assertRaisesMessage(CommandError, 'ruta relativa no sensible'):
+                    validate_required_local_evidence_output_dir_path(sensitive_output_dir)
+
     def test_stage6_annual_materializer_output_dir_validators_reject_sensitive_relative_paths(self):
         command_modules = (
             'materialize_annual_tax_export_file_package',
@@ -95,3 +109,24 @@ class LocalEvidencePathTests(SimpleTestCase):
                     checklist_module._validate_output_path(sensitive_output)
                 with self.assertRaisesMessage(CommandError, 'ruta relativa no sensible'):
                     workbench_module._validate_output_dir(sensitive_output_dir)
+
+    def test_stage6_ownership_visual_validators_reject_sensitive_relative_paths(self):
+        with TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / 'repo'
+            sensitive_output = repo_root / 'local-evidence' / 'Socio Controlado 11.111.111-1' / 'visual.json'
+            sensitive_output_dir = repo_root / 'local-evidence' / 'Socio Controlado 11.111.111-1' / 'visual'
+
+            with self.settings(PROJECT_ROOT=str(repo_root)):
+                visual_module = import_module(
+                    'core.management.commands.build_annual_tax_ownership_visual_review_packet'
+                )
+                chain_module = import_module(
+                    'core.management.commands.build_annual_tax_ownership_evidence_chain'
+                )
+
+                with self.assertRaisesMessage(CommandError, 'ruta relativa no sensible'):
+                    visual_module._validate_local_evidence_path(sensitive_output)
+                with self.assertRaisesMessage(CommandError, 'ruta relativa no sensible'):
+                    visual_module._validate_local_evidence_dir(sensitive_output_dir)
+                with self.assertRaisesMessage(CommandError, 'ruta relativa no sensible'):
+                    chain_module._validate_local_evidence_dir(sensitive_output_dir)

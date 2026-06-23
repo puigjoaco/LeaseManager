@@ -3,7 +3,6 @@ import re
 from pathlib import Path
 from typing import Any
 
-from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from core.annual_tax_controlled_load_plan import load_manifest_json
@@ -11,22 +10,17 @@ from core.annual_tax_ownership_candidate_review import review_annual_tax_ownersh
 from core.annual_tax_ownership_snapshot_template import build_annual_tax_ownership_snapshot_template
 from core.annual_tax_ownership_visual_review_packet import build_annual_tax_ownership_visual_review_packet
 from core.annual_tax_source_manifest import build_annual_tax_source_manifest, payload_hash
+from core.management.local_evidence_paths import (
+    local_evidence_root,
+    repo_root,
+    resolve_command_path,
+    validate_required_local_evidence_output_dir_path,
+)
 from core.reference_validation import is_non_sensitive_control_reference
 
 
 CHAIN_SCHEMA_VERSION = 'annual-tax-ownership-evidence-chain.v1'
 SAFE_RUN_LABEL_PATTERN = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._-]*$')
-
-
-def _resolve_path(raw_path: str) -> Path:
-    path = Path(raw_path).expanduser()
-    if not path.is_absolute():
-        path = Path.cwd() / path
-    return path.resolve()
-
-
-def _local_evidence_root() -> Path:
-    return (Path(settings.PROJECT_ROOT).resolve() / 'local-evidence').resolve()
 
 
 def _required_control_ref(value: Any, *, field_name: str) -> str:
@@ -52,7 +46,7 @@ def _required_run_label(value: Any) -> str:
 
 def _default_output_dir(*, company_ref: str, commercial_year: int, tax_year: int, run_label: str) -> Path:
     return (
-        _local_evidence_root()
+        local_evidence_root()
         / company_ref
         / f'ac{commercial_year}-at{tax_year}'
         / f'ownership-evidence-chain-{run_label}'
@@ -60,15 +54,10 @@ def _default_output_dir(*, company_ref: str, commercial_year: int, tax_year: int
 
 
 def _validate_local_evidence_dir(path: Path) -> None:
-    try:
-        relative = path.relative_to(_local_evidence_root()).as_posix()
-    except ValueError as error:
-        raise CommandError(
-            'La cadena de evidencia ownership puede contener indices tributarios y '
-            'imagenes sensibles; --output-dir debe quedar bajo local-evidence/.'
-        ) from error
-    if not is_non_sensitive_control_reference(relative):
-        raise CommandError('--output-dir debe usar una ruta relativa no sensible bajo local-evidence/.')
+    validate_required_local_evidence_output_dir_path(
+        path,
+        artifact_description='indices tributarios e imagenes ownership sensibles',
+    )
 
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
@@ -80,9 +69,8 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
 
 
 def _repo_ref(path: Path) -> str:
-    repo_root = Path(settings.PROJECT_ROOT).resolve()
     try:
-        return path.resolve().relative_to(repo_root).as_posix()
+        return path.resolve().relative_to(repo_root()).as_posix()
     except ValueError:
         return path.resolve().as_posix()
 
@@ -151,11 +139,11 @@ class Command(BaseCommand):
         authorization_ref = _required_control_ref(options['authorization_ref'], field_name='authorization_ref')
         responsible_ref = _required_control_ref(options['responsible_ref'], field_name='responsible_ref')
         approval_ref = _optional_control_ref(options.get('approval_ref') or '', field_name='approval_ref')
-        source_root = _resolve_path(options['source_root'])
+        source_root = resolve_command_path(options['source_root'])
         if not source_root.exists() or not source_root.is_dir():
             raise CommandError('source_root no existe o no es un directorio controlado.')
         output_dir = (
-            _resolve_path(options['output_dir'])
+            resolve_command_path(options['output_dir'])
             if options.get('output_dir')
             else _default_output_dir(
                 company_ref=company_ref,
