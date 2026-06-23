@@ -2,10 +2,14 @@ import hashlib
 import json
 from pathlib import Path
 
-from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db.utils import OperationalError, ProgrammingError
 
+from core.management.local_evidence_paths import (
+    repo_root,
+    resolve_command_path,
+    validate_local_evidence_output_dir_path,
+)
 from core.reference_validation import (
     contains_chilean_rut_reference,
     contains_local_absolute_path_reference,
@@ -43,15 +47,12 @@ from sii.services import (
 
 
 def _resolve_output_dir(raw_output_dir: str) -> Path:
-    output_dir = Path(raw_output_dir).expanduser()
-    if not output_dir.is_absolute():
-        output_dir = Path.cwd() / output_dir
-    return output_dir.resolve()
+    return resolve_command_path(raw_output_dir)
 
 
 def _default_output_dir(export: AnnualTaxExport) -> Path:
     return (
-        Path(settings.PROJECT_ROOT).resolve()
+        repo_root()
         / 'local-evidence'
         / 'stage6'
         / 'controlled-presentation-packages'
@@ -60,21 +61,10 @@ def _default_output_dir(export: AnnualTaxExport) -> Path:
 
 
 def _validate_output_dir(output_dir: Path) -> None:
-    repo_root = Path(settings.PROJECT_ROOT).resolve()
-    local_evidence_root = (repo_root / 'local-evidence').resolve()
-
-    try:
-        output_dir.relative_to(repo_root)
-    except ValueError:
-        return
-
-    try:
-        output_dir.relative_to(local_evidence_root)
-    except ValueError as error:
-        raise CommandError(
-            'Si --output-dir queda dentro del repo, debe estar bajo local-evidence/ '
-            'para no versionar paquetes tributarios de presentacion.'
-        ) from error
+    validate_local_evidence_output_dir_path(
+        output_dir,
+        artifact_description='paquetes tributarios de presentacion',
+    )
 
 
 def _prepare_output_root(output_dir: Path) -> Path:
