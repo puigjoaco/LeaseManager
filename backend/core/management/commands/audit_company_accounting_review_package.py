@@ -1,38 +1,27 @@
 import json
 from pathlib import Path
 
-from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db.utils import OperationalError, ProgrammingError
 
 from core.company_accounting_review_package import build_company_accounting_review_package
 from core.company_document_intake import verify_company_document_intake_package_from_disk
+from core.management.local_evidence_paths import (
+    resolve_command_path,
+    validate_local_evidence_output_path,
+)
 from patrimonio.models import Empresa
 
 
 def _resolve_path(raw_path: str) -> Path:
-    path = Path(raw_path).expanduser()
-    if not path.is_absolute():
-        path = Path.cwd() / path
-    return path.resolve()
+    return resolve_command_path(raw_path)
 
 
 def _validate_output_path(output_path: Path) -> None:
-    repo_root = Path(settings.PROJECT_ROOT).resolve()
-    local_evidence_root = (repo_root / 'local-evidence').resolve()
-
-    try:
-        output_path.relative_to(repo_root)
-    except ValueError:
-        return
-
-    try:
-        output_path.relative_to(local_evidence_root)
-    except ValueError as error:
-        raise CommandError(
-            'Si --output queda dentro del repo, debe estar bajo local-evidence/ '
-            'para no versionar evidencia bancaria, contable o tributaria.'
-        ) from error
+    validate_local_evidence_output_path(
+        output_path,
+        artifact_description='evidencia bancaria, contable o tributaria',
+    )
 
 
 class Command(BaseCommand):

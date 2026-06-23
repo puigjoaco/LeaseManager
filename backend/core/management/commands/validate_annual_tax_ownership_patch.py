@@ -1,45 +1,28 @@
 import json
 from pathlib import Path
 
-from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from core.annual_tax_ownership_patch_validator import validate_annual_tax_ownership_patch
+from core.management.local_evidence_paths import (
+    is_inside,
+    local_evidence_root,
+    repo_root,
+    resolve_command_path,
+    validate_local_evidence_output_path,
+)
 
 
 def _resolve_path(raw_path: str) -> Path:
-    path = Path(raw_path).expanduser()
-    if not path.is_absolute():
-        path = Path.cwd() / path
-    return path.resolve()
-
-
-def _repo_root() -> Path:
-    return Path(settings.PROJECT_ROOT).resolve()
-
-
-def _local_evidence_root() -> Path:
-    return (_repo_root() / 'local-evidence').resolve()
-
-
-def _is_inside(path: Path, root: Path) -> bool:
-    try:
-        path.resolve().relative_to(root)
-        return True
-    except ValueError:
-        return False
+    return resolve_command_path(raw_path)
 
 
 def _validate_output_path(output_path: Path) -> None:
-    if _is_inside(output_path, _repo_root()) and not _is_inside(output_path, _local_evidence_root()):
-        raise CommandError(
-            'Si --output queda dentro del repo, debe estar bajo local-evidence/ '
-            'para no versionar evidencia contable o tributaria.'
-        )
+    validate_local_evidence_output_path(output_path)
 
 
 def _validate_patch_path(patch_path: Path) -> None:
-    if _is_inside(patch_path, _repo_root()) and not _is_inside(patch_path, _local_evidence_root()):
+    if is_inside(patch_path, repo_root()) and not is_inside(patch_path, local_evidence_root()):
         raise CommandError(
             'El ownership patch puede contener nombres y RUTs; si --patch queda dentro del repo, '
             'debe estar bajo local-evidence/ para no versionar PII.'

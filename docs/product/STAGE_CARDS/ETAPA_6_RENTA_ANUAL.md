@@ -408,6 +408,13 @@ La validacion de `--output` local queda centralizada en
 `core.management.local_evidence_paths`: si una salida queda dentro del repo debe
 vivir bajo `local-evidence/`, y la ruta relativa bajo ese directorio tambien
 debe pasar el boundary controlado de refs no sensibles antes de escribir JSON.
+El mismo helper se reutiliza en los comandos de archivo `--output` del frente
+contable/renta y de preparacion anual: progreso/candidatos, paquete de revision,
+cobertura bancaria, intake documental, manifest AC/AT, template/plan/draft de
+carga controlada, review/template ownership, comparador de outputs esperados,
+validacion de patch ownership y marcado de warnings revisados. Esto evita
+divergencias de validacion entre comandos sin abrir DB real, SII real ni
+calculo tributario final.
 Cuando existe `ownership_review`, el auditor lo expone como
 `ownership_review_handoff` y advierte si esta listo para inyeccion pero aun no
 existe `package.ownership`; no lo usa como fuente societaria ni como permiso

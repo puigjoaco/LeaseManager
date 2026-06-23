@@ -1,39 +1,22 @@
 import json
 from pathlib import Path
 
-from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from core.annual_tax_controlled_load_plan import load_manifest_json
 from core.annual_tax_ownership_candidate_review import review_annual_tax_ownership_candidates
-from core.reference_validation import is_non_sensitive_control_reference
+from core.management.local_evidence_paths import (
+    resolve_command_path,
+    validate_local_evidence_output_path,
+)
 
 
 def _resolve_path(raw_path: str) -> Path:
-    path = Path(raw_path).expanduser()
-    if not path.is_absolute():
-        path = Path.cwd() / path
-    return path.resolve()
+    return resolve_command_path(raw_path)
 
 
 def _validate_output_path(output_path: Path) -> None:
-    repo_root = Path(settings.PROJECT_ROOT).resolve()
-    local_evidence_root = (repo_root / 'local-evidence').resolve()
-
-    try:
-        output_path.relative_to(repo_root)
-    except ValueError:
-        return
-
-    try:
-        relative_output_path = output_path.relative_to(local_evidence_root).as_posix()
-    except ValueError as error:
-        raise CommandError(
-            'Si --output queda dentro del repo, debe estar bajo local-evidence/ '
-            'para no versionar evidencia contable o tributaria.'
-        ) from error
-    if not is_non_sensitive_control_reference(relative_output_path):
-        raise CommandError('--output debe usar una ruta relativa no sensible bajo local-evidence/.')
+    validate_local_evidence_output_path(output_path)
 
 
 class Command(BaseCommand):

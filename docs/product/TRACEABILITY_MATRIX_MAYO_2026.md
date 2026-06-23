@@ -157,6 +157,24 @@ contener RUT chileno, rutas locales absolutas ni refs sensibles antes de
 escribir JSON. No usa DB real ni declara writer anual productivo, mirror
 productivo, calculo tributario final o presentacion SII.
 
+Nota 2026-06-22: Etapa 6/Renta Anual extiende ese helper compartido a los
+comandos de archivo `--output` que todavia duplicaban validacion local:
+`audit_company_accounting_progress`, `audit_company_accounting_candidates`,
+`audit_company_accounting_review_package`, `audit_company_bank_support_coverage`,
+`audit_company_document_intake`, `build_annual_tax_source_manifest`,
+`build_annual_tax_controlled_db_load_template`,
+`build_annual_tax_controlled_load_plan`,
+`build_annual_tax_controlled_values_draft`,
+`build_annual_tax_ownership_snapshot_template`,
+`review_annual_tax_ownership_candidates`,
+`compare_annual_tax_expected_outputs`,
+`validate_annual_tax_ownership_patch` y
+`mark_annual_tax_generated_warnings_reviewed`. El comportamiento queda alineado:
+si `--output` queda dentro del repo debe estar bajo `local-evidence/`, y la ruta
+relativa no puede contener RUT chileno, rutas locales absolutas ni refs
+sensibles. No usa DB real ni declara review responsable, writer productivo,
+calculo tributario final o presentacion SII.
+
 Nota 2026-06-22: Etapa 6/Renta Anual aplica el boundary controlado a salidas de
 materializadores contables/renta. `materialize_company_accounting_review_package`,
 `materialize_company_accounting_responsible_questions`,
