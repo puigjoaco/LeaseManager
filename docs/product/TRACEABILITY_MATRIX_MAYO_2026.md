@@ -211,6 +211,15 @@ RUT chileno, rutas locales absolutas ni refs sensibles. No usa DB real ni
 declara snapshot ownership final, writer productivo, calculo tributario final o
 presentacion SII.
 
+Nota 2026-06-22: Etapa 6/Renta Anual extiende el helper compartido a salidas
+ownership visuales y cadena reproducible. `build_annual_tax_ownership_evidence_chain`
+y `build_annual_tax_ownership_visual_review_packet` reutilizan
+`core.management.local_evidence_paths` para resolver rutas y exigir que
+`--output-dir`/`--output` queden bajo `local-evidence/` con ruta relativa no
+sensible antes de escribir imagenes, indices o resumenes ownership locales. No
+usa DB real ni declara snapshot ownership final, writer productivo, calculo
+tributario final o presentacion SII.
+
 Nota 2026-06-22: el detector compartido de refs sensibles mantiene bloqueo de
 URLs, correos, RUT chileno, rutas locales absolutas, claves y terminos
 sensibles delimitados, pero deja de tratar como sensible un substring pegado

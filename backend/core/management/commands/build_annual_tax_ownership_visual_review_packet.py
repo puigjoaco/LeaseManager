@@ -1,30 +1,29 @@
 import json
 from pathlib import Path
 
-from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from core.annual_tax_controlled_load_plan import load_manifest_json
 from core.annual_tax_ownership_visual_review_packet import build_annual_tax_ownership_visual_review_packet
-
-
-def _resolve_path(raw_path: str) -> Path:
-    path = Path(raw_path).expanduser()
-    if not path.is_absolute():
-        path = Path.cwd() / path
-    return path.resolve()
+from core.management.local_evidence_paths import (
+    resolve_command_path,
+    validate_required_local_evidence_output_dir_path,
+    validate_required_local_evidence_output_path,
+)
 
 
 def _validate_local_evidence_path(path: Path) -> None:
-    repo_root = Path(settings.PROJECT_ROOT).resolve()
-    local_evidence_root = (repo_root / 'local-evidence').resolve()
+    validate_required_local_evidence_output_path(
+        path,
+        artifact_description='imagenes e indices ownership potencialmente sensibles',
+    )
 
-    try:
-        path.relative_to(local_evidence_root)
-    except ValueError as error:
-        raise CommandError(
-            'La salida visual contiene imagenes potencialmente sensibles y debe quedar bajo local-evidence/.'
-        ) from error
+
+def _validate_local_evidence_dir(path: Path) -> None:
+    validate_required_local_evidence_output_dir_path(
+        path,
+        artifact_description='imagenes ownership potencialmente sensibles',
+    )
 
 
 def _read_text(path: Path, *, label: str) -> str:
@@ -70,12 +69,12 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        manifest_path = _resolve_path(options['manifest'])
-        review_path = _resolve_path(options['review'])
-        source_root = _resolve_path(options['source_root'])
-        output_dir = _resolve_path(options['output_dir'])
-        output_path = _resolve_path(options['output'])
-        _validate_local_evidence_path(output_dir)
+        manifest_path = resolve_command_path(options['manifest'])
+        review_path = resolve_command_path(options['review'])
+        source_root = resolve_command_path(options['source_root'])
+        output_dir = resolve_command_path(options['output_dir'])
+        output_path = resolve_command_path(options['output'])
+        _validate_local_evidence_dir(output_dir)
         _validate_local_evidence_path(output_path)
 
         try:

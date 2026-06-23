@@ -216,6 +216,9 @@ El paquete visual tambien aplica el boundary controlado: `company_ref`,
 `manifest.files[].path_ref` y `review_items[].path_ref` rechazan RUT chileno o
 rutas locales absolutas antes de emitir indice visual, y el CLI no ecoa rutas
 crudas cuando faltan manifest, review o `source_root`.
+Las salidas visuales usan `core.management.local_evidence_paths`: tanto
+`--output-dir` como `--output` deben quedar bajo `local-evidence/` y su ruta
+relativa debe ser no sensible antes de escribir imagenes o indices locales.
 `build_annual_tax_ownership_evidence_chain` deja esa secuencia reproducible
 desde `main`: manifiesto, revision de candidatos, template ownership y paquete
 visual opcional se regeneran bajo `local-evidence/` con una sola orden. Esto no
@@ -227,6 +230,9 @@ o llamar a builders internos: `company_ref`, `source_label`,
 `authorization_ref`, `responsible_ref`, `approval_ref`, `run_label` y la ruta
 relativa de `output_dir` deben ser no sensibles. El CLI no ecoa rutas crudas si
 falla `source_root`, la salida o algun tramo de la cadena.
+La validacion de `output_dir` de la cadena tambien reutiliza el helper
+compartido, manteniendo la misma regla de ruta local obligatoria que el paquete
+visual ownership.
 `validate_annual_tax_ownership_patch` valida el patch local completado contra
 ese template antes de inyectarlo al paquete controlado. El comando rechaza
 patches versionados fuera de `local-evidence/`, no escribe DB y emite solo un
@@ -1608,6 +1614,9 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   `materialize_annual_tax_ownership_patch_workbench` usan la misma frontera
   compartida para `--output`/`--output-dir`, de modo que checklist y workbench
   privados no puedan escribirse en rutas versionables o relativas sensibles.
+  La misma frontera cubre las salidas ownership visuales: la cadena
+  reproducible y el paquete visual exigen `local-evidence/` obligatorio y ruta
+  relativa no sensible antes de escribir imagenes, indices o resumenes locales.
 - `materialize_company_accounting_responsible_questions` convierte artefactos
   JSON ya redactados (`company-accounting-review-package`, cobertura bancaria,
   validacion ownership o readiness de paquete controlado) en
