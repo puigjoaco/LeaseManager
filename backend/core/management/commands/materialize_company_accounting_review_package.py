@@ -1,7 +1,6 @@
 import json
 from pathlib import Path
 
-from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db.utils import OperationalError, ProgrammingError
 
@@ -10,40 +9,28 @@ from core.company_accounting_review_package import (
     write_company_accounting_review_package,
 )
 from core.company_document_intake import verify_company_document_intake_package_from_disk
-from core.reference_validation import is_non_sensitive_control_reference
+from core.management.local_evidence_paths import (
+    repo_root,
+    resolve_command_path,
+    validate_local_evidence_output_dir_path,
+)
 from patrimonio.models import Empresa
 
 
 def _resolve_path(raw_path: str) -> Path:
-    path = Path(raw_path).expanduser()
-    if not path.is_absolute():
-        path = Path.cwd() / path
-    return path.resolve()
+    return resolve_command_path(raw_path)
 
 
 def _validate_output_dir(output_dir: Path) -> None:
-    repo_root = Path(settings.PROJECT_ROOT).resolve()
-    local_evidence_root = (repo_root / 'local-evidence').resolve()
-
-    try:
-        output_dir.relative_to(repo_root)
-    except ValueError:
-        return
-
-    try:
-        relative_output_dir = output_dir.relative_to(local_evidence_root).as_posix()
-    except ValueError as error:
-        raise CommandError(
-            'Si --output-dir queda dentro del repo, debe estar bajo local-evidence/ '
-            'para no versionar evidencia bancaria, contable o tributaria.'
-        ) from error
-    if not is_non_sensitive_control_reference(relative_output_dir):
-        raise CommandError('--output-dir debe usar una ruta relativa no sensible bajo local-evidence/.')
+    validate_local_evidence_output_dir_path(
+        output_dir,
+        artifact_description='evidencia bancaria, contable o tributaria',
+    )
 
 
 def _default_output_dir(*, empresa_id: int, fiscal_year: int) -> Path:
     return (
-        Path(settings.PROJECT_ROOT).resolve()
+        repo_root()
         / 'local-evidence'
         / 'stage6'
         / 'company-accounting-review-package'

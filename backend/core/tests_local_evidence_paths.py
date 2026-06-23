@@ -4,7 +4,10 @@ from tempfile import TemporaryDirectory
 from django.core.management.base import CommandError
 from django.test import SimpleTestCase
 
-from core.management.local_evidence_paths import validate_local_evidence_output_path
+from core.management.local_evidence_paths import (
+    validate_local_evidence_output_dir_path,
+    validate_local_evidence_output_path,
+)
 
 
 class LocalEvidencePathTests(SimpleTestCase):
@@ -41,3 +44,12 @@ class LocalEvidencePathTests(SimpleTestCase):
             with self.settings(PROJECT_ROOT=str(repo_root)):
                 with self.assertRaisesMessage(CommandError, 'ruta relativa no sensible'):
                     validate_local_evidence_output_path(sensitive_output)
+
+    def test_output_dir_under_local_evidence_with_sensitive_relative_path_is_rejected(self):
+        with TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / 'repo'
+            sensitive_output_dir = repo_root / 'local-evidence' / 'Socio Controlado 11.111.111-1' / 'package'
+
+            with self.settings(PROJECT_ROOT=str(repo_root)):
+                with self.assertRaisesMessage(CommandError, '--output-dir debe usar una ruta relativa no sensible'):
+                    validate_local_evidence_output_dir_path(sensitive_output_dir)

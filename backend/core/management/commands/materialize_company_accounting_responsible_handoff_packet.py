@@ -2,7 +2,6 @@ import json
 import re
 from pathlib import Path
 
-from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from core.company_accounting_responsible_answers import (
@@ -10,42 +9,22 @@ from core.company_accounting_responsible_answers import (
     write_company_accounting_responsible_handoff_packet,
     verify_company_accounting_responsible_handoff_packet,
 )
-from core.reference_validation import is_non_sensitive_control_reference
+from core.management.local_evidence_paths import (
+    repo_root,
+    resolve_command_path,
+    validate_local_evidence_output_dir_path,
+)
 
 
 def _resolve_path(raw_path: str) -> Path:
-    path = Path(raw_path).expanduser()
-    if not path.is_absolute():
-        path = Path.cwd() / path
-    return path.resolve()
-
-
-def _repo_root() -> Path:
-    return Path(settings.PROJECT_ROOT).resolve()
-
-
-def _local_evidence_root() -> Path:
-    return (_repo_root() / 'local-evidence').resolve()
-
-
-def _is_inside(path: Path, root: Path) -> bool:
-    try:
-        path.resolve().relative_to(root)
-        return True
-    except ValueError:
-        return False
+    return resolve_command_path(raw_path)
 
 
 def _validate_output_dir(output_dir: Path) -> None:
-    if _is_inside(output_dir, _repo_root()) and not _is_inside(output_dir, _local_evidence_root()):
-        raise CommandError(
-            'Si --output-dir queda dentro del repo, debe estar bajo local-evidence/ '
-            'para no versionar handoffs privados o evidencia contable/tributaria.'
-        )
-    if _is_inside(output_dir, _local_evidence_root()):
-        relative_output_dir = output_dir.resolve().relative_to(_local_evidence_root()).as_posix()
-        if not is_non_sensitive_control_reference(relative_output_dir):
-            raise CommandError('--output-dir debe usar una ruta relativa no sensible bajo local-evidence/.')
+    validate_local_evidence_output_dir_path(
+        output_dir,
+        artifact_description='handoffs privados o evidencia contable/tributaria',
+    )
 
 
 def _safe_path_component(value) -> str:
@@ -73,7 +52,7 @@ def _read_json(path: Path, *, label: str) -> dict:
 
 def _default_output_dir(*, company_ref: str, fiscal_year: int, tax_year: int) -> Path:
     return (
-        _repo_root()
+        repo_root()
         / 'local-evidence'
         / 'stage6'
         / 'responsible-handoff-packets'

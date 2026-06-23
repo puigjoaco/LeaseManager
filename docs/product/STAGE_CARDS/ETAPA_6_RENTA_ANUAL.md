@@ -1595,6 +1595,10 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   Si `--output-dir` queda bajo `local-evidence/`, la ruta relativa debe ser no
   sensible: no puede contener RUT chileno ni rutas locales absolutas antes de
   materializar el paquete.
+  La validacion de destino local usa el helper compartido
+  `core.management.local_evidence_paths`, igual que los demas materializadores
+  contables/renta con `--output-dir`, para evitar reglas divergentes entre
+  paquetes de revision, preguntas, templates, handoff y respuestas.
 - `materialize_company_accounting_responsible_questions` convierte artefactos
   JSON ya redactados (`company-accounting-review-package`, cobertura bancaria,
   validacion ownership o readiness de paquete controlado) en
