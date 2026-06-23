@@ -1,41 +1,20 @@
 import json
 from pathlib import Path
 
-from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from core.annual_tax_ownership_review_checklist import build_annual_tax_ownership_review_checklist
-
-
-def _resolve_path(raw_path: str) -> Path:
-    path = Path(raw_path).expanduser()
-    if not path.is_absolute():
-        path = Path.cwd() / path
-    return path.resolve()
-
-
-def _repo_root() -> Path:
-    return Path(settings.PROJECT_ROOT).resolve()
-
-
-def _local_evidence_root() -> Path:
-    return (_repo_root() / 'local-evidence').resolve()
-
-
-def _is_inside(path: Path, root: Path) -> bool:
-    try:
-        path.resolve().relative_to(root)
-        return True
-    except ValueError:
-        return False
+from core.management.local_evidence_paths import (
+    resolve_command_path,
+    validate_local_evidence_output_path,
+)
 
 
 def _validate_output_path(output_path: Path) -> None:
-    if _is_inside(output_path, _repo_root()) and not _is_inside(output_path, _local_evidence_root()):
-        raise CommandError(
-            'El checklist deriva de evidencia societaria; si --output queda dentro del repo, '
-            'debe estar bajo local-evidence/.'
-        )
+    validate_local_evidence_output_path(
+        output_path,
+        artifact_description='checklists de evidencia societaria',
+    )
 
 
 def _read_json_object(path: Path, *, label: str) -> dict:
@@ -55,7 +34,7 @@ def _read_json_object(path: Path, *, label: str) -> dict:
 def _load_optional_json(path_option: str, *, label: str) -> dict | None:
     if not path_option:
         return None
-    return _read_json_object(_resolve_path(path_option), label=label)
+    return _read_json_object(resolve_command_path(path_option), label=label)
 
 
 class Command(BaseCommand):
@@ -80,8 +59,8 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        template_path = _resolve_path(options['template'])
-        output_path = _resolve_path(options['output']) if options.get('output') else None
+        template_path = resolve_command_path(options['template'])
+        output_path = resolve_command_path(options['output']) if options.get('output') else None
         if output_path is not None:
             _validate_output_path(output_path)
 

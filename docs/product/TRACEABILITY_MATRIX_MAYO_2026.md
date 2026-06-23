@@ -201,6 +201,16 @@ salidas versionables o rutas relativas sensibles bajo `local-evidence/`. No usa
 DB real ni declara formato oficial, certificacion SII, calculo tributario final
 o presentacion SII.
 
+Nota 2026-06-22: Etapa 6/Renta Anual extiende el helper compartido a salidas
+ownership locales. `build_annual_tax_ownership_review_checklist` usa
+`core.management.local_evidence_paths` para resolver/validar `--output`, y
+`materialize_annual_tax_ownership_patch_workbench` lo usa para `--output-dir`
+y su ruta por defecto bajo `local-evidence/`. Si la salida queda dentro del
+repo debe estar bajo `local-evidence/`, y la ruta relativa no puede contener
+RUT chileno, rutas locales absolutas ni refs sensibles. No usa DB real ni
+declara snapshot ownership final, writer productivo, calculo tributario final o
+presentacion SII.
+
 Nota 2026-06-22: Etapa 6/Renta Anual aplica el boundary controlado a salidas de
 materializadores contables/renta. `materialize_company_accounting_review_package`,
 `materialize_company_accounting_responsible_questions`,
