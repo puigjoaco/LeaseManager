@@ -187,6 +187,20 @@ versionables o sensibles antes de escribir paquetes locales. No usa DB real ni
 declara review responsable, contabilidad final, calculo tributario final o
 presentacion SII.
 
+Nota 2026-06-22: Etapa 6/Renta Anual extiende el helper compartido a
+materializadores anuales de presentacion y certificacion local. Los comandos
+`materialize_annual_tax_export_file_package`,
+`materialize_annual_tax_f22_fixed_width_candidate`,
+`materialize_annual_tax_ddjj_ascii_candidate`,
+`materialize_annual_tax_ddjj_zip_candidate`,
+`materialize_annual_tax_presentation_review_bundle`,
+`materialize_annual_tax_controlled_presentation_package` y
+`materialize_annual_tax_sii_certification_readiness_packet` reutilizan
+`core.management.local_evidence_paths` para resolver `--output-dir` y bloquear
+salidas versionables o rutas relativas sensibles bajo `local-evidence/`. No usa
+DB real ni declara formato oficial, certificacion SII, calculo tributario final
+o presentacion SII.
+
 Nota 2026-06-22: Etapa 6/Renta Anual aplica el boundary controlado a salidas de
 materializadores contables/renta. `materialize_company_accounting_review_package`,
 `materialize_company_accounting_responsible_questions`,

@@ -1599,6 +1599,11 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   `core.management.local_evidence_paths`, igual que los demas materializadores
   contables/renta con `--output-dir`, para evitar reglas divergentes entre
   paquetes de revision, preguntas, templates, handoff y respuestas.
+  El mismo helper cubre tambien materializadores anuales de presentacion local:
+  paquete `AnnualTaxExport`, candidato F22, candidatos DDJJ ASCII/ZIP, bundle
+  de revision, paquete controlado y readiness de certificacion SII. Si
+  `--output-dir` queda bajo `local-evidence/`, la ruta relativa debe seguir
+  siendo no sensible antes de escribir artefactos.
 - `materialize_company_accounting_responsible_questions` convierte artefactos
   JSON ya redactados (`company-accounting-review-package`, cobertura bancaria,
   validacion ownership o readiness de paquete controlado) en

@@ -2,9 +2,13 @@ import hashlib
 import json
 from pathlib import Path
 
-from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
+from core.management.local_evidence_paths import (
+    repo_root,
+    resolve_command_path,
+    validate_local_evidence_output_dir_path,
+)
 from core.reference_validation import (
     contains_chilean_rut_reference,
     contains_local_absolute_path_reference,
@@ -18,28 +22,14 @@ from sii.services import (
 
 
 def _resolve_dir(raw_dir: str) -> Path:
-    path = Path(raw_dir).expanduser()
-    if not path.is_absolute():
-        path = Path.cwd() / path
-    return path.resolve()
+    return resolve_command_path(raw_dir)
 
 
 def _validate_output_dir(output_dir: Path) -> None:
-    repo_root = Path(settings.PROJECT_ROOT).resolve()
-    local_evidence_root = (repo_root / 'local-evidence').resolve()
-
-    try:
-        output_dir.relative_to(repo_root)
-    except ValueError:
-        return
-
-    try:
-        output_dir.relative_to(local_evidence_root)
-    except ValueError as error:
-        raise CommandError(
-            'Si --output-dir queda dentro del repo, debe estar bajo local-evidence/ '
-            'para no versionar paquetes de certificacion tributaria.'
-        ) from error
+    validate_local_evidence_output_dir_path(
+        output_dir,
+        artifact_description='paquetes de certificacion tributaria',
+    )
 
 
 def _default_output_dir(controlled_package_dir: Path) -> Path:
@@ -52,7 +42,7 @@ def _default_output_dir(controlled_package_dir: Path) -> Path:
         package_hash = str((manifest_payload.get('summary') or {}).get('package_hash') or '')
         suffix = package_hash[:12] if package_hash else controlled_package_dir.name
     return (
-        Path(settings.PROJECT_ROOT).resolve()
+        repo_root()
         / 'local-evidence'
         / 'stage6'
         / 'sii-certification-readiness'
