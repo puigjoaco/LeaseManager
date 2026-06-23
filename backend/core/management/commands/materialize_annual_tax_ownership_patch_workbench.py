@@ -2,44 +2,24 @@ import json
 import re
 from pathlib import Path
 
-from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from core.annual_tax_ownership_patch_workbench import (
     build_annual_tax_ownership_patch_workbench,
     write_annual_tax_ownership_patch_workbench,
 )
-
-
-def _resolve_path(raw_path: str) -> Path:
-    path = Path(raw_path).expanduser()
-    if not path.is_absolute():
-        path = Path.cwd() / path
-    return path.resolve()
-
-
-def _repo_root() -> Path:
-    return Path(settings.PROJECT_ROOT).resolve()
-
-
-def _local_evidence_root() -> Path:
-    return (_repo_root() / 'local-evidence').resolve()
-
-
-def _is_inside(path: Path, root: Path) -> bool:
-    try:
-        path.resolve().relative_to(root)
-        return True
-    except ValueError:
-        return False
+from core.management.local_evidence_paths import (
+    repo_root,
+    resolve_command_path,
+    validate_local_evidence_output_dir_path,
+)
 
 
 def _validate_output_dir(output_dir: Path) -> None:
-    if _is_inside(output_dir, _repo_root()) and not _is_inside(output_dir, _local_evidence_root()):
-        raise CommandError(
-            'El workbench ownership crea un patch privado rellenable; si --output-dir queda dentro '
-            'del repo, debe estar bajo local-evidence/ para no versionar nombres o RUTs.'
-        )
+    validate_local_evidence_output_dir_path(
+        output_dir,
+        artifact_description='patches privados de ownership',
+    )
 
 
 def _read_json(path: Path, *, label: str) -> dict:
@@ -70,7 +50,7 @@ def _default_output_dir(template: dict) -> Path:
     commercial_year = _safe_path_component(template.get('commercial_year'))
     tax_year = _safe_path_component(template.get('tax_year'))
     return (
-        _repo_root()
+        repo_root()
         / 'local-evidence'
         / 'stage6'
         / 'ownership-patch-workbench'
@@ -117,19 +97,21 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        template_path = _resolve_path(options['template'])
+        template_path = resolve_command_path(options['template'])
         template = _read_json(template_path, label='template')
         checklist = None
         if options.get('checklist'):
-            checklist = _read_json(_resolve_path(options['checklist']), label='checklist')
+            checklist = _read_json(resolve_command_path(options['checklist']), label='checklist')
         responsible_answers_review = None
         if options.get('responsible_answers_review'):
             responsible_answers_review = _read_json(
-                _resolve_path(options['responsible_answers_review']),
+                resolve_command_path(options['responsible_answers_review']),
                 label='responsible_answers_review',
             )
 
-        output_dir = _resolve_path(options['output_dir']) if options.get('output_dir') else _default_output_dir(template)
+        output_dir = (
+            resolve_command_path(options['output_dir']) if options.get('output_dir') else _default_output_dir(template)
+        )
         _validate_output_dir(output_dir)
 
         try:

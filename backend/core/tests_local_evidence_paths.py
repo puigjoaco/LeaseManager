@@ -76,3 +76,22 @@ class LocalEvidencePathTests(SimpleTestCase):
                     with self.subTest(command_module=command_module):
                         with self.assertRaisesMessage(CommandError, 'ruta relativa no sensible'):
                             module._validate_output_dir(sensitive_output_dir)
+
+    def test_stage6_ownership_output_validators_reject_sensitive_relative_paths(self):
+        with TemporaryDirectory() as temp_dir:
+            repo_root = Path(temp_dir) / 'repo'
+            sensitive_output = repo_root / 'local-evidence' / 'Socio Controlado 11.111.111-1' / 'checklist.json'
+            sensitive_output_dir = repo_root / 'local-evidence' / 'Socio Controlado 11.111.111-1' / 'workbench'
+
+            with self.settings(PROJECT_ROOT=str(repo_root)):
+                checklist_module = import_module(
+                    'core.management.commands.build_annual_tax_ownership_review_checklist'
+                )
+                workbench_module = import_module(
+                    'core.management.commands.materialize_annual_tax_ownership_patch_workbench'
+                )
+
+                with self.assertRaisesMessage(CommandError, 'ruta relativa no sensible'):
+                    checklist_module._validate_output_path(sensitive_output)
+                with self.assertRaisesMessage(CommandError, 'ruta relativa no sensible'):
+                    workbench_module._validate_output_dir(sensitive_output_dir)

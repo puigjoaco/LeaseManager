@@ -1604,6 +1604,10 @@ locales pero bloquean `ready_for_company_accounting_review` con issue explicito.
   de revision, paquete controlado y readiness de certificacion SII. Si
   `--output-dir` queda bajo `local-evidence/`, la ruta relativa debe seguir
   siendo no sensible antes de escribir artefactos.
+  Los comandos ownership `build_annual_tax_ownership_review_checklist` y
+  `materialize_annual_tax_ownership_patch_workbench` usan la misma frontera
+  compartida para `--output`/`--output-dir`, de modo que checklist y workbench
+  privados no puedan escribirse en rutas versionables o relativas sensibles.
 - `materialize_company_accounting_responsible_questions` convierte artefactos
   JSON ya redactados (`company-accounting-review-package`, cobertura bancaria,
   validacion ownership o readiness de paquete controlado) en
