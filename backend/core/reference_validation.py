@@ -2,7 +2,7 @@ import re
 
 
 SENSITIVE_REFERENCE_PATTERN = re.compile(
-    r'(:\/\/|@|password|passwd|pwd|secret|token|bearer|api[_-]?key|credential|credencial)',
+    r'(:\/\/|@|(?<![A-Za-z0-9])(?:password|passwd|pwd|secret|token|bearer|api[_-]?key|credential|credencial)(?![A-Za-z0-9]))',
     re.IGNORECASE,
 )
 SENSITIVE_REFERENCE_KEY_ALIASES = {

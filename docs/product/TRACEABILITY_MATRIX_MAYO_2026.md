@@ -211,6 +211,14 @@ RUT chileno, rutas locales absolutas ni refs sensibles. No usa DB real ni
 declara snapshot ownership final, writer productivo, calculo tributario final o
 presentacion SII.
 
+Nota 2026-06-22: el detector compartido de refs sensibles mantiene bloqueo de
+URLs, correos, RUT chileno, rutas locales absolutas, claves y terminos
+sensibles delimitados, pero deja de tratar como sensible un substring pegado
+dentro de entropia alfanumerica de nombres temporales. Esto evita falsos
+positivos no deterministas en paquetes bajo `local-evidence/` sin permitir
+refs como `token`, `access_token`, `api_key`, `secret` o `bearer` cuando aparecen
+como terminos reales.
+
 Nota 2026-06-22: Etapa 6/Renta Anual aplica el boundary controlado a salidas de
 materializadores contables/renta. `materialize_company_accounting_review_package`,
 `materialize_company_accounting_responsible_questions`,

@@ -412,7 +412,10 @@ class ReferenceValidationTests(TestCase):
 
     def test_control_reference_rejects_sensitive_rut_and_local_path_values(self):
         self.assertTrue(is_non_sensitive_control_reference('controlled-reference-at2026'))
+        self.assertTrue(is_non_sensitive_control_reference('tmpabcdtokenxyz/annual-export-package'))
         self.assertFalse(is_non_sensitive_control_reference('https://example.test/ref?token=secret'))
+        self.assertFalse(is_non_sensitive_control_reference('tmpabcd-token/annual-export-package'))
+        self.assertFalse(is_non_sensitive_control_reference('source_access_token_value'))
         self.assertFalse(is_non_sensitive_control_reference('source_11.111.111-1'))
         self.assertFalse(is_non_sensitive_control_reference('source_C:/Privado/socio.pdf'))
 
