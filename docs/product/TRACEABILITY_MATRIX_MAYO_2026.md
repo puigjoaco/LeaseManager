@@ -7,6 +7,39 @@ La matriz es un mapa de estado, no el cursor operativo. El frente activo y la
 decision de que paquete continuar en una reanudacion quedan en
 `docs/product/EXECUTION_CURSOR_MAYO_2026.md`.
 
+Nota 2026-06-26: Etapa 5/Documentos incorpora expediente integral con
+`ArchivoExpediente` para evidencia no PDF, planillas, textos, imagenes,
+videos y comprimidos. `DocumentoEmitido` queda reservado a PDF canonico y el
+snapshot/backoffice exponen un indice operativo unico `expediente_items` por
+expediente, sin obligar a buscar en tablas separadas. El dry-run
+`build_expediente_integral_dry_run` genera matrices publica/privada bajo
+`local-evidence/` desde Revisar, Persona Natural y la matriz patrimonial, sin
+escribir DB, storage ni escritorio. `Herencia Papa` no puede quedar como titular
+final; solo sobrevive como origen de auditoria.
+
+Nota 2026-06-26: La matriz validada se materializo en Postgres local de
+desarrollo mediante `materialize_expediente_integral --apply`. La carga es
+idempotente y transaccional: crea expedientes integrales y `ArchivoExpediente`
+para no-PDF, registra duplicados exactos con `duplicate_of`, omite PDFs ya
+canónicos en `DocumentoEmitido` y conserva los archivos ambiguos en revision
+manual. No mueve el escritorio ni abre storage externo.
+
+Nota 2026-06-26: La materializacion posterior reubica en los expedientes
+integrales los `DocumentoEmitido` existentes y los PDFs legacy que permanecian
+bajo `inmobiliarias-herencia-papa`, usando `documento_emitido_ref` y checksum
+canonico de fuente. El snapshot filtra expedientes archivados sin contenido, y
+la verificacion local deja `snapshot_visible_owner_herencia_papa=0` con 1.550
+items unicos de expediente antes de la ingesta fisica final.
+
+Nota 2026-06-26: La ingesta fisica final copia los 1.710 binarios unicos
+auditables a `backend/media/expediente_integral/sha256`, verificando SHA-256
+contra el nombre canonico de cada archivo. Luego materializa los 160 PDFs
+ambiguos como `ArchivoExpediente` en `requiere_revision_manual`, no como PDFs
+canonicos duplicados. La verificacion final deja 1.091 `DocumentoEmitido`, 913
+`ArchivoExpediente`, 1.710 items unicos visibles, 0 items visibles con titular
+`Herencia`, 0 `storage_ref` visibles fuera del prefijo interno y
+`safe_to_delete_source=true` respecto de la carpeta de escritorio ya auditada.
+
 Nota 2026-06-13: PRD/Arquitectura/Etapas 4, 5, 6 y 7 fijan el boundary
 contable-tributario asistido. LeaseManager v1 mecaniza datos, reglas,
 evidencia, asientos, paquetes mensuales y dossiers F29/DDJJ/F22 revisables; no

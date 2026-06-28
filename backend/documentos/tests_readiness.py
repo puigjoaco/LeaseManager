@@ -1,3 +1,4 @@
+import csv
 import json
 from io import StringIO
 from pathlib import Path
@@ -28,6 +29,7 @@ from .formalization_audit import (
     build_formalization_audit_metadata,
 )
 from .models import (
+    ArchivoExpediente,
     DocumentoEmitido,
     EstadoDocumento,
     ExpedienteDocumental,
@@ -438,6 +440,48 @@ class DocumentReadinessAuditTests(TestCase):
         self.assertTrue(result['ready_for_stage5_documents'])
         self.assertTrue(result['source_kind_authorized_for_close'])
         self.assertEqual(result['issues'], [])
+
+    def test_archivo_expediente_invalid_refs_are_blocking_readiness(self):
+        create_all_active_policies()
+        expediente = ExpedienteDocumental.objects.create(
+            entidad_tipo='manual',
+            entidad_id='archivo-expediente-readiness',
+            estado='abierto',
+            owner_operativo='manual:archivo-expediente-readiness',
+        )
+        ArchivoExpediente.objects.create(
+            expediente=expediente,
+            categoria='imagen',
+            subcategoria='05_fotos_y_videos',
+            titulo_operativo='Foto local 11.111.111-1',
+            descripcion_objetiva='Archivo heredado con token=secret-value',
+            extension='jpg',
+            mime_type='image/jpeg',
+            checksum_sha256='c' * 64,
+            size_bytes=100,
+            storage_ref='C:\\Users\\puigj\\Desktop\\Revisar\\foto-local.jpg',
+            origen_auditoria='C:\\Users\\puigj\\Desktop\\Revisar',
+            estado_clasificacion='confirmado',
+        )
+
+        result = collect_document_readiness(
+            final_policy_ref='policy-final-docs-v1',
+            responsible_ref='responsables-docs-v1',
+            controlled_pdf_ref='pdf-controlled-proof-v1',
+            source_label='documents-controlled-v1',
+            authorization_ref='documents-authorization-v1',
+            source_kind='snapshot_controlado',
+        )
+        issue_codes = {issue['code'] for issue in result['issues']}
+        rendered = json.dumps(result)
+
+        self.assertFalse(result['ready_for_stage5_documents'])
+        self.assertIn('documents.archivo_expediente_invalid', issue_codes)
+        self.assertEqual(result['sections']['archivos_expediente']['total'], 1)
+        self.assertEqual(result['sections']['archivos_expediente']['invalid'], 1)
+        self.assertNotIn('Users\\\\puigj', rendered)
+        self.assertNotIn('token=secret', rendered)
+        self.assertNotIn('11.111.111-1', rendered)
 
     def test_all_policies_and_non_sensitive_refs_cannot_close_local_readiness(self):
         create_all_active_policies()
@@ -1115,7 +1159,7 @@ class DocumentReadinessAuditTests(TestCase):
             requiere_codeudor=True,
         )
         user = create_user('docs-readiness-codebtor-signature')
-        context = create_contract_context('DOC-CODEBTOR-READINESS')
+        context = create_contract_context('DOC-CODEBTOR')
         CodeudorSolidario.objects.create(
             contrato=context['contrato'],
             snapshot_identidad={'nombre': 'Codeudor Readiness', 'rut': '12345678-5'},
@@ -1445,6 +1489,359 @@ class DocumentReadinessAuditTests(TestCase):
         self.assertFalse(result['ready_for_stage5_documents'])
         self.assertIn('documents.corrective_version_invalid', {issue['code'] for issue in result['issues']})
         self.assertEqual(result['sections']['documents']['invalid_corrective_versions'], 1)
+
+    def test_expediente_integral_dry_run_builds_public_private_outputs(self):
+        def write_rows(path, fieldnames, rows):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with path.open('w', newline='', encoding='utf-8') as handle:
+                writer = csv.DictWriter(handle, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(rows)
+
+        inventory_fields = [
+            'audit_index',
+            'absolute_path',
+            'relative_path',
+            'file_name',
+            'extension',
+            'size_bytes',
+            'last_write_time',
+            'sha256',
+            'source_top_folder',
+            'inferred_asset_folder',
+        ]
+        order_fields = [
+            'checksum',
+            'safe_document_ref',
+            'db_status',
+            'persona_natural_boundary',
+            'proposed_titular',
+            'proposed_section',
+            'proposed_asset_group_ref',
+            'proposed_order_path_private',
+        ]
+
+        with TemporaryDirectory() as temp_dir:
+            base = Path(temp_dir) / 'audit'
+            company_inventory = base / 'revisar_inventory_sha256.csv'
+            persona_inventory = base / 'persona_natural_inventory_sha256_pass7.csv'
+            order_matrix = base / 'patrimonial-order-audit-pass5389' / 'patrimonial_order_audit_private_pass5389.csv'
+            output_dir = Path(temp_dir) / 'out'
+            company_pdf_sha = '1' * 64
+            company_image_sha = '2' * 64
+            persona_pdf_sha = '3' * 64
+            write_rows(
+                company_inventory,
+                inventory_fields,
+                [
+                    {
+                        'audit_index': '1',
+                        'absolute_path': str(base / 'desktop-source' / 'constitucion.pdf'),
+                        'relative_path': '1. Inmobiliaria Puig SPA/00 Societario/constitucion.pdf',
+                        'file_name': 'constitucion.pdf',
+                        'extension': '.pdf',
+                        'size_bytes': '100',
+                        'last_write_time': '2026-06-21T10:00:00',
+                        'sha256': company_pdf_sha,
+                        'source_top_folder': '1. Inmobiliaria Puig SPA',
+                        'inferred_asset_folder': '00 Societario',
+                    },
+                    {
+                        'audit_index': '2',
+                        'absolute_path': str(base / 'desktop-source' / 'foto-local.jpg'),
+                        'relative_path': '2. Inmobiliarias Herencia Papa/Santa Maria/Fotos/foto-local.jpg',
+                        'file_name': 'foto-local.jpg',
+                        'extension': '.jpg',
+                        'size_bytes': '200',
+                        'last_write_time': '2026-06-21T11:00:00',
+                        'sha256': company_image_sha,
+                        'source_top_folder': '2. Inmobiliarias Herencia Papa',
+                        'inferred_asset_folder': 'Santa Maria',
+                    },
+                ],
+            )
+            write_rows(
+                persona_inventory,
+                inventory_fields,
+                [
+                    {
+                        'audit_index': '3',
+                        'absolute_path': str(base / 'desktop-source' / 'renta.pdf'),
+                        'relative_path': '1. Persona Natural/Renta/renta.pdf',
+                        'file_name': 'renta.pdf',
+                        'extension': '.pdf',
+                        'size_bytes': '300',
+                        'last_write_time': '2026-06-21T12:00:00',
+                        'sha256': persona_pdf_sha,
+                        'source_top_folder': '1. Persona Natural',
+                        'inferred_asset_folder': 'Renta',
+                    },
+                ],
+            )
+            write_rows(
+                order_matrix,
+                order_fields,
+                [
+                    {
+                        'checksum': company_pdf_sha,
+                        'safe_document_ref': 'DOC-EMPRESA-001',
+                        'db_status': 'loaded_in_documentoemitido',
+                        'persona_natural_boundary': 'False',
+                        'proposed_titular': 'Inmobiliaria Puig SPA',
+                        'proposed_section': '01_societario_por_acto',
+                        'proposed_asset_group_ref': 'constitucion',
+                        'proposed_order_path_private': 'Inmobiliaria Puig SPA/00 Societario/00 Constitucion',
+                    },
+                    {
+                        'checksum': persona_pdf_sha,
+                        'safe_document_ref': 'DOC-PN-001',
+                        'db_status': 'prepared_for_load',
+                        'persona_natural_boundary': 'True',
+                        'proposed_titular': 'Joaquin Puig Persona Natural',
+                        'proposed_section': '06_persona_natural_renta',
+                        'proposed_asset_group_ref': 'renta-persona-natural',
+                        'proposed_order_path_private': 'Persona Natural/00 Renta Persona Natural',
+                    },
+                ],
+            )
+
+            call_command(
+                'build_expediente_integral_dry_run',
+                audit_base=str(base),
+                company_inventory=str(company_inventory),
+                persona_inventory=str(persona_inventory),
+                order_matrix=str(order_matrix),
+                output_dir=str(output_dir),
+                expected_total=3,
+                stdout=StringIO(),
+            )
+            summary = json.loads((output_dir / 'expediente_integral_dry_run_public_summary_pass5390.json').read_text(encoding='utf-8'))
+            validation = json.loads((output_dir / 'expediente_integral_dry_run_private_validation_pass5390.json').read_text(encoding='utf-8'))
+            public_text = (output_dir / 'expediente_integral_dry_run_public_pass5390.csv').read_text(encoding='utf-8')
+            private_text = (output_dir / 'expediente_integral_dry_run_private_pass5390.csv').read_text(encoding='utf-8')
+
+        self.assertEqual(summary['source_rows_total'], 3)
+        self.assertEqual(summary['expected_total'], 3)
+        self.assertFalse(summary['db_write_performed'])
+        self.assertFalse(summary['storage_move_performed'])
+        self.assertFalse(summary['desktop_folder_mutation_performed'])
+        self.assertTrue(summary['public_sensitive_scan_clear'])
+        self.assertEqual(summary['herencia_papa_as_final_titular_rows'], 0)
+        self.assertEqual(summary['by_decision']['documento_emitido_existente'], 1)
+        self.assertEqual(summary['by_decision']['documento_emitido_nuevo'], 1)
+        self.assertEqual(summary['by_decision']['archivo_expediente_nuevo'], 1)
+        self.assertEqual(summary['by_archivo_categoria']['imagen'], 1)
+        self.assertNotIn('Herencia Papa', summary['by_titular'])
+        self.assertTrue(validation['validation_passed'])
+        self.assertIn('Sociedad Inmobiliaria Santa Maria Ltda', public_text)
+        self.assertIn('archivo_expediente_nuevo', public_text)
+        self.assertIn('desktop-source', private_text)
+        self.assertNotIn(str(base), public_text)
+
+    def test_expediente_integral_materialization_applies_archivos_and_is_idempotent(self):
+        def write_rows(path, fieldnames, rows):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with path.open('w', newline='', encoding='utf-8') as handle:
+                writer = csv.DictWriter(handle, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(rows)
+
+        private_fields = [
+            'integral_audit_ref',
+            'source_file_ref',
+            'canonical_source_file_ref',
+            'checksum_sha256',
+            'extension',
+            'mime_type',
+            'size_bytes',
+            'source_kind',
+            'source_top_folder',
+            'final_titular',
+            'final_section',
+            'final_subcategory',
+            'expediente_destino_ref',
+            'archivo_categoria',
+            'decision',
+            'estado_clasificacion',
+            'storage_ref_propuesto',
+            'duplicate_of_source_ref',
+            'documento_emitido_ref',
+            'documento_emitido_status',
+            'persona_natural_boundary',
+            'origen_auditoria',
+            'archive_audit_status',
+            'archive_internal_entries',
+            'proposed_public_order_path',
+            'source_relative_path_private',
+            'source_absolute_path_private',
+            'proposed_private_order_path',
+        ]
+        image_sha = '4' * 64
+        pdf_sha = '5' * 64
+        with TemporaryDirectory() as temp_dir:
+            base = Path(temp_dir)
+            matrix = base / 'expediente_integral_dry_run_private_pass5390.csv'
+            validation = base / 'expediente_integral_dry_run_private_validation_pass5390.json'
+            dry_output = base / 'materialization_dry.json'
+            apply_output = base / 'materialization_apply.json'
+            write_rows(
+                matrix,
+                private_fields,
+                [
+                    {
+                        'integral_audit_ref': 'INT5390-00001',
+                        'source_file_ref': 'src-image-001',
+                        'canonical_source_file_ref': 'src-image-001',
+                        'checksum_sha256': image_sha,
+                        'extension': '.jpg',
+                        'mime_type': 'image/jpeg',
+                        'size_bytes': '100',
+                        'source_kind': 'revisar-empresas',
+                        'source_top_folder': '1. Inmobiliaria Puig SPA',
+                        'final_titular': 'Inmobiliaria Puig SPA',
+                        'final_section': '01_propiedades_y_locales',
+                        'final_subcategory': '05_fotos_y_videos',
+                        'expediente_destino_ref': 'expediente-test-a',
+                        'archivo_categoria': 'imagen',
+                        'decision': 'archivo_expediente_nuevo',
+                        'estado_clasificacion': 'confirmado',
+                        'storage_ref_propuesto': 'storage/expedientes/imagen/test-a.jpg',
+                        'duplicate_of_source_ref': '',
+                        'documento_emitido_ref': '',
+                        'documento_emitido_status': '',
+                        'persona_natural_boundary': 'False',
+                        'origen_auditoria': '1. Inmobiliaria Puig SPA',
+                        'archive_audit_status': '',
+                        'archive_internal_entries': '0',
+                        'proposed_public_order_path': 'Inmobiliaria Puig SPA/01/test-a.jpg',
+                        'source_relative_path_private': '1. Inmobiliaria Puig SPA/Fotos/foto-test-a.jpg',
+                        'source_absolute_path_private': 'C:\\Users\\puigj\\Desktop\\Revisar\\foto-test-a.jpg',
+                        'proposed_private_order_path': '',
+                    },
+                    {
+                        'integral_audit_ref': 'INT5390-00002',
+                        'source_file_ref': 'src-image-dup',
+                        'canonical_source_file_ref': 'src-image-001',
+                        'checksum_sha256': image_sha,
+                        'extension': '.jpg',
+                        'mime_type': 'image/jpeg',
+                        'size_bytes': '100',
+                        'source_kind': 'revisar-empresas',
+                        'source_top_folder': '2. Inmobiliarias Herencia Papa',
+                        'final_titular': 'Sociedad Inmobiliaria Santa Maria Ltda',
+                        'final_section': '01_propiedades_y_locales',
+                        'final_subcategory': '05_fotos_y_videos',
+                        'expediente_destino_ref': 'expediente-test-b',
+                        'archivo_categoria': 'imagen',
+                        'decision': 'duplicado_exactamente',
+                        'estado_clasificacion': 'duplicado_exactamente',
+                        'storage_ref_propuesto': 'storage/expedientes/imagen/test-a.jpg',
+                        'duplicate_of_source_ref': 'src-image-001',
+                        'documento_emitido_ref': '',
+                        'documento_emitido_status': '',
+                        'persona_natural_boundary': 'False',
+                        'origen_auditoria': '2. Inmobiliarias Herencia Papa',
+                        'archive_audit_status': '',
+                        'archive_internal_entries': '0',
+                        'proposed_public_order_path': 'Santa Maria/01/test-a.jpg',
+                        'source_relative_path_private': '2. Inmobiliarias Herencia Papa/Fotos/foto-test-a.jpg',
+                        'source_absolute_path_private': 'C:\\Users\\puigj\\Desktop\\Revisar\\foto-test-a.jpg',
+                        'proposed_private_order_path': '',
+                    },
+                    {
+                        'integral_audit_ref': 'INT5390-00003',
+                        'source_file_ref': 'src-pdf-001',
+                        'canonical_source_file_ref': 'src-pdf-001',
+                        'checksum_sha256': pdf_sha,
+                        'extension': '.pdf',
+                        'mime_type': 'application/pdf',
+                        'size_bytes': '200',
+                        'source_kind': 'revisar-empresas',
+                        'source_top_folder': '1. Inmobiliaria Puig SPA',
+                        'final_titular': 'Inmobiliaria Puig SPA',
+                        'final_section': '00_societario',
+                        'final_subcategory': '01_escritura',
+                        'expediente_destino_ref': 'expediente-test-pdf',
+                        'archivo_categoria': 'documento_fuente',
+                        'decision': 'documento_emitido_existente',
+                        'estado_clasificacion': 'confirmado',
+                        'storage_ref_propuesto': 'storage/expedientes/documento/test.pdf',
+                        'duplicate_of_source_ref': '',
+                        'documento_emitido_ref': 'doc-pdf-001',
+                        'documento_emitido_status': 'loaded_in_documentoemitido',
+                        'persona_natural_boundary': 'False',
+                        'origen_auditoria': '1. Inmobiliaria Puig SPA',
+                        'archive_audit_status': '',
+                        'archive_internal_entries': '0',
+                        'proposed_public_order_path': 'Inmobiliaria Puig SPA/00/test.pdf',
+                        'source_relative_path_private': '1. Inmobiliaria Puig SPA/Escritura/test.pdf',
+                        'source_absolute_path_private': 'C:\\Users\\puigj\\Desktop\\Revisar\\test.pdf',
+                        'proposed_private_order_path': '',
+                    },
+                ],
+            )
+            validation.write_text(
+                json.dumps(
+                    {
+                        'validation_passed': True,
+                        'source_rows_total': 3,
+                        'expected_total': 3,
+                    }
+                ),
+                encoding='utf-8',
+            )
+
+            call_command(
+                'materialize_expediente_integral',
+                matrix=str(matrix),
+                validation=str(validation),
+                output=str(dry_output),
+                stdout=StringIO(),
+            )
+            dry_result = json.loads(dry_output.read_text(encoding='utf-8'))
+            self.assertFalse(dry_result['db_write_performed'])
+            self.assertEqual(ArchivoExpediente.objects.count(), 0)
+
+            call_command(
+                'materialize_expediente_integral',
+                matrix=str(matrix),
+                validation=str(validation),
+                output=str(apply_output),
+                apply=True,
+                stdout=StringIO(),
+            )
+            apply_result = json.loads(apply_output.read_text(encoding='utf-8'))
+            self.assertTrue(apply_result['db_write_performed'])
+            self.assertEqual(apply_result['created_archivos_expediente'], 2)
+            self.assertEqual(apply_result['created_duplicate_aliases'], 1)
+            self.assertEqual(apply_result['documento_emitido_existing_rows'], 1)
+            self.assertEqual(ArchivoExpediente.objects.count(), 2)
+            duplicate = ArchivoExpediente.objects.get(estado_clasificacion='duplicado_exactamente')
+            self.assertIsNotNone(duplicate.duplicate_of_id)
+            self.assertEqual(duplicate.checksum_sha256, duplicate.duplicate_of.checksum_sha256)
+            self.assertTrue(
+                AuditEvent.objects.filter(
+                    event_type='documentos.expediente_integral.materialized',
+                    entity_id='expediente-integral-materialization-pass5391',
+                ).exists()
+            )
+            rendered_result = json.dumps(apply_result)
+            self.assertNotIn('Users', rendered_result)
+            self.assertNotIn('Desktop', rendered_result)
+
+            call_command(
+                'materialize_expediente_integral',
+                matrix=str(matrix),
+                validation=str(validation),
+                output=str(apply_output),
+                apply=True,
+                stdout=StringIO(),
+            )
+            rerun_result = json.loads(apply_output.read_text(encoding='utf-8'))
+
+        self.assertEqual(rerun_result['created_archivos_expediente'], 0)
+        self.assertGreaterEqual(rerun_result['existing_archivos_expediente'], 2)
+        self.assertEqual(ArchivoExpediente.objects.count(), 2)
 
     def test_command_writes_json_output_and_fail_on_attention_blocks_close(self):
         with TemporaryDirectory() as temp_dir:

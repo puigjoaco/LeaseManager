@@ -3,12 +3,13 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from contratos.models import Contrato
-from core.reference_validation import contains_sensitive_reference, redact_sensitive_reference
+from core.reference_validation import contains_sensitive_reference, redact_sensitive_control_reference, redact_sensitive_reference
 from core.scope_access import scope_queryset_for_user
 from operacion.models import MandatoOperacion
 
-from .scope import scope_documento_queryset, scope_expediente_queryset
+from .scope import scope_archivo_expediente_queryset, scope_documento_queryset, scope_expediente_queryset
 from .models import (
+    ArchivoExpediente,
     DocumentoEmitido,
     EstadoDocumento,
     EstadoPoliticaFirma,
@@ -370,6 +371,59 @@ class DocumentoEmitidoSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data['usuario'] = self.context['request'].user
         return super().create(validated_data)
+
+
+class ArchivoExpedienteSerializer(serializers.ModelSerializer):
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['titulo_operativo'] = redact_sensitive_control_reference(data.get('titulo_operativo'))
+        data['descripcion_objetiva'] = redact_sensitive_control_reference(data.get('descripcion_objetiva'))
+        data['storage_ref'] = redact_sensitive_control_reference(data.get('storage_ref'))
+        data['origen_auditoria'] = redact_sensitive_control_reference(data.get('origen_auditoria'))
+        return data
+
+    class Meta:
+        model = ArchivoExpediente
+        fields = (
+            'id',
+            'expediente',
+            'categoria',
+            'subcategoria',
+            'titulo_operativo',
+            'descripcion_objetiva',
+            'extension',
+            'mime_type',
+            'checksum_sha256',
+            'size_bytes',
+            'storage_ref',
+            'origen_auditoria',
+            'estado_clasificacion',
+            'duplicate_of',
+            'fecha_archivo',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('id', 'created_at', 'updated_at')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = _request_user(self)
+        if user and getattr(user, 'is_authenticated', False):
+            self.fields['expediente'].queryset = scope_expediente_queryset(ExpedienteDocumental.objects.all(), user)
+            self.fields['duplicate_of'].queryset = scope_archivo_expediente_queryset(
+                ArchivoExpediente.objects.all(),
+                user,
+            )
+
+    def validate(self, attrs):
+        candidate = build_validation_candidate(self.instance, ArchivoExpediente)
+        for field, value in attrs.items():
+            setattr(candidate, field, value)
+        try:
+            candidate.full_clean()
+        except DjangoValidationError as error:
+            raise_drf_validation_error(error)
+        return attrs
 
 
 class DocumentoGenerarPDFSerializer(serializers.Serializer):

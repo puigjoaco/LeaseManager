@@ -56,6 +56,27 @@ type DocumentoEmitidoItem = {
   correccion_ref: string
 }
 
+type ExpedienteItem = {
+  id: string
+  source_model: 'documento_emitido' | 'archivo_expediente'
+  source_id: number
+  expediente: number
+  clase: string
+  categoria: string
+  subcategoria: string
+  titulo_operativo: string
+  descripcion_objetiva: string
+  extension: string
+  mime_type: string
+  checksum_sha256: string
+  size_bytes: number | null
+  storage_ref: string
+  origen_auditoria: string
+  estado: string
+  duplicate_of: string | null
+  fecha: string | null
+}
+
 type ExpedienteDraft = {
   entidad_tipo: string
   entidad_id: string
@@ -164,10 +185,11 @@ export function DocumentosWorkspace({
   expedientes,
   plantillasDocumentales,
   documentosEmitidos,
+  expedienteItems,
   filteredExpedientes,
   filteredPoliticasFirma,
   filteredPlantillasDocumentales,
-  filteredDocumentosEmitidos,
+  filteredExpedienteItems,
   isSubmitting,
   isLoading,
   startEditExpediente,
@@ -200,16 +222,18 @@ export function DocumentosWorkspace({
   expedientes: ExpedienteDocumental[]
   plantillasDocumentales: PlantillaDocumental[]
   documentosEmitidos: DocumentoEmitidoItem[]
+  expedienteItems: ExpedienteItem[]
   filteredExpedientes: ExpedienteDocumental[]
   filteredPoliticasFirma: PoliticaFirma[]
   filteredPlantillasDocumentales: PlantillaDocumental[]
-  filteredDocumentosEmitidos: DocumentoEmitidoItem[]
+  filteredExpedienteItems: ExpedienteItem[]
   isSubmitting: boolean
   isLoading: boolean
   startEditExpediente: (row: ExpedienteDocumental) => void
   goToDocumentoContext: (documentoId: number) => void
 }) {
   const expedienteById = new Map(expedientes.map((item) => [item.id, item]))
+  const expedienteItemsTotal = expedienteItems.length
   const activeTemplateOptions = plantillasDocumentales.filter((item) =>
     item.estado === 'activa' && item.tipo_documental === documentoDraft.tipo_documental,
   )
@@ -465,15 +489,17 @@ export function DocumentosWorkspace({
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
       ]} />
 
-      <TableBlock title="Documentos emitidos" subtitle="Estado documental y storage asociado." rows={filteredDocumentosEmitidos} empty="No hay documentos emitidos para este filtro." isLoading={isLoading} loadingLabel="Cargando documentos..." columns={[
+      <TableBlock title="Expediente integral" subtitle={`${expedienteItemsTotal} documentos y evidencias únicos en el orden final.`} rows={filteredExpedienteItems} empty="No hay documentos ni evidencias para este filtro." isLoading={isLoading} loadingLabel="Cargando expediente integral..." columns={[
         { label: 'Expediente', render: (row) => `${expedienteById.get(row.expediente)?.entidad_tipo || 'expediente'} · ${expedienteById.get(row.expediente)?.entidad_id || row.expediente}` },
-        { label: 'Tipo', render: (row) => row.tipo_documental },
-        { label: 'Origen', render: (row) => row.origen },
+        { label: 'Clase', render: (row) => row.clase === 'pdf_canonico' ? 'PDF canónico' : 'Evidencia' },
+        { label: 'Categoría', render: (row) => row.categoria },
+        { label: 'Subcategoría', render: (row) => row.subcategoria || '-' },
+        { label: 'Título', render: (row) => row.titulo_operativo },
+        { label: 'Ext', render: (row) => row.extension },
         { label: 'Estado', render: (row) => <Badge label={row.estado} tone={toneFor(row.estado)} /> },
-        { label: 'Corrige', render: (row) => row.documento_origen ? `Doc ${row.documento_origen}` : '-' },
+        { label: 'Origen', render: (row) => row.origen_auditoria },
         { label: 'Storage', render: (row) => row.storage_ref },
-        { label: 'Evidencia', render: (row) => row.evidencia_formalizacion_ref || '-' },
-        { label: 'Acción', render: (row) => canEditDocumentos ? <div className="inline-actions"><button type="button" className="button-ghost inline-action" onClick={() => setDocumentoFormalizarDraft((current) => ({ ...current, documentoId: String(row.id) }))}>Formalizar</button><button type="button" className="button-ghost inline-action" onClick={() => goToDocumentoContext(row.id)}>Canales</button></div> : 'Solo lectura' },
+        { label: 'Acción', render: (row) => row.source_model === 'documento_emitido' && canEditDocumentos ? <div className="inline-actions"><button type="button" className="button-ghost inline-action" onClick={() => setDocumentoFormalizarDraft((current) => ({ ...current, documentoId: String(row.source_id) }))}>Formalizar</button><button type="button" className="button-ghost inline-action" onClick={() => goToDocumentoContext(row.source_id)}>Canales</button></div> : 'En expediente' },
       ]} />
     </>
   )

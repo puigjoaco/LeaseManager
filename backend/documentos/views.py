@@ -6,14 +6,22 @@ from rest_framework.views import APIView
 
 from audit.services import create_audit_event
 from core.permissions import AdminOnlyPermission, OperationalModulePermission
-from core.reference_validation import redact_sensitive_reference
+from core.reference_validation import redact_sensitive_control_reference, redact_sensitive_reference
 
 from .correction_audit import build_correction_audit_metadata
 from .formalization_audit import FORMALIZATION_AUDIT_EVENT_TYPE, build_formalization_audit_metadata
-from .scope import scope_documento_queryset, scope_expediente_queryset
-from .models import DocumentoEmitido, ExpedienteDocumental, PlantillaDocumental, PoliticaFirmaYNotaria
+from .scope import scope_archivo_expediente_queryset, scope_documento_queryset, scope_expediente_queryset
+from .models import (
+    ArchivoExpediente,
+    DocumentoEmitido,
+    EstadoExpediente,
+    ExpedienteDocumental,
+    PlantillaDocumental,
+    PoliticaFirmaYNotaria,
+)
 from .pdf_generation import emit_generated_pdf_document, preview_generated_pdf_document
 from .serializers import (
+    ArchivoExpedienteSerializer,
     DocumentoEmitidoSerializer,
     DocumentoFormalizarSerializer,
     DocumentoGenerarPDFSerializer,
@@ -35,6 +43,82 @@ def build_state_change_metadata(*, previous_field, previous_state, current_field
         'estado_anterior': previous_state,
         'estado_nuevo': current_state,
     }
+
+
+def build_unified_expediente_items(documentos, archivos):
+    items = []
+
+    for item in documentos:
+        items.append(
+            {
+                'id': f'documento_emitido:{item.id}',
+                'source_model': 'documento_emitido',
+                'source_id': item.id,
+                'expediente': item.expediente_id,
+                'clase': 'pdf_canonico',
+                'categoria': 'documento_pdf',
+                'subcategoria': item.tipo_documental,
+                'titulo_operativo': f'{item.tipo_documental} · {item.version_plantilla}',
+                'descripcion_objetiva': 'Documento PDF canonico registrado en LeaseManager.',
+                'extension': '.pdf',
+                'mime_type': 'application/pdf',
+                'checksum_sha256': item.checksum,
+                'size_bytes': None,
+                'storage_ref': redact_sensitive_control_reference(item.storage_ref),
+                'origen_auditoria': redact_sensitive_control_reference(item.origen),
+                'estado': item.estado,
+                'duplicate_of': None,
+                'fecha': item.fecha_carga,
+            }
+        )
+
+    for item in archivos:
+        if item.duplicate_of_id:
+            continue
+        items.append(
+            {
+                'id': f'archivo_expediente:{item.id}',
+                'source_model': 'archivo_expediente',
+                'source_id': item.id,
+                'expediente': item.expediente_id,
+                'clase': 'archivo_expediente',
+                'categoria': item.categoria,
+                'subcategoria': item.subcategoria,
+                'titulo_operativo': redact_sensitive_control_reference(item.titulo_operativo),
+                'descripcion_objetiva': redact_sensitive_control_reference(item.descripcion_objetiva),
+                'extension': item.extension,
+                'mime_type': item.mime_type,
+                'checksum_sha256': item.checksum_sha256,
+                'size_bytes': item.size_bytes,
+                'storage_ref': redact_sensitive_control_reference(item.storage_ref),
+                'origen_auditoria': redact_sensitive_control_reference(item.origen_auditoria),
+                'estado': item.estado_clasificacion,
+                'duplicate_of': None,
+                'fecha': item.fecha_archivo,
+            }
+        )
+
+    unique_items = []
+    seen_checksums = set()
+    for item in items:
+        checksum = str(item['checksum_sha256'] or '').lower()
+        if checksum and checksum in seen_checksums:
+            continue
+        if checksum:
+            seen_checksums.add(checksum)
+        unique_items.append(item)
+
+    return sorted(
+        unique_items,
+        key=lambda item: (
+            item['expediente'] or 0,
+            str(item['categoria'] or '').casefold(),
+            str(item['subcategoria'] or '').casefold(),
+            str(item['titulo_operativo'] or '').casefold(),
+            str(item['source_model'] or '').casefold(),
+            item['source_id'] or 0,
+        ),
+    )
 
 
 class AuditCreateUpdateMixin:
@@ -96,13 +180,26 @@ class DocumentsSnapshotView(APIView):
     permission_classes = [OperationalModulePermission]
 
     def get(self, request):
-        expedientes = scope_expediente_queryset(ExpedienteDocumental.objects.all().order_by('id'), request.user)
+        expedientes = list(scope_expediente_queryset(ExpedienteDocumental.objects.all().order_by('id'), request.user))
         politicas = PoliticaFirmaYNotaria.objects.all().order_by('tipo_documental', 'id')
         plantillas = PlantillaDocumental.objects.all().order_by('tipo_documental', 'version_plantilla', 'id')
-        documentos = scope_documento_queryset(
+        documentos = list(scope_documento_queryset(
             DocumentoEmitido.objects.select_related('expediente', 'usuario', 'comprobante_notarial', 'documento_origen').all().order_by('id'),
             request.user,
-        )
+        ))
+        archivos = list(scope_archivo_expediente_queryset(
+            ArchivoExpediente.objects.select_related('expediente', 'duplicate_of').all().order_by('id'),
+            request.user,
+        ))
+        expediente_ids_with_content = {
+            item.expediente_id
+            for item in [*documentos, *archivos]
+        }
+        visible_expedientes = [
+            item
+            for item in expedientes
+            if item.id in expediente_ids_with_content or item.estado != EstadoExpediente.ARCHIVED
+        ]
 
         return Response(
             {
@@ -114,7 +211,7 @@ class DocumentsSnapshotView(APIView):
                         'estado': item.estado,
                         'owner_operativo': redact_sensitive_reference(item.owner_operativo),
                     }
-                    for item in expedientes
+                    for item in visible_expedientes
                 ],
                 'politicas_firma': [
                     {
@@ -166,6 +263,27 @@ class DocumentsSnapshotView(APIView):
                         'correccion_ref': redact_sensitive_reference(item.correccion_ref),
                     }
                     for item in documentos
+                ],
+                'expediente_items': build_unified_expediente_items(documentos, archivos),
+                'archivos_expediente': [
+                    {
+                        'id': item.id,
+                        'expediente': item.expediente_id,
+                        'categoria': item.categoria,
+                        'subcategoria': item.subcategoria,
+                        'titulo_operativo': redact_sensitive_control_reference(item.titulo_operativo),
+                        'descripcion_objetiva': redact_sensitive_control_reference(item.descripcion_objetiva),
+                        'extension': item.extension,
+                        'mime_type': item.mime_type,
+                        'checksum_sha256': item.checksum_sha256,
+                        'size_bytes': item.size_bytes,
+                        'storage_ref': redact_sensitive_control_reference(item.storage_ref),
+                        'origen_auditoria': redact_sensitive_control_reference(item.origen_auditoria),
+                        'estado_clasificacion': item.estado_clasificacion,
+                        'duplicate_of': item.duplicate_of_id,
+                        'fecha_archivo': item.fecha_archivo,
+                    }
+                    for item in archivos
                 ],
             }
         )
@@ -245,6 +363,28 @@ class DocumentoEmitidoDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdate
 
     def get_queryset(self):
         return scope_documento_queryset(super().get_queryset(), self.request.user)
+
+
+class ArchivoExpedienteListCreateView(AuditCreateUpdateMixin, generics.ListCreateAPIView):
+    permission_classes = [OperationalModulePermission]
+    serializer_class = ArchivoExpedienteSerializer
+    queryset = ArchivoExpediente.objects.select_related('expediente', 'duplicate_of').all()
+    audit_entity_type = 'archivo_expediente'
+    audit_entity_label = 'archivo de expediente'
+
+    def get_queryset(self):
+        return scope_archivo_expediente_queryset(super().get_queryset(), self.request.user)
+
+
+class ArchivoExpedienteDetailView(AuditCreateUpdateMixin, generics.RetrieveUpdateAPIView):
+    permission_classes = [OperationalModulePermission]
+    serializer_class = ArchivoExpedienteSerializer
+    queryset = ArchivoExpediente.objects.select_related('expediente', 'duplicate_of').all()
+    audit_entity_type = 'archivo_expediente'
+    audit_entity_label = 'archivo de expediente'
+
+    def get_queryset(self):
+        return scope_archivo_expediente_queryset(super().get_queryset(), self.request.user)
 
 
 class DocumentoGenerarPDFView(APIView):

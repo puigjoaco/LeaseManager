@@ -1271,6 +1271,45 @@ type DocumentoEmitidoItem = {
   correccion_ref: string
 }
 
+type ArchivoExpedienteItem = {
+  id: number
+  expediente: number
+  categoria: string
+  subcategoria: string
+  titulo_operativo: string
+  descripcion_objetiva: string
+  extension: string
+  mime_type: string
+  checksum_sha256: string
+  size_bytes: number
+  storage_ref: string
+  origen_auditoria: string
+  estado_clasificacion: string
+  duplicate_of: number | null
+  fecha_archivo: string | null
+}
+
+type ExpedienteItem = {
+  id: string
+  source_model: 'documento_emitido' | 'archivo_expediente'
+  source_id: number
+  expediente: number
+  clase: string
+  categoria: string
+  subcategoria: string
+  titulo_operativo: string
+  descripcion_objetiva: string
+  extension: string
+  mime_type: string
+  checksum_sha256: string
+  size_bytes: number | null
+  storage_ref: string
+  origen_auditoria: string
+  estado: string
+  duplicate_of: string | null
+  fecha: string | null
+}
+
 type DocumentoGeneratedPdfPreview = {
   pdf_sha256: string
   pdf_size_bytes: number
@@ -1415,6 +1454,8 @@ type DocumentsSnapshot = {
   politicas_firma: PoliticaFirma[]
   plantillas_documentales: PlantillaDocumental[]
   documentos_emitidos: DocumentoEmitidoItem[]
+  expediente_items: ExpedienteItem[]
+  archivos_expediente: ArchivoExpedienteItem[]
 }
 
 type ChannelsSnapshot = {
@@ -1859,6 +1900,7 @@ function App() {
   const [politicasFirma, setPoliticasFirma] = useState<PoliticaFirma[]>([])
   const [plantillasDocumentales, setPlantillasDocumentales] = useState<PlantillaDocumental[]>([])
   const [documentosEmitidos, setDocumentosEmitidos] = useState<DocumentoEmitidoItem[]>([])
+  const [expedienteItems, setExpedienteItems] = useState<ExpedienteItem[]>([])
   const [gatesCanales, setGatesCanales] = useState<CanalMensajeriaItem[]>([])
   const [mensajesSalientes, setMensajesSalientes] = useState<MensajeSalienteItem[]>([])
   const [configuracionesNotificacion, setConfiguracionesNotificacion] = useState<ConfiguracionNotificacionItem[]>([])
@@ -3398,6 +3440,7 @@ function App() {
         setPoliticasFirma(documentsSnapshotPayload.politicas_firma)
         setPlantillasDocumentales(documentsSnapshotPayload.plantillas_documentales)
         setDocumentosEmitidos(documentsSnapshotPayload.documentos_emitidos)
+        setExpedienteItems(documentsSnapshotPayload.expediente_items || [])
         setIsDocumentsSnapshotLoaded(true)
       }
       if (channelsSnapshotPayload) {
@@ -6493,12 +6536,23 @@ function App() {
       ),
     [plantillasDocumentales, normalizedSearch],
   )
-  const filteredDocumentosEmitidos = useMemo(
+  const filteredExpedienteItems = useMemo(
     () =>
-      documentosEmitidos.filter((item) =>
-        matches(normalizedSearch, [item.tipo_documental, item.version_plantilla, item.estado, item.origen, item.storage_ref]),
+      expedienteItems.filter((item) =>
+        matches(normalizedSearch, [
+          item.clase,
+          item.categoria,
+          item.subcategoria,
+          item.titulo_operativo,
+          item.descripcion_objetiva,
+          item.extension,
+          item.mime_type,
+          item.estado,
+          item.storage_ref,
+          item.origen_auditoria,
+        ]),
       ),
-    [documentosEmitidos, normalizedSearch],
+    [expedienteItems, normalizedSearch],
   )
   const filteredGatesCanales = useMemo(
     () =>
@@ -7303,10 +7357,11 @@ function App() {
           expedientes={expedientes}
           plantillasDocumentales={plantillasDocumentales}
           documentosEmitidos={documentosEmitidos}
+          expedienteItems={expedienteItems}
           filteredExpedientes={filteredExpedientes}
           filteredPoliticasFirma={filteredPoliticasFirma}
           filteredPlantillasDocumentales={filteredPlantillasDocumentales}
-          filteredDocumentosEmitidos={filteredDocumentosEmitidos}
+          filteredExpedienteItems={filteredExpedienteItems}
           isSubmitting={isSubmitting}
           isLoading={isDocumentsSnapshotLoading}
           startEditExpediente={startEditExpediente}

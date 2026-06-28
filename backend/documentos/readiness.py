@@ -18,6 +18,7 @@ from .formalization_audit import (
     build_formalization_audit_metadata,
 )
 from .models import (
+    ArchivoExpediente,
     DocumentoEmitido,
     EstadoDocumento,
     EstadoPlantillaDocumental,
@@ -268,6 +269,9 @@ def collect_document_readiness(
             sensitive_expediente_refs += 1
 
     documents = DocumentoEmitido.objects.select_related('expediente', 'comprobante_notarial', 'documento_origen').all()
+    archivos_expediente = ArchivoExpediente.objects.select_related('expediente', 'duplicate_of').all()
+    invalid_archivos_expediente = _count_invalid(archivos_expediente)
+
     documents_without_policy = documents.exclude(tipo_documental__in=active_policy_types).count()
     documents_without_template = 0
     generated_documents_without_template = 0
@@ -485,6 +489,14 @@ def collect_document_readiness(
                 'documents.document_without_active_policy',
                 'Existen documentos emitidos sin politica activa para su tipo documental.',
                 count=documents_without_policy,
+            )
+        )
+    if invalid_archivos_expediente:
+        issues.append(
+            _issue(
+                'documents.archivo_expediente_invalid',
+                'Existen archivos de expediente que no pasan validacion de checksum, storage, origen o duplicidad.',
+                count=invalid_archivos_expediente,
             )
         )
     if documents_without_template:
@@ -828,6 +840,13 @@ def collect_document_readiness(
                 'corrective_versions_without_audit': corrective_versions_without_audit,
                 'corrective_versions_with_unaligned_audit': corrective_versions_with_unaligned_audit,
                 'corrective_audit_sensitive_metadata': corrective_audit_sensitive_metadata,
+            },
+            'archivos_expediente': {
+                'total': archivos_expediente.count(),
+                'by_categoria': _count_by(archivos_expediente, 'categoria'),
+                'by_estado_clasificacion': _count_by(archivos_expediente, 'estado_clasificacion'),
+                'by_extension': _count_by(archivos_expediente, 'extension'),
+                'invalid': invalid_archivos_expediente,
             },
             'expedientes': {
                 'total': expedientes.count(),

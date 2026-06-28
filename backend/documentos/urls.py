@@ -1,6 +1,8 @@
 from django.urls import path
 
 from .views import (
+    ArchivoExpedienteDetailView,
+    ArchivoExpedienteListCreateView,
     DocumentsSnapshotView,
     DocumentoEmitidoDetailView,
     DocumentoEmitidoListCreateView,
@@ -28,4 +30,6 @@ urlpatterns = [
     path('documentos-emitidos/generar-pdf/', DocumentoGenerarPDFView.as_view(), name='documentos-documento-generar-pdf'),
     path('documentos-emitidos/<int:pk>/', DocumentoEmitidoDetailView.as_view(), name='documentos-documento-detail'),
     path('documentos-emitidos/<int:pk>/formalizar/', DocumentoFormalizarView.as_view(), name='documentos-documento-formalizar'),
+    path('archivos-expediente/', ArchivoExpedienteListCreateView.as_view(), name='documentos-archivo-expediente-list'),
+    path('archivos-expediente/<int:pk>/', ArchivoExpedienteDetailView.as_view(), name='documentos-archivo-expediente-detail'),
 ]

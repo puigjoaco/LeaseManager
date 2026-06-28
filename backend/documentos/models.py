@@ -5,7 +5,12 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from core.reference_validation import is_non_sensitive_reference, normalize_reference
+from core.reference_validation import (
+    contains_sensitive_control_reference,
+    is_non_sensitive_control_reference,
+    is_non_sensitive_reference,
+    normalize_reference,
+)
 
 
 DOCUMENT_CHECKSUM_PATTERN = re.compile(r'^[0-9a-f]{64}$')
@@ -48,6 +53,26 @@ class EstadoDocumento(models.TextChoices):
     CANCELED = 'cancelado', 'Cancelado'
 
 
+class CategoriaArchivoExpediente(models.TextChoices):
+    IMAGE = 'imagen', 'Imagen'
+    VIDEO = 'video', 'Video'
+    SPREADSHEET = 'planilla', 'Planilla'
+    TEXT = 'texto', 'Texto'
+    SOURCE_DOCUMENT = 'documento_fuente', 'Documento fuente'
+    ARCHIVE = 'comprimido', 'Comprimido'
+    OPERATIONAL_EVIDENCE = 'evidencia_operacional', 'Evidencia operacional'
+    OTHER = 'otro', 'Otro'
+
+
+class EstadoClasificacionArchivoExpediente(models.TextChoices):
+    CONFIRMED = 'confirmado', 'Confirmado'
+    PROBABLE = 'probable', 'Probable'
+    NEEDS_MANUAL_REVIEW = 'requiere_revision_manual', 'Requiere revision manual'
+    EXACT_DUPLICATE = 'duplicado_exactamente', 'Duplicado exactamente'
+    CANONICAL_ALIAS = 'alias_de_canonico', 'Alias de canonico'
+    NOT_LOADABLE_WITHOUT_DECISION = 'no_cargable_sin_decision', 'No cargable sin decision'
+
+
 class EstadoPoliticaFirma(models.TextChoices):
     ACTIVE = 'activa', 'Activa'
     INACTIVE = 'inactiva', 'Inactiva'
@@ -72,6 +97,10 @@ def is_pdf_storage_ref(value):
 
 def is_valid_pdf_checksum(value):
     return bool(DOCUMENT_CHECKSUM_PATTERN.fullmatch(str(value or '')))
+
+
+def is_valid_sha256_checksum(value):
+    return is_valid_pdf_checksum(value)
 
 
 def normalize_pdf_checksum(value):
@@ -470,3 +499,104 @@ class DocumentoEmitido(OperationalDocumentTextNormalizationMixin, TimestampedMod
                 raise ValidationError({'estado': 'Falta registrar la recepcion notarial.'})
             if not self.comprobante_notarial_id:
                 raise ValidationError({'estado': 'Falta archivar el comprobante notarial exigido por la politica.'})
+
+
+class ArchivoExpediente(OperationalDocumentTextNormalizationMixin, TimestampedModel):
+    operational_text_fields = (
+        'categoria',
+        'subcategoria',
+        'titulo_operativo',
+        'descripcion_objetiva',
+        'extension',
+        'mime_type',
+        'checksum_sha256',
+        'storage_ref',
+        'origen_auditoria',
+        'estado_clasificacion',
+    )
+    checksum_fields = ('checksum_sha256',)
+
+    expediente = models.ForeignKey(
+        ExpedienteDocumental,
+        on_delete=models.CASCADE,
+        related_name='archivos_expediente',
+    )
+    categoria = models.CharField(max_length=32, choices=CategoriaArchivoExpediente.choices)
+    subcategoria = models.CharField(max_length=64, blank=True)
+    titulo_operativo = models.CharField(max_length=255)
+    descripcion_objetiva = models.TextField(blank=True)
+    extension = models.CharField(max_length=16)
+    mime_type = models.CharField(max_length=128, blank=True)
+    checksum_sha256 = models.CharField(max_length=128)
+    size_bytes = models.PositiveBigIntegerField()
+    storage_ref = models.CharField(max_length=255)
+    origen_auditoria = models.CharField(max_length=128)
+    estado_clasificacion = models.CharField(
+        max_length=32,
+        choices=EstadoClasificacionArchivoExpediente.choices,
+        default=EstadoClasificacionArchivoExpediente.CONFIRMED,
+    )
+    duplicate_of = models.ForeignKey(
+        'self',
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name='duplicados',
+    )
+    fecha_archivo = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['expediente_id', 'categoria', 'subcategoria', 'titulo_operativo', 'id']
+        indexes = [
+            models.Index(fields=['checksum_sha256'], name='idx_archivo_exp_checksum'),
+            models.Index(fields=['categoria', 'estado_clasificacion'], name='idx_archivo_exp_cat_estado'),
+        ]
+
+    def __str__(self):
+        return f'{self.expediente_id} - {self.categoria} - {self.titulo_operativo}'
+
+    def _normalize_operational_text_fields(self):
+        super()._normalize_operational_text_fields()
+        self.extension = str(self.extension or '').strip().lower()
+        if self.extension and not self.extension.startswith('.'):
+            self.extension = f'.{self.extension}'
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        if not str(self.titulo_operativo or '').strip():
+            errors['titulo_operativo'] = 'Archivo de expediente requiere titulo_operativo.'
+        if not str(self.origen_auditoria or '').strip():
+            errors['origen_auditoria'] = 'Archivo de expediente requiere origen_auditoria.'
+        if not is_valid_sha256_checksum(self.checksum_sha256):
+            errors['checksum_sha256'] = 'checksum_sha256 debe ser SHA-256 hexadecimal canonico.'
+        if not self.extension or len(self.extension) < 2:
+            errors['extension'] = 'extension debe indicar la extension original, por ejemplo .jpg.'
+        if self.storage_ref and not is_non_sensitive_control_reference(self.storage_ref):
+            errors['storage_ref'] = 'storage_ref debe ser una referencia no sensible, sin URL, token, RUT ni ruta local.'
+        if self.origen_auditoria and contains_sensitive_control_reference(self.origen_auditoria):
+            errors['origen_auditoria'] = 'origen_auditoria no debe contener referencias sensibles.'
+        if self.titulo_operativo and contains_sensitive_control_reference(self.titulo_operativo):
+            errors['titulo_operativo'] = 'titulo_operativo no debe contener referencias sensibles.'
+        if self.descripcion_objetiva and contains_sensitive_control_reference(self.descripcion_objetiva):
+            errors['descripcion_objetiva'] = 'descripcion_objetiva no debe contener referencias sensibles.'
+        if self.duplicate_of_id and self.pk and self.duplicate_of_id == self.pk:
+            errors['duplicate_of'] = 'Un archivo no puede duplicarse a si mismo.'
+        if (
+            self.estado_clasificacion
+            in {
+                EstadoClasificacionArchivoExpediente.EXACT_DUPLICATE,
+                EstadoClasificacionArchivoExpediente.CANONICAL_ALIAS,
+            }
+            and not self.duplicate_of_id
+        ):
+            errors['duplicate_of'] = 'Duplicados y alias requieren referencia al archivo canonico.'
+        if (
+            self.duplicate_of_id
+            and self.duplicate_of
+            and self.estado_clasificacion == EstadoClasificacionArchivoExpediente.EXACT_DUPLICATE
+            and self.checksum_sha256 != self.duplicate_of.checksum_sha256
+        ):
+            errors['duplicate_of'] = 'Un duplicado exacto debe compartir checksum con el archivo canonico.'
+        if errors:
+            raise ValidationError(errors)

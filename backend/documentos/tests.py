@@ -15,15 +15,31 @@ from core.reference_validation import REDACTED_SENSITIVE_REFERENCE
 from operacion.models import CuentaRecaudadora, EstadoCuentaRecaudadora, EstadoMandatoOperacion, MandatoOperacion
 from patrimonio.models import Empresa, ParticipacionPatrimonial, Propiedad, Socio, TipoInmueble
 
-from .admin import DocumentoEmitidoAdmin, ExpedienteDocumentalAdmin, PlantillaDocumentalAdmin, PoliticaFirmaYNotariaAdmin
+from .admin import (
+    ArchivoExpedienteAdmin,
+    DocumentoEmitidoAdmin,
+    ExpedienteDocumentalAdmin,
+    PlantillaDocumentalAdmin,
+    PoliticaFirmaYNotariaAdmin,
+)
 from .correction_audit import CORRECTION_AUDIT_EVENT_TYPE
 from .formalization_audit import FORMALIZATION_AUDIT_EVENT_TYPE
-from .models import DocumentoEmitido, EstadoDocumento, ExpedienteDocumental, PlantillaDocumental, PoliticaFirmaYNotaria
+from .models import (
+    ArchivoExpediente,
+    DocumentoEmitido,
+    EstadoClasificacionArchivoExpediente,
+    EstadoDocumento,
+    ExpedienteDocumental,
+    PlantillaDocumental,
+    PoliticaFirmaYNotaria,
+)
 from .pdf_generation import GENERATED_PDF_AUDIT_EVENT_TYPE, PREVIEW_PDF_AUDIT_EVENT_TYPE
 
 
 VALID_SHA256 = 'a' * 64
 VALID_SHA256_ALT = 'b' * 64
+VALID_SHA256_THIRD = 'c' * 64
+VALID_SHA256_FOURTH = 'd' * 64
 FORMALIZATION_REF = 'formalizacion-controlada-doc-001'
 
 
@@ -101,6 +117,26 @@ class DocumentosAPITests(APITestCase):
         response = self.client.post(reverse('documentos-documento-list'), payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         return response.data
+
+    def _archivo_expediente_payload(self, expediente_id, **overrides):
+        payload = {
+            'expediente': expediente_id,
+            'categoria': 'imagen',
+            'subcategoria': '05_fotos_y_videos',
+            'titulo_operativo': 'Foto local controlada',
+            'descripcion_objetiva': 'Vista interior del local asociada al expediente.',
+            'extension': 'jpg',
+            'mime_type': 'image/jpeg',
+            'checksum_sha256': VALID_SHA256_THIRD,
+            'size_bytes': 12345,
+            'storage_ref': 'storage/expedientes/locales/foto-local.jpg',
+            'origen_auditoria': 'carga-auditoria-revisar-controlada',
+            'estado_clasificacion': 'confirmado',
+            'duplicate_of': None,
+            'fecha_archivo': None,
+        }
+        payload.update(overrides)
+        return payload
 
     def test_document_operational_refs_normalize_before_full_clean_and_save(self):
         max_entity_id = 'doc-entity-' + ('x' * (64 - len('doc-entity-')))
@@ -617,6 +653,48 @@ class DocumentosAPITests(APITestCase):
         self.assertNotIn('owner@example.test', rendered)
         self.assertNotIn('token=secret', rendered)
 
+    def test_snapshot_hides_archived_empty_legacy_expedientes(self):
+        archived_empty = ExpedienteDocumental.objects.create(
+            entidad_tipo='revisar_company_manual_evidence',
+            entidad_id='legacy-empty',
+            estado='archivado',
+            owner_operativo='owner_operativo_inmobiliarias_herencia_papa',
+        )
+        open_empty = ExpedienteDocumental.objects.create(
+            entidad_tipo='expediente_integral',
+            entidad_id='integral-open-empty',
+            estado='abierto',
+            owner_operativo='Sociedad Inmobiliaria Santa Maria Ltda',
+        )
+        archived_with_content = ExpedienteDocumental.objects.create(
+            entidad_tipo='expediente_integral',
+            entidad_id='integral-archived-content',
+            estado='archivado',
+            owner_operativo='Sociedad Inmobiliaria Santa Maria Ltda',
+        )
+        ArchivoExpediente.objects.create(
+            expediente=archived_with_content,
+            categoria='imagen',
+            subcategoria='05_fotos_y_videos',
+            titulo_operativo='Foto local controlada',
+            descripcion_objetiva='Vista interior del local asociada al expediente.',
+            extension='.jpg',
+            mime_type='image/jpeg',
+            checksum_sha256=VALID_SHA256_THIRD,
+            size_bytes=12345,
+            storage_ref='storage/expedientes/locales/foto-local.jpg',
+            origen_auditoria='carga-auditoria-revisar-controlada',
+            estado_clasificacion='confirmado',
+        )
+
+        snapshot = self.client.get(reverse('documentos-snapshot'))
+
+        self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
+        expediente_ids = {item['id'] for item in snapshot.data['expedientes']}
+        self.assertNotIn(archived_empty.id, expediente_ids)
+        self.assertIn(open_empty.id, expediente_ids)
+        self.assertIn(archived_with_content.id, expediente_ids)
+
     def test_expediente_admin_redacts_sensitive_operational_references(self):
         expediente = ExpedienteDocumental.objects.create(
             entidad_tipo='https://legacy.example.test/type?token=secret',
@@ -638,6 +716,181 @@ class DocumentosAPITests(APITestCase):
         self.assertEqual(model_admin.entidad_tipo_redacted(expediente), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(model_admin.entidad_id_redacted(expediente), REDACTED_SENSITIVE_REFERENCE)
         self.assertEqual(model_admin.owner_operativo_redacted(expediente), REDACTED_SENSITIVE_REFERENCE)
+
+    def test_archivo_expediente_api_accepts_non_pdf_evidence_and_snapshot_exposes_it(self):
+        expediente = self._create_expediente(entidad_id='archivo-expediente')
+
+        response = self.client.post(
+            reverse('documentos-archivo-expediente-list'),
+            self._archivo_expediente_payload(expediente['id']),
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['extension'], '.jpg')
+        self.assertEqual(response.data['categoria'], 'imagen')
+        self.assertEqual(response.data['estado_clasificacion'], 'confirmado')
+        self.assertFalse(DocumentoEmitido.objects.exists())
+        self.assertTrue(
+            AuditEvent.objects.filter(event_type='documentos.archivo_expediente.created').exists()
+        )
+
+        detail = self.client.get(reverse('documentos-archivo-expediente-detail', args=[response.data['id']]))
+        snapshot = self.client.get(reverse('documentos-snapshot'))
+
+        self.assertEqual(detail.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail.data['storage_ref'], 'storage/expedientes/locales/foto-local.jpg')
+        self.assertEqual(len(snapshot.data['archivos_expediente']), 1)
+        archivo_snapshot = snapshot.data['archivos_expediente'][0]
+        self.assertEqual(archivo_snapshot['id'], response.data['id'])
+        self.assertEqual(archivo_snapshot['expediente'], expediente['id'])
+        self.assertEqual(archivo_snapshot['checksum_sha256'], VALID_SHA256_THIRD)
+        self.assertEqual(archivo_snapshot['storage_ref'], 'storage/expedientes/locales/foto-local.jpg')
+        self.assertEqual(len(snapshot.data['expediente_items']), 1)
+        expediente_item = snapshot.data['expediente_items'][0]
+        self.assertEqual(expediente_item['id'], f'archivo_expediente:{response.data["id"]}')
+        self.assertEqual(expediente_item['source_model'], 'archivo_expediente')
+        self.assertEqual(expediente_item['estado'], 'confirmado')
+
+    def test_snapshot_expediente_items_unifies_order_and_hides_exact_duplicates(self):
+        expediente = self._create_expediente(entidad_id='expediente-unificado')
+        self._create_politica()
+        documento = self._create_documento(expediente['id'], checksum=VALID_SHA256)
+        archivo_response = self.client.post(
+            reverse('documentos-archivo-expediente-list'),
+            self._archivo_expediente_payload(expediente['id'], checksum_sha256=VALID_SHA256_THIRD),
+            format='json',
+        )
+        self.assertEqual(archivo_response.status_code, status.HTTP_201_CREATED)
+
+        alias_response = self.client.post(
+            reverse('documentos-archivo-expediente-list'),
+            self._archivo_expediente_payload(
+                expediente['id'],
+                checksum_sha256=VALID_SHA256_THIRD,
+                titulo_operativo='Alias exacto foto local',
+                storage_ref='storage/expedientes/locales/foto-local-alias.jpg',
+                estado_clasificacion=EstadoClasificacionArchivoExpediente.EXACT_DUPLICATE,
+                duplicate_of=archivo_response.data['id'],
+            ),
+            format='json',
+        )
+        self.assertEqual(alias_response.status_code, status.HTTP_201_CREATED)
+
+        archivo_pdf_duplicado_response = self.client.post(
+            reverse('documentos-archivo-expediente-list'),
+            self._archivo_expediente_payload(
+                expediente['id'],
+                categoria='documento_fuente',
+                subcategoria='01_titulos_y_escrituras',
+                titulo_operativo='Copia exacta del PDF canonico',
+                descripcion_objetiva='Mismo checksum que el documento PDF canonico.',
+                extension='pdf',
+                mime_type='application/pdf',
+                checksum_sha256=VALID_SHA256,
+                storage_ref='storage/expedientes/locales/contrato-duplicado.pdf',
+            ),
+            format='json',
+        )
+        self.assertEqual(archivo_pdf_duplicado_response.status_code, status.HTTP_201_CREATED)
+
+        snapshot = self.client.get(reverse('documentos-snapshot'))
+
+        self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(snapshot.data['archivos_expediente']), 3)
+        self.assertEqual(len(snapshot.data['expediente_items']), 2)
+        expediente_item_ids = {item['id'] for item in snapshot.data['expediente_items']}
+        self.assertIn(f'documento_emitido:{documento["id"]}', expediente_item_ids)
+        self.assertIn(f'archivo_expediente:{archivo_response.data["id"]}', expediente_item_ids)
+        self.assertNotIn(f'archivo_expediente:{alias_response.data["id"]}', expediente_item_ids)
+        self.assertNotIn(f'archivo_expediente:{archivo_pdf_duplicado_response.data["id"]}', expediente_item_ids)
+
+        documento_item = next(
+            item for item in snapshot.data['expediente_items'] if item['source_model'] == 'documento_emitido'
+        )
+        archivo_item = next(
+            item for item in snapshot.data['expediente_items'] if item['source_model'] == 'archivo_expediente'
+        )
+        self.assertEqual(documento_item['checksum_sha256'], VALID_SHA256)
+        self.assertEqual(documento_item['clase'], 'pdf_canonico')
+        self.assertEqual(archivo_item['checksum_sha256'], VALID_SHA256_THIRD)
+        self.assertEqual(archivo_item['clase'], 'archivo_expediente')
+
+    def test_archivo_expediente_rejects_sensitive_visible_refs(self):
+        expediente = self._create_expediente(entidad_id='archivo-sensitive')
+        cases = {
+            'storage_ref': 'C:\\Users\\puigj\\Desktop\\Revisar\\foto-local.jpg',
+            'origen_auditoria': 'C:\\Users\\puigj\\Desktop\\Revisar',
+            'titulo_operativo': 'Foto local 11.111.111-1',
+            'descripcion_objetiva': 'token=secret-value',
+        }
+
+        for field_name, value in cases.items():
+            payload = self._archivo_expediente_payload(
+                expediente['id'],
+                checksum_sha256=VALID_SHA256_FOURTH,
+                **{field_name: value},
+            )
+            response = self.client.post(reverse('documentos-archivo-expediente-list'), payload, format='json')
+
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+            self.assertIn(field_name, response.data)
+
+        self.assertFalse(ArchivoExpediente.objects.exists())
+
+    def test_archivo_expediente_apis_and_admin_redact_inherited_sensitive_refs(self):
+        expediente = self._create_expediente(entidad_id='archivo-redaction')
+        archivo = ArchivoExpediente.objects.create(
+            expediente_id=expediente['id'],
+            categoria='imagen',
+            subcategoria='05_fotos_y_videos',
+            titulo_operativo='Foto local 11.111.111-1',
+            descripcion_objetiva='Archivo heredado con token=secret-value',
+            extension='jpg',
+            mime_type='image/jpeg',
+            checksum_sha256=VALID_SHA256_THIRD,
+            size_bytes=100,
+            storage_ref='C:\\Users\\puigj\\Desktop\\Revisar\\foto-local.jpg',
+            origen_auditoria='C:\\Users\\puigj\\Desktop\\Revisar',
+            estado_clasificacion=EstadoClasificacionArchivoExpediente.CONFIRMED,
+        )
+
+        list_response = self.client.get(reverse('documentos-archivo-expediente-list'))
+        detail_response = self.client.get(reverse('documentos-archivo-expediente-detail', args=[archivo.id]))
+        snapshot_response = self.client.get(reverse('documentos-snapshot'))
+
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot_response.status_code, status.HTTP_200_OK)
+        for payload in (
+            list_response.data[0],
+            detail_response.data,
+            snapshot_response.data['archivos_expediente'][0],
+            snapshot_response.data['expediente_items'][0],
+        ):
+            self.assertEqual(payload['titulo_operativo'], REDACTED_SENSITIVE_REFERENCE)
+            self.assertEqual(payload['descripcion_objetiva'], REDACTED_SENSITIVE_REFERENCE)
+            self.assertEqual(payload['storage_ref'], REDACTED_SENSITIVE_REFERENCE)
+            self.assertEqual(payload['origen_auditoria'], REDACTED_SENSITIVE_REFERENCE)
+
+        rendered = f'{list_response.data}{detail_response.data}{snapshot_response.data}'
+        self.assertNotIn('Users\\puigj', rendered)
+        self.assertNotIn('token=secret', rendered)
+        self.assertNotIn('11.111.111-1', rendered)
+
+        model_admin = ArchivoExpedienteAdmin(ArchivoExpediente, AdminSite())
+        for raw_field in ('titulo_operativo', 'descripcion_objetiva', 'storage_ref', 'origen_auditoria'):
+            self.assertNotIn(raw_field, model_admin.fields)
+            self.assertNotIn(raw_field, model_admin.search_fields)
+        self.assertEqual(set(model_admin.readonly_fields), set(model_admin.fields))
+        self.assertFalse(model_admin.has_add_permission(None))
+        self.assertFalse(model_admin.has_change_permission(None, archivo))
+        self.assertFalse(model_admin.has_delete_permission(None, archivo))
+        self.assertEqual(model_admin.titulo_operativo_redacted(archivo), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(model_admin.descripcion_objetiva_redacted(archivo), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(model_admin.storage_ref_redacted(archivo), REDACTED_SENSITIVE_REFERENCE)
+        self.assertEqual(model_admin.origen_auditoria_redacted(archivo), REDACTED_SENSITIVE_REFERENCE)
 
     def test_signature_policy_admin_blocks_manual_mutations(self):
         model_admin = PoliticaFirmaYNotariaAdmin(PoliticaFirmaYNotaria, AdminSite())
@@ -746,6 +999,7 @@ class DocumentosAPITests(APITestCase):
             reverse('documentos-expediente-list'),
             reverse('documentos-politica-list'),
             reverse('documentos-documento-list'),
+            reverse('documentos-archivo-expediente-list'),
         ]
         for url in urls:
             response = client.get(url)
@@ -1972,6 +2226,34 @@ class DocumentosScopeAPITests(APITestCase):
             format='json',
         )
         self.assertEqual(self.documento_a.status_code, status.HTTP_201_CREATED)
+        self.archivo_a = ArchivoExpediente.objects.create(
+            expediente_id=self.expediente_a.data['id'],
+            categoria='imagen',
+            subcategoria='05_fotos_y_videos',
+            titulo_operativo='Foto scope A',
+            descripcion_objetiva='Evidencia visual scope A.',
+            extension='.jpg',
+            mime_type='image/jpeg',
+            checksum_sha256=VALID_SHA256_THIRD,
+            size_bytes=10,
+            storage_ref='storage/expedientes/scope-a/foto.jpg',
+            origen_auditoria='auditoria-scope-a',
+            estado_clasificacion=EstadoClasificacionArchivoExpediente.CONFIRMED,
+        )
+        self.archivo_b = ArchivoExpediente.objects.create(
+            expediente_id=self.expediente_b.data['id'],
+            categoria='imagen',
+            subcategoria='05_fotos_y_videos',
+            titulo_operativo='Foto scope B',
+            descripcion_objetiva='Evidencia visual scope B.',
+            extension='.jpg',
+            mime_type='image/jpeg',
+            checksum_sha256=VALID_SHA256_FOURTH,
+            size_bytes=20,
+            storage_ref='storage/expedientes/scope-b/foto.jpg',
+            origen_auditoria='auditoria-scope-b',
+            estado_clasificacion=EstadoClasificacionArchivoExpediente.CONFIRMED,
+        )
 
     def _create_active_company(self, nombre, rut, socio_ruts):
         socio_1 = Socio.objects.create(nombre=f'{nombre} Socio 1', rut=socio_ruts[0], activo=True)
@@ -2061,13 +2343,23 @@ class DocumentosScopeAPITests(APITestCase):
     def test_operator_company_scope_limits_document_lists(self):
         expedientes = self.client.get(reverse('documentos-expediente-list'))
         documentos = self.client.get(reverse('documentos-documento-list'))
+        archivos = self.client.get(reverse('documentos-archivo-expediente-list'))
+        snapshot = self.client.get(reverse('documentos-snapshot'))
 
         self.assertEqual(expedientes.status_code, status.HTTP_200_OK)
         self.assertEqual(documentos.status_code, status.HTTP_200_OK)
+        self.assertEqual(archivos.status_code, status.HTTP_200_OK)
+        self.assertEqual(snapshot.status_code, status.HTTP_200_OK)
         self.assertEqual(len(expedientes.data), 1)
         self.assertEqual(expedientes.data[0]['id'], self.expediente_a.data['id'])
         self.assertEqual(len(documentos.data), 1)
         self.assertEqual(documentos.data[0]['id'], self.documento_a.data['id'])
+        self.assertEqual(len(archivos.data), 1)
+        self.assertEqual(archivos.data[0]['id'], self.archivo_a.id)
+        self.assertEqual(
+            [item['id'] for item in snapshot.data['archivos_expediente']],
+            [self.archivo_a.id],
+        )
 
     def test_operator_cannot_create_document_for_expediente_outside_scope(self):
         response = self.client.post(
@@ -2086,6 +2378,30 @@ class DocumentosScopeAPITests(APITestCase):
                 'firma_codeudor_registrada': False,
                 'recepcion_notarial_registrada': False,
                 'comprobante_notarial': None,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_operator_cannot_create_archivo_expediente_for_expediente_outside_scope(self):
+        response = self.client.post(
+            reverse('documentos-archivo-expediente-list'),
+            {
+                'expediente': self.expediente_b.data['id'],
+                'categoria': 'imagen',
+                'subcategoria': '05_fotos_y_videos',
+                'titulo_operativo': 'Foto fuera de scope',
+                'descripcion_objetiva': 'Evidencia visual fuera de scope.',
+                'extension': 'jpg',
+                'mime_type': 'image/jpeg',
+                'checksum_sha256': 'e' * 64,
+                'size_bytes': 10,
+                'storage_ref': 'storage/expedientes/scope-b/nueva-foto.jpg',
+                'origen_auditoria': 'auditoria-scope-b',
+                'estado_clasificacion': 'confirmado',
+                'duplicate_of': None,
+                'fecha_archivo': None,
             },
             format='json',
         )

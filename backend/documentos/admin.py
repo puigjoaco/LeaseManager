@@ -1,8 +1,14 @@
 from django.contrib import admin
 
-from core.reference_validation import redact_sensitive_reference
+from core.reference_validation import redact_sensitive_control_reference, redact_sensitive_reference
 
-from .models import DocumentoEmitido, ExpedienteDocumental, PlantillaDocumental, PoliticaFirmaYNotaria
+from .models import (
+    ArchivoExpediente,
+    DocumentoEmitido,
+    ExpedienteDocumental,
+    PlantillaDocumental,
+    PoliticaFirmaYNotaria,
+)
 
 
 @admin.register(ExpedienteDocumental)
@@ -98,6 +104,65 @@ class DocumentoEmitidoAdmin(admin.ModelAdmin):
     @admin.display(description='Correccion ref redacted')
     def correccion_ref_redacted(self, obj):
         return redact_sensitive_reference(obj.correccion_ref) or ''
+
+
+@admin.register(ArchivoExpediente)
+class ArchivoExpedienteAdmin(admin.ModelAdmin):
+    list_display = (
+        'expediente',
+        'categoria',
+        'subcategoria',
+        'titulo_operativo_redacted',
+        'estado_clasificacion',
+        'extension',
+        'duplicate_of',
+    )
+    list_filter = ('categoria', 'estado_clasificacion', 'extension')
+    search_fields = ('checksum_sha256', 'subcategoria')
+    fields = (
+        'expediente',
+        'categoria',
+        'subcategoria',
+        'titulo_operativo_redacted',
+        'descripcion_objetiva_redacted',
+        'extension',
+        'mime_type',
+        'checksum_sha256',
+        'size_bytes',
+        'storage_ref_redacted',
+        'origen_auditoria_redacted',
+        'estado_clasificacion',
+        'duplicate_of',
+        'fecha_archivo',
+        'created_at',
+        'updated_at',
+    )
+    readonly_fields = fields
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    @admin.display(description='Titulo operativo redacted')
+    def titulo_operativo_redacted(self, obj):
+        return redact_sensitive_control_reference(obj.titulo_operativo) or ''
+
+    @admin.display(description='Descripcion objetiva redacted')
+    def descripcion_objetiva_redacted(self, obj):
+        return redact_sensitive_control_reference(obj.descripcion_objetiva) or ''
+
+    @admin.display(description='Storage ref redacted')
+    def storage_ref_redacted(self, obj):
+        return redact_sensitive_control_reference(obj.storage_ref) or ''
+
+    @admin.display(description='Origen auditoria redacted')
+    def origen_auditoria_redacted(self, obj):
+        return redact_sensitive_control_reference(obj.origen_auditoria) or ''
 
 
 @admin.register(PlantillaDocumental)

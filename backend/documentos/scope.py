@@ -6,7 +6,7 @@ from contratos.models import Contrato
 from core.scope_access import get_scope_access
 from operacion.models import MandatoOperacion
 
-from .models import DocumentoEmitido, ExpedienteDocumental
+from .models import ArchivoExpediente, DocumentoEmitido, ExpedienteDocumental
 
 
 def _visible_mandato_ids(user) -> set[int]:
@@ -66,5 +66,10 @@ def scope_expediente_queryset(queryset: QuerySet[ExpedienteDocumental], user):
 
 
 def scope_documento_queryset(queryset: QuerySet[DocumentoEmitido], user):
+    scoped_expedientes = scope_expediente_queryset(ExpedienteDocumental.objects.all(), user)
+    return queryset.filter(expediente__in=scoped_expedientes).distinct()
+
+
+def scope_archivo_expediente_queryset(queryset: QuerySet[ArchivoExpediente], user):
     scoped_expedientes = scope_expediente_queryset(ExpedienteDocumental.objects.all(), user)
     return queryset.filter(expediente__in=scoped_expedientes).distinct()
