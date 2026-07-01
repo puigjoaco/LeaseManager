@@ -36,6 +36,8 @@ Lee:
 12. [docs/product/STAGE_CARDS/ETAPA_5_CIERRE_MENSUAL_CONTABILIDAD.md](./docs/product/STAGE_CARDS/ETAPA_5_CIERRE_MENSUAL_CONTABILIDAD.md)
 13. [docs/product/STAGE_CARDS/ETAPA_6_RENTA_ANUAL.md](./docs/product/STAGE_CARDS/ETAPA_6_RENTA_ANUAL.md)
 14. [docs/product/STAGE_CARDS/ETAPA_7_OPERACION_PRODUCTIVA.md](./docs/product/STAGE_CARDS/ETAPA_7_OPERACION_PRODUCTIVA.md)
+15. [docs/product/MAPA_ESTADO_JULIO_2026.md](./docs/product/MAPA_ESTADO_JULIO_2026.md) - foto compacta de estado por etapa e insumos pendientes
+16. [docs/ORDENAMIENTO_JULIO_2026.md](./docs/ORDENAMIENTO_JULIO_2026.md) - registro trazable del ordenamiento operativo de julio 2026
 
 ## 4. Si quieres entender decisiones tecnicas vigentes
 
