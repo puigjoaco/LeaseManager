@@ -145,6 +145,28 @@ ignorados por git. Clasificacion por carpeta:
 Potencial total de espacio recuperable si el usuario aprueba todo: **~13 a 20 GB**
 (items 1-4). Ninguna de estas acciones se ejecuto: son propuestas.
 
+## 3.4 Actualizacion 2026-07-01: decision del usuario y ejecucion
+
+El usuario definio la politica final: no borrar nada; trasladar lo repetido o
+sin funcion a una zona inutilizado con rastro. Resultado de la ejecucion,
+tras verificacion de referencias mas profunda:
+
+- Items 1 y 2 de la tabla 3.2: **trasladados** a
+  `local-evidence/_inutilizado/2026-07-01/` (3.8 GB en total, restaurables).
+- Item 3 (`revisar-document-audit`, 19 GB): **reclasificado a conservar**. La
+  verificacion encontro que es una red interreferenciada: el registro de
+  evidencia cita `expediente-integral-dry-run-pass5390`, las notas de revision
+  citan `pdf-render-recovery-pass44` y `_tmp_text_compare` tiene 160
+  referencias externas. Tiene funcion; no se movio nada.
+- Item 4 (`revisar-dbstore-p5387`, 2.9 GB): **reclasificado a conservar**. Su
+  duplicacion interna es organizacion deliberada (arbol canonico
+  `canonical-pdf-*` + arbol por destino `destination-pending-responsible-review`).
+- Items 5 y 6 (sqlite sueltos y PNGs del root): **trasladados**.
+
+Rastro: manifiesto en `local-evidence/_inutilizado/2026-07-01/MANIFIESTO_TRASLADOS.md`,
+migajas `MOVIDO-*.md` en los origenes y seccion 3.6 de
+`docs/ORDENAMIENTO_JULIO_2026.md`.
+
 ## 4. Regla de ejecucion de las propuestas
 
 Cada item de 3.2/3.3 se ejecuta solo con OK explicito del usuario, item por

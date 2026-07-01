@@ -69,6 +69,31 @@ contenido completo ya estuviera en `main`. Ningun commit se perdio.
 | Carpetas `EDIG/`, `local-evidence/`, PNGs del root, archivos `CONFIDENCIAL`/`NO_SUBIR` | Intactos | Ya estaban correctamente ignorados por `.gitignore`; no son parte del repo. |
 | Estructura de carpetas del root (`01_..08_`, `docs/`, `backend/`, etc.) | Intacta | El ordenamiento estructural ya se hizo en mayo 2026; moverla romperia referencias cruzadas. |
 
+### 3.6 Traslados a zona inutilizado (segunda fase, mismo dia)
+
+Por instruccion del usuario ("no borrar; mover lo repetido o sin funcion a un
+basurero trazable"), se creo `local-evidence/_inutilizado/` (no versionada) y
+se ejecutaron estos traslados. Ningun archivo fue eliminado; todo es
+restaurable moviendolo de vuelta al origen.
+
+| Origen | Destino | Motivo verificado |
+| --- | --- | --- |
+| `local-evidence/external-software-reference-edig-root-copy-2026-07-01/` (2.8 GB) | `local-evidence/_inutilizado/2026-07-01/` | Duplicado exacto de `EDIG/` root (2.572/2.572 archivos por ruta y tamano). |
+| Subcarpetas `EDIG CONTABILIDAD/`, `EDIG RENTA/`, `EDIG REMUNERACIONES/` dentro de `.../99_REFERENCIAS_SOFTWARE_EXTERNO/EDIG_DESCARGAS_2026-06-15/` (1.1 GB) | `local-evidence/_inutilizado/2026-07-01/empresas-puig-EDIG_DESCARGAS-subcarpetas/` | 1.430/1.439 archivos duplicados de `EDIG/` root; original externo verificado con SHA-256 fuera del repo. Archivos unicos de la carpeta se conservaron en su lugar; migaja `MOVIDO-*.md` dejada en el origen. |
+| 11 PNGs de depuracion de la raiz del repo (2.5 MB) | `local-evidence/_inutilizado/2026-07-01/root-pngs/` | Capturas jun-2026 sin referencias; ya ignoradas por git. |
+| 4 bases `stage1-*.sqlite3` sueltas en `local-evidence/` (5 MB) | `local-evidence/_inutilizado/2026-07-01/stage1-sqlite-verificaciones/` | Verificaciones puntuales ya corridas; sin referencias en docs, scripts, backend ni migration. |
+
+Rastro completo: `local-evidence/_inutilizado/2026-07-01/MANIFIESTO_TRASLADOS.md`
+(manifiesto con verificaciones), `local-evidence/_inutilizado/README.md`
+(politica de la zona) y migajas `MOVIDO-*.md` en los origenes.
+
+Evaluados y NO trasladados por tener funcion verificada:
+`local-evidence/revisar-document-audit/` (19 GB; red de evidencia
+interreferenciada citada por el registro de evidencia y notas de revision) y
+`local-evidence/revisar-dbstore-p5387/` (2.9 GB; duplicacion interna es
+organizacion deliberada canonico/destino). Ver actualizacion en
+`docs/AUDITORIA_VIGENCIA_JULIO_2026.md`.
+
 ## 4. Donde encontrar lo anterior
 
 - Todo documento previo permanece en su ubicacion original; este ordenamiento
