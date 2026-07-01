@@ -35,6 +35,7 @@ Revision profunda del root el 2026-07-01 encontro:
 | --- | --- |
 | `docs/ORDENAMIENTO_JULIO_2026.md` | Este registro. |
 | `docs/product/MAPA_ESTADO_JULIO_2026.md` | Foto de estado por etapa, bloqueos activos e insumos pendientes que solo el usuario puede aportar. Informativo; no reemplaza PRD, matriz de gates, matriz de trazabilidad ni cursor. |
+| `docs/AUDITORIA_VIGENCIA_JULIO_2026.md` | Auditoria de vigencia del mismo dia (segunda fase del ordenamiento): clasifica todo el set documental por vigencia e inventaria duplicados y dumps pesados bajo `local-evidence/`, con propuestas de limpieza pendientes de decision del usuario. Nada se elimino. |
 
 ### 3.2 Documentos actualizados (sin borrar contenido)
 

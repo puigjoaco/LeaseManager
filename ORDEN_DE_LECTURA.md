@@ -59,6 +59,7 @@ Lee:
 2. [docs/AUDITORIA_PRODUCTO_ARQUITECTURA_MAYO_2026.md](./docs/AUDITORIA_PRODUCTO_ARQUITECTURA_MAYO_2026.md)
 3. [04_Auditoria_y_Cierre/AUDITORIA_AUTOSUFICIENCIA_SET_ACTIVO.md](./04_Auditoria_y_Cierre/AUDITORIA_AUTOSUFICIENCIA_SET_ACTIVO.md)
 4. [04_Auditoria_y_Cierre/AUDITORIA_MAXIMA_PRD_MAESTRO.md](./04_Auditoria_y_Cierre/AUDITORIA_MAXIMA_PRD_MAESTRO.md)
+5. [docs/AUDITORIA_VIGENCIA_JULIO_2026.md](./docs/AUDITORIA_VIGENCIA_JULIO_2026.md) - clasificacion de vigencia de todo el set documental y artefactos pesados
 
 ## 6. Si quieres revisar especificamente el stack
 
